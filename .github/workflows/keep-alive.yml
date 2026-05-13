@@ -1,1 +1,18 @@
-keep-alive.yml
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    - cron: '0 8 */3 * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase
+        run: |
+          curl -X GET \
+            'https://gsizoiwefejsllgtsard.supabase.co/rest/v1/equipe?limit=1' \
+            -H 'apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaXpvaXdlZmVqc2xsZ3RzYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTE1ODcsImV4cCI6MjA5MzA2NzU4N30.gjvAh0aKxiEiH9GZ1F76qPIfRjayV6nnpa1w-KZxvME' \
+            -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaXpvaXdlZmVqc2xsZ3RzYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTE1ODcsImV4cCI6MjA5MzA2NzU4N30.gjvAh0aKxiEiH9GZ1F76qPIfRjayV6nnpa1w-KZxvME'
+          echo "Supabase ping realizado com sucesso!"
