@@ -438,8 +438,11 @@ function renderTarefaItem(t,isCeo){
     +'<div class="tarefa-info">'
     +'<div class="tarefa-field">📅 Início: <span>'+fmtDate(t.data_inicio)+'</span></div>'
     +'<div class="tarefa-field">🏁 Fim: <span>'+fmtDate(t.data_fim)+'</span></div>'
-    +'<div class="tarefa-field">👤 Resp 1: <span>'+t.responsavel1+'</span></div>'
+    +'<div class="tarefa-field">👤 Resp 1: <span>'+(t.responsavel1||'—')+'</span></div>'
     +(t.responsavel2?'<div class="tarefa-field">👤 Resp 2: <span>'+t.responsavel2+'</span></div>':'<div></div>')
+    +'</div>'
+    +'<div class="tarefa-info" style="margin-top:6px">'
+    +'<div class="tarefa-field">✅ Realizada: <span style="color:'+(t.data_realizada?'var(--green)':'var(--muted)')+'">'+( t.data_realizada?fmtDate(t.data_realizada):'Não preenchida')+'</span></div>'
     +'</div>'
     +(t.observacao?'<div class="tarefa-obs">💬 '+t.observacao+'</div>':'')
     +editBtns+'</div>';
@@ -481,6 +484,7 @@ function tarefaForm(t){
     +'<div class="form-group"><label class="form-label">Data Início</label><input class="form-input" id="tf-inicio" type="date" value="'+(v.data_inicio||'')+'"></div>'
     +'<div class="form-group"><label class="form-label">Data Fim</label><input class="form-input" id="tf-fim" type="date" value="'+(v.data_fim||'')+'"></div>'
     +'</div>'
+    +'<div class="form-group"><label class="form-label">Data Realizada <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input class="form-input" id="tf-realizada" type="date" value="'+(v.data_realizada||'')+'"></div>'
     +'<div class="form-row">'
     +'<div class="form-group"><label class="form-label">Responsável 1</label><input class="form-input" id="tf-resp1" value="'+(v.responsavel1||'')+'" placeholder="Nome do responsável"></div>'
     +'<div class="form-group"><label class="form-label">Responsável 2 (opcional)</label><input class="form-input" id="tf-resp2" value="'+(v.responsavel2||'')+'" placeholder="Nome do responsável"></div>'
@@ -494,7 +498,7 @@ function tarefaForm(t){
 }
 
 function getTarefaFormData(){
-  return{titulo:document.getElementById('tf-titulo').value.trim(),data_inicio:document.getElementById('tf-inicio').value,data_fim:document.getElementById('tf-fim').value,responsavel1:document.getElementById('tf-resp1').value.trim(),responsavel2:document.getElementById('tf-resp2').value.trim()||null,observacao:document.getElementById('tf-obs').value.trim()||null,status:document.getElementById('tf-status').value};
+  return{titulo:document.getElementById('tf-titulo').value.trim(),data_inicio:document.getElementById('tf-inicio').value,data_fim:document.getElementById('tf-fim').value,data_realizada:document.getElementById('tf-realizada').value||null,responsavel1:document.getElementById('tf-resp1').value.trim(),responsavel2:document.getElementById('tf-resp2').value.trim()||null,observacao:document.getElementById('tf-obs').value.trim()||null,status:document.getElementById('tf-status').value};
 }
 
 function validateTarefaForm(d){
