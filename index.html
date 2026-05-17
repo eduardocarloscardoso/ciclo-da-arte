@@ -343,7 +343,8 @@ async function exportarExcel(){
   ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
   var wbout=XLSX.write(wb,{bookType:'xlsx',type:'base64'});
-  var token='COLE_SEU_TOKEN_AQUI';
+ var token=prompt('Cole seu GitHub Token para exportar:');
+if(!token)return;
   try{
     var sha='';
     try{var check=await axios.get('https://api.github.com/repos/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{headers:{'Authorization':'token '+token}});sha=check.data.sha;}catch(e){}
