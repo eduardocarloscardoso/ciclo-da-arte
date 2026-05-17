@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -327,31 +328,66 @@ function navigate(page){
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────────
 function exportarExcel(){
-  var tsv='FASE\tNOME FASE\tTAREFA Nº\tNOME TAREFA\tDATA INÍCIO\tDATA FIM\tDATA REALIZADA\tRESPONSÁVEL 1\tRESPONSÁVEL 2\tOBSERVAÇÃO\tSTATUS\n';
+  var wb=XLSX.utils.book_new();
+  var rows=[['FASE','NOME FASE','TAREFA Nº','NOME TAREFA','DATA INÍCIO','DATA FIM','DATA REALIZADA','RESPONSÁVEL 1','RESPONSÁVEL 2','OBSERVAÇÃO','STATUS']];
   ACOES.forEach(function(a){
     var tarefas=TAREFAS.filter(function(t){return t.acao_id===a.id;});
     if(!tarefas.length){
-      tsv+=a.fase+'\t'+a.title+'\t\t\t\t\t\t\t\t\t\n';
-    }else{
+      rows.push([a.fase,a.title,'','','','','','','','','']);
+    } else {
       tarefas.forEach(function(t,i){
-        tsv+=a.fase+'\t'+a.title+'\t'+(i+1)+'\t'+t.titulo+'\t'+fmtDate(t.data_inicio)+'\t'+fmtDate(t.data_fim)+'\t'+(t.data_realizada?fmtDate(t.data_realizada):'')+'\t'+(t.responsavel1||'')+'\t'+(t.responsavel2||'')+'\t'+(t.observacao||'')+'\t'+(t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente')+'\n';
+        rows.push([
+          a.fase,
+          a.title,
+          i+1,
+          t.titulo,
+          fmtDate(t.data_inicio),
+          fmtDate(t.data_fim),
+          t.data_realizada?fmtDate(t.data_realizada):'',
+          t.responsavel1||'',
+          t.responsavel2||'',
+          t.observacao||'',
+          t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente'
+        ]);
       });
     }
   });
-  openModal('<div class="modal-box" onclick="event.stopPropagation()" style="width:700px">'
-    +'<div class="modal-title"><div class="cdot green"></div>Exportar Dados</div>'
-    +'<div class="rec-box"><div class="rec-title">📋 Como usar</div><p>1. Clique em <strong>Selecionar Tudo</strong><br>2. Copie com <strong>Ctrl+C</strong><br>3. Abra o Excel e cole com <strong>Ctrl+V</strong></p></div>'
-    +'<textarea id="export-area" style="width:100%;height:300px;background:var(--navy3);color:var(--white);border:1px solid var(--border2);border-radius:8px;padding:12px;font-family:var(--ff-m);font-size:11px;resize:none">'+tsv+'</textarea>'
-    +'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-primary" onclick="selecionarTudo()">Selecionar Tudo</button></div>'
-    +'</div>');
+  var ws=XLSX.utils.aoa_to_sheet(rows);
+  // Larguras das colunas
+  ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
+  XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
+  XLSX.writeFile(wb,'ciclo_da_arte_tarefas.xlsx');
+  showToast('Planilha exportada com sucesso!','success');
 }
 
-function selecionarTudo(){
-  var ta=document.getElementById('export-area');
-  ta.select();
-  document.execCommand('copy');
-  showToast('Dados copiados! Cole no Excel com Ctrl+V','success');
+// ── IMPORTAR EXCEL ───────────────────────────────────────────────
+function abrirImportacao(){
+  document.getElementById('file-input').click();
 }
+
+function handleFileImport(input){
+  var file=input.files[0];
+  if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){showToast('Planilha vazia ou inválida','error');return;}
+      // Remove cabeçalho
+      var dataRows=rows.slice(1).filter(function(r){return r[3]&&String(r[3]).trim();});
+      if(!dataRows.length){showToast('Nenhuma tarefa encontrada na planilha','error');return;}
+      // Prévia
+      openModalImportPreview(dataRows);
+    }catch(err){showToast('Erro ao ler o arquivo: '+err.message,'error');}
+  };
+  reader.readAsArrayBuffer(file);
+  input.value='';
+}
+
+function openModalImportPreview(rows){
   var preview=rows.slice(0,5).map(function(r){
     return'<tr><td>'+r[0]+'</td><td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[1]+'</td><td>'+r[2]+'</td><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[3]+'</td><td>'+r[10]+'</td></tr>';
   }).join('');
