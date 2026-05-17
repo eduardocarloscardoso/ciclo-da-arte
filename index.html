@@ -327,52 +327,25 @@ function navigate(page){
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────────
 function exportarExcel(){
-  var wb=XLSX.utils.book_new();
-  var rows=[['FASE','NOME FASE','TAREFA Nº','NOME TAREFA','DATA INÍCIO','DATA FIM','DATA REALIZADA','RESPONSÁVEL 1','RESPONSÁVEL 2','OBSERVAÇÃO','STATUS']];
+  var html='<html><head><meta charset="UTF-8">';
+  html+='<style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 10px;font-size:12px}th{background:#1e2b3f;color:#fff}tr:nth-child(even){background:#f5f5f5}</style></head><body>';
+  html+='<table><thead><tr><th>FASE</th><th>NOME FASE</th><th>TAREFA Nº</th><th>NOME TAREFA</th><th>DATA INÍCIO</th><th>DATA FIM</th><th>DATA REALIZADA</th><th>RESPONSÁVEL 1</th><th>RESPONSÁVEL 2</th><th>OBSERVAÇÃO</th><th>STATUS</th></tr></thead><tbody>';
   ACOES.forEach(function(a){
     var tarefas=TAREFAS.filter(function(t){return t.acao_id===a.id;});
     if(!tarefas.length){
-      rows.push([a.fase,a.title,'','','','','','','','','']);
-    } else {
+      html+='<tr><td>'+a.fase+'</td><td>'+a.title+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+    }else{
       tarefas.forEach(function(t,i){
-        rows.push([
-          a.fase,
-          a.title,
-          i+1,
-          t.titulo,
-          fmtDate(t.data_inicio),
-          fmtDate(t.data_fim),
-          t.data_realizada?fmtDate(t.data_realizada):'',
-          t.responsavel1||'',
-          t.responsavel2||'',
-          t.observacao||'',
-          t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente'
-        ]);
+        html+='<tr><td>'+a.fase+'</td><td>'+a.title+'</td><td>'+(i+1)+'</td><td>'+t.titulo+'</td><td>'+fmtDate(t.data_inicio)+'</td><td>'+fmtDate(t.data_fim)+'</td><td>'+(t.data_realizada?fmtDate(t.data_realizada):'')+'</td><td>'+(t.responsavel1||'')+'</td><td>'+(t.responsavel2||'')+'</td><td>'+(t.observacao||'')+'</td><td>'+(t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente')+'</td></tr>';
       });
     }
   });
-  var ws=XLSX.utils.aoa_to_sheet(rows);
-  // Larguras das colunas
-  ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
-  XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
-  var wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  var blob=new Blob([wbout],{type:'application/octet-stream'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;
-  a.download='ciclo_da_arte_tarefas.xlsx';
-  a.style.display='none';
-  document.body.appendChild(a);
-  a.click();
-  setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},100);
-  showToast('Planilha exportada com sucesso!','success');
+  html+='</tbody></table></body></html>';
+  var win=window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+  showToast('Tabela aberta em nova aba — salve como Excel!','success');
 }
-a.download='ciclo_da_arte_tarefas.xlsx';
-document.body.appendChild(a);a.click();document.body.removeChild(a);
-  showToast('Planilha exportada com sucesso!','success');
-}
-
-// ── IMPORTAR EXCEL ───────────────────────────────────────────────
 function abrirImportacao(){
   document.getElementById('file-input').click();
 }
