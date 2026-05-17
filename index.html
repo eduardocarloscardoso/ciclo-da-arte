@@ -326,51 +326,31 @@ function navigate(page){
   if(fns[page])fns[page](el);
 }
 
-// ── EXPORTAR EXCEL ───────────────────────────────────────────────
-function exportarExcel(){
+// ── EXPORTAR EXCEL via GitHub API ────────────────────────────────
+const GITHUB_REPO='eduardocarloscardoso/ciclo-da-arte';
+const GITHUB_FILE='exports/ciclo_da_arte_tarefas.xlsx';
+
+async function exportarExcel(){
+  showToast('Gerando planilha...','info');
   var wb=XLSX.utils.book_new();
   var rows=[['FASE','NOME FASE','TAREFA Nº','NOME TAREFA','DATA INÍCIO','DATA FIM','DATA REALIZADA','RESPONSÁVEL 1','RESPONSÁVEL 2','OBSERVAÇÃO','STATUS']];
   ACOES.forEach(function(a){
     var tarefas=TAREFAS.filter(function(t){return t.acao_id===a.id;});
-    if(!tarefas.length){
-      rows.push([a.fase,a.title,'','','','','','','','','']);
-    } else {
-      tarefas.forEach(function(t,i){
-        rows.push([
-          a.fase,
-          a.title,
-          i+1,
-          t.titulo,
-          fmtDate(t.data_inicio),
-          fmtDate(t.data_fim),
-          t.data_realizada?fmtDate(t.data_realizada):'',
-          t.responsavel1||'',
-          t.responsavel2||'',
-          t.observacao||'',
-          t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente'
-        ]);
-      });
-    }
+    if(!tarefas.length){rows.push([a.fase,a.title,'','','','','','','','','']);}
+    else{tarefas.forEach(function(t,i){rows.push([a.fase,a.title,i+1,t.titulo,fmtDate(t.data_inicio),fmtDate(t.data_fim),t.data_realizada?fmtDate(t.data_realizada):'',t.responsavel1||'',t.responsavel2||'',t.observacao||'',t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente']);});}
   });
   var ws=XLSX.utils.aoa_to_sheet(rows);
-  // Larguras das colunas
   ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
-  var tsv='FASE\tNOME FASE\tTAREFA Nº\tNOME TAREFA\tDATA INÍCIO\tDATA FIM\tDATA REALIZADA\tRESPONSÁVEL 1\tRESPONSÁVEL 2\tOBSERVAÇÃO\tSTATUS\n';
-  rows.forEach(function(r){tsv+=r.join('\t')+'\n';});
-  openModal('<div class="modal-box" onclick="event.stopPropagation()" style="width:700px">'
-    +'<div class="modal-title"><div class="cdot green"></div>📥 Exportar Dados</div>'
-    +'<div class="rec-box"><div class="rec-title">📋 Como usar</div><p>1. Clique em <strong>Copiar Tudo</strong><br>2. Abra o <strong>Excel</strong><br>3. Cole com <strong>Ctrl+V</strong> — os dados vão para as colunas automaticamente</p></div>'
-    +'<textarea id="export-area" style="width:100%;height:280px;background:var(--navy3);color:var(--white);border:1px solid var(--border2);border-radius:8px;padding:12px;font-family:var(--ff-m);font-size:10px;resize:none">'+tsv+'</textarea>'
-    +'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-primary" onclick="copiarExport()">📋 Copiar Tudo</button></div>'
-    +'</div>');
-}
-function copiarExport(){
-  var ta=document.getElementById('export-area');
-  ta.select();
-  document.execCommand('copy');
-  showToast('Dados copiados! Abra o Excel e cole com Ctrl+V','success');
-  showToast('Planilha exportada com sucesso!','success');
+  var wbout=XLSX.write(wb,{bookType:'xlsx',type:'base64'});
+  var token='COLE_SEU_TOKEN_AQUI';
+  try{
+    var sha='';
+    try{var check=await axios.get('https://api.github.com/repos/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{headers:{'Authorization':'token '+token}});sha=check.data.sha;}catch(e){}
+    await axios.put('https://api.github.com/repos/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{message:'Exportação - '+new Date().toLocaleDateString('pt-BR'),content:wbout,sha:sha||undefined},{headers:{'Authorization':'token '+token}});
+    var url='https://raw.githubusercontent.com/'+GITHUB_REPO+'/main/'+GITHUB_FILE;
+    openModal('<div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px"><div class="modal-title"><div class="cdot green"></div>✅ Planilha Gerada!</div><div class="rec-box"><div class="rec-title">📥 Clique para baixar</div><p>A planilha foi salva no GitHub. Clique no botão abaixo:</p></div><div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><a href="'+url+'" download="ciclo_da_arte_tarefas.xlsx" target="_blank" class="btn btn-primary" style="text-decoration:none">⬇️ Baixar Excel</a></div></div>');
+  }catch(e){showToast('Erro: '+e.message,'error');}
 }
 
 // ── IMPORTAR EXCEL ───────────────────────────────────────────────
