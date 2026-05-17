@@ -182,10 +182,6 @@ tbody td{padding:11px 13px;vertical-align:middle}
 .rec-box{background:linear-gradient(135deg,rgba(201,148,58,.1),rgba(232,51,74,.08));border:1px solid rgba(201,148,58,.25);border-radius:12px;padding:20px;margin-bottom:22px}
 .rec-box .rec-title{font-family:var(--ff-d);font-size:15px;font-weight:700;color:var(--gold2);margin-bottom:6px}
 .rec-box p{font-size:13px;color:var(--muted2);line-height:1.6}
-.import-drop{border:2px dashed rgba(74,158,255,.4);border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(74,158,255,.05)}
-.import-drop:hover{border-color:var(--blue);background:rgba(74,158,255,.1)}
-.import-drop.dragover{border-color:var(--blue);background:rgba(74,158,255,.15)}
-.import-drop p{color:var(--muted);font-size:13px;margin-top:8px}
 .import-preview{max-height:300px;overflow-y:auto;margin-top:16px}
 .import-preview table{font-size:11px}
 .progress-bar{height:6px;background:rgba(255,255,255,.08);border-radius:10px;overflow:hidden;margin-top:8px}
@@ -227,10 +223,10 @@ tbody td{padding:11px 13px;vertical-align:middle}
 </div>
 <div id="modal-root"></div>
 <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="handleFileImport(this)">
-
 <script>
 const SUPABASE_URL='https://gsizoiwefejsllgtsard.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaXpvaXdlZmVqc2xsZ3RzYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTE1ODcsImV4cCI6MjA5MzA2NzU4N30.gjvAh0aKxiEiH9GZ1F76qPIfRjayV6nnpa1w-KZxvME';
+const EDGE_URL='https://gsizoiwefejsllgtsard.supabase.co/functions/v1/exportar-excel';
 const sb={
   headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
   async get(t,p=''){var r=await axios.get(SUPABASE_URL+'/rest/v1/'+t+'?'+p,{headers:this.headers});return r.data;},
@@ -330,50 +326,56 @@ function navigate(page){
 async function exportarExcel(){
   showToast('Gerando planilha...','info');
   try{
-    var response=await fetch('https://gsizoiwefejsllgtsard.supabase.co/functions/v1/exportar-excel',{
+    var response=await fetch(EDGE_URL,{
       method:'GET',
-      headers:{
-        'Authorization':'Bearer '+SUPABASE_KEY,
-        'apikey':SUPABASE_KEY
-      }
+      headers:{'Authorization':'Bearer '+SUPABASE_KEY,'apikey':SUPABASE_KEY}
     });
-    if(!response.ok)throw new Error('Erro ao gerar planilha');
+    if(!response.ok)throw new Error('Erro ao gerar planilha: '+response.status);
     var blob=await response.blob();
     var url=URL.createObjectURL(blob);
     var a=document.createElement('a');
-    a.href=url;
-    a.download='ciclo_da_arte_tarefas.xlsx';
-    document.body.appendChild(a);
-    a.click();
+    a.href=url;a.download='ciclo_da_arte_tarefas.xlsx';
+    a.style.display='none';
+    document.body.appendChild(a);a.click();
     setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},100);
     showToast('Planilha baixada com sucesso!','success');
-  }catch(e){
-    showToast('Erro: '+e.message,'error');
-  }
+  }catch(e){showToast('Erro: '+e.message,'error');}
 }
-      if(!dataRows.length){showToast('Nenhuma tarefa encontrada na planilha','error');return;}
-      // Prévia
+
+// ── IMPORTAR EXCEL ───────────────────────────────────────────────
+function abrirImportacao(){document.getElementById('file-input').click();}
+
+function handleFileImport(input){
+  var file=input.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:'array'});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+      if(rows.length<2){showToast('Planilha vazia ou inválida','error');return;}
+      var dataRows=rows.slice(1).filter(function(r){return r[3]&&String(r[3]).trim();});
+      if(!dataRows.length){showToast('Nenhuma tarefa encontrada','error');return;}
       openModalImportPreview(dataRows);
     }catch(err){showToast('Erro ao ler o arquivo: '+err.message,'error');}
   };
-  reader.readAsArrayBuffer(file);
-  input.value='';
+  reader.readAsArrayBuffer(file);input.value='';
 }
 
 function openModalImportPreview(rows){
   var preview=rows.slice(0,5).map(function(r){
-    return'<tr><td>'+r[0]+'</td><td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[1]+'</td><td>'+r[2]+'</td><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[3]+'</td><td>'+r[10]+'</td></tr>';
+    return'<tr><td>'+r[0]+'</td><td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r[1]+'</td><td>'+r[2]+'</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+r[3]+'</td><td>'+r[10]+'</td></tr>';
   }).join('');
   openModal('<div class="modal-box" onclick="event.stopPropagation()" style="width:600px">'
     +'<div class="modal-title"><div class="cdot blue"></div>Importar Planilha</div>'
-    +'<div class="rec-box" style="margin-bottom:16px"><div class="rec-title">📋 Prévia da importação</div><p>'+rows.length+' tarefas encontradas. As tarefas serão atualizadas no banco de dados conforme os dados da planilha.</p></div>'
+    +'<div class="rec-box" style="margin-bottom:16px"><div class="rec-title">📋 Prévia da importação</div><p>'+rows.length+' tarefas encontradas. As tarefas serão atualizadas conforme os dados da planilha.</p></div>'
     +'<div class="import-preview"><table><thead><tr><th>Fase</th><th>Atividade</th><th>Nº</th><th>Tarefa</th><th>Status</th></tr></thead><tbody>'+preview+'</tbody></table>'
     +(rows.length>5?'<p style="font-size:11px;color:var(--muted);margin-top:8px;text-align:center">... e mais '+(rows.length-5)+' tarefas</p>':'')
     +'</div>'
     +'<div id="import-progress" style="display:none"><div style="font-size:12px;color:var(--muted);margin-top:12px" id="import-status">Importando...</div><div class="progress-bar"><div class="progress-fill" id="import-bar" style="width:0%"></div></div></div>'
-    +'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-import" onclick="confirmarImport('+JSON.stringify(rows).replace(/'/g,"&#39;")+'... )">Confirmar Importação</button></div>'
+    +'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" id="btn-confirmar-import">Confirmar Importação</button></div>'
     +'</div>');
-  // Salvar rows no window para usar no confirmar
   window._importRows=rows;
   document.getElementById('btn-confirmar-import').onclick=function(){confirmarImport(window._importRows);};
 }
@@ -389,41 +391,22 @@ async function confirmarImport(rows){
     var numTarefa=parseInt(r[2])||0;
     var nomeTarefa=String(r[3]||'').trim();
     if(!nomeTarefa)continue;
-    // Encontrar ação pelo nome
     var acao=ACOES.find(function(a){return a.title.trim().toLowerCase()===nomeFase.toLowerCase();});
     if(!acao){erros++;done++;continue;}
-    // Encontrar tarefa existente
     var tarefasAcao=TAREFAS.filter(function(t){return t.acao_id===acao.id;});
     var tarefa=tarefasAcao[numTarefa-1]||tarefasAcao.find(function(t){return t.titulo.trim().toLowerCase()===nomeTarefa.toLowerCase();});
-    var payload={
-      titulo:nomeTarefa,
-      data_inicio:parseDate(r[4])||null,
-      data_fim:parseDate(r[5])||null,
-      data_realizada:parseDate(r[6])||null,
-      responsavel1:String(r[7]||'').trim(),
-      responsavel2:String(r[8]||'').trim()||null,
-      observacao:String(r[9]||'').trim()||null,
-      status:statusNorm(r[10])
-    };
+    var payload={titulo:nomeTarefa,data_inicio:parseDate(r[4])||null,data_fim:parseDate(r[5])||null,data_realizada:parseDate(r[6])||null,responsavel1:String(r[7]||'').trim(),responsavel2:String(r[8]||'').trim()||null,observacao:String(r[9]||'').trim()||null,status:statusNorm(r[10])};
     try{
-      if(tarefa){
-        await sb.patch('tarefas',tarefa.id,payload);
-        var idx=TAREFAS.findIndex(function(t){return t.id===tarefa.id;});
-        Object.assign(TAREFAS[idx],payload);
-      } else {
-        payload.acao_id=acao.id;
-        var res=await sb.post('tarefas',payload);
-        if(res&&res[0])TAREFAS.push(res[0]);
-      }
+      if(tarefa){await sb.patch('tarefas',tarefa.id,payload);var idx=TAREFAS.findIndex(function(t){return t.id===tarefa.id;});Object.assign(TAREFAS[idx],payload);}
+      else{payload.acao_id=acao.id;var res=await sb.post('tarefas',payload);if(res&&res[0])TAREFAS.push(res[0]);}
     }catch(e){erros++;}
     done++;
     var pct=Math.round((done/total)*100);
     document.getElementById('import-bar').style.width=pct+'%';
     document.getElementById('import-status').textContent='Importando... '+done+'/'+total;
   }
-  closeModal();
-  filterAcoes(acoesFilter);
-  if(erros>0){showToast('Importação concluída com '+erros+' linha(s) não encontrada(s)','info');}
+  closeModal();filterAcoes(acoesFilter);
+  if(erros>0){showToast('Concluído com '+erros+' linha(s) não encontrada(s)','info');}
   else{showToast('Importação concluída! '+done+' tarefas atualizadas.','success');}
 }
 
@@ -483,15 +466,8 @@ function showModDetail(id){
 var acoesFilter='todas';
 function renderAcoes(el){
   var isCeo=cu.role==='ceo';
-  var toolbarBtns=isCeo
-    ?'<div style="display:flex;gap:8px;flex-wrap:wrap">'
-      +'<button class="btn-excel" onclick="exportarExcel()">📥 Exportar Excel</button>'
-      +'<button class="btn-import" onclick="abrirImportacao()">📤 Importar Excel</button>'
-      +'</div>'
-    :'';
-  el.innerHTML='<div class="ph" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px">'
-    +'<div><h1>Plano de Ações</h1><p>Clique em uma atividade para ver e gerenciar suas tarefas</p></div>'
-    +toolbarBtns+'</div>'
+  var toolbarBtns=isCeo?'<div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn-excel" onclick="exportarExcel()">📥 Exportar Excel</button><button class="btn-import" onclick="abrirImportacao()">📤 Importar Excel</button></div>':'';
+  el.innerHTML='<div class="ph" style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:12px"><div><h1>Plano de Ações</h1><p>Clique em uma atividade para ver e gerenciar suas tarefas</p></div>'+toolbarBtns+'</div>'
     +'<div class="tabs" id="acoes-tabs">'+['todas','Fase 1','Fase 2','Fase 3','done','active','pending'].map(function(f,i){var labels=['Todas','Fase 1','Fase 2','Fase 3','✅ Concluídas','Em Andamento','Pendentes'];return'<div class="tab '+(f===acoesFilter?'active':'')+'" onclick="filterAcoes(\''+f+'\')">'+labels[i]+'</div>';}).join('')+'</div>'
     +'<div id="acoes-list"></div>';
   filterAcoes(acoesFilter);
@@ -586,19 +562,14 @@ async function updateTarefaStatus(id,val){
   catch(e){showToast('Erro ao salvar status','error');}
 }
 
-// ── MODAL TAREFA ─────────────────────────────────────────────────
 function tarefaForm(t){
   var v=t||{};
   return'<div class="form-group"><label class="form-label">Título da Tarefa</label><input class="form-input" id="tf-titulo" value="'+(v.titulo||'')+'" placeholder="Ex: Configurar Hotjar no site"></div>'
-    +'<div class="form-row">'
-    +'<div class="form-group"><label class="form-label">Data Início</label><input class="form-input" id="tf-inicio" type="date" value="'+(v.data_inicio||'')+'"></div>'
-    +'<div class="form-group"><label class="form-label">Data Fim</label><input class="form-input" id="tf-fim" type="date" value="'+(v.data_fim||'')+'"></div>'
-    +'</div>'
+    +'<div class="form-row"><div class="form-group"><label class="form-label">Data Início</label><input class="form-input" id="tf-inicio" type="date" value="'+(v.data_inicio||'')+'"></div>'
+    +'<div class="form-group"><label class="form-label">Data Fim</label><input class="form-input" id="tf-fim" type="date" value="'+(v.data_fim||'')+'"></div></div>'
     +'<div class="form-group"><label class="form-label">Data Realizada <span style="color:var(--muted);font-weight:400">(opcional)</span></label><input class="form-input" id="tf-realizada" type="date" value="'+(v.data_realizada||'')+'"></div>'
-    +'<div class="form-row">'
-    +'<div class="form-group"><label class="form-label">Responsável 1</label><input class="form-input" id="tf-resp1" value="'+(v.responsavel1||'')+'" placeholder="Nome do responsável"></div>'
-    +'<div class="form-group"><label class="form-label">Responsável 2 (opcional)</label><input class="form-input" id="tf-resp2" value="'+(v.responsavel2||'')+'" placeholder="Nome do responsável"></div>'
-    +'</div>'
+    +'<div class="form-row"><div class="form-group"><label class="form-label">Responsável 1</label><input class="form-input" id="tf-resp1" value="'+(v.responsavel1||'')+'" placeholder="Nome do responsável"></div>'
+    +'<div class="form-group"><label class="form-label">Responsável 2 (opcional)</label><input class="form-input" id="tf-resp2" value="'+(v.responsavel2||'')+'" placeholder="Nome do responsável"></div></div>'
     +'<div class="form-group"><label class="form-label">Observação (opcional)</label><textarea class="form-input" id="tf-obs" rows="3" placeholder="Detalhes, links, referências...">'+(v.observacao||'')+'</textarea></div>'
     +'<div class="form-group"><label class="form-label">Status</label><select class="form-input" id="tf-status">'
     +'<option value="pending"'+((!v.status||v.status==='pending')?' selected':'')+'>Pendente</option>'
@@ -723,7 +694,7 @@ function renderConfig(el){
     +'<div class="rec-box"><div class="rec-title">💡 Ferramenta Recomendada</div><p>Notion + IA para gestão. ClickUp como segunda opção.</p></div>'
     +'<div class="two-col">'
     +'<div class="card"><div class="card-title"><div class="cdot gold"></div>Dados da Empresa</div>'+[['Marca','Ciclo da Arte'],['Instagram','@cicloarte'],['Site','www.ciclodaarte.com.br'],['Plataforma','Loja Integrada'],['Budget Mkt/mês','R$ 5.000 – R$ 7.000'],['ROAS Alvo','3,5x – 5,0x'],['Ticket Médio','R$ 225,00'],['Conversão Atual','0,80%'],['Meta Conversão','1,50%']].map(function(r){return'<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">'+r[0]+'</span><span style="font-weight:500">'+r[1]+'</span></div>';}).join('')+'</div>'
-    +'<div class="card"><div class="card-title"><div class="cdot teal"></div>Infraestrutura</div>'+[['Banco de Dados','Supabase (PostgreSQL)','teal'],['Hospedagem','GitHub Pages','blue'],['Autenticação','Sistema próprio','gold'],['Keep-alive','GitHub Actions','green']].map(function(r){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">'+r[0]+'</span><div style="display:flex;gap:7px;align-items:center"><span>'+r[1]+'</span><div class="cdot '+r[2]+'" style="flex-shrink:0"></div></div></div>';}).join('')+'</div></div>';
+    +'<div class="card"><div class="card-title"><div class="cdot teal"></div>Infraestrutura</div>'+[['Banco de Dados','Supabase (PostgreSQL)','teal'],['Hospedagem','GitHub Pages','blue'],['Export Excel','Supabase Edge Functions','green'],['Keep-alive','GitHub Actions','gold']].map(function(r){return'<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--muted)">'+r[0]+'</span><div style="display:flex;gap:7px;align-items:center"><span>'+r[1]+'</span><div class="cdot '+r[2]+'" style="flex-shrink:0"></div></div></div>';}).join('')+'</div></div>';
 }
 
 // ── INIT ──────────────────────────────────────────────────────────
