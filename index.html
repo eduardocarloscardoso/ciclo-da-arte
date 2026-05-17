@@ -327,51 +327,31 @@ function navigate(page){
 
 // ── EXPORTAR EXCEL ───────────────────────────────────────────────
 function exportarExcel(){
-  var html='<html><head><meta charset="UTF-8">';
-  html+='<style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:6px 10px;font-size:12px}th{background:#1e2b3f;color:#fff}tr:nth-child(even){background:#f5f5f5}</style></head><body>';
-  html+='<table><thead><tr><th>FASE</th><th>NOME FASE</th><th>TAREFA Nº</th><th>NOME TAREFA</th><th>DATA INÍCIO</th><th>DATA FIM</th><th>DATA REALIZADA</th><th>RESPONSÁVEL 1</th><th>RESPONSÁVEL 2</th><th>OBSERVAÇÃO</th><th>STATUS</th></tr></thead><tbody>';
+  var tsv='FASE\tNOME FASE\tTAREFA Nº\tNOME TAREFA\tDATA INÍCIO\tDATA FIM\tDATA REALIZADA\tRESPONSÁVEL 1\tRESPONSÁVEL 2\tOBSERVAÇÃO\tSTATUS\n';
   ACOES.forEach(function(a){
     var tarefas=TAREFAS.filter(function(t){return t.acao_id===a.id;});
     if(!tarefas.length){
-      html+='<tr><td>'+a.fase+'</td><td>'+a.title+'</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>';
+      tsv+=a.fase+'\t'+a.title+'\t\t\t\t\t\t\t\t\t\n';
     }else{
       tarefas.forEach(function(t,i){
-        html+='<tr><td>'+a.fase+'</td><td>'+a.title+'</td><td>'+(i+1)+'</td><td>'+t.titulo+'</td><td>'+fmtDate(t.data_inicio)+'</td><td>'+fmtDate(t.data_fim)+'</td><td>'+(t.data_realizada?fmtDate(t.data_realizada):'')+'</td><td>'+(t.responsavel1||'')+'</td><td>'+(t.responsavel2||'')+'</td><td>'+(t.observacao||'')+'</td><td>'+(t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente')+'</td></tr>';
+        tsv+=a.fase+'\t'+a.title+'\t'+(i+1)+'\t'+t.titulo+'\t'+fmtDate(t.data_inicio)+'\t'+fmtDate(t.data_fim)+'\t'+(t.data_realizada?fmtDate(t.data_realizada):'')+'\t'+(t.responsavel1||'')+'\t'+(t.responsavel2||'')+'\t'+(t.observacao||'')+'\t'+(t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente')+'\n';
       });
     }
   });
-  html+='</tbody></table></body></html>';
-  var win=window.open('','_blank');
-  win.document.write(html);
-  win.document.close();
-  showToast('Tabela aberta em nova aba — salve como Excel!','success');
-}
-function abrirImportacao(){
-  document.getElementById('file-input').click();
+  openModal('<div class="modal-box" onclick="event.stopPropagation()" style="width:700px">'
+    +'<div class="modal-title"><div class="cdot green"></div>Exportar Dados</div>'
+    +'<div class="rec-box"><div class="rec-title">📋 Como usar</div><p>1. Clique em <strong>Selecionar Tudo</strong><br>2. Copie com <strong>Ctrl+C</strong><br>3. Abra o Excel e cole com <strong>Ctrl+V</strong></p></div>'
+    +'<textarea id="export-area" style="width:100%;height:300px;background:var(--navy3);color:var(--white);border:1px solid var(--border2);border-radius:8px;padding:12px;font-family:var(--ff-m);font-size:11px;resize:none">'+tsv+'</textarea>'
+    +'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-primary" onclick="selecionarTudo()">Selecionar Tudo</button></div>'
+    +'</div>');
 }
 
-function handleFileImport(input){
-  var file=input.files[0];
-  if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var data=new Uint8Array(e.target.result);
-      var wb=XLSX.read(data,{type:'array'});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      if(rows.length<2){showToast('Planilha vazia ou inválida','error');return;}
-      // Remove cabeçalho
-      var dataRows=rows.slice(1).filter(function(r){return r[3]&&String(r[3]).trim();});
-      if(!dataRows.length){showToast('Nenhuma tarefa encontrada na planilha','error');return;}
-      // Prévia
-      openModalImportPreview(dataRows);
-    }catch(err){showToast('Erro ao ler o arquivo: '+err.message,'error');}
-  };
-  reader.readAsArrayBuffer(file);
-  input.value='';
+function selecionarTudo(){
+  var ta=document.getElementById('export-area');
+  ta.select();
+  document.execCommand('copy');
+  showToast('Dados copiados! Cole no Excel com Ctrl+V','success');
 }
-function openModalImportPreview(rows){
   var preview=rows.slice(0,5).map(function(r){
     return'<tr><td>'+r[0]+'</td><td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[1]+'</td><td>'+r[2]+'</td><td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+r[3]+'</td><td>'+r[10]+'</td></tr>';
   }).join('');
