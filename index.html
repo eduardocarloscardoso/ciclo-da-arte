@@ -326,52 +326,31 @@ function navigate(page){
   if(fns[page])fns[page](el);
 }
 
-// ── EXPORTAR EXCEL via GitHub API ────────────────────────────────
-const GITHUB_REPO='eduardocarloscardoso/ciclo-da-arte';
-const GITHUB_FILE='exports/ciclo_da_arte_tarefas.xlsx';
-
+// ── EXPORTAR EXCEL via Supabase Edge Function ─────────────────────
 async function exportarExcel(){
   showToast('Gerando planilha...','info');
-  var wb=XLSX.utils.book_new();
-  var rows=[['FASE','NOME FASE','TAREFA Nº','NOME TAREFA','DATA INÍCIO','DATA FIM','DATA REALIZADA','RESPONSÁVEL 1','RESPONSÁVEL 2','OBSERVAÇÃO','STATUS']];
-  ACOES.forEach(function(a){
-    var tarefas=TAREFAS.filter(function(t){return t.acao_id===a.id;});
-    if(!tarefas.length){rows.push([a.fase,a.title,'','','','','','','','','']);}
-    else{tarefas.forEach(function(t,i){rows.push([a.fase,a.title,i+1,t.titulo,fmtDate(t.data_inicio),fmtDate(t.data_fim),t.data_realizada?fmtDate(t.data_realizada):'',t.responsavel1||'',t.responsavel2||'',t.observacao||'',t.status==='done'?'Concluída':t.status==='active'?'Em andamento':'Pendente']);});}
-  });
-  var ws=XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
-  XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
-  var wbout=XLSX.write(wb,{bookType:'xlsx',type:'base64'});
- var token=prompt('Cole seu GitHub Token para exportar:');
-if(!token)return;
   try{
-    var sha='';
-    try{var check=await axios.get('https://api.github.com/repos/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{headers:{'Authorization':'token '+token}});sha=check.data.sha;}catch(e){}
-    await axios.put('https://api.github.com/repos/'+GITHUB_REPO+'/contents/'+GITHUB_FILE,{message:'Exportação - '+new Date().toLocaleDateString('pt-BR'),content:wbout,sha:sha||undefined},{headers:{'Authorization':'token '+token}});
-    var url='https://raw.githubusercontent.com/'+GITHUB_REPO+'/main/'+GITHUB_FILE;
-    openModal('<div class="modal-box" onclick="event.stopPropagation()" style="max-width:420px"><div class="modal-title"><div class="cdot green"></div>✅ Planilha Gerada!</div><div class="rec-box"><div class="rec-title">📥 Clique para baixar</div><p>A planilha foi salva no GitHub. Clique no botão abaixo:</p></div><div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><a href="'+url+'" download="ciclo_da_arte_tarefas.xlsx" target="_blank" class="btn btn-primary" style="text-decoration:none">⬇️ Baixar Excel</a></div></div>');
-  }catch(e){showToast('Erro: '+e.message,'error');}
+    var response=await fetch('https://gsizoiwefejsllgtsard.supabase.co/functions/v1/exportar-excel',{
+      method:'GET',
+      headers:{
+        'Authorization':'Bearer '+SUPABASE_KEY,
+        'apikey':SUPABASE_KEY
+      }
+    });
+    if(!response.ok)throw new Error('Erro ao gerar planilha');
+    var blob=await response.blob();
+    var url=URL.createObjectURL(blob);
+    var a=document.createElement('a');
+    a.href=url;
+    a.download='ciclo_da_arte_tarefas.xlsx';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(url);document.body.removeChild(a);},100);
+    showToast('Planilha baixada com sucesso!','success');
+  }catch(e){
+    showToast('Erro: '+e.message,'error');
+  }
 }
-
-// ── IMPORTAR EXCEL ───────────────────────────────────────────────
-function abrirImportacao(){
-  document.getElementById('file-input').click();
-}
-
-function handleFileImport(input){
-  var file=input.files[0];
-  if(!file)return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    try{
-      var data=new Uint8Array(e.target.result);
-      var wb=XLSX.read(data,{type:'array'});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-      if(rows.length<2){showToast('Planilha vazia ou inválida','error');return;}
-      // Remove cabeçalho
-      var dataRows=rows.slice(1).filter(function(r){return r[3]&&String(r[3]).trim();});
       if(!dataRows.length){showToast('Nenhuma tarefa encontrada na planilha','error');return;}
       // Prévia
       openModalImportPreview(dataRows);
