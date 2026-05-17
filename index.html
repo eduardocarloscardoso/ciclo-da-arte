@@ -355,7 +355,11 @@ function exportarExcel(){
   // Larguras das colunas
   ws['!cols']=[{wch:8},{wch:45},{wch:10},{wch:45},{wch:13},{wch:13},{wch:15},{wch:20},{wch:20},{wch:40},{wch:14}];
   XLSX.utils.book_append_sheet(wb,ws,'Plano de Ações');
-  XLSX.writeFile(wb,'ciclo_da_arte_tarefas.xlsx');
+  var wbout=XLSX.write(wb,{bookType:'xlsx',type:'base64'});
+var a=document.createElement('a');
+a.href='data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,'+wbout;
+a.download='ciclo_da_arte_tarefas.xlsx';
+document.body.appendChild(a);a.click();document.body.removeChild(a);
   showToast('Planilha exportada com sucesso!','success');
 }
 
