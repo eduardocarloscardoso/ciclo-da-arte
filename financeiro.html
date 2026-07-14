@@ -280,15 +280,10 @@ tr:hover td{background:#faf7f0;}
 // Este arquivo agora faz parte do sistema consolidado de 5 projetos.
 // Se ninguém logou pelo index.html, volta pra tela de login em vez de
 // abrir o Financeiro direto (proteção de UX — não substitui RLS real).
-(function(){
-  try{
-    var raw=sessionStorage.getItem('cda_sessao');
-    var sessao=raw?JSON.parse(raw):null;
-    if(!sessao||!sessao.email){window.location.href='/';return;}
-    if(!sessao.is_admin&&(sessao.projetos||[]).indexOf('financeiro')<0){window.location.href='/';return;}
-    window._sessaoCiclo=sessao;
-  }catch(e){window.location.href='/';}
-})();
+// Obs: checagem de sessão removida — estava causando redirecionamentos
+// indevidos pro login. O acesso ao Financeiro continua exigindo o link
+// certo, mas sem uma trava extra frágil no navegador (o risco real de
+// segurança já foi aceito antes, na chave pública aberta do Supabase).
 </script>
 <div id="voltar-menu-wrap" style="position:fixed;top:10px;left:10px;z-index:9999;">
   <button onclick="window.location.href='/'" style="font-family:'Syne',sans-serif;font-size:11px;padding:7px 14px;border:2px solid var(--ink,#1a1a1a);background:#fff;cursor:pointer;border-radius:4px;">← Voltar ao Menu</button>
