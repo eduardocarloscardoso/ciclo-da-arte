@@ -276,8 +276,25 @@ function canAccess(page){return RC[cu.role]&&RC[cu.role].pages.indexOf(page)>=0;
 function canAccessProject(projKey){return cu&&(cu.is_admin||(cu.projetos||[]).indexOf(projKey)>=0);}
 
 async function initApp(){
-  // Nada a pré-carregar antes do login — os "acessos rápidos" de demo foram
-  // removidos agora que o sistema guarda dados reais dos 5 projetos.
+  // Restaurar sessão ativa — ex.: quando o usuário volta do Financeiro (ou
+  // de outro projeto) clicando em "Voltar ao Menu". Sem isso, o index.html
+  // sempre mostrava a tela de login do zero, mesmo já logado.
+  try{
+    var raw=sessionStorage.getItem('cda_sessao');
+    if(raw){
+      var sessao=JSON.parse(raw);
+      if(sessao&&sessao.email){
+        cu=sessao;
+        try{EQUIPE=await sb.get('equipe','order=id');}catch(e){}
+        document.getElementById('login-screen').style.display='none';
+        document.getElementById('app').style.display='flex';
+        setDate();setupProjectSidebar();
+        var firstProj=(cu.projetos||[])[0];
+        if(cu.is_admin&&!firstProj)firstProj='credenciamento';
+        if(firstProj)openProject(firstProj);
+      }
+    }
+  }catch(e){/* sessão inválida — mantém tela de login normalmente */}
 }
 async function doLogin(){
   var btn=document.getElementById('login-btn');btn.disabled=true;btn.textContent='Entrando...';
