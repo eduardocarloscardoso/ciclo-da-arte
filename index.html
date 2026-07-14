@@ -288,6 +288,7 @@ async function doLogin(){
     var m=EQUIPE.find(function(x){return x.email===u&&x.pass===p;});
     if(m){
       cu={id:m.id,name:m.name,email:m.email,role:m.acesso,color:m.color,initials:m.initials,is_admin:!!m.is_admin,permissao:m.permissao||'leitura_escrita',projetos:m.projetos||[]};
+      sessionStorage.setItem('cda_sessao',JSON.stringify(cu));
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
       setDate();setupProjectSidebar();
@@ -303,7 +304,7 @@ async function loadData(){
   try{ACOES=await sb.get('acoes','order=id');MODULOS=await sb.get('modulos','order=id');TAREFAS=await sb.get('tarefas','order=id');}
   catch(e){console.error('Erro ao carregar dados',e);}
 }
-function doLogout(){cu=null;ACOES=[];MODULOS=[];TAREFAS=[];expandedAcoes={};currentProject=null;document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('inp-user').value='';document.getElementById('inp-pass').value='';}
+function doLogout(){cu=null;ACOES=[];MODULOS=[];TAREFAS=[];expandedAcoes={};currentProject=null;sessionStorage.removeItem('cda_sessao');document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('inp-user').value='';document.getElementById('inp-pass').value='';}
 
 // ── SIDEBAR DE PROJETOS (1º nível) ─────────────────────────────────
 function setupProjectSidebar(){
@@ -358,7 +359,7 @@ async function openProject(key){
     return;
   }
   if(key==='comercial'){el.innerHTML=roBanner+'<div class="ph"><h1>🛍 Comercial</h1><p>CRM, clientes e vendas</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Este projeto será migrado do sistema de Prestação de Contas/CRM existente na próxima etapa.</p></div>';return;}
-  if(key==='financeiro'){el.innerHTML=roBanner+'<div class="ph"><h1>💰 Financeiro</h1><p>Prestação de contas</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Este projeto será migrado do sistema de Prestação de Contas existente na próxima etapa.</p></div>';return;}
+  if(key==='financeiro'){window.location.href='/financeiro.html';return;}
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
 }
