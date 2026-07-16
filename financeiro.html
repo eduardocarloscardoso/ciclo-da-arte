@@ -6,6 +6,10 @@
 <title>Ciclo da Arte — Gestão</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cda-dados-compartilhados.js"></script>
+<script src="cda-modulo-compras.js"></script>
+<script src="cda-modulo-clientes.js"></script>
+<script src="cda-modulo-produtos.js"></script>
 <script>var LZString=(function(){var f=String.fromCharCode;var keyStrBase64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';var keyStrUriSafe='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$';var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToBase64:function(input){if(input==null)return"";var res=LZString._compress(input,6,function(a){return keyStrBase64.charAt(a)});switch(res.length%4){default:case 0:return res;case 1:return res+"===";case 2:return res+"==";case 3:return res+"="}},decompressFromBase64:function(input){if(input==null)return"";if(input=="")return null;return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrBase64,input.charAt(index))})},compressToUTF16:function(input){if(input==null)return"";return LZString._compress(input,15,function(a){return f(a+32)})+" "},decompressFromUTF16:function(compressed){if(compressed==null)return"";if(compressed=="")return null;return LZString._decompress(compressed.length,16384,function(index){return compressed.charCodeAt(index)-32})},compress:function(uncompressed){return LZString._compress(uncompressed,16,function(a){return f(a)})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}delete context_dictionaryToCreate[context_w];context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else{context_data_position++}}return context_data.join("")},decompress:function(compressed){if(compressed==null)return"";if(compressed=="")return null;return LZString._decompress(compressed.length,32768,function(index){return compressed.charCodeAt(index)})},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}w=c;dictionary[3]=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}w=entry}return result.join("")}}; return LZString})();</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -311,6 +315,7 @@ tr:hover td{background:#faf7f0;}
     <div class="sb-sec">Cadastros</div>
     <div class="sb-item" onclick="go(&#39;cvpage&#39;)"><em>🎨</em> Collabs / Vendedores</div>
     <div class="sb-item" onclick="go(&#39;clientes&#39;)"><em>👥</em> Clientes</div>
+    <div class="sb-item" onclick="go(&#39;compras&#39;)"><em>🛒</em> Histórico de Compras</div>
     <div class="sb-item" onclick="go(&#39;produtos&#39;)"><em>🛍</em> Produtos</div>
     <div class="sb-item" onclick="go(&#39;collabs&#39;)"><em>🎤</em> Canais de Venda</div>
     <div class="sb-sec">Sistema</div>
@@ -319,7 +324,7 @@ tr:hover td{background:#faf7f0;}
   <div class="sb-ft">v1.0 · Maio 2026<br>Ciclo da Arte © 2026<br>
 <input type="file" id="rb" accept=".json" style="display:none" onchange="restaurarBackup(this)">
 <button onclick="backupSistema()" style="margin-top:6px;font-size:9px;padding:3px 7px;border:1px solid #444;background:transparent;color:#888;cursor:pointer;font-family:monospace">💾 Backup</button>
-<button onclick="document.getElementById(&#39;rb&#39;).click()" style="font-size:9px;padding:3px 7px;border:1px solid #444;background:transparent;color:#888;cursor:pointer;font-family:monospace">⬆ Restaurar</button>
+<button onclick="document.getElementById('rb').click()" style="font-size:9px;padding:3px 7px;border:1px solid #444;background:transparent;color:#888;cursor:pointer;font-family:monospace">⬆ Restaurar</button>
 </div>
 </nav>
 
@@ -407,523 +412,21 @@ tr:hover td{background:#faf7f0;}
       </div>
     </div>
 
-    <!-- CLIENTES -->
+
+    <!-- CLIENTES (módulo compartilhado com o Comercial) -->
     <div class="pg" id="pg-clientes">
-      <div class="row-bt">
-        <div><div class="sec-t">Clientes</div><div class="sec-d">Base completa · 4.431 registros da Loja Integrada</div></div>
-        <div style="display:flex;gap:7px;">
-          <button class="btn sm" onclick="document.getElementById(&#39;imp-cli-file&#39;).click()">⬆ Importar Clientes</button>
-          <button class="btn sm" onclick="expCliXLSX()">⬇ Exportar XLSX</button>
-          <button class="btn rust sm" onclick="openMoCli()">+ Novo Cliente</button>
-        </div>
-      </div>
-      <div class="fb">
-        <select id="f-colcli" onchange="rCli()"><option value="">Todos os canais</option><option value="1">SHOWS DUDA BEAT</option><option value="2">E-Commerce Duda Beat</option><option value="3">E-Commerce Multimarcas</option><option value="1778540708224">Vendas sem vendedor</option><option value="1778540708019">E-COMMERCE CICLO ORIGINAL</option><option value="1778540708797">E-COMMERCE CIRCO VOADOR</option><option value="1778540708009">E-COMMERCE LUEDJI LUNA</option><option value="1778540708076">E-COMMERCE RACHEL REIS</option><option value="1778540708746">E-COMMERCE RICO DALASSAM</option><option value="1778540708890">E-COMMERCE TRAMA AFETIVA</option><option value="1778540708909">FEIRAS E BAZARES</option><option value="1778540708657">PRIVATE LABEL</option><option value="1778540708680">REVENDA BAFU</option><option value="1778540708105">REVENDA - SHOWROOM / SAC</option><option value="1778540708481">REVENDA CIRCO VOADOR</option><option value="1778540708232">REVENDA HOTEL JO &amp; JOE</option><option value="1778540708819">REVENDA LONGBOARD PARADISE</option><option value="1778540708679">SHOWS LUEDJI LUNA</option><option value="1780086179953">E-Commerce Gilsons</option><option value="1780086097671">Totais</option><option value="1780172989275">SHOWS RACHEL REIS SALVADOR-MAM</option><option value="1780173066481">SHOWS RACHEL REIS</option><option value="1780173728740">SHOW RACHEL REIS</option><option value="1780178053497">SHOW RICO DALASSAM SESC SP</option><option value="1780179827801">E-COMMERCE NEO BXD</option><option value="1780179954834">SHOWS RICO DALASSAM</option><option value="1780237393956">CICLO EM CASA</option><option value="1780237756760">CICLO COLABORADORES - VENDA SUBSIDIADA</option><option value="1780246180654">SHOWS GILSONS</option><option value="1780246221820">E-COMMERCE SAC</option><option value="1782322947851">E-COMMERCE / SHOWS KAÊ GUAJAJARA</option><option value="1782323141713">Revenda Norte</option><option value="1782323313149">E-COMMERCE ZUDIZILLA</option></select>
-        <select id="f-uf" onchange="rCli()"><option value="">Todos os estados</option><option value="AC">AC</option><option value="AL">AL</option><option value="AM">AM</option><option value="AP">AP</option><option value="BA">BA</option><option value="CE">CE</option><option value="DF">DF</option><option value="ES">ES</option><option value="GO">GO</option><option value="MA">MA</option><option value="MG">MG</option><option value="MS">MS</option><option value="MT">MT</option><option value="PA">PA</option><option value="PB">PB</option><option value="PE">PE</option><option value="PI">PI</option><option value="PR">PR</option><option value="RJ">RJ</option><option value="RN">RN</option><option value="RO">RO</option><option value="RR">RR</option><option value="RS">RS</option><option value="SC">SC</option><option value="SE">SE</option><option value="SP">SP</option><option value="TO">TO</option></select>
-        <input type="text" id="f-nome" placeholder="Buscar nome, e-mail, CPF..." oninput="rCli()">
-        <select id="f-sex" onchange="rCli()"><option value="">Sexo</option><option value="F">Feminino</option><option value="M">Masculino</option></select>
-        <select id="f-tipo-cli" onchange="rCli()"><option value="">PF / PJ</option><option value="PF">Pessoa Física</option><option value="PJ">Pessoa Jurídica</option></select>
-        <span class="fc" id="cli-cnt">4.557 cliente(s)</span>
-      </div>
-      <div class="tw">
-        <div class="th"><h3>Cadastro de Clientes</h3></div>
-        <div class="ts"><table>
-          <thead><tr><th>Canal de Venda</th><th>Cidade / UF</th><th>Nome</th><th>Sexo</th><th>E-mail</th><th>Telefone</th><th>Tipo</th><th></th></tr></thead>
-          <tbody id="cli-tb"><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RACHEL REIS</span></td>
-      <td>Fortaleza / CE</td>
-      <td><b>Thais Luma de Meneses Silva</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">thaislumams@gmail.com</td>
-      <td class="mn">85997032909</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;72681685&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-Commerce Multimarcas</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Higor Ferreira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">higor_ferreira1997@hotmail.com</td>
-      <td class="mn">11942136165</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;90684530&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE CIRCO VOADOR</span></td>
-      <td>Brasília / DF</td>
-      <td><b>Simone Perez</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">simonepc@gmail.com</td>
-      <td class="mn">21996440322</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;90702704&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE CIRCO VOADOR</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Lucas Moura Figueira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">lucasmfigueira02@gmail.com</td>
-      <td class="mn">21972860141</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;90708088&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Ed anderson Mascarenhas</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">ed.anderson@uol.com.br</td>
-      <td class="mn">11985029936</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;90754390&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>São Paulo / RS</td>
-      <td><b>Karla Oliveira dos Santos</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">karlaoliveiradossantos@gmail.com</td>
-      <td class="mn">51981121315</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91131145&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Leonardo de Carvalho barbosa</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">lcbrj@hotmail.com</td>
-      <td class="mn">21999297779</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91204887&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE SAC</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Felipe Fonseca Coutinho</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">fcoutinho.felipe@gmail.com</td>
-      <td class="mn">61991354770</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91298201&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>São Gonçalo / RJ</td>
-      <td><b>Júlia Aguiar de Melo</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">juliaaguiardemelo@gmail.com</td>
-      <td class="mn">21995181180</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91388376&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-Commerce Multimarcas</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Alexandre Britto</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">brittoalexandre70@gmail.com</td>
-      <td class="mn">21979832586</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91552932&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>Diadema / SP</td>
-      <td><b>Iberê Terra de Souza Oliveira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">oli.ibere@gmail.com</td>
-      <td class="mn">11979504685</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91586760&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>Belo Horizonte / MG</td>
-      <td><b>JULIA MARIA ALVES LIMA DOS SANTOS</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">juliam.alveslima@gmail.com</td>
-      <td class="mn">21986114830</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;91801197&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>Caçapava / SP</td>
-      <td><b>Lara Leite</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">lara.a.o.leite170802@gmail.com</td>
-      <td class="mn">12981320118</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;92061191&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Belo Horizonte / MG</td>
-      <td><b>Lívia Mendes</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">me.liviasi@gmail.com</td>
-      <td class="mn">31972119959</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;92257250&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Salvador / BA</td>
-      <td><b>Thauan Carvalho</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">thauanfelipemc@gmail.com</td>
-      <td class="mn">21965122658</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;56193159&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Tarsila Maia</b></td>
-      <td>—</td>
-      <td class="tmu" style="font-size:11px">mmtarsila@gmail.com</td>
-      <td class="mn">11964366331</td>
-      <td><span class="badge b-ink" style="font-size:9px">PJ</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;56453048&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-Commerce Multimarcas</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Juliana Rodrigues Scanavachi</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">jrscanavachi@gmail.com</td>
-      <td class="mn">11984890049</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;56509285&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Luiz Henrique Gonçalves de moura</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">mouraaa2luiiz@gmail.com</td>
-      <td class="mn">11958288369</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;57538213&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Nova Iguaçu / RJ</td>
-      <td><b>Renata Fernandez Carvalho</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">re99fernandez@gmail.com</td>
-      <td class="mn">21983379181</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64722334&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Campinas / SP</td>
-      <td><b>Giovani Garuffi</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">giogaruffi+ciclo@gmail.com</td>
-      <td class="mn">12997637222</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;65025955&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Gabrielle Neves</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">gabi141206@gmail.com</td>
-      <td class="mn">11971565780</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;67640700&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Renan Moreira Vieira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">renanvieiramea@gmail.com</td>
-      <td class="mn">11932092658</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;69474064&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>Uberlândia / MG</td>
-      <td><b>Renata Aparecida Basto Santos</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">renata.basto@hotmail.com</td>
-      <td class="mn">34991878762</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79437905&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE CICLO ORIGINAL</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Camila Tavares Carmo</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">camilatavarescarmo@gmail.com</td>
-      <td class="mn">21995265818</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79553720&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Barreiras / BA</td>
-      <td><b>TIAGO FREITAS DE SOUZA</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">tiagofreitas.compras@gmail.com</td>
-      <td class="mn">77999698099</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79557531&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Campinas / SP</td>
-      <td><b>Júlia Bueno</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">buenojulia25006@gmail.com</td>
-      <td class="mn">19989113790</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79633415&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="tmu">—</span></td>
-      <td>Fortaleza / CE</td>
-      <td><b>Márcio Lima de Andrade Filho</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">marcioandradfilho@gmail.com</td>
-      <td class="mn">85991375055</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79660525&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RACHEL REIS</span></td>
-      <td>Aracaju / SE</td>
-      <td><b>Adriano da silva santos</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">adsilva5@yahoo.com.br</td>
-      <td class="mn">79999478972</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79697583&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Salvador / BA</td>
-      <td><b>Laíse Brito</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">psicologalaisebrito@outlook.com</td>
-      <td class="mn">71988667887</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;79737640&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Belo Horizonte / MG</td>
-      <td><b>martha ianni felipe</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">felipes22@yahoo.com.br</td>
-      <td class="mn">31991192609</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;62692386&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Manoela Goncalves</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">soul.crioula@gmail.com</td>
-      <td class="mn">11944903136</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;62702516&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Campinas / SP</td>
-      <td><b>Ricardo Farias de Lima</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">r.farialima@yahoo.com.br</td>
-      <td class="mn">19992124594</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;62902289&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Belo Horizonte / MG</td>
-      <td><b>Anna Clara Nascimento Almeida</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">annaclara.almeida23@yahoo.com</td>
-      <td class="mn">31994999519</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;62940824&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Deyse Cristina de Oliveira Felisberto Neves</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">deyse_felisberto@hotmail.com</td>
-      <td class="mn">11996196949</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63182539&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Brasília / DF</td>
-      <td><b>Elvis Marra</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">elvismarra@gmail.com</td>
-      <td class="mn">61998782282</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63262041&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE ZUDIZILLA</span></td>
-      <td>São João da Boa Vista / SP</td>
-      <td><b>Luiz otavio Bergonsini</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">luizbergonsinitodero@gmail.com</td>
-      <td class="mn">19998813546</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63322897&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE ZUDIZILLA</span></td>
-      <td>São Leopoldo / RS</td>
-      <td><b>Rafael Lima dos Santos</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">lima.rafael0000@gmail.com</td>
-      <td class="mn">51998636204</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63429811&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>Araraquara / SP</td>
-      <td><b>Matheus Henrique da SilvaMatheus Henrique Da Silva</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">matheusgrego56@gmail.com</td>
-      <td class="mn">16993715061</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63568181&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Leandro Cerqueira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">contatoleocerqueira@hotmail.com</td>
-      <td class="mn">21979595758</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63635722&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Pryscilla Dantas</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">pryscilla.dantas@outlook.com</td>
-      <td class="mn">61981832202</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63727209&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Geraldo aduan rodrigues da Silva Oliveira</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">mix.gege@gmail.com</td>
-      <td class="mn">11987970669</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63965323&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Vitória / ES</td>
-      <td><b>Davi Santos Barros</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">davisantosb18@gmail.com</td>
-      <td class="mn">27998483573</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;63972139&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-Commerce Multimarcas</span></td>
-      <td>Campinas / SP</td>
-      <td><b>Juliano Cesar Ferreira da Silva</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">juliano.cfs@outlook.com</td>
-      <td class="mn">11964096320</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64044487&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE RICO DALASSAM</span></td>
-      <td>Mauá / SP</td>
-      <td><b>Carla Souza da Costa</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">carlasouzacosta459@gmail.com</td>
-      <td class="mn">11945697437</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64197231&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE ZUDIZILLA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Alisson A A Silva</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">aalissonamaral98@gmail.com</td>
-      <td class="mn">11999393871</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64217658&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Buerarema / BA</td>
-      <td><b>Sorllean dos Anjos</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">sorlly.alves@hotmail.com</td>
-      <td class="mn">73991026665</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64386197&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Osasco / SP</td>
-      <td><b>Maria Luiza C Francisco</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">malu290109@gmail.com</td>
-      <td class="mn">11976470015</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64416188&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Rio de Janeiro / RJ</td>
-      <td><b>Mateus da Silva Bastos</b></td>
-      <td><span class="badge b-vio">M</span></td>
-      <td class="tmu" style="font-size:11px">mateussibastos@gmail.com</td>
-      <td class="mn">21999606197</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64444396&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>São Paulo / SP</td>
-      <td><b>Rafaela Deiab</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">rafadeiab@gmail.com</td>
-      <td class="mn">11983463250</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64470339&#39;)">✏</button></td>
-    </tr><tr>
-      <td><span class="badge b-vio" style="font-size:9px">E-COMMERCE LUEDJI LUNA</span></td>
-      <td>Osasco / SP</td>
-      <td><b>Fernanda Silvério</b></td>
-      <td><span class="badge b-rust">F</span></td>
-      <td class="tmu" style="font-size:11px">silveriosfernanda@gmail.com</td>
-      <td class="mn">11944867035</td>
-      <td><span class="badge b-ink" style="font-size:9px">PF</span></td>
-      <td><button class="btn sm" onclick="editCli(&#39;64552415&#39;)">✏</button></td>
-    </tr><tr style="background:var(--paper);font-weight:700;font-size:11px;border-top:2px solid var(--ink)">
-    <td><span class="badge b-vio" style="font-size:9px">c/ Canal: 4192</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">444 cidades</span></td>
-    <td>TOTAL: 4.557 clientes</td>
-    <td><span class="badge b-rust" style="font-size:9px">F: 2359</span> <span class="badge b-vio" style="font-size:9px">M: 2186</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">4.557 únicos</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">4.494 únicos</span></td>
-    <td><span class="badge b-ink" style="font-size:9px">PF: 4553</span> <span class="badge b-vio" style="font-size:9px">PJ: 4</span></td>
-    <td></td>
-  </tr></tbody>
-        </table></div>
-      </div>
-      <div class="pag" id="cli-pag"><span class="pi">Pág 1/92</span><button class="pb" onclick="cliPg++;rCliPage(getFiltCli())">›</button></div>
+      <div id="container-clientes"></div>
     </div>
 
-    <!-- PRODUTOS -->
+    <!-- HISTÓRICO DE COMPRAS (módulo compartilhado com o Comercial) -->
+    <div class="pg" id="pg-compras">
+      <div id="container-compras"></div>
+    </div>
+
+    <!-- PRODUTOS (módulo compartilhado com o Comercial) -->
     <div class="pg" id="pg-produtos">
-      <div class="row-bt">
-        <div><div class="sec-t">Produtos</div><div class="sec-d">Catálogo com tipo de peça, coleção e canal de venda</div></div>
-        <div style="display:flex;gap:7px;">
-          <button class="btn sm" onclick="document.getElementById(&#39;imp-prod&#39;).click()">⬆ Importar Planilha</button>
-          <button class="btn rust sm" onclick="openMoProd()">+ Novo Produto</button>
-        </div>
-      </div>
-      <div class="fb">
-        <input type="text" id="f-pnome" placeholder="Buscar produto..." oninput="rProd()">
-        <select id="f-pcv" onchange="filtrarCanalPorCV();rProd()"><option value="">Todos os collabs</option></select>
-        <select id="f-pcol" onchange="rProd()"><option value="">Todos os canais</option></select>
-        <select id="f-ptip" onchange="rProd()"><option value="">Tipo de Peça</option></select>
-        <select id="f-pcolec" onchange="rProd()"><option value="">Coleção</option></select>
-        <span class="fc" id="prod-cnt"></span>
-      </div>
-      <div class="tw">
-        <div class="th"><h3>Catálogo</h3></div>
-        <div class="ts"><table>
-          <thead><tr><th>Collab / Vendedor</th><th>Canal de Venda</th><th>Coleção</th><th>Tipo de Peça</th><th>Produto</th><th>Preço Ref.</th><th></th></tr></thead>
-          <tbody id="prod-tb"></tbody>
-        </table></div>
-      </div>
-      <div class="pag" id="prod-pag"></div>
-      <input type="file" id="imp-cli-file" accept=".xlsx,.xls" style="display:none" onchange="impClientes(this.files[0])">
-      <input type="file" id="imp-prod" accept=".xlsx,.xls" style="display:none" onchange="impProd(this.files[0])">
+      <div id="container-produtos"></div>
     </div>
-
-    
 
     <!-- PAGE COLLABS VENDEDORES -->
 <div class="pg" id="pg-cvpage">
@@ -1044,88 +547,6 @@ tr:hover td{background:#faf7f0;}
   </div>
 </div>
 
-<!-- MODAL CLIENTE -->
-<div class="mo" id="mo-cli">
-  <div class="mo-box">
-    <div class="mo-h"><h3 id="mo-cli-t">Editar Cliente</h3><button class="mo-x" onclick="closeMo(&#39;mo-cli&#39;)">✕</button></div>
-    <div class="mo-b">
-      <div class="fg">
-        <div class="fgr" style="grid-column:1/-1"><label>Nome Completo *</label><input id="c-nome" type="text"></div>
-        <div class="fgr"><label>E-mail</label><input id="c-email" type="email"></div>
-        <div class="fgr"><label>CPF</label><input id="c-cpf" type="text"></div>
-        <div class="fgr"><label>Sexo</label><select id="c-sex"><option value="">—</option><option value="F">Feminino</option><option value="M">Masculino</option></select></div>
-        <div class="fgr"><label>Nascimento</label><input id="c-nasc" type="date"></div>
-        <div class="fgr"><label>Celular</label><input id="c-cel" type="text"></div>
-        <div class="fgr"><label>Telefone</label><input id="c-tel" type="text"></div>
-        <div class="fgr"><label>Telefone Principal</label><input id="c-tel-principal" type="text"></div>
-        <div class="fgr"><label>Telefone Comercial</label><input id="c-tel-comercial" type="text"></div>
-        <hr class="fdiv"><div class="fsec">Classificação</div>
-        <div class="fgr"><label>Grupo</label><input id="c-grupo" type="text" placeholder="Ex: VIP, Atacado..."></div>
-        <div class="fgr"><label>Tipo</label><select id="c-tipo"><option value="">—</option><option value="fisica">Pessoa Física</option><option value="juridica">Pessoa Jurídica</option></select></div>
-        <div class="fgr"><label>Ativo</label><select id="c-ativo"><option value="sim">Sim</option><option value="nao">Não</option></select></div>
-        <hr class="fdiv"><div class="fsec">Dados Jurídicos <small style="font-weight:400;color:var(--muted)">(Pessoa Jurídica)</small></div>
-        <div class="fgr"><label>RG</label><input id="c-rg" type="text"></div>
-        <div class="fgr"><label>CNPJ</label><input id="c-cnpj" type="text"></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Razão Social</label><input id="c-razao" type="text"></div>
-        <div class="fgr"><label>Inscrição Estadual</label><input id="c-ie" type="text"></div>
-        <hr class="fdiv"><div class="fsec">Endereço</div>
-        <div class="fgr" style="grid-column:1/-1"><label>Logradouro</label><input id="c-end" type="text"></div>
-        <div class="fgr"><label>Número</label><input id="c-num" type="text"></div>
-        <div class="fgr"><label>Complemento</label><input id="c-comp" type="text"></div>
-        <div class="fgr"><label>Referência</label><input id="c-ref" type="text"></div>
-        <div class="fgr"><label>Bairro</label><input id="c-bai" type="text"></div>
-        <div class="fgr"><label>Cidade</label><input id="c-cid" type="text"></div>
-        <div class="fgr"><label>UF</label><input id="c-uf" type="text" maxlength="2"></div>
-        <div class="fgr"><label>CEP</label><input id="c-cep" type="text"></div>
-        <div class="fgr"><label>País</label><input id="c-pais" type="text" placeholder="Brasil"></div>
-        <div class="fgr"><label>Situação</label><select id="c-sit"><option value="pendente">Pendente</option><option value="aprovado">Aprovado</option></select></div>
-        <hr class="fdiv"><div class="fsec">Collabs / Vendedores Vinculados</div>
-        <div style="grid-column:1/-1">
-          <div class="ct" id="c-ctags"></div>
-          <div class="acr"><select id="c-csel"><option value="">Selecione collab / vendedor...</option><option value="1">Luedji Luna</option><option value="2">Duda Beat</option><option value="3">Rico Dalassam</option><option value="4">Rachel Reis</option><option value="5">Gilsons</option><option value="6">Zudizilla</option><option value="7">Circo Voador</option><option value="8">Hostel Jo e Joe</option><option value="9">Hostel Longboard Paradise</option><option value="10">REVENDA BAFU</option><option value="11">Ciclo Original</option><option value="1778541407286">TRAMA AFETIVA</option><option value="1778541480901">CICLO COLABORADORES - VENDA SUBSIDIADA</option><option value="1778541593732">Vendas sem vendedor</option><option value="1778541671437">E-COMMERCE MULTIMARCAS</option><option value="1778541698688">FEIRAS E BAZARES</option><option value="1778541728565">PRIVATE LABEL</option><option value="1778541758310">REVENDA - SHOWROOM / SAC</option><option value="1780179734120">NEO BXD</option><option value="1780237329287">CICLO EM CASA</option><option value="1782322838942">Kae Guajajara</option><option value="1782323106580">Revenda Norte</option></select><button class="btn sm" onclick="addCTag()">+ Vincular</button></div>
-        </div>
-        <hr class="fdiv"><div class="fsec">🛍️ Histórico de Compras <small style="font-weight:400;color:var(--muted)">(CRM)</small></div>
-        <div style="grid-column:1/-1" id="c-compras-wrap">
-          <div id="c-compras-novo-msg" style="display:none;font-size:12px;color:var(--muted);padding:8px 0">Salve o cliente primeiro para poder registrar compras.</div>
-          <div id="c-compras-form-wrap">
-            <div class="fg">
-              <div class="fgr"><label>Canal</label><select id="cp-canal" onchange="cpCanalChanged()"></select></div>
-              <div class="fgr"><label>Produto</label><input id="cp-prod" type="text" placeholder="Ex: Cropped Barra Album"></div>
-              <div class="fgr"><label>Valor (R$)</label><input id="cp-valor" type="number" step="0.01" placeholder="0,00"></div>
-              <div class="fgr"><label>Data</label><input id="cp-data" type="date"></div>
-            </div>
-            <div id="cp-manual-canal-warn" style="display:none;font-size:11px;color:var(--rust);padding:6px 0">⚠️ Canal sem vínculo oficial registrado para este cliente.</div>
-            <button class="btn sm" onclick="addCompraCli()" style="margin-top:8px">+ Registrar Compra</button>
-          </div>
-          <div id="c-compras-total" style="font-weight:700;font-size:13px;margin:10px 0 6px"></div>
-          <div id="c-compras-lista"></div>
-        </div>
-      </div>
-    </div>
-    <div class="mo-f"><button class="btn sm" onclick="closeMo(&#39;mo-cli&#39;)">Cancelar</button><button class="btn rust sm" onclick="saveCli()">💾 Salvar</button></div>
-  </div>
-</div>
-
-<!-- MODAL PRODUTO -->
-<div class="mo" id="mo-prod">
-  <div class="mo-box">
-    <div class="mo-h"><h3 id="mo-prod-t">Novo Produto</h3><button class="mo-x" onclick="closeMo(&#39;mo-prod&#39;)">✕</button></div>
-    <div class="mo-b">
-      <div class="fg">
-        <div class="fgr"><label>Collab / Vendedor</label><select id="p-cv" onchange="autoFillCanal()" style="background:#f5f0e8"><option value="">— Selecione —</option></select></div>
-        <div class="fgr"><label>Canal de Venda</label><select id="p-collab" onchange="autoFillCV()"><option value="">— Selecione —</option></select></div>
-        <div class="fgr"><label>Coleção</label><select id="p-col"><option value="">— Selecione —</option></select></div>
-        <div class="fgr"><label>Tipo de Peça *</label><select id="p-tip"><option value="">— Selecione —</option></select></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Nome do Produto *</label><input id="p-nome" type="text" placeholder="Ex: T-SHIRT TOUR DUDA"></div>
-        <div class="fgr"><label>Preço de Referência (R$)</label><input id="p-preco" type="number" step="0.01"></div>
-        <div class="fgr"><label>Cor</label><input id="p-cor" type="text" placeholder="Ex: Branco, Preto"></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Tamanhos Disponíveis</label><input id="p-tam" type="text" placeholder="P, M, G, GG, XGG"></div>
-      </div>
-    </div>
-    <div class="mo-f"><button class="btn sm" onclick="closeMo(&#39;mo-prod&#39;)">Cancelar</button><button class="btn rust sm" onclick="saveProd()">💾 Salvar</button></div>
-  </div>
-</div>
-
 <!-- MODAL COLLAB -->
 <div class="mo" id="mo-col">
   <div class="mo-box">
@@ -1179,8 +600,8 @@ let SB_PREV_ROWS={}; // snapshot das últimas linhas enviadas (por chave), usado
 // toRow: objeto do app -> linha para gravar no Supabase.
 const SB_TABLE_MAP={
   clientes:{table:'clientes',pk:'id',
-    fromRow:r=>({id:String(r.id),nome:r.nome,email:r.email,cpf:r.cpf,sexo:r.sexo,'data-nascimento':r.nascimento,celular:r.celular,telefone:r.telefone,'telefone-celular':r.celular,'telefone-principal':r.telefone_principal,'telefone-comercial':r.telefone_comercial,endereco:r.endereco,numero:r.numero,complemento:r.complemento,referencia:r.referencia,bairro:r.bairro,cidade:r.cidade,estado:r.estado,cep:r.cep,pais:r.pais,situacao:r.situacao,grupo:r.grupo,ativo:r.ativo,tipo:r.tipo,rg:r.rg,cnpj:r.cnpj,'razao-social':r.razao_social,ie:r.ie,'data-criacao':r.data_criacao}),
-    toRow:o=>({id:o.id,nome:o.nome||null,email:o.email||null,cpf:o.cpf||null,sexo:o.sexo||null,nascimento:o['data-nascimento']||null,celular:o['telefone-celular']||o.celular||null,telefone:o.telefone||null,telefone_principal:o['telefone-principal']||null,telefone_comercial:o['telefone-comercial']||null,endereco:o.endereco||null,numero:o.numero||null,complemento:o.complemento||null,referencia:o.referencia||null,bairro:o.bairro||null,cidade:o.cidade||null,estado:o.estado||null,cep:o.cep||null,pais:o.pais||null,situacao:o.situacao||null,grupo:o.grupo||null,ativo:o.ativo||null,tipo:o.tipo||null,rg:o.rg||null,cnpj:o.cnpj||null,razao_social:o['razao-social']||null,ie:o.ie||null,data_criacao:o['data-criacao']||null})
+    fromRow:r=>({id:String(r.id),nome:r.nome,email:r.email,cpf:r.cpf,sexo:r.sexo,'data-nascimento':r.nascimento,celular:r.celular,telefone:r.telefone,'telefone-celular':r.celular,'telefone-principal':r.telefone_principal,'telefone-comercial':r.telefone_comercial,endereco:r.endereco,numero:r.numero,complemento:r.complemento,referencia:r.referencia,bairro:r.bairro,cidade:r.cidade,estado:r.estado,cep:r.cep,pais:r.pais,situacao:r.situacao,grupo:r.grupo,ativo:r.ativo,tipo:r.tipo,rg:r.rg,cnpj:r.cnpj,'razao-social':r.razao_social,ie:r.ie,'data-criacao':r.data_criacao,tipo_comercial:r.tipo_comercial,instagram:r.instagram,origem:r.origem,origem_dados:r.origem_dados,responsavel_comercial:r.responsavel_comercial,tags_comercial:r.tags_comercial,obs_comercial:r.obs_comercial}),
+    toRow:o=>({id:o.id,nome:o.nome||null,email:o.email||null,cpf:o.cpf||null,sexo:o.sexo||null,nascimento:o['data-nascimento']||null,celular:o['telefone-celular']||o.celular||null,telefone:o.telefone||null,telefone_principal:o['telefone-principal']||null,telefone_comercial:o['telefone-comercial']||null,endereco:o.endereco||null,numero:o.numero||null,complemento:o.complemento||null,referencia:o.referencia||null,bairro:o.bairro||null,cidade:o.cidade||null,estado:o.estado||null,cep:o.cep||null,pais:o.pais||null,situacao:o.situacao||null,grupo:o.grupo||null,ativo:o.ativo||null,tipo:o.tipo||null,rg:o.rg||null,cnpj:o.cnpj||null,razao_social:o['razao-social']||null,ie:o.ie||null,data_criacao:o['data-criacao']||null,tipo_comercial:o.tipo_comercial||null,instagram:o.instagram||null,origem:o.origem||null,origem_dados:o.origem_dados||null,responsavel_comercial:o.responsavel_comercial||null,tags_comercial:o.tags_comercial||null,obs_comercial:o.obs_comercial||null})
   },
   collabs:{table:'canais',pk:'id',
     fromRow:r=>({id:r.id,nome:r.nome,tipo:r.tipo,comissao:r.comissao,pct_imp:r.pct_imp,pct_op:r.pct_op,pct_cs:r.pct_cs,sem_frete:r.sem_frete,email:r.email,obs:r.obs,cv_id:r.parceiro_id}),
@@ -1587,7 +1008,7 @@ function calcP(p){
 // ════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════
-const TITLES={dash:'Dashboard',prest:'Prestações de Contas',upload:'Importar Planilha',clientes:'Clientes',produtos:'Produtos',collabs:'Canais de Venda',cvpage:'Collabs / Vendedores',cfg:'Tipos e Coleções',cardapios:'Cardápios'};
+const TITLES={dash:'Dashboard',prest:'Prestações de Contas',upload:'Importar Planilha',clientes:'Clientes',compras:'Histórico de Compras',produtos:'Produtos',collabs:'Canais de Venda',cvpage:'Collabs / Vendedores',cfg:'Tipos e Coleções',cardapios:'Cardápios'};
 function go(p){
   document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('on'));
@@ -1603,8 +1024,43 @@ function go(p){
 function render(p){
   if(p==='dash')rDash();
   else if(p==='prest'){fillFiltrosPrest();rPrestList();}
-  else if(p==='clientes'){fillCliFilters();rCli();}
-  else if(p==='produtos'){fillProdSelects();rProd();}
+  else if(p==='clientes'){
+    var contCli=document.getElementById('container-clientes');
+    if(contCli && !contCli.dataset.montado){
+      contCli.dataset.montado='1';
+      montarModuloClientes('container-clientes',{onSync:function(clientesArr){
+        var convertido=clientesArr.map(function(c){
+          var o=Object.assign({},c);
+          o.tipo_comercial=c.tipoComercial; delete o.tipoComercial;
+          o.origem_dados=c.origemDados; delete o.origemDados;
+          o.responsavel_comercial=c.responsavelComercial; delete o.responsavelComercial;
+          o.tags_comercial=(c.tagsComercial||[]).join(', '); delete o.tagsComercial;
+          o.obs_comercial=c.obsComercial; delete o.obsComercial;
+          return o;
+        });
+        DB.s('clientes',convertido);
+      }});
+    }
+  }
+  else if(p==='compras'){
+    var contCompras=document.getElementById('container-compras');
+    if(contCompras && !contCompras.dataset.montado){
+      contCompras.dataset.montado='1';
+      montarModuloCompras('container-compras',{editavel:true});
+    }
+  }
+  else if(p==='produtos'){
+    var contProd=document.getElementById('container-produtos');
+    if(contProd && !contProd.dataset.montado){
+      contProd.dataset.montado='1';
+      montarModuloProdutos('container-produtos',{editavel:true,onSync:function(produtosArr){
+        var convertido=produtosArr.map(function(pr){
+          return {id:pr.id,nome:pr.nome,tipo:pr.tipo,colecao:pr.colecao,collab_id:pr.canalId,cv_id:pr.parceiroId,preco:pr.preco,cor:pr.cor,tam:pr.tam,status:pr.status};
+        });
+        DB.s('produtos',convertido);
+      }});
+    }
+  }
   else if(p==='collabs'){fillFiltrosCollabs();rCollabs();}
   else if(p==='cvpage')rCVPage();
   else if(p==='cfg')rCfg();
@@ -1618,7 +1074,6 @@ function render(p){
 function rDash(){
   const cli=DB.g('clientes'),col=DB.g('collabs'),prod=DB.g('produtos'),prest=DB.g('prestacoes');
   document.getElementById('kpi-cli').textContent=cli.length.toLocaleString('pt-BR');
-  fillUFs();
   document.getElementById('kpi-col').textContent=getCVS().length;
   const kpiCanais=document.getElementById('kpi-canais');
   if(kpiCanais)kpiCanais.textContent=col.length;
@@ -2527,386 +1982,10 @@ function doImport(){
 }
 // ════════════════════════════════════════════════
 // CLIENTES
-// ════════════════════════════════════════════════
-let cliPg=1;const CLI_PP=50;
-function fillCliFilters(){
-  const cli=DB.g('clientes'),cols=DB.g('collabs');
-  const ufs=[...new Set(cli.map(c=>c.estado).filter(Boolean))].sort();
-  document.getElementById('f-uf').innerHTML='<option value="">Todos os estados</option>'+ufs.map(u=>`<option value="${u}">${u}</option>`).join('');
-  const canais_f=DB.g('collabs');const canaisUsados=new Set(DB.g('clientes').map(c=>String(c['canal_id']||'')).filter(Boolean));document.getElementById('f-colcli').innerHTML='<option value="">Todos os canais</option>'+canais_f.filter(cv=>canaisUsados.has(String(cv.id))).map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-}
-function getFiltCli(){
-  const cli=DB.g('clientes');
-  const q=(document.getElementById('f-nome').value||'').toLowerCase();
-  const uf=document.getElementById('f-uf').value;
-  const sex=document.getElementById('f-sex').value;
-  const col=document.getElementById('f-colcli').value;
-  const sit='';
-  const tipo=(document.getElementById('f-tipo-cli')||{value:''}).value;
-  return cli.filter(c=>{
-    if(q&&!(c.nome||'').toLowerCase().includes(q)&&!(c.email||'').toLowerCase().includes(q)&&!(c.cpf||'').includes(q)&&!(c.cidade||'').toLowerCase().includes(q))return false;
-    if(uf&&c.estado!==uf)return false;
-    if(sex&&c.sexo!==sex)return false;
-    if(sit&&(c.situacao||c.sit||'')!==sit)return false;
-    if(tipo&&c.tipo!==tipo)return false;
-    if(col&&String(c['canal_id']||'')!==col)return false;
-    return true;
-  });
-}
-function rCli(){
-  cliPg=1;
-  const f=getFiltCli();
-  document.getElementById('cli-cnt').textContent=f.length.toLocaleString('pt-BR')+' cliente(s)';
-  rCliPage(f);
-}
-function fillUFs(){
-  const ufs=[...new Set(DB.g('clientes').map(c=>c.estado).filter(Boolean))].sort();
-  const fUF=document.getElementById('f-uf');
-  if(fUF)fUF.innerHTML='<option value="">Todos os estados</option>'+ufs.map(u=>`<option value="${u}">${u}</option>`).join('');
-  const cvs=DB.g('collabs');
-  const fCol=document.getElementById('f-colcli');
-  if(fCol)fCol.innerHTML='<option value="">Todos os canais</option>'+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-  const sd=document.getElementById('sec-d-cli');
-  if(sd)sd.textContent='Base completa · '+DB.g('clientes').length.toLocaleString('pt-BR')+' registros';
-}
-function rCliPage(f){
-  const cvs=DB.g('collabs');
-  const st=(cliPg-1)*CLI_PP,pg=f.slice(st,st+CLI_PP);
-  // Totais da listagem filtrada completa
-  const totF=f.length;
-  const totPF=f.filter(c=>c.tipo==='PF').length;
-  const totPJ=f.filter(c=>c.tipo==='PJ').length;
-  const totM=f.filter(c=>c.sexo==='M').length;
-  const totFem=f.filter(c=>c.sexo==='F').length;
-  const totAprov=f.filter(c=>(c.situacao||c.sit||'')===('aprovado')).length;
-  const totCanal=f.filter(c=>c['canal_id']&&c['canal_id']!=='').length;
-  // Únicos sem repetição
-  const uniqEmails=new Set(f.map(c=>(c.email||'').toLowerCase().trim()).filter(Boolean)).size;
-  const uniqTels=new Set(f.map(c=>(c['telefone-celular']||c['telefone-principal']||c.cel||c.tel||'').replace(/\D/g,'')).filter(Boolean)).size;
-  const uniqCidades=new Set(f.map(c=>((c.cidade||'').toLowerCase().trim()+'/'+(c.estado||'').toUpperCase().trim())).filter(v=>v!=='/')).size;
-  document.getElementById('cli-tb').innerHTML=pg.map(c=>{
-    const tel=c['telefone-celular']||c['telefone-principal']||c.cel||c.tel||'—';
-    const sit=c.situacao||c.sit||'—';
-    const sexo=c.sexo==='F'?'<span class="badge b-rust">F</span>':c.sexo==='M'?'<span class="badge b-vio">M</span>':'—';
-    const tipo=c.tipo?`<span class="badge b-ink" style="font-size:9px">${c.tipo}</span>`:'—';
-    const cid=String(c['canal_id']||'');
-    const canal=cid?cvs.find(x=>String(x.id)===cid):null;
-    const canalBadge=canal?`<span class="badge b-vio" style="font-size:9px">${canal.nome}</span>`:'<span class="tmu">—</span>';
-    return `<tr>
-      <td>${canalBadge}</td>
-      <td>${c.cidade||'—'} / ${c.estado||'—'}</td>
-      <td><b>${c.nome||'—'}</b></td>
-      <td>${sexo}</td>
-      <td class="tmu" style="font-size:11px">${c.email||'—'}</td>
-      <td class="mn">${tel}</td>
-      <td>${tipo}</td>
-      <td><button class="btn sm" onclick="editCli('${c.id}')">✏</button></td>
-    </tr>`;
-  }).join('')+`<tr style="background:var(--paper);font-weight:700;font-size:11px;border-top:2px solid var(--ink)">
-    <td><span class="badge b-vio" style="font-size:9px">c/ Canal: ${totCanal}</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">${uniqCidades.toLocaleString('pt-BR')} cidades</span></td>
-    <td>TOTAL: ${totF.toLocaleString('pt-BR')} clientes</td>
-    <td><span class="badge b-rust" style="font-size:9px">F: ${totFem}</span> <span class="badge b-vio" style="font-size:9px">M: ${totM}</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">${uniqEmails.toLocaleString('pt-BR')} únicos</span></td>
-    <td><span class="badge b-sage" style="font-size:9px">${uniqTels.toLocaleString('pt-BR')} únicos</span></td>
-    <td><span class="badge b-ink" style="font-size:9px">PF: ${totPF}</span> <span class="badge b-vio" style="font-size:9px">PJ: ${totPJ}</span></td>
-    <td></td>
-  </tr>`;
-  const tp=Math.ceil(f.length/CLI_PP);
-  let pg2=`<span class="pi">Pág ${cliPg}/${tp||1}</span>`;
-  if(cliPg>1)pg2=`<button class="pb" onclick="cliPg--;rCliPage(getFiltCli())">‹</button>`+pg2;
-  if(cliPg<tp)pg2+=`<button class="pb" onclick="cliPg++;rCliPage(getFiltCli())">›</button>`;
-  document.getElementById('cli-pag').innerHTML=pg2;
-}
-
-let eCId=null,cTags=[];
-function openMoCli(c){
-  eCId=c?.id||null;
-  // Pré-popular cTags com canal_id principal
-  var canalPrinc=c&&c['canal_id']&&c['canal_id']!=='multiplos'?String(c['canal_id']):null;
-  var ccRel=c?DB.g('cliente_canais').filter(x=>String(x.cliente_id)===String(c.id)).map(x=>String(x.canal_id)):[];
-  cTags=[...new Set([...(canalPrinc?[canalPrinc]:[]),...ccRel])];
-  document.getElementById('mo-cli-t').textContent=c?'Editar Cliente':'Novo Cliente';
-  // Mapear campos LI corretamente
-  const flds={
-    'nome':'c-nome','email':'c-email','grupo':'c-grupo','ativo':'c-ativo',
-    'sexo':'c-sex','tipo':'c-tipo','situacao':'c-sit',
-    'cpf':'c-cpf','rg':'c-rg','cnpj':'c-cnpj','razao-social':'c-razao','ie':'c-ie',
-    'telefone-principal':'c-tel-principal','telefone-comercial':'c-tel-comercial',
-    'telefone-celular':'c-cel','endereco':'c-end','numero':'c-num',
-    'complemento':'c-comp','referencia':'c-ref','bairro':'c-bai',
-    'cidade':'c-cid','estado':'c-uf','cep':'c-cep','pais':'c-pais',
-    'canal_id':'c-canal-id'
-  };
-  Object.entries(flds).forEach(([k,id])=>{const el=document.getElementById(id);if(el)el.value=c?.[k]||'';});
-  // Converter data-nascimento DD/MM/YYYY → YYYY-MM-DD para input type=date
-  const nascEl=document.getElementById('c-nasc');
-  if(nascEl&&c&&c['data-nascimento']){
-    var nascPts=(c['data-nascimento']||'').split('/');
-    nascEl.value=nascPts.length===3?nascPts[2]+'-'+nascPts[1]+'-'+nascPts[0]:'';
-  } else if(nascEl) nascEl.value='';
-  const cvs=DB.g('collabs');
-  const optsCvs='<option value="">— Nenhum —</option>'+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-  const elCanalId=document.getElementById('c-canal-id');
-  if(elCanalId){elCanalId.innerHTML=optsCvs;if(c&&c['canal_id'])elCanalId.value=c['canal_id'];}
-  document.getElementById('c-csel').innerHTML='<option value="">Selecione canal...</option>'+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-  const novoMsg=document.getElementById('c-compras-novo-msg'), formWrap=document.getElementById('c-compras-form-wrap');
-  if(eCId){
-    if(novoMsg)novoMsg.style.display='none';
-    if(formWrap)formWrap.style.display='';
-    rComprasCli(eCId);
-  }else{
-    if(novoMsg)novoMsg.style.display='';
-    if(formWrap)formWrap.style.display='none';
-    document.getElementById('c-compras-total').textContent='';
-    document.getElementById('c-compras-lista').innerHTML='';
-  }
-  rCTags();openMo('mo-cli');
-}
-async function rComprasCli(clienteId){
-  const lista=document.getElementById('c-compras-lista'), totEl=document.getElementById('c-compras-total');
-  if(!lista)return;
-  lista.innerHTML='<p style="font-size:11px;color:var(--muted)">Carregando...</p>';
-  const compras=await crmComprasByCliente(clienteId);
-  const total=compras.reduce((s,c)=>s+(Number(c.valor_total)||0),0);
-  totEl.textContent=compras.length?`Total gasto: R$ ${total.toLocaleString('pt-BR',{minimumFractionDigits:2})} · ${compras.length} compra(s)`:'Nenhuma compra registrada ainda.';
-  const cvs=DB.g('collabs');
-  lista.innerHTML=compras.map(c=>{
-    const canal=cvs.find(x=>String(x.id)===String(c.collab_id));
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:12px">
-      <span><b>${c.produto||'—'}</b> <span class="tmu">${canal?canal.nome:'—'} · ${c.data||'—'}</span></span>
-      <span style="display:flex;align-items:center;gap:8px"><b>R$ ${(Number(c.valor_total)||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</b>
-      <button class="btn sm" onclick="delCompraCli('${c.id}','${clienteId}')" title="Remover">✕</button></span>
-    </div>`;
-  }).join('')||'';
-}
-async function addCompraCli(){
-  if(!eCId){toast('Salve o cliente primeiro');return;}
-  const canalId=document.getElementById('cp-canal').value;
-  const prod=document.getElementById('cp-prod').value.trim();
-  const valor=parseFloat(document.getElementById('cp-valor').value)||0;
-  const data=document.getElementById('cp-data').value||new Date().toISOString().slice(0,10);
-  if(!canalId){toast('Selecione o canal (o cliente precisa ter esse canal vinculado)');return;}
-  if(!prod){toast('Informe o produto');return;}
-  if(!valor){toast('Informe o valor');return;}
-  const vinculado=cTags.map(String).includes(String(canalId));
-  await crmAddCompra({id:'cp_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),cliente_id:String(eCId),collab_id:canalId,produto:prod,valor_total:valor,data,origem:vinculado?'manual':'manual_sem_vinculo'});
-  document.getElementById('cp-prod').value='';document.getElementById('cp-valor').value='';document.getElementById('cp-data').value='';
-  rComprasCli(eCId);
-  toast('Compra registrada!','ok');
-}
-async function delCompraCli(id,clienteId){
-  if(!confirm('Remover esta compra do histórico?'))return;
-  await crmDelCompra(id);
-  rComprasCli(clienteId);
-}
-function rCTags(){
-  const canais=DB.g('collabs');   // canais de venda (cda_collabs)
-  const cvps=DB.g('cvs');         // collabs/vendedores (cda_cvs)
-  document.getElementById('c-ctags').innerHTML=cTags.map(id=>{
-    const canal=canais.find(x=>String(x.id)===String(id));
-    if(!canal)return '';
-    const cvp=cvps.find(x=>String(x.id)===String(canal.cv_id));
-    const cvpLabel=cvp?` <span style="font-size:9px;opacity:0.75;">· ${cvp.nome}</span>`:'';
-    return `<div class="ctag">${canal.nome}${cvpLabel}<span class="rx" onclick="rmCTag('${id}')">✕</span></div>`;
-  }).join('');
-  rCpCanalOpts();
-}
-function rCpCanalOpts(){
-  const cpCanal=document.getElementById('cp-canal'), addBtn=document.querySelector('#c-compras-form-wrap button[onclick="addCompraCli()"]');
-  if(!cpCanal)return;
-  const canais=DB.g('collabs');
-  const linked=cTags.map(id=>canais.find(x=>String(x.id)===String(id))).filter(Boolean);
-  const linkedIds=new Set(linked.map(c=>String(c.id)));
-  const others=canais.filter(c=>!linkedIds.has(String(c.id)));
-  let html='<option value="">Selecione...</option>';
-  if(linked.length)html+=`<optgroup label="Vinculados a este cliente">${linked.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('')}</optgroup>`;
-  if(others.length)html+=`<optgroup label="Outros canais">${others.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('')}</optgroup>`;
-  cpCanal.innerHTML=html;
-  cpCanal.disabled=false;
-  if(addBtn)addBtn.disabled=false;
-  cpCanalChanged();
-}
-function cpCanalChanged(){
-  const cpCanal=document.getElementById('cp-canal'), warn=document.getElementById('cp-manual-canal-warn');
-  if(!cpCanal||!warn)return;
-  const canais=DB.g('collabs');
-  const linkedIds=new Set(cTags.map(String));
-  const v=cpCanal.value;
-  warn.style.display=(v&&!linkedIds.has(String(v)))?'':'none';
-}
-function addCTag(){const v=String(document.getElementById('c-csel').value||'');if(!v)return;if(!cTags.includes(v)){cTags.push(v);rCTags();}}
-function rmCTag(id){cTags=cTags.filter(x=>String(x)!==String(id));rCTags();}
-function editCli(id){const c=DB.g('clientes').find(x=>x.id==id);if(c)openMoCli(c);}
-function saveCli(){
-  const nome=document.getElementById('c-nome').value.trim();if(!nome){toast('Nome obrigatório');return;}
-  const cli=DB.g('clientes');
-  const g=id=>{const el=document.getElementById(id);return el?el.value:'';};
-  // Converter data de nascimento de YYYY-MM-DD (date input) → DD/MM/YYYY
-  var nascRaw=g('c-nasc');
-  var nascFmt=nascRaw?(nascRaw.split('-').length===3?nascRaw.split('-')[2]+'/'+nascRaw.split('-')[1]+'/'+nascRaw.split('-')[0]:nascRaw):'';
-  const obj={
-    'id':eCId||uid(),
-    'nome':nome,'email':g('c-email'),'grupo':g('c-grupo'),'ativo':g('c-ativo'),
-    'sexo':g('c-sex'),'data-nascimento':nascFmt,'tipo':g('c-tipo'),'situacao':g('c-sit'),
-    'rg':g('c-rg'),'cpf':g('c-cpf'),'cnpj':g('c-cnpj'),'razao-social':g('c-razao'),'ie':g('c-ie'),
-    'telefone-principal':g('c-tel-principal'),'telefone-comercial':g('c-tel-comercial'),'telefone-celular':g('c-cel'),
-    'telefone':g('c-tel'),
-    'endereco':g('c-end'),'numero':g('c-num'),'complemento':g('c-comp'),'referencia':g('c-ref'),
-    'bairro':g('c-bai'),'cidade':g('c-cid'),'estado':g('c-uf').toUpperCase(),
-    'cep':g('c-cep'),'pais':g('c-pais'),
-    'data-criacao':eCId?(cli.find(x=>x.id==eCId)||{})['data-criacao']||'':new Date().toLocaleDateString('pt-BR')
-  };
-  if(eCId){const i=cli.findIndex(x=>String(x.id)===String(eCId));if(i>=0)cli[i]=obj;}else cli.push(obj);
-  DB.s('clientes',cli);
-  // Salvar canais vinculados via tabela relacional cliente_canal (N:N) —
-  // substitui o array collabs em memória usado antes, que não persistia no Supabase.
-  var ccRel=DB.g('cliente_canais').filter(x=>String(x.cliente_id)!==String(obj.id));
-  cTags.forEach(cid=>ccRel.push({id:String(obj.id)+'_'+String(cid),cliente_id:String(obj.id),canal_id:String(cid)}));
-  DB.s('cliente_canais',ccRel);
-  closeMo('mo-cli');rCli();toast('Cliente salvo!','ok');
-}
-function expCli(){
-  const f=getFiltCli(),cols=DB.g('collabs');
-  const rows=[['ID','Nome','Email','CPF','Sexo','Nascimento','Celular','Cidade','UF','CEP','Situação','Canais de Venda']];
-  const cvs_exp=getCVS();f.forEach(c=>{const co=(c.collabs||[]).map(id=>cvs_exp.find(x=>x.id==id)?.nome||'').filter(Boolean).join('; ');rows.push([c.id,c.nome,c.email,c.cpf,c.sexo,c['data-nascimento'],c['telefone-celular']||c.celular||c.telefone,c.cidade,c.estado,c.cep,c.situacao,co]);});
-  const csv=rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
-  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='clientes_cicloarte.csv';a.click();toast('CSV exportado!','ok');
-}
 
 // ════════════════════════════════════════════════
 // PRODUTOS
 // ════════════════════════════════════════════════
-let prodPg=1;const PROD_PP=30;let ePId=null;
-function fillProdSelects(){
-  const cols=DB.g('collabs'),tips=DB.g('tipos'),colecs=DB.g('colecoes'),cvs=getCVS();
-  // Populate Collab/Vendedor selects
-  ['f-pcv','p-cv'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=(id.startsWith('f')?'<option value="">Todos os collabs</option>':'<option value="">— Selecione —</option>')+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');});
-  // Populate Canal de Venda selects
-  ['f-pcol','p-collab'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=(id.startsWith('f')?'<option value="">Todos os canais</option>':'<option value="">— Selecione —</option>')+cols.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');});
-  ['f-ptip','p-tip'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=(id.startsWith('f')?'<option value="">Tipo</option>':'<option value="">— Selecione —</option>')+tips.map(t=>`<option value="${t}">${t}</option>`).join('');});
-  ['f-pcolec','p-col'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=(id.startsWith('f')?'<option value="">Coleção</option>':'<option value="">— Selecione —</option>')+colecs.map(t=>`<option value="${t}">${t}</option>`).join('');});
-}
-function rProd(){
-  const prods=DB.g('produtos'),cols=DB.g('collabs'),cvs=getCVS();
-  const q=(document.getElementById('f-pnome').value||'').toLowerCase();
-  const col=document.getElementById('f-pcol').value;
-  const pcv=(document.getElementById('f-pcv')||{value:''}).value;
-  const tip=document.getElementById('f-ptip').value;
-  const colec=document.getElementById('f-pcolec').value;
-  const f=prods.filter(p=>{
-    if(q&&!p.nome.toLowerCase().includes(q))return false;
-    if(col&&String(p.collab_id)!==col)return false;
-    if(tip&&p.tipo!==tip)return false;
-    if(colec&&p.colecao!==colec)return false;
-    if(pcv){
-      // filter by cv_id via canal de venda
-      const canal=cols.find(x=>x.id==p.collab_id);
-      if(!canal||String(canal.cv_id)!==pcv)return false;
-    }
-    return true;
-  });
-  document.getElementById('prod-cnt').textContent=f.length+' produto(s)';
-  const pg=f.slice((prodPg-1)*PROD_PP,prodPg*PROD_PP);
-  document.getElementById('prod-tb').innerHTML=pg.map(p=>{
-    const co=cols.find(c=>c.id==p.collab_id);
-    const cv=co?cvs.find(x=>x.id==co.cv_id):null;
-    // Auto-sync cv_id on produto if missing
-    if(co&&co.cv_id&&!p.cv_id){p.cv_id=co.cv_id;}
-    return`<tr><td>${cv?`<span class="badge b-rust">${cv.nome}</span>`:'<span class="tmu">—</span>'}</td><td>${co?`<span class="badge b-ink" style="font-size:9px">${co.nome}</span>`:'<span class="tmu">—</span>'}</td><td><span class="badge b-gd">${p.colecao||'—'}</span></td><td><span class="badge b-vio">${p.tipo||'—'}</span></td><td><b>${p.nome}</b><br><span class="tmu" style="font-size:10px">${p.cor||''} ${p.tam?'· '+p.tam:''}</span></td><td class="mn">${p.preco?R(p.preco):'—'}</td><td><button class="btn sm" onclick="editProd(${p.id})">✏</button></td></tr>`;}).join('');
-  const tp=Math.ceil(f.length/PROD_PP);
-  document.getElementById('prod-pag').innerHTML=`<span class="pi">Pág ${prodPg}/${tp||1}</span>`;
-}
-function autoFillCV(){
-  // When canal changes → auto-fill Collab/Vendedor
-  const canalId=parseInt(document.getElementById('p-collab').value)||null;
-  if(!canalId)return;
-  const cols=DB.g('collabs');
-  const canal=cols.find(x=>x.id==canalId);
-  if(canal&&canal.cv_id){
-    document.getElementById('p-cv').value=canal.cv_id;
-  }
-}
-function autoFillCanal(){
-  // When CV changes → filter canal select to show only matching canais
-  const cvId=parseInt(document.getElementById('p-cv').value)||null;
-  filterCanalsByCVModal(cvId);
-}
-function filterCanalsByCVModal(cvId){
-  const cols=DB.g('collabs');
-  const sel=document.getElementById('p-collab');
-  const currentVal=sel.value;
-  const filtered=cvId?cols.filter(c=>String(c.cv_id)===String(cvId)):cols;
-  sel.innerHTML='<option value="">— Selecione —</option>'+filtered.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
-  if(currentVal&&filtered.find(x=>x.id==currentVal))sel.value=currentVal;
-}
-function filtrarCanalPorCV(){
-  // When CV filter changes → update canal filter options
-  const cvId=document.getElementById('f-pcv').value;
-  const cols=DB.g('collabs');
-  const sel=document.getElementById('f-pcol');
-  const filtered=cvId?cols.filter(c=>String(c.cv_id)===cvId):cols;
-  sel.innerHTML='<option value="">Todos os canais</option>'+filtered.map(c=>`<option value="${c.id}">${c.nome}</option>`).join('');
-}
-function openMoProd(prod){
-  ePId=prod?prod.id:null;fillProdSelects();
-  document.getElementById('mo-prod-t').textContent=prod?'Editar Produto':'Novo Produto';
-  document.getElementById('p-nome').value=prod?prod.nome||'':'';
-  document.getElementById('p-tip').value=prod?prod.tipo||'':'';
-  document.getElementById('p-col').value=prod?prod.colecao||'':'';
-  document.getElementById('p-preco').value=prod?prod.preco||'':'';
-  document.getElementById('p-cor').value=prod?prod.cor||'':'';
-  document.getElementById('p-tam').value=prod?prod.tam||'':'';
-  // Set canal and auto-derive CV
-  const canalVal=prod?prod.collab_id||'':'';
-  document.getElementById('p-collab').value=canalVal;
-  if(canalVal){
-    const cols=DB.g('collabs');
-    const canal=cols.find(x=>x.id==canalVal);
-    document.getElementById('p-cv').value=canal&&canal.cv_id?canal.cv_id:'';
-    filterCanalsByCVModal(canal?canal.cv_id:null);
-  } else {
-    document.getElementById('p-cv').value=prod?prod.cv_id||'':'';
-  }
-  openMo('mo-prod');
-}
-function editProd(id){const p=DB.g('produtos').find(x=>x.id==id);if(p)openMoProd(p);}
-function saveProd(){
-  const nome=document.getElementById('p-nome').value.trim();if(!nome){toast('Nome obrigatório');return;}
-  const prods=DB.g('produtos');
-  const canalId=parseInt(document.getElementById('p-collab').value)||null;
-  const cols=DB.g('collabs');
-  const canal=canalId?cols.find(x=>x.id==canalId):null;
-  const cvId=canal&&canal.cv_id?canal.cv_id:(parseInt(document.getElementById('p-cv').value)||null);
-  const obj={id:ePId||uid(),nome,tipo:document.getElementById('p-tip').value,colecao:document.getElementById('p-col').value,collab_id:canalId,cv_id:cvId,preco:parseFloat(document.getElementById('p-preco').value)||null,cor:document.getElementById('p-cor').value,tam:document.getElementById('p-tam').value};
-  if(ePId){const i=prods.findIndex(x=>x.id==ePId);if(i>=0)prods[i]=obj;}else prods.push(obj);
-  DB.s('produtos',prods);closeMo('mo-prod');rProd();toast('Produto salvo!','ok');
-}
-function impProd(f){
-  if(!f)return;
-  const r=new FileReader();
-  r.onload=e=>{
-    const wb=XLSX.read(e.target.result,{type:'array'});
-    const ws=wb.Sheets[wb.SheetNames[0]];
-    const rows=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    const hdr=rows[0].map(h=>String(h).toLowerCase().trim());
-    const ni=hdr.findIndex(h=>h.includes('produto')||h.includes('nome'));
-    const ci=hdr.findIndex(h=>h.includes('collab'));
-    const ti=hdr.findIndex(h=>h.includes('tipo'));
-    const li=hdr.findIndex(h=>h.includes('cole'));
-    const cols=DB.g('collabs'),prods=DB.g('produtos');
-    let added=0;
-    rows.slice(1).forEach(row=>{
-      const n=String(row[ni<0?0:ni]||'').trim();if(!n)return;
-      const nc=String(row[ci]||'').trim();
-      const co=cols.find(c=>c.nome.toLowerCase()===nc.toLowerCase());
-      prods.push({id:uid(),nome:n,tipo:ti>=0?row[ti]:'',colecao:li>=0?row[li]:'',collab_id:co?.id||null,preco:null,cor:'',tam:''});
-      added++;
-    });
-    DB.s('produtos',prods);rProd();toast(`${added} produto(s) importado(s)!`,'ok');
-  };
-  r.readAsArrayBuffer(f);
-}
 
 // ════════════════════════════════════════════════
 // COLLABS
@@ -2970,7 +2049,10 @@ function rCVPage(){
     return`<div class="ccard" style="padding:12px;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
         <div class="ccard-n" style="font-size:13px;line-height:1.2">${cv.nome}</div>
-        <button class="btn sm" style="padding:3px 7px;font-size:9px" onclick="editCV(${cv.id})">✏</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn sm" style="padding:3px 7px;font-size:9px" onclick="editCV(${cv.id})">✏</button>
+          <button class="btn sm" style="padding:3px 7px;font-size:9px;background:var(--rust);color:#fff;" onclick="deletarCV(${cv.id},'${cv.nome.replace(/'/g,"\\'")}')">🗑</button>
+        </div>
       </div>
       <div style="margin-bottom:8px;">
         ${canais.length?canais.map(ch=>`<span class="badge b-vio" style="margin:1px;font-size:8px;padding:1px 5px">${ch.nome}</span>`).join(''):'<span style="font-size:10px;color:var(--muted)">—</span>'}
@@ -2992,6 +2074,23 @@ function openMoCV(cv){
   openMo('mo-cv');
 }
 function editCV(id){const cv=getCVS().find(x=>x.id==id);if(cv)openMoCV(cv);}
+function deletarCV(id,nome){
+  if(!confirm('Deletar o Collab/Vendedor "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
+  var canaisVinc=DB.g('collabs').filter(function(c){return String(c.cv_id)===String(id);});
+  if(canaisVinc.length>0){
+    alert('Não é possível deletar: este Collab/Vendedor possui '+canaisVinc.length+' canal(is) de venda vinculado(s). Desvincule ou apague os canais primeiro.');
+    return;
+  }
+  var clientesVinc=DB.g('clientes').filter(function(c){return (c.collabs||[]).some(function(cid){return String(cid)===String(id);});});
+  if(clientesVinc.length>0){
+    alert('Não é possível deletar: este Collab/Vendedor possui '+clientesVinc.length+' cliente(s) vinculado(s).');
+    return;
+  }
+  var cvs=getCVS().filter(function(x){return String(x.id)!==String(id);});
+  DB.s('cvs',cvs);
+  toast('Collab/Vendedor "'+nome+'" deletado.');
+  rCVPage();
+}
 function saveCV(){
   const nome=document.getElementById('cv-nome').value.trim();if(!nome){toast('Nome obrigatório');return;}
   const cvs=getCVS();
@@ -3175,7 +2274,7 @@ function rCollabs(){
         </div>
         <div style="display:flex;gap:6px;">
           <button class="btn sm" onclick="editCol(${c.id})">✏</button>
-          ${np.length===0?`<button class="btn sm" style="background:var(--rust);color:#fff;" data-del-id="${c.id}" data-del-nome="${c.nome}" onclick="deletarCanal(this)">🗑</button>`:''}
+          <button class="btn sm" style="background:var(--rust);color:#fff;" data-del-id="${c.id}" data-del-nome="${c.nome}" onclick="deletarCanal(this)">🗑</button>
         </div>
       </div>
       <div class="ccard-st">
@@ -3361,89 +2460,6 @@ function fmtData(s){
   if(parseInt(a)>12)return s;
   if(parseInt(b)>12)return b+'/'+a+'/'+c;
   return b+'/'+a+'/'+c;
-}
-function impClientes(file){
-  if(!file)return;
-  var rd=new FileReader();
-  rd.onload=function(e){
-    try{
-      var wb=XLSX.read(e.target.result,{type:'array'});
-      var ws=wb.Sheets[wb.SheetNames[0]];
-      var rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false});
-      if(!rows.length){toast('Nenhum dado encontrado');return;}
-      var existing=DB.g('clientes');
-      var existIds={};
-      existing.forEach(function(cli,i){existIds[String(cli.id).replace(/\.0$/,'').trim()]=i;});
-      var added=0,updated=0;
-      rows.forEach(function(row){
-        var id=String(row['id']||row['ID']||'').replace(/\.0$/,'').trim();
-        if(!id)return;
-        function cv(v){var s=String(v||'').trim();return(s==='nan'||s==='NaN'||s==='<NA>')?'':s.replace(/\.0$/,'');}
-        var obj={
-          'id':id,
-          'nome':cv(row['nome']),'email':cv(row['email']),'grupo':cv(row['grupo']),
-          'ativo':cv(row['ativo'])||'S','sexo':cv(row['sexo']),
-          'data-nascimento':fmtData(cv(row['data-nascimento'])),
-          'tipo':cv(row['tipo'])||'PF','rg':cv(row['rg']),'cpf':cv(row['cpf']),
-          'cnpj':cv(row['cnpj']),'razao-social':cv(row['razao-social']),'ie':cv(row['ie']),
-          'telefone-principal':cv(row['telefone-principal']),
-          'telefone-comercial':cv(row['telefone-comercial']),
-          'telefone-celular':cv(row['telefone-celular']),
-          'endereco':cv(row['endereco']),'numero':cv(row['numero']),
-          'complemento':cv(row['complemento']),'referencia':cv(row['referencia']),
-          'bairro':cv(row['bairro']),'cidade':cv(row['cidade']),
-          'estado':cv(row['estado']),'cep':cv(row['cep']),'pais':cv(row['pais'])||'BRA',
-          'data-criacao':cv(row['data-criacao']),'situacao':cv(row['situacao'])||'pendente',
-          'canal_id':cv(row['canal_id'])
-        };
-        if(existIds[String(id)]!==undefined){
-          var i2=existIds[String(id)];
-          existing[i2]=Object.assign({},existing[i2],obj);
-          updated++;
-        } else {existing.push(obj);existIds[String(id)]=existing.length-1;added++;}
-      });
-      DB.s('clientes',existing);
-      document.getElementById('imp-cli-file').value='';
-      fillUFs();rCli();
-      toast('Clientes: '+added+' adicionados, '+updated+' atualizados!','ok');
-    }catch(err){toast('Erro ao importar: '+err.message);}
-  };
-  rd.readAsArrayBuffer(file);
-}
-
-function expCliXLSX(){
-  var f=getFiltCli();
-  var cvs_exp=DB.g('collabs');
-  var ccRel=DB.g('cliente_canais');
-  var header=['id','email','nome','grupo','ativo','sexo','data-nascimento','tipo','rg','cpf','cnpj','razao-social','ie','telefone-principal','telefone-comercial','telefone-celular','endereco','numero','complemento','referencia','bairro','cidade','estado','cep','pais','data-criacao','situacao','canal_id','canal_nome','canais_adicionais'];
-  var data=f.map(function(c){
-    var canalPrinc=cvs_exp.find(function(x){return String(x.id)===String(c['canal_id']||'');});
-    var canalNome=canalPrinc?canalPrinc.nome:(c['canal_id']==='multiplos'?'Múltiplos Canais':'');
-    var adicionais=ccRel.filter(function(r){return String(r.cliente_id)===String(c.id);})
-      .map(function(r){var cv=cvs_exp.find(function(x){return x.id==r.canal_id;});return cv?cv.nome:'';})
-      .filter(Boolean).join('; ');
-    return[String(c.id||''),c.email,c.nome,c.grupo,c.ativo,c.sexo,c['data-nascimento'],c.tipo,c.rg,c.cpf,c.cnpj,c['razao-social'],c.ie,c['telefone-principal'],c['telefone-comercial'],c['telefone-celular'],c.endereco,c.numero,c.complemento,c.referencia,c.bairro,c.cidade,c.estado,c.cep,c.pais,c['data-criacao'],c.situacao||c.sit||'',String(c['canal_id']||''),canalNome,adicionais];
-  });
-  var wb=XLSX.utils.book_new();
-  var ws=XLSX.utils.aoa_to_sheet([header].concat(data));
-  // Forçar canal_id (col 28) e id (col 1) como texto
-  var range=XLSX.utils.decode_range(ws['!ref']);
-  for(var R=1;R<=range.e.r;R++){
-    ['A','AB'].forEach(function(col){
-      var addr=col+''+(R+1);
-      if(ws[addr])ws[addr].t='s';
-    });
-  }
-  ws['!cols']=[{wch:12},{wch:35},{wch:35},{wch:12},{wch:6},{wch:6},{wch:14},{wch:6},{wch:14},{wch:16},{wch:16},{wch:30},{wch:10},{wch:18},{wch:18},{wch:18},{wch:40},{wch:8},{wch:20},{wch:20},{wch:20},{wch:20},{wch:6},{wch:10},{wch:6},{wch:20},{wch:12},{wch:12},{wch:25},{wch:40}];
-  XLSX.utils.book_append_sheet(wb,ws,'Clientes');
-  var wbout=XLSX.write(wb,{bookType:'xlsx',type:'array'});
-  var blob=new Blob([wbout],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  var url=URL.createObjectURL(blob);
-  var a=document.createElement('a');
-  a.href=url;a.download='clientes_cicloarte.xlsx';
-  document.body.appendChild(a);a.click();
-  document.body.removeChild(a);URL.revokeObjectURL(url);
-  toast('XLSX exportado: '+f.length+' clientes!','ok');
 }
 
 function backupSistema(){
