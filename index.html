@@ -375,7 +375,7 @@ async function openProject(key){
     navigate('dashboard');
     return;
   }
-  if(key==='comercial'){el.innerHTML=roBanner+'<div class="ph"><h1>🛍 Comercial</h1><p>CRM, clientes e vendas</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Este projeto será migrado do sistema de Prestação de Contas/CRM existente na próxima etapa.</p></div>';return;}
+  if(key==='comercial'){window.location.href='/comercial.html';return;}
   if(key==='financeiro'){window.location.href='/financeiro.html';return;}
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
