@@ -218,13 +218,13 @@ const CDA_LEAD_B2C_MAP = {
     canalId: r.canal_id != null ? String(r.canal_id) : null,
     etapa: r.etapa, valorEstimado: r.valor_estimado, responsavel: r.responsavel,
     clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
-    obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em
+    obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em, motivoPerda: r.motivo_perda
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
     canal_id: o.canalId || null, etapa: o.etapa || 'novo_lead', valor_estimado: o.valorEstimado,
     responsavel: o.responsavel || null, cliente_id: o.clienteId || null, obs: o.obs || null,
-    movido_em: o.movidoEm || new Date().toISOString()
+    movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null
   })
 };
 async function cdaCarregarLeadsB2C() {
