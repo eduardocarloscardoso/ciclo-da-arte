@@ -89,7 +89,8 @@ async function montarModuloPipelineB2C(containerId) {
     ST.leads = res[0]; ST.canais = res[1];
   } catch (err) {
     console.error(err);
-    host.querySelector('#pb2c-board').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase. Veja o console.</p>';
+    var msg = (err && (err.message || err.details || err.hint)) || JSON.stringify(err) || 'Erro desconhecido';
+    host.querySelector('#pb2c-board').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>' + msg + '</b></p>';
     return;
   }
 
