@@ -296,7 +296,7 @@ tr:hover td{background:#faf7f0;}
     <div class="sb-item" onclick="go('produtos')"><em>🛍</em> Produtos</div>
     <div class="sb-item" onclick="go('tarefas')"><em>✅</em> Tarefas &amp; Follow-up</div>
     <div class="sb-sec">Em breve</div>
-    <div class="sb-item" style="opacity:.4;cursor:not-allowed" title="Em desenvolvimento"><em>📊</em> Pipeline B2C</div>
+    <div class="sb-item" onclick="go('pipelineb2c')"><em>📊</em> Pipeline B2C</div>
     <div class="sb-item" style="opacity:.4;cursor:not-allowed" title="Em desenvolvimento"><em>🤝</em> Pipeline B2B</div>
     <div class="sb-item" style="opacity:.4;cursor:not-allowed" title="Em desenvolvimento"><em>💬</em> Histórico de Interações</div>
     <div class="sb-sec">Sistema</div>
@@ -358,6 +358,11 @@ tr:hover td{background:#faf7f0;}
     <!-- PRODUTOS (módulo compartilhado com o Financeiro — leitura + escrita) -->
     <div class="pg" id="pg-produtos">
       <div id="container-produtos"></div>
+    </div>
+
+    <!-- PIPELINE B2C -->
+    <div class="pg" id="pg-pipelineb2c">
+      <div id="container-pipeline-b2c"></div>
     </div>
 
     <!-- TAREFAS -->
@@ -446,6 +451,7 @@ tr:hover td{background:#faf7f0;}
 <script src="cda-modulo-clientes.js"></script>
 <script src="cda-modulo-compras.js"></script>
 <script src="cda-modulo-produtos.js"></script>
+<script src="cda-modulo-pipeline-b2c.js"></script>
 <script>
 // ── Estado ────────────────────────────────────────────────────────────
 // CONTATOS agora vem da MESMA tabela `clientes` do Supabase (Financeiro),
@@ -499,7 +505,7 @@ async function carregarDadosComerciais(){
 }
 
 // ── Navegação entre páginas ──────────────────────────────────────────
-var PAGE_TITLES = {dash:'Dashboard Comercial', contatos:'Clientes', compras:'Histórico de Compras', produtos:'Produtos', tarefas:'Tarefas & Follow-up', cfg:'Configurações'};
+var PAGE_TITLES = {dash:'Dashboard Comercial', contatos:'Clientes', compras:'Histórico de Compras', produtos:'Produtos', pipelineb2c:'Pipeline B2C', tarefas:'Tarefas & Follow-up', cfg:'Configurações'};
 function go(page){
   document.querySelectorAll('.pg').forEach(function(el){ el.classList.remove('on'); });
   document.getElementById('pg-'+page).classList.add('on');
@@ -528,6 +534,13 @@ function go(page){
     if(contProdutos && !contProdutos.dataset.montado){
       contProdutos.dataset.montado='1';
       montarModuloProdutos('container-produtos',{editavel:true});
+    }
+  }
+  if(page==='pipelineb2c'){
+    var contPipe=document.getElementById('container-pipeline-b2c');
+    if(contPipe && !contPipe.dataset.montado){
+      contPipe.dataset.montado='1';
+      montarModuloPipelineB2C('container-pipeline-b2c');
     }
   }
   if(page==='tarefas') { fillSelectFilters(); rTarefas(); }
