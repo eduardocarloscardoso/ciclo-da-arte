@@ -210,3 +210,35 @@ async function cdaExcluirCompra(id) {
   const { error } = await cdaClient.from('compras').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ── PIPELINE B2C (leads_b2c) ─────────────────────────────────────────
+const CDA_LEAD_B2C_MAP = {
+  fromRow: r => ({
+    id: r.id, nome: r.nome, telefone: r.telefone, email: r.email,
+    canalId: r.canal_id != null ? String(r.canal_id) : null,
+    etapa: r.etapa, valorEstimado: r.valor_estimado, responsavel: r.responsavel,
+    clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
+    obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em
+  }),
+  toRow: o => ({
+    id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
+    canal_id: o.canalId || null, etapa: o.etapa || 'novo_lead', valor_estimado: o.valorEstimado,
+    responsavel: o.responsavel || null, cliente_id: o.clienteId || null, obs: o.obs || null,
+    movido_em: o.movidoEm || new Date().toISOString()
+  })
+};
+async function cdaCarregarLeadsB2C() {
+  const rows = await cdaFetchAll('leads_b2c');
+  return rows.map(CDA_LEAD_B2C_MAP.fromRow);
+}
+async function cdaSalvarLeadB2C(o) {
+  const row = CDA_LEAD_B2C_MAP.toRow(o);
+  if (!row.id) row.id = 'lb2c' + cdaUid();
+  const { data, error } = await cdaClient.from('leads_b2c').upsert(row).select().single();
+  if (error) throw error;
+  return CDA_LEAD_B2C_MAP.fromRow(data);
+}
+async function cdaExcluirLeadB2C(id) {
+  const { error } = await cdaClient.from('leads_b2c').delete().eq('id', id);
+  if (error) throw error;
+}
