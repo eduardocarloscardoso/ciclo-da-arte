@@ -293,6 +293,7 @@ tr:hover td{background:#faf7f0;}
     <div class="sb-sec">Comercial</div>
     <div class="sb-item" onclick="go('contatos')"><em>👥</em> Clientes</div>
     <div class="sb-item" onclick="go('compras')"><em>🛒</em> Histórico de Compras</div>
+    <div class="sb-item" onclick="go('segmentacao')"><em>🎯</em> Segmentação de Clientes</div>
     <div class="sb-item" onclick="go('produtos')"><em>🛍</em> Produtos</div>
     <div class="sb-item" onclick="go('tarefas')"><em>✅</em> Tarefas &amp; Follow-up</div>
     <div class="sb-sec">Em breve</div>
@@ -353,6 +354,11 @@ tr:hover td{background:#faf7f0;}
     <!-- HISTÓRICO DE COMPRAS (módulo compartilhado com o Financeiro — só leitura aqui) -->
     <div class="pg" id="pg-compras">
       <div id="container-compras"></div>
+    </div>
+
+    <!-- SEGMENTAÇÃO DE CLIENTES -->
+    <div class="pg" id="pg-segmentacao">
+      <div id="container-segmentacao"></div>
     </div>
 
     <!-- PRODUTOS (módulo compartilhado com o Financeiro — leitura + escrita) -->
@@ -450,6 +456,7 @@ tr:hover td{background:#faf7f0;}
 <script src="cda-dados-compartilhados.js"></script>
 <script src="cda-modulo-clientes.js"></script>
 <script src="cda-modulo-compras.js"></script>
+<script src="cda-modulo-segmentacao.js"></script>
 <script src="cda-modulo-produtos.js"></script>
 <script src="cda-modulo-pipeline-b2c.js"></script>
 <script>
@@ -505,7 +512,7 @@ async function carregarDadosComerciais(){
 }
 
 // ── Navegação entre páginas ──────────────────────────────────────────
-var PAGE_TITLES = {dash:'Dashboard Comercial', contatos:'Clientes', compras:'Histórico de Compras', produtos:'Produtos', pipelineb2c:'Pipeline B2C', tarefas:'Tarefas & Follow-up', cfg:'Configurações'};
+var PAGE_TITLES = {dash:'Dashboard Comercial', contatos:'Clientes', compras:'Histórico de Compras', segmentacao:'Segmentação de Clientes', produtos:'Produtos', pipelineb2c:'Pipeline B2C', tarefas:'Tarefas & Follow-up', cfg:'Configurações'};
 function go(page){
   document.querySelectorAll('.pg').forEach(function(el){ el.classList.remove('on'); });
   document.getElementById('pg-'+page).classList.add('on');
@@ -527,6 +534,13 @@ function go(page){
     if(contCompras && !contCompras.dataset.montado){
       contCompras.dataset.montado='1';
       montarModuloCompras('container-compras',{editavel:false});
+    }
+  }
+  if(page==='segmentacao'){
+    var contSeg=document.getElementById('container-segmentacao');
+    if(contSeg && !contSeg.dataset.montado){
+      contSeg.dataset.montado='1';
+      montarModuloSegmentacao('container-segmentacao');
     }
   }
   if(page==='produtos'){
