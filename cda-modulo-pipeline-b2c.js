@@ -18,7 +18,16 @@ var CDA_ETAPAS_B2C = [
   { id: 'contato_iniciado', label: 'Contato Iniciado' },
   { id: 'engajado', label: 'Engajado' },
   { id: 'proposta_enviada', label: 'Proposta Enviada' },
-  { id: 'convertido', label: 'Convertido' }
+  { id: 'convertido', label: 'Convertido' },
+  { id: 'perdido', label: 'Perdido' }
+];
+var CDA_MOTIVOS_PERDA_B2C = [
+  'Sem resposta / esfriou',
+  'Preço',
+  'Comprou em outro lugar',
+  'Não era o produto certo',
+  'Fora do momento (pode voltar depois)',
+  'Outro'
 ];
 
 async function montarModuloPipelineB2C(containerId) {
@@ -64,6 +73,7 @@ async function montarModuloPipelineB2C(containerId) {
           '<div class="fgr"><label>Etapa</label><select id="pb2c-m-etapa">' + CDA_ETAPAS_B2C.map(function (e) { return '<option value="' + e.id + '">' + e.label + '</option>'; }).join('') + '</select></div>' +
           '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
           '<div class="fgr"><label>Responsável</label><input type="text" id="pb2c-m-resp"></div>' +
+          '<div class="fgr" id="pb2c-m-motivo-wrap" style="grid-column:1/-1;display:none"><label>Motivo da Perda</label><select id="pb2c-m-motivo"><option value="">— Selecione —</option>' + CDA_MOTIVOS_PERDA_B2C.map(function (m) { return '<option value="' + m + '">' + m + '</option>'; }).join('') + '</select></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
         '</div></div>' +
         '<div class="mo-f">' +
@@ -132,6 +142,7 @@ async function montarModuloPipelineB2C(containerId) {
           '<div class="rw"><span><span class="pb2c-age ' + cor + '"></span>' + dias + 'd parado</span>' +
           '<span>' + (l.valorEstimado ? 'R$ ' + Number(l.valorEstimado).toLocaleString('pt-BR') : '') + '</span></div>' +
           (l.responsavel ? '<div class="rw"><span>' + l.responsavel + '</span><span></span></div>' : '') +
+          (l.etapa === 'perdido' && l.motivoPerda ? '<div class="rw"><span class="badge b-rust" style="font-size:8px">' + l.motivoPerda + '</span></div>' : '') +
           '</div>';
       }).join('');
       return '<div class="pb2c-col">' +
@@ -176,6 +187,9 @@ async function montarModuloPipelineB2C(containerId) {
       if (novaEtapa === 'convertido' && etapaAnterior !== 'convertido') {
         await ofertarConversao(lead);
       }
+      if (novaEtapa === 'perdido' && etapaAnterior !== 'perdido' && !lead.motivoPerda) {
+        abrirModal(lead.id);
+      }
     } catch (err) {
       console.error(err);
       alert('Erro ao salvar movimentação — veja o console.');
@@ -214,6 +228,13 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-m-etapa').value = l ? l.etapa : 'novo_lead';
     host.querySelector('#pb2c-m-valor').value = l ? (l.valorEstimado != null ? l.valorEstimado : '') : '';
     host.querySelector('#pb2c-m-resp').value = l ? (l.responsavel || '') : '';
+    host.querySelector('#pb2c-m-motivo').value = l ? (l.motivoPerda || '') : '';
+    var motivoWrap = host.querySelector('#pb2c-m-motivo-wrap');
+    function atualizarVisibilidadeMotivo() {
+      motivoWrap.style.display = host.querySelector('#pb2c-m-etapa').value === 'perdido' ? 'block' : 'none';
+    }
+    atualizarVisibilidadeMotivo();
+    host.querySelector('#pb2c-m-etapa').onchange = atualizarVisibilidadeMotivo;
     host.querySelector('#pb2c-m-obs').value = l ? (l.obs || '') : '';
     host.querySelector('#pb2c-m-excluir').style.display = id ? 'inline-block' : 'none';
     modal.classList.add('op');
@@ -225,6 +246,10 @@ async function montarModuloPipelineB2C(containerId) {
     if (!nome) { alert('Informe o nome do lead.'); return; }
     var existente = ST.editId ? ST.leads.find(function (x) { return x.id === ST.editId; }) : null;
     var etapaNova = host.querySelector('#pb2c-m-etapa').value;
+    var motivoPerda = host.querySelector('#pb2c-m-motivo').value;
+    if (etapaNova === 'perdido' && !motivoPerda) {
+      if (!confirm('Nenhum motivo de perda selecionado. Salvar mesmo assim?')) return;
+    }
     var etapaAnterior = existente ? existente.etapa : null;
     var o = {
       id: ST.editId || '',
@@ -233,6 +258,7 @@ async function montarModuloPipelineB2C(containerId) {
       valorEstimado: parseFloat(host.querySelector('#pb2c-m-valor').value) || null,
       responsavel: host.querySelector('#pb2c-m-resp').value.trim(), obs: host.querySelector('#pb2c-m-obs').value.trim(),
       clienteId: existente ? existente.clienteId : null,
+      motivoPerda: etapaNova === 'perdido' ? (motivoPerda || null) : null,
       movidoEm: (existente && existente.etapa !== etapaNova) ? new Date().toISOString() : (existente ? existente.movidoEm : new Date().toISOString())
     };
     try {
