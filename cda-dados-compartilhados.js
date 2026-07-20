@@ -242,3 +242,24 @@ async function cdaExcluirLeadB2C(id) {
   const { error } = await cdaClient.from('leads_b2c').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ── SEGMENTOS SALVOS (filtros de segmentação de clientes) ────────────
+const CDA_SEGMENTO_MAP = {
+  fromRow: r => ({ id: r.id, nome: r.nome, filtros: r.filtros, criadoEm: r.criado_em }),
+  toRow: o => ({ id: o.id, nome: o.nome || null, filtros: o.filtros || [] })
+};
+async function cdaCarregarSegmentos() {
+  const rows = await cdaFetchAll('segmentos_salvos');
+  return rows.map(CDA_SEGMENTO_MAP.fromRow);
+}
+async function cdaSalvarSegmento(o) {
+  const row = CDA_SEGMENTO_MAP.toRow(o);
+  if (!row.id) row.id = 'seg' + cdaUid();
+  const { data, error } = await cdaClient.from('segmentos_salvos').upsert(row).select().single();
+  if (error) throw error;
+  return CDA_SEGMENTO_MAP.fromRow(data);
+}
+async function cdaExcluirSegmento(id) {
+  const { error } = await cdaClient.from('segmentos_salvos').delete().eq('id', id);
+  if (error) throw error;
+}
