@@ -2386,6 +2386,13 @@ function _appInit(){
     }
   })();
   var _paginaInicial=(window.location.hash||'').replace('#','')||'dash';
+  if(window.self!==window.top){
+    // Está embutido num iframe (hub unificado) — esconde a sidebar própria
+    var _sb=document.querySelector('nav.sb');
+    if(_sb)_sb.style.display='none';
+    var _main=document.querySelector('.main');
+    if(_main)_main.style.marginLeft='0';
+  }
   go(_paginaInicial);
   if(!window._cPdfs)window._cPdfs={};
   // Restaurar PDFs do sessionStorage se disponível (após restore de backup)
