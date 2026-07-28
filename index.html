@@ -12,6 +12,7 @@
 <script src="cda-modulo-compras.js"></script>
 <script src="cda-modulo-produtos.js"></script>
 <script src="cda-modulo-segmentacao.js"></script>
+<script src="cda-modulo-pipeline-b2c.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -281,6 +282,45 @@ tbody td{padding:11px 13px;vertical-align:middle}
 </div>
 </div>
 <div id="modal-root"></div>
+<div class="mo crm-embed" id="modal-tarefa" style="padding:0">
+  <div class="mo-box">
+    <div class="mo-h"><h3 id="mo-tar-title">Nova Tarefa</h3><button class="mo-x" onclick="fecharTarefaModal()">✕</button></div>
+    <div class="mo-b" style="padding:18px">
+      <div class="fg">
+        <div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="tf-desc" placeholder="ex: Ligar para confirmar proposta"></div>
+        <div class="fgr"><label>Contato Vinculado</label><select id="tf-contato"><option value="">—</option></select></div>
+        <div class="fgr"><label>Tipo</label>
+          <select id="tf-tipo">
+            <option value="ligacao">Ligação</option>
+            <option value="whatsapp">WhatsApp</option>
+            <option value="email">E-mail</option>
+            <option value="reuniao">Reunião</option>
+            <option value="visita">Visita</option>
+            <option value="proposta">Enviar Proposta</option>
+            <option value="outro">Outro</option>
+          </select>
+        </div>
+        <div class="fgr"><label>Responsável</label>
+          <div style="display:flex;gap:6px">
+            <select id="tf-resp" style="flex:1"><option value="">—</option></select>
+            <button class="btn sm" type="button" onclick="adicionarResponsavelRapido()">＋</button>
+          </div>
+        </div>
+        <div class="fgr"><label>Data de Vencimento *</label><input type="date" id="tf-data"></div>
+        <div class="fgr"><label>Status</label>
+          <select id="tf-status">
+            <option value="pendente">Pendente</option>
+            <option value="concluida">Concluída</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div class="mo-f">
+      <button class="btn" onclick="fecharTarefaModal()">Cancelar</button>
+      <button class="btn rust" onclick="salvarTarefa()">💾 Salvar</button>
+    </div>
+  </div>
+</div>
 <input type="file" id="file-input" accept=".xlsx,.xls" style="display:none" onchange="handleFileImport(this)">
 <script>
 const SUPABASE_URL='https://gsizoiwefejsllgtsard.supabase.co';
@@ -314,6 +354,7 @@ var RC={ceo:{label:'CEO / Dono',pages:['dashboard','roadmap','modulos','kpis','a
 var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Roadmap'},modulos:{icon:'🧩',label:'Módulos'},kpis:{icon:'📈',label:'KPIs & Metas'},acoes:{icon:'✅',label:'Plano de Ações'},equipe:{icon:'👥',label:'Equipe & Acessos'},config:{icon:'⚙',label:'Configurações'},credenciamento:{icon:'🔑',label:'Credenciamento de Usuários'}};
 // Submenu do CRM — compartilhado entre Comercial e Financeiro (Etapa 1 da unificação)
 var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
+var CRM_ONLY_COMERCIAL={pipelineb2c:{icon:'📊',label:'Pipeline B2C'},tarefas:{icon:'✅',label:'Tarefas & Follow-up'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -423,6 +464,13 @@ function renderSidebarNav(){
       var activeSub=(window._crmPage===id)?'active':'';
       nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
     });
+    if(currentProject==='comercial'){
+      ['pipelineb2c','tarefas'].forEach(function(id){
+        var p=CRM_ONLY_COMERCIAL[id];
+        var activeSub=(window._crmPage===id)?'active':'';
+        nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+      });
+    }
   }
 }
 async function openProject(key){
@@ -450,7 +498,7 @@ async function openProject(key){
 async function navigateCRM(pageId){
   window._crmPage=pageId;
   renderSidebarNav();
-  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:pageId;
+  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(CRM_ONLY_COMERCIAL[pageId]?CRM_ONLY_COMERCIAL[pageId].label:pageId);
   var el=document.getElementById('main-content');
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
@@ -467,7 +515,126 @@ async function navigateCRM(pageId){
   }else if(pageId==='segmentacao'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-segmentacao"></div></div>';
     montarModuloSegmentacao('container-segmentacao');
+  }else if(pageId==='pipelineb2c'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-pipeline-b2c"></div></div>';
+    montarModuloPipelineB2C('container-pipeline-b2c');
+  }else if(pageId==='tarefas'){
+    el.innerHTML=roBanner+'<div class="crm-embed">'+
+      '<div class="row-bt"><div><div class="sec-t">Tarefas &amp; Follow-up</div><div class="sec-d">Ligações, propostas, visitas e follow-ups vinculados a contatos</div></div>'+
+      '<button class="btn rust" onclick="abrirTarefaModal(null)">＋ Nova Tarefa</button></div>'+
+      '<div class="fb"><select id="f-tar-status" onchange="rTarefas()"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="concluida">Concluída</option><option value="atrasada">Atrasada</option></select>'+
+      '<select id="f-tar-resp" onchange="rTarefas()"><option value="">Todos os responsáveis</option></select>'+
+      '<span class="fc" id="tar-cnt"></span></div>'+
+      '<div class="tw"><div class="ts"><table><thead><tr><th>Tarefa</th><th>Contato</th><th>Tipo</th><th>Responsável</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead>'+
+      '<tbody id="tbl-tarefas"></tbody></table></div></div></div>';
+    fillTarefaFiltros();
+    rTarefas();
   }
+}
+
+// ── TAREFAS & FOLLOW-UP (Comercial) — ainda local via localStorage, sem tabela própria no Supabase ──
+var TAREFAS=JSON.parse(localStorage.getItem('cda_com_tarefas')||'[]');
+var RESPONSAVEIS=JSON.parse(localStorage.getItem('cda_com_resp')||'[]');
+var _tarefasClientesCache=null;
+function salvarTarefasLocal(){localStorage.setItem('cda_com_tarefas',JSON.stringify(TAREFAS));}
+function salvarRespLocal(){localStorage.setItem('cda_com_resp',JSON.stringify(RESPONSAVEIS));}
+function fillTarefaFiltros(){
+  var sel=document.getElementById('f-tar-resp');
+  if(sel)sel.innerHTML='<option value="">Todos os responsáveis</option>'+RESPONSAVEIS.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('');
+}
+async function abrirTarefaModal(id){
+  if(!_tarefasClientesCache){
+    try{_tarefasClientesCache=await cdaCarregarClientes();}catch(e){_tarefasClientesCache=[];}
+  }
+  document.getElementById('tf-contato').innerHTML='<option value="">—</option>'+_tarefasClientesCache.map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('');
+  document.getElementById('tf-resp').innerHTML='<option value="">—</option>'+RESPONSAVEIS.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('');
+  document.getElementById('mo-tar-title').textContent=id?'Editar Tarefa':'Nova Tarefa';
+  var t=id?TAREFAS.find(function(x){return x.id===id;}):null;
+  document.getElementById('tf-desc').value=t?t.desc:'';
+  document.getElementById('tf-contato').value=t?(t.contato_id||''):'';
+  document.getElementById('tf-tipo').value=t?t.tipo:'ligacao';
+  document.getElementById('tf-resp').value=t?(t.resp||''):'';
+  document.getElementById('tf-data').value=t?t.data:'';
+  document.getElementById('tf-status').value=t?t.status:'pendente';
+  document.getElementById('modal-tarefa').dataset.editId=id||'';
+  document.getElementById('modal-tarefa').classList.add('op');
+}
+function fecharTarefaModal(){document.getElementById('modal-tarefa').classList.remove('op');}
+function adicionarResponsavelRapido(){
+  var nome=prompt('Nome do novo responsável:');
+  if(!nome)return;
+  nome=nome.trim();
+  if(!nome||RESPONSAVEIS.indexOf(nome)>=0)return;
+  RESPONSAVEIS.push(nome);
+  salvarRespLocal();
+  fillTarefaFiltros();
+  document.getElementById('tf-resp').innerHTML='<option value="">—</option>'+RESPONSAVEIS.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('');
+  document.getElementById('tf-resp').value=nome;
+}
+function salvarTarefa(){
+  var desc=document.getElementById('tf-desc').value.trim();
+  var data=document.getElementById('tf-data').value;
+  if(!desc||!data){alert('Preencha descrição e data de vencimento');return;}
+  var editId=document.getElementById('modal-tarefa').dataset.editId;
+  var d={desc:desc,contato_id:document.getElementById('tf-contato').value,tipo:document.getElementById('tf-tipo').value,resp:document.getElementById('tf-resp').value,data:data,status:document.getElementById('tf-status').value};
+  if(editId){
+    var idx=TAREFAS.findIndex(function(x){return x.id===editId;});
+    d.id=editId;TAREFAS[idx]=d;
+  }else{
+    d.id='t'+Date.now()+Math.floor(Math.random()*10000);
+    TAREFAS.push(d);
+  }
+  salvarTarefasLocal();
+  fecharTarefaModal();
+  rTarefas();
+}
+function excluirTarefa(id){
+  if(!confirm('Excluir esta tarefa?'))return;
+  TAREFAS=TAREFAS.filter(function(x){return x.id!==id;});
+  salvarTarefasLocal();
+  rTarefas();
+}
+function toggleConcluida(id){
+  var t=TAREFAS.find(function(x){return x.id===id;});
+  if(!t)return;
+  t.status=t.status==='concluida'?'pendente':'concluida';
+  salvarTarefasLocal();
+  rTarefas();
+}
+function nomeContatoTarefa(id){
+  if(!_tarefasClientesCache)return'—';
+  var c=_tarefasClientesCache.find(function(x){return x.id===id;});
+  return c?c.nome:'—';
+}
+function statusTarefaReal(t){
+  if(t.status==='concluida')return'concluida';
+  var hoje=new Date().toISOString().slice(0,10);
+  return(t.data<hoje)?'atrasada':'pendente';
+}
+async function rTarefas(){
+  if(!_tarefasClientesCache){
+    try{_tarefasClientesCache=await cdaCarregarClientes();}catch(e){_tarefasClientesCache=[];}
+  }
+  var fStatus=document.getElementById('f-tar-status')?document.getElementById('f-tar-status').value:'';
+  var fResp=document.getElementById('f-tar-resp')?document.getElementById('f-tar-resp').value:'';
+  var list=TAREFAS.filter(function(t){
+    var st=statusTarefaReal(t);
+    if(fStatus&&st!==fStatus)return false;
+    if(fResp&&t.resp!==fResp)return false;
+    return true;
+  }).sort(function(a,b){return a.data.localeCompare(b.data);});
+  var badgeMap={pendente:'gd',concluida:'sage',atrasada:'rust'};
+  var labelMap={pendente:'Pendente',concluida:'Concluída',atrasada:'Atrasada'};
+  var tb=document.getElementById('tbl-tarefas');
+  if(!tb)return;
+  tb.innerHTML=list.map(function(t){
+    var st=statusTarefaReal(t);
+    return '<tr><td>'+t.desc+'</td><td>'+nomeContatoTarefa(t.contato_id)+'</td><td>'+t.tipo+'</td><td>'+(t.resp||'—')+'</td>'+
+      '<td class="mn">'+t.data.split('-').reverse().join('/')+'</td>'+
+      '<td><span class="badge b-'+badgeMap[st]+'">'+labelMap[st]+'</span></td>'+
+      '<td><button class="btn sm" onclick="toggleConcluida(\''+t.id+'\')">'+(t.status==='concluida'?'Reabrir':'Concluir')+'</button> <button class="btn sm" onclick="abrirTarefaModal(\''+t.id+'\')">Editar</button> <button class="btn sm" onclick="excluirTarefa(\''+t.id+'\')">Excluir</button></td></tr>';
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma tarefa cadastrada ainda.</td></tr>';
+  document.getElementById('tar-cnt').textContent=list.length+' tarefa(s)';
 }
 
 // ── CREDENCIAMENTO DE USUÁRIOS (admin only) ─────────────────────────
