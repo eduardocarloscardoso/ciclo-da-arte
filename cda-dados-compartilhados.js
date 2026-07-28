@@ -263,3 +263,45 @@ async function cdaExcluirSegmento(id) {
   const { error } = await cdaClient.from('segmentos_salvos').delete().eq('id', id);
   if (error) throw error;
 }
+
+// ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
+async function cdaSalvarCanal(o) {
+  const row = {
+    id: o.id || cdaUid(), nome: o.nome || null, tipo: o.tipo || null,
+    comissao: o.comissao, pct_imp: o.pctImp, pct_op: o.pctOp, pct_cs: o.pctCs,
+    sem_frete: !!o.semFrete, email: o.email || null, obs: o.obs || null, parceiro_id: o.parceiroId || null
+  };
+  const { data, error } = await cdaClient.from('canais').upsert(row).select().single();
+  if (error) throw error;
+  return { id: data.id, nome: data.nome, tipo: data.tipo, comissao: data.comissao, pctImp: data.pct_imp, pctOp: data.pct_op, pctCs: data.pct_cs, semFrete: data.sem_frete, email: data.email, obs: data.obs, parceiroId: data.parceiro_id };
+}
+async function cdaExcluirCanal(id) {
+  const { error } = await cdaClient.from('canais').delete().eq('id', id);
+  if (error) throw error;
+}
+async function cdaSalvarParceiro(o) {
+  const row = { id: o.id || cdaUid(), nome: o.nome || null, obs: o.obs || null };
+  const { data, error } = await cdaClient.from('parceiros').upsert(row).select().single();
+  if (error) throw error;
+  return { id: data.id, nome: data.nome, obs: data.obs };
+}
+async function cdaExcluirParceiro(id) {
+  const { error } = await cdaClient.from('parceiros').delete().eq('id', id);
+  if (error) throw error;
+}
+async function cdaAdicionarTipoProduto(nome) {
+  const { error } = await cdaClient.from('tipos_produto').insert({ nome });
+  if (error) throw error;
+}
+async function cdaExcluirTipoProduto(nome) {
+  const { error } = await cdaClient.from('tipos_produto').delete().eq('nome', nome);
+  if (error) throw error;
+}
+async function cdaAdicionarColecao(nome) {
+  const { error } = await cdaClient.from('colecoes').insert({ nome });
+  if (error) throw error;
+}
+async function cdaExcluirColecao(nome) {
+  const { error } = await cdaClient.from('colecoes').delete().eq('nome', nome);
+  if (error) throw error;
+}
