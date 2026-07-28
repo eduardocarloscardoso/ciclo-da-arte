@@ -2385,7 +2385,8 @@ function _appInit(){
       console.log('Canais duplicados removidos:',(cols.length-cleaned.length));
     }
   })();
-  go('dash');
+  var _paginaInicial=(window.location.hash||'').replace('#','')||'dash';
+  go(_paginaInicial);
   if(!window._cPdfs)window._cPdfs={};
   // Restaurar PDFs do sessionStorage se disponível (após restore de backup)
   (function(){
