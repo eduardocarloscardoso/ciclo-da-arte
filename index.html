@@ -303,12 +303,7 @@ tbody td{padding:11px 13px;vertical-align:middle}
 </div>
 <div class="content" id="main-content"></div>
 <div id="financeiro-iframe-wrap" style="display:none;width:100%;height:calc(100vh - 90px)">
-  <div style="display:flex;justify-content:flex-end;gap:8px;padding:6px 16px;background:#f5f0e8;border-bottom:1px solid #e0dbd0">
-    <input type="file" id="hub-fin-restore-input" accept=".json" style="display:none" onchange="hubRestaurarBackupFinanceiro(this)">
-    <button onclick="hubBackupFinanceiro()" style="font-size:10px;padding:5px 10px;border:1px solid #6b6459;background:transparent;color:#6b6459;cursor:pointer;font-family:monospace">💾 Backup</button>
-    <button onclick="document.getElementById('hub-fin-restore-input').click()" style="font-size:10px;padding:5px 10px;border:1px solid #6b6459;background:transparent;color:#6b6459;cursor:pointer;font-family:monospace">⬆ Restaurar</button>
-  </div>
-  <iframe id="financeiro-iframe" style="width:100%;height:calc(100% - 34px);border:none;background:#faf7f2"></iframe>
+  <iframe id="financeiro-iframe" style="width:100%;height:100%;border:none;background:#faf7f2"></iframe>
 </div>
 </div>
 </div>
@@ -431,6 +426,8 @@ function renderSidebarNav(){
     nav.innerHTML+='<div class="sb-section">Administração</div>';
     var active=currentProject==='credenciamento'?'active':'';
     nav.innerHTML+='<div class="nav-item '+active+'" id="nav-proj-credenciamento" onclick="openProject(\'credenciamento\')"><span class="nav-icon">🔑</span>Credenciamento</div>';
+    var activeSeg=currentProject==='seguranca'?'active':'';
+    nav.innerHTML+='<div class="nav-item '+activeSeg+'" id="nav-proj-seguranca" onclick="openProject(\'seguranca\')"><span class="nav-icon">🛡</span>Segurança</div>';
   }
   // Se o projeto ativo tiver submenu (hoje só Marketing), mostra embaixo
   if(currentProject==='marketing'&&RC[cu.role]){
@@ -478,6 +475,20 @@ async function openProject(key){
   if(key!=='comercial'&&key!=='financeiro'&&iframeWrap0) iframeWrap0.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   if(key==='credenciamento'){el.innerHTML=roBanner;renderCredenciamento(el);return;}
+  if(key==='seguranca'){
+    el.innerHTML=roBanner+'<div class="crm-embed">'+
+      '<div class="sec-t">Segurança</div><div class="sec-d">Backup e restauração dos dados do Financeiro (Prestação de Contas, Cardápios, Canais)</div>'+
+      '<div class="cc" style="max-width:520px"><h3>💾 Backup de Dados</h3><p class="tmu" style="margin-bottom:10px">Baixa um arquivo .json com uma cópia completa dos dados do Financeiro. Guarde antes de fazer alterações grandes.</p>'+
+      '<button class="btn rust" id="seg-btn-backup">💾 Fazer Backup Agora</button></div>'+
+      '<div class="cc" style="max-width:520px;margin-top:16px"><h3>⬆ Restaurar Backup</h3><p class="tmu" style="margin-bottom:10px">Restaura os dados a partir de um arquivo .json de backup gerado anteriormente. <b>Isso substitui os dados atuais</b> — use com cuidado.</p>'+
+      '<input type="file" id="seg-restore-input" accept=".json" style="display:none">'+
+      '<button class="btn" id="seg-btn-restaurar">⬆ Escolher Arquivo e Restaurar</button></div>'+
+      '</div>';
+    document.getElementById('seg-btn-backup').addEventListener('click', hubBackupFinanceiro);
+    document.getElementById('seg-restore-input').addEventListener('change', function(){ hubRestaurarBackupFinanceiro(this); });
+    document.getElementById('seg-btn-restaurar').addEventListener('click', function(){ document.getElementById('seg-restore-input').click(); });
+    return;
+  }
   if(key==='marketing'){
     if(!ACOES.length&&!MODULOS.length)await loadData();
     window._marketingPage='dashboard';renderSidebarNav();
@@ -493,23 +504,25 @@ async function openProject(key){
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
 }
 
-function hubBackupFinanceiro(){
+function garantirIframeFinanceiroCarregado(callback){
   var frame=document.getElementById('financeiro-iframe');
-  try{
-    frame.contentWindow.backupSistema();
-  }catch(e){
-    alert('Abra alguma tela do Financeiro (Prestação de Contas, Importar Planilha ou Cardápios) antes de fazer o backup.');
-    console.error(e);
-  }
+  if(frame.dataset.loaded){ callback(); return; }
+  frame.src='/financeiro.html#dash';
+  frame.dataset.loaded='1';
+  frame.dataset.currentPage='dash';
+  frame.onload=function(){ setTimeout(callback, 600); };
+}
+function hubBackupFinanceiro(){
+  garantirIframeFinanceiroCarregado(function(){
+    try{ document.getElementById('financeiro-iframe').contentWindow.backupSistema(); }
+    catch(e){ alert('Erro ao gerar backup — tenta de novo em alguns segundos.'); console.error(e); }
+  });
 }
 function hubRestaurarBackupFinanceiro(el){
-  var frame=document.getElementById('financeiro-iframe');
-  try{
-    frame.contentWindow.restaurarBackup(el);
-  }catch(e){
-    alert('Abra alguma tela do Financeiro (Prestação de Contas, Importar Planilha ou Cardápios) antes de restaurar.');
-    console.error(e);
-  }
+  garantirIframeFinanceiroCarregado(function(){
+    try{ document.getElementById('financeiro-iframe').contentWindow.restaurarBackup(el); }
+    catch(e){ alert('Erro ao restaurar — tenta de novo em alguns segundos.'); console.error(e); }
+  });
 }
 async function navigateCRM(pageId){
   window._crmPage=pageId;
