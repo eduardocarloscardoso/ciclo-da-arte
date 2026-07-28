@@ -303,7 +303,12 @@ tbody td{padding:11px 13px;vertical-align:middle}
 </div>
 <div class="content" id="main-content"></div>
 <div id="financeiro-iframe-wrap" style="display:none;width:100%;height:calc(100vh - 90px)">
-  <iframe id="financeiro-iframe" style="width:100%;height:100%;border:none;background:#faf7f2"></iframe>
+  <div style="display:flex;justify-content:flex-end;gap:8px;padding:6px 16px;background:#f5f0e8;border-bottom:1px solid #e0dbd0">
+    <input type="file" id="hub-fin-restore-input" accept=".json" style="display:none" onchange="hubRestaurarBackupFinanceiro(this)">
+    <button onclick="hubBackupFinanceiro()" style="font-size:10px;padding:5px 10px;border:1px solid #6b6459;background:transparent;color:#6b6459;cursor:pointer;font-family:monospace">💾 Backup</button>
+    <button onclick="document.getElementById('hub-fin-restore-input').click()" style="font-size:10px;padding:5px 10px;border:1px solid #6b6459;background:transparent;color:#6b6459;cursor:pointer;font-family:monospace">⬆ Restaurar</button>
+  </div>
+  <iframe id="financeiro-iframe" style="width:100%;height:calc(100% - 34px);border:none;background:#faf7f2"></iframe>
 </div>
 </div>
 </div>
@@ -488,6 +493,24 @@ async function openProject(key){
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
 }
 
+function hubBackupFinanceiro(){
+  var frame=document.getElementById('financeiro-iframe');
+  try{
+    frame.contentWindow.backupSistema();
+  }catch(e){
+    alert('Abra alguma tela do Financeiro (Prestação de Contas, Importar Planilha ou Cardápios) antes de fazer o backup.');
+    console.error(e);
+  }
+}
+function hubRestaurarBackupFinanceiro(el){
+  var frame=document.getElementById('financeiro-iframe');
+  try{
+    frame.contentWindow.restaurarBackup(el);
+  }catch(e){
+    alert('Abra alguma tela do Financeiro (Prestação de Contas, Importar Planilha ou Cardápios) antes de restaurar.');
+    console.error(e);
+  }
+}
 async function navigateCRM(pageId){
   window._crmPage=pageId;
   renderSidebarNav();
