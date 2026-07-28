@@ -577,6 +577,10 @@ tr:hover td{background:#faf7f0;}
 <div class="toast ok" id="toast">XLSX exportado: 4557 clientes!</div>
 
 <script>
+if(window.self===window.top){
+  // Acesso direto (fora do hub unificado) — este módulo foi unificado, redireciona
+  window.location.replace('/');
+}
 // ════════════════════════════════════════════════
 // DB — Supabase (substitui localStorage)
 // ════════════════════════════════════════════════
