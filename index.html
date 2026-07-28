@@ -253,6 +253,29 @@ tbody td{padding:11px 13px;vertical-align:middle}
 .crm-embed .acr select{flex:1;font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;border:2px solid var(--ink);background:var(--card);outline:none;}
 .crm-embed .ct{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
 
+.crm-embed .kpi-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
+.crm-embed .kpi{background:var(--card);border:2px solid var(--ink);padding:18px;position:relative;overflow:hidden;}
+.crm-embed .kpi.gd::before{background:var(--gold);}
+.crm-embed .kpi.vi::before{background:var(--violet);}
+.crm-embed .kpi.sa::before{background:var(--sage);}
+.crm-embed .kpi.li::before{background:#b89fd4;}
+.crm-embed .kpi-l{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:700;margin-bottom:5px;}
+.crm-embed .kpi-v{font-family:'DM Serif Display',serif;font-size:26px;line-height:1;}
+.crm-embed .kpi-s{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px;}
+.crm-embed .cc-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:20px;}
+.crm-embed .cc{background:var(--card);border:2px solid var(--ink);padding:20px;margin-bottom:16px;}
+.crm-embed .cc h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
+.crm-embed .ccard{background:var(--card);border:2px solid var(--ink);padding:18px;position:relative;overflow:hidden;}
+.crm-embed .ccard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--rust);}
+.crm-embed .ccard.ec::before{background:var(--violet);}
+.crm-embed .ccard.mu::before{background:var(--gold);}
+.crm-embed .ccard.cs::before{background:var(--sage);}
+.crm-embed .ccard-n{font-family:'DM Serif Display',serif;font-size:16px;margin-bottom:3px;}
+.crm-embed .ccard-t{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:10px;}
+.crm-embed .ccard-st{display:flex;gap:14px;}
+.crm-embed .b-gd{background:#fdf3dc;color:#8a6510;}
+.crm-embed .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--rust);}
+
 </style>
 </head>
 <body>
@@ -428,6 +451,11 @@ function renderSidebarNav(){
       nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
       nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
     }
+    if(currentProject==='financeiro'){
+      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='canais'?'active':'')+'" id="nav-crm-canais" onclick="navigateCRM(\'canais\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">🏷</span>Canais de Venda</div>';
+      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cvpage'?'active':'')+'" id="nav-crm-cvpage" onclick="navigateCRM(\'cvpage\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">👤</span>Collabs / Vendedores</div>';
+      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cfgfin'?'active':'')+'" id="nav-crm-cfgfin" onclick="navigateCRM(\'cfgfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⚙</span>Tipos e Coleções</div>';
+    }
   }
 }
 async function openProject(key){
@@ -455,7 +483,8 @@ async function openProject(key){
 async function navigateCRM(pageId){
   window._crmPage=pageId;
   renderSidebarNav();
-  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:pageId;
+  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',tarefas:'Tarefas & Follow-up',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções'};
+  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId);
   var el=document.getElementById('main-content');
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
@@ -478,6 +507,15 @@ async function navigateCRM(pageId){
   }else if(pageId==='tarefas'){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-tarefas"></div>';
     montarModuloTarefas('container-tarefas');
+  }else if(pageId==='canais'){
+    el.innerHTML=roBanner+'<div class="crm-embed" id="container-canais"></div>';
+    montarCanaisVenda('container-canais');
+  }else if(pageId==='cvpage'){
+    el.innerHTML=roBanner+'<div class="crm-embed" id="container-cvpage"></div>';
+    montarCollabsVendedores('container-cvpage');
+  }else if(pageId==='cfgfin'){
+    el.innerHTML=roBanner+'<div class="crm-embed" id="container-cfgfin"></div>';
+    montarConfigFinanceiro('container-cfgfin');
   }
 }
 
@@ -581,6 +619,244 @@ async function montarModuloTarefas(containerId){
   });
   host.querySelector('#f-tar-status').addEventListener('change',render);
   host.querySelector('#f-tar-resp').addEventListener('change',render);
+  render();
+}
+
+// ── CONFIG FINANCEIRO — Tipos de Peça e Coleções (Supabase) ─────────
+async function montarConfigFinanceiro(containerId){
+  var host=document.getElementById(containerId);
+  var tipos=[],colecoes=[];
+  try{
+    tipos=await cdaCarregarTiposProduto();
+    colecoes=await cdaCarregarColecoes();
+  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
+  function render(){
+    host.innerHTML=
+      '<div class="sec-t">Tipos e Coleções</div><div class="sec-d">Listas usadas no cadastro de produtos</div>'+
+      '<div class="cc"><h3>Tipos de Peça</h3><div id="tp-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+
+      tipos.map(function(t){return '<span class="badge b-vio" style="padding:4px 11px;font-size:10px;cursor:pointer" data-rmtp="'+t+'">'+t+' ✕</span>';}).join('')+
+      '</div><div style="display:flex;gap:7px;"><input type="text" id="new-tp" placeholder="Ex: Moletom" style="font-family:\'Syne\',sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" id="btn-add-tp">+ Adicionar</button></div></div>'+
+      '<div class="cc"><h3>Coleções</h3><div id="col-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+
+      colecoes.map(function(c){return '<span class="badge b-gd" style="padding:4px 11px;font-size:10px;cursor:pointer" data-rmcol="'+c+'">'+c+' ✕</span>';}).join('')+
+      '</div><div style="display:flex;gap:7px;"><input type="text" id="new-col" placeholder="Ex: Tour 2026" style="font-family:\'Syne\',sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" id="btn-add-col">+ Adicionar</button></div></div>';
+    host.querySelectorAll('[data-rmtp]').forEach(function(el){el.addEventListener('click',async function(){
+      if(!confirm('Remover o tipo "'+el.dataset.rmtp+'"?'))return;
+      try{await cdaExcluirTipoProduto(el.dataset.rmtp);tipos=tipos.filter(function(t){return t!==el.dataset.rmtp;});render();}catch(e){alert('Erro ao remover.');console.error(e);}
+    });});
+    host.querySelectorAll('[data-rmcol]').forEach(function(el){el.addEventListener('click',async function(){
+      if(!confirm('Remover a coleção "'+el.dataset.rmcol+'"?'))return;
+      try{await cdaExcluirColecao(el.dataset.rmcol);colecoes=colecoes.filter(function(c){return c!==el.dataset.rmcol;});render();}catch(e){alert('Erro ao remover.');console.error(e);}
+    });});
+    host.querySelector('#btn-add-tp').addEventListener('click',async function(){
+      var v=host.querySelector('#new-tp').value.trim();if(!v||tipos.includes(v))return;
+      try{await cdaAdicionarTipoProduto(v);tipos.push(v);render();}catch(e){alert('Erro ao adicionar.');console.error(e);}
+    });
+    host.querySelector('#btn-add-col').addEventListener('click',async function(){
+      var v=host.querySelector('#new-col').value.trim();if(!v||colecoes.includes(v))return;
+      try{await cdaAdicionarColecao(v);colecoes.push(v);render();}catch(e){alert('Erro ao adicionar.');console.error(e);}
+    });
+  }
+  render();
+}
+
+// ── COLLABS / VENDEDORES (parceiros) — Supabase ─────────────────────
+async function montarCollabsVendedores(containerId){
+  var host=document.getElementById(containerId);
+  var parceiros=[],canais=[];
+  try{
+    parceiros=await cdaCarregarParceiros();
+    canais=await cdaCarregarCanais();
+  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
+  host.innerHTML=
+    '<div class="row-bt"><div><div class="sec-t">Collabs / Vendedores</div><div class="sec-d">Artistas e parceiros vinculados à Ciclo da Arte</div></div>'+
+    '<button class="btn rust sm" id="cv-btn-novo">+ Novo</button></div>'+
+    '<div class="fb"><input type="text" id="f-cvnome" placeholder="Buscar collab / vendedor...">'+
+    '<select id="f-cv-canal"><option value="">Todos os canais</option>'+canais.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('')+'</select>'+
+    '<span class="fc" id="cv-cnt"></span></div>'+
+    '<div class="cc-g" id="cv-cards" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>'+
+    '<div class="mo" id="mo-cv"><div class="mo-box"><div class="mo-h"><h3 id="mo-cv-t">Novo Collab / Vendedor</h3><button class="mo-x" id="cv-modal-x">✕</button></div>'+
+    '<div class="mo-b"><div class="fg"><div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input id="cv-nome" type="text" placeholder="Ex: Duda Beat"></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="cv-obs"></textarea></div></div></div>'+
+    '<div class="mo-f"><button class="btn" id="cv-m-cancelar">Cancelar</button><button class="btn rust" id="cv-m-salvar">Salvar</button></div></div></div>';
+
+  function render(){
+    var busca=host.querySelector('#f-cvnome').value.toLowerCase();
+    var fCanal=host.querySelector('#f-cv-canal').value;
+    var list=parceiros.filter(function(p){
+      if(busca&&!(p.nome||'').toLowerCase().includes(busca))return false;
+      if(fCanal&&!canais.some(function(c){return String(c.parceiroId)===String(p.id)&&String(c.id)===fCanal;}))return false;
+      return true;
+    });
+    host.querySelector('#cv-cnt').textContent=list.length+' collab(s)/vendedor(es)';
+    host.querySelector('#cv-cards').innerHTML=list.map(function(p){
+      var qtdCanais=canais.filter(function(c){return String(c.parceiroId)===String(p.id);}).length;
+      return '<div class="ccard"><div class="ccard-n">'+p.nome+'</div><div class="ccard-t">'+qtdCanais+' canal(is)</div>'+
+        '<div style="display:flex;gap:6px;margin-top:8px"><button class="btn sm" data-edit="'+p.id+'">✏</button>'+
+        '<button class="btn sm" style="background:var(--rust);color:#fff" data-del="'+p.id+'">🗑</button></div></div>';
+    }).join('')||'<p class="tmu" style="grid-column:1/-1">Nenhum collab/vendedor encontrado.</p>';
+    host.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
+    host.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){excluir(b.dataset.del);});});
+  }
+  var modal=host.querySelector('#mo-cv');
+  function abrirModal(id){
+    var p=id?parceiros.find(function(x){return String(x.id)===String(id);}):null;
+    host.querySelector('#mo-cv-t').textContent=id?'Editar Collab / Vendedor':'Novo Collab / Vendedor';
+    host.querySelector('#cv-nome').value=p?p.nome:'';
+    host.querySelector('#cv-obs').value=p?(p.obs||''):'';
+    modal.dataset.editId=id||'';
+    modal.classList.add('op');
+  }
+  function fecharModal(){modal.classList.remove('op');}
+  host.querySelector('#cv-btn-novo').addEventListener('click',function(){abrirModal(null);});
+  host.querySelector('#cv-modal-x').addEventListener('click',fecharModal);
+  host.querySelector('#cv-m-cancelar').addEventListener('click',fecharModal);
+  host.querySelector('#cv-m-salvar').addEventListener('click',async function(){
+    var nome=host.querySelector('#cv-nome').value.trim();
+    if(!nome){alert('Nome obrigatório.');return;}
+    var editId=modal.dataset.editId;
+    try{
+      var salvo=await cdaSalvarParceiro({id:editId||null,nome:nome,obs:host.querySelector('#cv-obs').value});
+      if(editId){var i=parceiros.findIndex(function(x){return String(x.id)===String(editId);});parceiros[i]=salvo;}
+      else parceiros.push(salvo);
+      fecharModal();render();
+    }catch(e){alert('Erro ao salvar.');console.error(e);}
+  });
+  async function excluir(id){
+    var nome=(parceiros.find(function(x){return String(x.id)===String(id);})||{}).nome||'';
+    if(!confirm('Deletar o Collab/Vendedor "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
+    var canaisVinc=canais.filter(function(c){return String(c.parceiroId)===String(id);});
+    if(canaisVinc.length>0){alert('Não é possível deletar: este Collab/Vendedor possui '+canaisVinc.length+' canal(is) de venda vinculado(s).');return;}
+    try{
+      await cdaExcluirParceiro(id);
+      parceiros=parceiros.filter(function(x){return String(x.id)!==String(id);});
+      render();
+    }catch(e){alert('Erro ao excluir.');console.error(e);}
+  }
+  host.querySelector('#f-cvnome').addEventListener('input',render);
+  host.querySelector('#f-cv-canal').addEventListener('change',render);
+  render();
+}
+
+// ── CANAIS DE VENDA — Supabase ───────────────────────────────────────
+var TIPO_L_CANAL={artista:'Artista',casa_shows:'Casa de Shows',revenda:'Revenda',ecommerce:'E-Commerce Dedicado',multi:'E-Commerce Multimarcas'};
+var TIPO_C_CANAL={multi:'mu',ecommerce:'ec',casa_shows:'cs'};
+async function montarCanaisVenda(containerId){
+  var host=document.getElementById(containerId);
+  var canais=[],parceiros=[];
+  try{
+    canais=await cdaCarregarCanais();
+    parceiros=await cdaCarregarParceiros();
+  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
+  host.innerHTML=
+    '<div class="row-bt"><div><div class="sec-t">Canais de Venda</div><div class="sec-d">Artistas, casas de shows, revendas e e-commerces</div></div>'+
+    '<button class="btn rust sm" id="col-btn-novo">+ Novo Canal de Venda</button></div>'+
+    '<div class="fb"><input type="text" id="f-col-nome" placeholder="Buscar canal...">'+
+    '<select id="f-col-cv"><option value="">Todos os collabs</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('')+'</select>'+
+    '<select id="f-col-tipo"><option value="">Todos os tipos</option><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select>'+
+    '<span class="fc" id="col-cnt"></span></div>'+
+    '<div class="kpi-g" style="margin-bottom:16px">'+
+    '<div class="kpi"><div class="kpi-l">Total Canais</div><div class="kpi-v" id="col-total-kpi">—</div><div class="kpi-s">conforme filtros</div></div>'+
+    '<div class="kpi gd"><div class="kpi-l">Artistas</div><div class="kpi-v" id="col-kpi-artista">—</div><div class="kpi-s">canais tipo artista</div></div>'+
+    '<div class="kpi vi"><div class="kpi-l">E-Commerce</div><div class="kpi-v" id="col-kpi-ecommerce">—</div><div class="kpi-s">canais e-commerce</div></div>'+
+    '<div class="kpi sa"><div class="kpi-l">Revendas</div><div class="kpi-v" id="col-kpi-revenda">—</div><div class="kpi-s">canais revenda</div></div>'+
+    '<div class="kpi li"><div class="kpi-l">Shows / Outros</div><div class="kpi-v" id="col-kpi-outros">—</div><div class="kpi-s">demais tipos</div></div></div>'+
+    '<div class="cc-g" id="col-cards"></div>'+
+    '<div class="mo" id="mo-col"><div class="mo-box"><div class="mo-h"><h3 id="mo-col-t">Novo Canal de Venda</h3><button class="mo-x" id="col-modal-x">✕</button></div>'+
+    '<div class="mo-b"><div class="fg">'+
+    '<div class="fgr"><label>Collab / Vendedor</label><select id="col-cv"><option value="">— Selecione —</option></select></div>'+
+    '<div class="fgr"><label>Tipo</label><select id="col-t"><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Nome do Canal *</label><input id="col-n" type="text"></div>'+
+    '<div class="fgr"><label>Comissão (%)</label><input id="col-c" type="number" step="0.01"></div>'+
+    '<div class="fgr"><label>Impostos (%)</label><input id="col-imp" type="number" step="0.01"></div>'+
+    '<div class="fgr"><label>Op. (%)</label><input id="col-op" type="number" step="0.01"></div>'+
+    '<div class="fgr"><label>CS (%)</label><input id="col-cs" type="number" step="0.01"></div>'+
+    '<div class="fgr"><label>E-mail</label><input id="col-e" type="email"></div>'+
+    '<div class="fgr" style="display:flex;align-items:center;gap:8px;padding-top:20px"><input type="checkbox" id="col-frete-flag"> <label style="text-transform:none;font-size:11px">Sem cobrança de frete</label></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="col-o"></textarea></div>'+
+    '</div></div><div class="mo-f"><button class="btn" id="col-m-cancelar">Cancelar</button><button class="btn rust" id="col-m-salvar">Salvar</button></div></div></div>';
+
+  function render(){
+    var busca=host.querySelector('#f-col-nome').value.toLowerCase();
+    var fCv=host.querySelector('#f-col-cv').value;
+    var fTipo=host.querySelector('#f-col-tipo').value;
+    var list=canais.filter(function(c){
+      if(busca&&!(c.nome||'').toLowerCase().includes(busca))return false;
+      if(fCv&&String(c.parceiroId)!==fCv)return false;
+      if(fTipo&&c.tipo!==fTipo)return false;
+      return true;
+    });
+    host.querySelector('#col-cnt').textContent=list.length+' canal(is)';
+    host.querySelector('#col-total-kpi').textContent=list.length;
+    host.querySelector('#col-kpi-artista').textContent=list.filter(function(c){return c.tipo==='artista';}).length;
+    host.querySelector('#col-kpi-ecommerce').textContent=list.filter(function(c){return c.tipo==='ecommerce'||c.tipo==='multi';}).length;
+    host.querySelector('#col-kpi-revenda').textContent=list.filter(function(c){return c.tipo==='revenda';}).length;
+    host.querySelector('#col-kpi-outros').textContent=list.filter(function(c){return c.tipo!=='artista'&&c.tipo!=='ecommerce'&&c.tipo!=='multi'&&c.tipo!=='revenda';}).length;
+    host.querySelector('#col-cards').innerHTML=list.map(function(c){
+      var parc=parceiros.find(function(p){return String(p.id)===String(c.parceiroId);});
+      var cls=TIPO_C_CANAL[c.tipo]||'';
+      return '<div class="ccard '+cls+'"><div class="ccard-n">'+c.nome+'</div><div class="ccard-t">'+(TIPO_L_CANAL[c.tipo]||c.tipo)+(parc?' · '+parc.nome:'')+'</div>'+
+        '<div class="ccard-st"><button class="btn sm" data-edit="'+c.id+'">✏</button>'+
+        '<button class="btn sm" style="background:var(--rust);color:#fff" data-del="'+c.id+'" data-nome="'+c.nome+'">🗑</button></div></div>';
+    }).join('')||'<p class="tmu" style="grid-column:1/-1">Nenhum canal encontrado.</p>';
+    host.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
+    host.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){excluir(b.dataset.del,b.dataset.nome);});});
+  }
+  var modal=host.querySelector('#mo-col');
+  function abrirModal(id){
+    var c=id?canais.find(function(x){return String(x.id)===String(id);}):null;
+    host.querySelector('#mo-col-t').textContent=c?'Editar Canal de Venda':'Novo Canal de Venda';
+    var selCv=host.querySelector('#col-cv');
+    selCv.innerHTML='<option value="">— Selecione —</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
+    selCv.value=c?(c.parceiroId||''):'';
+    host.querySelector('#col-n').value=c?c.nome:'';
+    host.querySelector('#col-t').value=c?(c.tipo||'artista'):'artista';
+    host.querySelector('#col-c').value=c&&c.comissao!=null?c.comissao:'';
+    host.querySelector('#col-imp').value=c&&c.pctImp!=null?c.pctImp:'';
+    host.querySelector('#col-op').value=c&&c.pctOp!=null?c.pctOp:'';
+    host.querySelector('#col-cs').value=c&&c.pctCs!=null?c.pctCs:'';
+    host.querySelector('#col-frete-flag').checked=c?!!c.semFrete:false;
+    host.querySelector('#col-e').value=c?(c.email||''):'';
+    host.querySelector('#col-o').value=c?(c.obs||''):'';
+    modal.dataset.editId=id||'';
+    modal.classList.add('op');
+  }
+  function fecharModal(){modal.classList.remove('op');}
+  host.querySelector('#col-btn-novo').addEventListener('click',function(){abrirModal(null);});
+  host.querySelector('#col-modal-x').addEventListener('click',fecharModal);
+  host.querySelector('#col-m-cancelar').addEventListener('click',fecharModal);
+  host.querySelector('#col-m-salvar').addEventListener('click',async function(){
+    var nome=host.querySelector('#col-n').value.trim();
+    if(!nome){alert('Nome obrigatório.');return;}
+    var editId=modal.dataset.editId;
+    var com=parseFloat(host.querySelector('#col-c').value);
+    var pctImp=parseFloat(host.querySelector('#col-imp').value);
+    var pctOp=parseFloat(host.querySelector('#col-op').value);
+    var pctCs=parseFloat(host.querySelector('#col-cs').value);
+    var o={id:editId||null,nome:nome,tipo:host.querySelector('#col-t').value,comissao:isNaN(com)?null:com,
+      pctImp:isNaN(pctImp)?null:pctImp,pctOp:isNaN(pctOp)?null:pctOp,pctCs:isNaN(pctCs)?null:pctCs,
+      semFrete:host.querySelector('#col-frete-flag').checked,email:host.querySelector('#col-e').value,
+      obs:host.querySelector('#col-o').value,parceiroId:host.querySelector('#col-cv').value||null};
+    try{
+      var salvo=await cdaSalvarCanal(o);
+      if(editId){var i=canais.findIndex(function(x){return String(x.id)===String(editId);});canais[i]=salvo;}
+      else canais.push(salvo);
+      fecharModal();render();
+    }catch(e){alert('Erro ao salvar.');console.error(e);}
+  });
+  async function excluir(id,nome){
+    if(!confirm('Deletar canal "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
+    try{
+      await cdaExcluirCanal(id);
+      canais=canais.filter(function(x){return String(x.id)!==String(id);});
+      render();
+    }catch(e){
+      alert('Não foi possível excluir. Pode haver histórico de compras ou prestações vinculadas a este canal.');
+      console.error(e);
+    }
+  }
+  host.querySelector('#f-col-nome').addEventListener('input',render);
+  host.querySelector('#f-col-cv').addEventListener('change',render);
+  host.querySelector('#f-col-tipo').addEventListener('change',render);
   render();
 }
 
