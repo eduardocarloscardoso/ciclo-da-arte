@@ -201,6 +201,57 @@ tbody td{padding:11px 13px;vertical-align:middle}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:10px}
+.crm-embed{--ink:#0d0d0d;--cream:#f5f0e8;--rust:#c94a2b;--gold-crm:#d4a847;--violet:#6b3fa0;--sage:#4a7c59;--paper:#faf7f2;--muted:#6b6459;--card:#fff;--border:#e0dbd0;font-family:'DM Sans',sans-serif;color:#0d0d0d;background:#faf7f2;padding:20px;border-radius:8px;}
+.crm-embed table{border-collapse:collapse;width:100%;}
+.crm-embed input,.crm-embed select,.crm-embed textarea{color:#0d0d0d;}
+.crm-embed .btn{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:7px 13px;border:2px solid var(--ink);background:transparent;cursor:pointer;text-transform:uppercase;letter-spacing:.7px;transition:all .14s;white-space:nowrap;}
+.crm-embed .btn:hover{background:var(--ink);color:var(--cream);}
+.crm-embed .btn.rust{background:var(--rust);color:#fff;border-color:var(--rust);}
+.crm-embed .btn.rust:hover{background:#a33a20;border-color:#a33a20;}
+.crm-embed .btn.vio{background:var(--violet);color:#fff;border-color:var(--violet);}
+.crm-embed .btn.vio:hover{background:#4e2d78;}
+.crm-embed .btn.sage{background:var(--sage);color:#fff;border-color:var(--sage);}
+.crm-embed .btn.sm{padding:5px 9px;font-size:10px;}
+.crm-embed .badge{display:inline-block;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;}
+.crm-embed .b-ink{background:var(--ink);color:var(--cream);}
+.crm-embed .b-rust{background:#fde8e3;color:var(--rust);}
+.crm-embed .b-vio{background:#efe8f7;color:var(--violet);}
+.crm-embed .b-sage{background:#e3f0e8;color:var(--sage);}
+.crm-embed .b-gd{background:#fdf3dc;color:#8a6510;}
+.crm-embed .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;}
+.crm-embed .mo.op{display:flex;}
+.crm-embed .mo-box{background:var(--paper);border:2px solid var(--ink);width:90%;max-width:600px;max-height:90vh;overflow-y:auto;}
+.crm-embed .mo-h{background:var(--ink);color:var(--cream);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;}
+.crm-embed .mo-h h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
+.crm-embed .mo-f{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
+.crm-embed .mo-x{background:none;border:none;color:var(--cream);font-size:18px;cursor:pointer;}
+.crm-embed .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.crm-embed .fg.one{grid-template-columns:1fr;}
+.crm-embed .fgr{display:flex;flex-direction:column;gap:4px;}
+.crm-embed .fgr label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.crm-embed .fgr input, .crm-embed .fgr select, .crm-embed .fgr textarea{font-family:'Syne',sans-serif;font-size:12px;padding:7px 11px;border:2px solid var(--ink);background:var(--card);outline:none;}
+.crm-embed .fgr input:focus, .crm-embed .fgr select:focus, .crm-embed .fgr textarea:focus{border-color:var(--rust);}
+.crm-embed .fgr textarea{resize:vertical;min-height:65px;}
+.crm-embed .fdiv{grid-column:1/-1;border:none;border-top:1px solid var(--border);margin:4px 0;}
+.crm-embed .fsec{grid-column:1/-1;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
+.crm-embed .row-bt{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
+.crm-embed .sec-t{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;}
+.crm-embed .sec-d{font-size:12px;color:var(--muted);margin-bottom:20px;}
+.crm-embed .tw{background:var(--card);border:2px solid var(--ink);overflow:hidden;margin-bottom:20px;}
+.crm-embed .th{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
+.crm-embed .ts{overflow-x:auto;}
+.crm-embed .tmu{color:var(--muted);}
+.crm-embed .mn{font-family:'Space Mono',monospace;font-size:11px;}
+.crm-embed .fb{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.crm-embed .fc{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;}
+.crm-embed .pag{display:flex;gap:5px;align-items:center;margin-top:12px;flex-wrap:wrap;}
+.crm-embed .pb{font-family:'Space Mono',monospace;font-size:10px;padding:5px 9px;border:2px solid var(--ink);background:var(--card);cursor:pointer;transition:all .14s;}
+.crm-embed .pi{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin:0 5px;}
+.crm-embed .sm{padding:5px 9px;font-size:10px;}
+.crm-embed .acr{display:flex;gap:7px;margin-top:7px;}
+.crm-embed .acr select{flex:1;font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;border:2px solid var(--ink);background:var(--card);outline:none;}
+.crm-embed .ct{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
+
 </style>
 </head>
 <body>
@@ -405,16 +456,16 @@ async function navigateCRM(pageId){
   var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
   var podeEditar=!isReadOnly();
   if(pageId==='clientes'){
-    el.innerHTML=roBanner+'<div id="container-clientes"></div>';
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-clientes"></div></div>';
     montarModuloClientes('container-clientes');
   }else if(pageId==='compras'){
-    el.innerHTML=roBanner+'<div id="container-compras"></div>';
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-compras"></div></div>';
     montarModuloCompras('container-compras',{editavel:podeEditarCompras});
   }else if(pageId==='produtos'){
-    el.innerHTML=roBanner+'<div id="container-produtos"></div>';
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-produtos"></div></div>';
     montarModuloProdutos('container-produtos',{editavel:podeEditar});
   }else if(pageId==='segmentacao'){
-    el.innerHTML=roBanner+'<div id="container-segmentacao"></div>';
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-segmentacao"></div></div>';
     montarModuloSegmentacao('container-segmentacao');
   }
 }
