@@ -302,6 +302,9 @@ tbody td{padding:11px 13px;vertical-align:middle}
 <div class="topbar-right"><div class="topbar-date" id="topbar-date"></div></div>
 </div>
 <div class="content" id="main-content"></div>
+<div id="financeiro-iframe-wrap" style="display:none;width:100%;height:calc(100vh - 90px)">
+  <iframe id="financeiro-iframe" style="width:100%;height:100%;border:none;background:#faf7f2"></iframe>
+</div>
 </div>
 </div>
 <div id="modal-root"></div>
@@ -466,6 +469,8 @@ async function openProject(key){
   document.getElementById('page-title').textContent=PROJETOS[key]?PROJETOS[key].label:(PM[key]?PM[key].label:key);
   renderSidebarNav();
   var el=document.getElementById('main-content');
+  var iframeWrap0=document.getElementById('financeiro-iframe-wrap');
+  if(key!=='comercial'&&key!=='financeiro'&&iframeWrap0) iframeWrap0.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   if(key==='credenciamento'){el.innerHTML=roBanner;renderCredenciamento(el);return;}
   if(key==='marketing'){
@@ -489,6 +494,8 @@ async function navigateCRM(pageId){
   var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',tarefas:'Tarefas & Follow-up',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
   document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId);
   var el=document.getElementById('main-content');
+  var iframeWrap=document.getElementById('financeiro-iframe-wrap');
+  if(pageId!=='prest'&&pageId!=='upload'&&pageId!=='cardapios'&&iframeWrap) iframeWrap.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
   var podeEditar=!isReadOnly();
@@ -520,7 +527,25 @@ async function navigateCRM(pageId){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-cfgfin"></div>';
     montarConfigFinanceiro('container-cfgfin');
   }else if(pageId==='prest'||pageId==='upload'||pageId==='cardapios'){
-    el.innerHTML=roBanner+'<iframe src="/financeiro.html#'+pageId+'" style="width:100%;height:calc(100vh - 90px);border:none;background:#faf7f2"></iframe>';
+    el.innerHTML=roBanner;
+    var wrap=document.getElementById('financeiro-iframe-wrap');
+    var frame=document.getElementById('financeiro-iframe');
+    wrap.style.display='block';
+    if(!frame.dataset.loaded){
+      frame.src='/financeiro.html#'+pageId;
+      frame.dataset.loaded='1';
+      frame.dataset.currentPage=pageId;
+    }else if(frame.dataset.currentPage!==pageId){
+      try{
+        frame.contentWindow.go(pageId);
+        frame.dataset.currentPage=pageId;
+      }catch(e){
+        // Se por algum motivo não conseguir navegar internamente, recarrega (perde estado, mas não quebra)
+        frame.src='/financeiro.html#'+pageId;
+        frame.dataset.currentPage=pageId;
+      }
+    }
+    return;
   }
 }
 
