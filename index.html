@@ -6,6 +6,12 @@
 <title>Ciclo da Arte — Sistema de Gestão</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="cda-dados-compartilhados.js"></script>
+<script src="cda-modulo-clientes.js"></script>
+<script src="cda-modulo-compras.js"></script>
+<script src="cda-modulo-produtos.js"></script>
+<script src="cda-modulo-segmentacao.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -255,6 +261,8 @@ var PROJETOS={
 // Submenu de cada projeto (páginas internas). Marketing já existia (RC/PM antigos).
 var RC={ceo:{label:'CEO / Dono',pages:['dashboard','roadmap','modulos','kpis','acoes','equipe','config']},gestor:{label:'Gestora de Marketing',pages:['dashboard','roadmap','modulos','kpis','acoes']},trafego:{label:'Gestor de Tráfego',pages:['dashboard','modulos','kpis','acoes']},social:{label:'Social Media',pages:['dashboard','modulos','acoes']},copy:{label:'Copywriter',pages:['dashboard','modulos','acoes']},revendas:{label:'Gestor de Revendas',pages:['dashboard','acoes']}};
 var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Roadmap'},modulos:{icon:'🧩',label:'Módulos'},kpis:{icon:'📈',label:'KPIs & Metas'},acoes:{icon:'✅',label:'Plano de Ações'},equipe:{icon:'👥',label:'Equipe & Acessos'},config:{icon:'⚙',label:'Configurações'},credenciamento:{icon:'🔑',label:'Credenciamento de Usuários'}};
+// Submenu do CRM — compartilhado entre Comercial e Financeiro (Etapa 1 da unificação)
+var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -357,6 +365,14 @@ function renderSidebarNav(){
       });
     }
   }
+  if((currentProject==='comercial'||currentProject==='financeiro')){
+    nav.innerHTML+='<div class="sb-section">'+(currentProject==='comercial'?'Comercial':'Financeiro')+'</div>';
+    Object.keys(CRM_PAGES).forEach(function(id){
+      var p=CRM_PAGES[id];
+      var activeSub=(window._crmPage===id)?'active':'';
+      nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    });
+  }
 }
 async function openProject(key){
   currentProject=key;
@@ -372,10 +388,35 @@ async function openProject(key){
     navigate('dashboard');
     return;
   }
-  if(key==='comercial'){window.location.href='/comercial.html';return;}
-  if(key==='financeiro'){window.location.href='/financeiro.html';return;}
+  if(key==='comercial'||key==='financeiro'){
+    navigateCRM('clientes');
+    return;
+  }
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
+}
+
+async function navigateCRM(pageId){
+  window._crmPage=pageId;
+  renderSidebarNav();
+  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:pageId;
+  var el=document.getElementById('main-content');
+  var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
+  var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
+  var podeEditar=!isReadOnly();
+  if(pageId==='clientes'){
+    el.innerHTML=roBanner+'<div id="container-clientes"></div>';
+    montarModuloClientes('container-clientes');
+  }else if(pageId==='compras'){
+    el.innerHTML=roBanner+'<div id="container-compras"></div>';
+    montarModuloCompras('container-compras',{editavel:podeEditarCompras});
+  }else if(pageId==='produtos'){
+    el.innerHTML=roBanner+'<div id="container-produtos"></div>';
+    montarModuloProdutos('container-produtos',{editavel:podeEditar});
+  }else if(pageId==='segmentacao'){
+    el.innerHTML=roBanner+'<div id="container-segmentacao"></div>';
+    montarModuloSegmentacao('container-segmentacao');
+  }
 }
 
 // ── CREDENCIAMENTO DE USUÁRIOS (admin only) ─────────────────────────
