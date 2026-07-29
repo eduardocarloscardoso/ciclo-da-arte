@@ -277,6 +277,11 @@ tbody td{padding:11px 13px;vertical-align:middle}
 .crm-embed .b-gd{background:#fdf3dc;color:#8a6510;}
 .crm-embed .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--rust);}
 
+@media print{
+  .mo, .crm-embed .mo{display:none !important;}
+  nav.sidebar{position:static !important;}
+  .content, #main-content{margin-left:0 !important;}
+}
 </style>
 </head>
 <body>
