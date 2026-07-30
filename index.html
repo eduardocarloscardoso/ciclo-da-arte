@@ -5,14 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ciclo da Arte — Sistema de Gestão</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="cda-dados-compartilhados.js"></script>
-<script src="cda-modulo-clientes.js"></script>
-<script src="cda-modulo-compras.js"></script>
-<script src="cda-modulo-produtos.js"></script>
-<script src="cda-modulo-segmentacao.js"></script>
-<script src="cda-modulo-pipeline-b2c.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -202,86 +196,6 @@ tbody td{padding:11px 13px;vertical-align:middle}
 ::-webkit-scrollbar{width:5px;height:5px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.1);border-radius:10px}
-.crm-embed{--ink:#0d0d0d;--cream:#f5f0e8;--rust:#c94a2b;--gold-crm:#d4a847;--violet:#6b3fa0;--sage:#4a7c59;--paper:#faf7f2;--muted:#6b6459;--card:#fff;--border:#e0dbd0;font-family:'DM Sans',sans-serif;color:#0d0d0d;background:#faf7f2;padding:20px;border-radius:8px;}
-.crm-embed table{border-collapse:collapse;width:100%;}
-.crm-embed input,.crm-embed select,.crm-embed textarea{color:#0d0d0d;}
-.crm-embed .btn{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:7px 13px;border:2px solid var(--ink);background:transparent;cursor:pointer;text-transform:uppercase;letter-spacing:.7px;transition:all .14s;white-space:nowrap;}
-.crm-embed .btn:hover{background:var(--ink);color:var(--cream);}
-.crm-embed .btn.rust{background:var(--rust);color:#fff;border-color:var(--rust);}
-.crm-embed .btn.rust:hover{background:#a33a20;border-color:#a33a20;}
-.crm-embed .btn.vio{background:var(--violet);color:#fff;border-color:var(--violet);}
-.crm-embed .btn.vio:hover{background:#4e2d78;}
-.crm-embed .btn.sage{background:var(--sage);color:#fff;border-color:var(--sage);}
-.crm-embed .btn.sm{padding:5px 9px;font-size:10px;}
-.crm-embed .badge{display:inline-block;padding:2px 7px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;}
-.crm-embed .b-ink{background:var(--ink);color:var(--cream);}
-.crm-embed .b-rust{background:#fde8e3;color:var(--rust);}
-.crm-embed .b-vio{background:#efe8f7;color:var(--violet);}
-.crm-embed .b-sage{background:#e3f0e8;color:var(--sage);}
-.crm-embed .b-gd{background:#fdf3dc;color:#8a6510;}
-.crm-embed .mo{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center;}
-.crm-embed .mo.op{display:flex;}
-.crm-embed .mo-box{background:var(--paper);border:2px solid var(--ink);width:90%;max-width:600px;max-height:90vh;overflow-y:auto;}
-.crm-embed .mo-h{background:var(--ink);color:var(--cream);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;}
-.crm-embed .mo-h h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
-.crm-embed .mo-f{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
-.crm-embed .mo-x{background:none;border:none;color:var(--cream);font-size:18px;cursor:pointer;}
-.crm-embed .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-@media(max-width:900px){.crm-embed .fg{grid-template-columns:1fr;}.crm-embed .mo-box{max-width:94vw;}}
-.crm-embed .fg.one{grid-template-columns:1fr;}
-.crm-embed .fgr{display:flex;flex-direction:column;gap:4px;}
-.crm-embed .fgr label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
-.crm-embed .fgr input, .crm-embed .fgr select, .crm-embed .fgr textarea{font-family:'Syne',sans-serif;font-size:12px;padding:7px 11px;border:2px solid var(--ink);background:var(--card);outline:none;}
-.crm-embed .fgr input:focus, .crm-embed .fgr select:focus, .crm-embed .fgr textarea:focus{border-color:var(--rust);}
-.crm-embed .fgr textarea{resize:vertical;min-height:65px;}
-.crm-embed .fdiv{grid-column:1/-1;border:none;border-top:1px solid var(--border);margin:4px 0;}
-.crm-embed .fsec{grid-column:1/-1;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);}
-.crm-embed .row-bt{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:10px;flex-wrap:wrap;}
-.crm-embed .sec-t{font-family:'DM Serif Display',serif;font-size:22px;margin-bottom:4px;}
-.crm-embed .sec-d{font-size:12px;color:var(--muted);margin-bottom:20px;}
-.crm-embed .tw{background:var(--card);border:2px solid var(--ink);overflow:hidden;margin-bottom:20px;}
-.crm-embed .th{background:var(--ink);color:var(--cream);padding:12px 18px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;}
-.crm-embed .ts{overflow-x:auto;}
-.crm-embed .tmu{color:var(--muted);}
-.crm-embed .mn{font-family:'Space Mono',monospace;font-size:11px;}
-.crm-embed .fb{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
-.crm-embed .fc{font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);margin-left:auto;white-space:nowrap;}
-.crm-embed .pag{display:flex;gap:5px;align-items:center;margin-top:12px;flex-wrap:wrap;}
-.crm-embed .pb{font-family:'Space Mono',monospace;font-size:10px;padding:5px 9px;border:2px solid var(--ink);background:var(--card);cursor:pointer;transition:all .14s;}
-.crm-embed .pi{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin:0 5px;}
-.crm-embed .sm{padding:5px 9px;font-size:10px;}
-.crm-embed .acr{display:flex;gap:7px;margin-top:7px;}
-.crm-embed .acr select{flex:1;font-family:'Syne',sans-serif;font-size:12px;padding:6px 10px;border:2px solid var(--ink);background:var(--card);outline:none;}
-.crm-embed .ct{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px;}
-
-.crm-embed .kpi-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:24px;}
-.crm-embed .kpi{background:var(--card);border:2px solid var(--ink);padding:18px;position:relative;overflow:hidden;}
-.crm-embed .kpi.gd::before{background:var(--gold);}
-.crm-embed .kpi.vi::before{background:var(--violet);}
-.crm-embed .kpi.sa::before{background:var(--sage);}
-.crm-embed .kpi.li::before{background:#b89fd4;}
-.crm-embed .kpi-l{font-size:9px;text-transform:uppercase;letter-spacing:2px;color:var(--muted);font-weight:700;margin-bottom:5px;}
-.crm-embed .kpi-v{font-family:'DM Serif Display',serif;font-size:26px;line-height:1;}
-.crm-embed .kpi-s{font-family:'Space Mono',monospace;font-size:9px;color:var(--muted);margin-top:3px;}
-.crm-embed .cc-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-bottom:20px;}
-.crm-embed .cc{background:var(--card);border:2px solid var(--ink);padding:20px;margin-bottom:16px;}
-.crm-embed .cc h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border);}
-.crm-embed .ccard{background:var(--card);border:2px solid var(--ink);padding:18px;position:relative;overflow:hidden;}
-.crm-embed .ccard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--rust);}
-.crm-embed .ccard.ec::before{background:var(--violet);}
-.crm-embed .ccard.mu::before{background:var(--gold);}
-.crm-embed .ccard.cs::before{background:var(--sage);}
-.crm-embed .ccard-n{font-family:'DM Serif Display',serif;font-size:16px;margin-bottom:3px;}
-.crm-embed .ccard-t{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:10px;}
-.crm-embed .ccard-st{display:flex;gap:14px;}
-.crm-embed .b-gd{background:#fdf3dc;color:#8a6510;}
-.crm-embed .kpi::before{content:'';position:absolute;top:0;left:0;right:0;height:4px;background:var(--rust);}
-
-@media print{
-  .mo, .crm-embed .mo{display:none !important;}
-  nav.sidebar{position:static !important;}
-  .content, #main-content{margin-left:0 !important;}
-}
 </style>
 </head>
 <body>
@@ -308,9 +222,6 @@ tbody td{padding:11px 13px;vertical-align:middle}
 <div class="topbar-right"><div class="topbar-date" id="topbar-date"></div></div>
 </div>
 <div class="content" id="main-content"></div>
-<div id="financeiro-iframe-wrap" style="display:none;width:100%;height:calc(100vh - 90px)">
-  <iframe id="financeiro-iframe" style="width:100%;height:100%;border:none;background:#faf7f2"></iframe>
-</div>
 </div>
 </div>
 <div id="modal-root"></div>
@@ -319,6 +230,11 @@ tbody td{padding:11px 13px;vertical-align:middle}
 const SUPABASE_URL='https://gsizoiwefejsllgtsard.supabase.co';
 const SUPABASE_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdzaXpvaXdlZmVqc2xsZ3RzYXJkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc0OTE1ODcsImV4cCI6MjA5MzA2NzU4N30.gjvAh0aKxiEiH9GZ1F76qPIfRjayV6nnpa1w-KZxvME';
 const EDGE_URL='https://gsizoiwefejsllgtsard.supabase.co/functions/v1/exportar-excel';
+// Cliente real de autenticação (Supabase Auth) — substitui a checagem manual
+// de senha direto na tabela equipe. Sessão fica salva no localStorage do
+// navegador automaticamente (mesma origem do financeiro.html, então a
+// sessão é compartilhada entre as páginas sem trabalho extra).
+const sbAuth=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const sb={
 headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
 async get(t,p=''){var r=await axios.get(SUPABASE_URL+'/rest/v1/'+t+'?'+p,{headers:this.headers});return r.data;},
@@ -345,8 +261,6 @@ var PROJETOS={
 // Submenu de cada projeto (páginas internas). Marketing já existia (RC/PM antigos).
 var RC={ceo:{label:'CEO / Dono',pages:['dashboard','roadmap','modulos','kpis','acoes','equipe','config']},gestor:{label:'Gestora de Marketing',pages:['dashboard','roadmap','modulos','kpis','acoes']},trafego:{label:'Gestor de Tráfego',pages:['dashboard','modulos','kpis','acoes']},social:{label:'Social Media',pages:['dashboard','modulos','acoes']},copy:{label:'Copywriter',pages:['dashboard','modulos','acoes']},revendas:{label:'Gestor de Revendas',pages:['dashboard','acoes']}};
 var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Roadmap'},modulos:{icon:'🧩',label:'Módulos'},kpis:{icon:'📈',label:'KPIs & Metas'},acoes:{icon:'✅',label:'Plano de Ações'},equipe:{icon:'👥',label:'Equipe & Acessos'},config:{icon:'⚙',label:'Configurações'},credenciamento:{icon:'🔑',label:'Credenciamento de Usuários'}};
-// Submenu do CRM — compartilhado entre Comercial e Financeiro (Etapa 1 da unificação)
-var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -368,41 +282,54 @@ function canAccess(page){return RC[cu.role]&&RC[cu.role].pages.indexOf(page)>=0;
 function canAccessProject(projKey){return cu&&(cu.is_admin||(cu.projetos||[]).indexOf(projKey)>=0);}
 
 async function initApp(){
-  // Restaurar sessão ativa — ex.: quando o usuário volta do Financeiro (ou
-  // de outro projeto) clicando em "Voltar ao Menu". Sem isso, o index.html
-  // sempre mostrava a tela de login do zero, mesmo já logado.
+  // Restaurar sessão ativa — o supabase-js já guarda a sessão sozinho
+  // (localStorage do navegador), então isso funciona ao voltar de outro
+  // projeto (Financeiro etc.) sem precisar logar de novo.
   try{
-    var raw=sessionStorage.getItem('cda_sessao');
-    if(raw){
-      var sessao=JSON.parse(raw);
-      if(sessao&&sessao.email){
-        cu=sessao;
-        try{EQUIPE=await sb.get('equipe','order=id');}catch(e){}
+    var {data:{session}}=await sbAuth.auth.getSession();
+    if(session&&session.access_token){
+      sb.headers.Authorization='Bearer '+session.access_token;
+      var equipeRows=await sb.get('equipe','order=id');
+      EQUIPE=equipeRows;
+      var m=equipeRows.find(function(x){return x.email===session.user.email;});
+      if(m){
+        cu={id:m.id,name:m.name,email:m.email,role:m.acesso,color:m.color,initials:m.initials,is_admin:!!m.is_admin,permissao:m.permissao||'leitura_escrita',projetos:m.projetos||[]};
         document.getElementById('login-screen').style.display='none';
         document.getElementById('app').style.display='flex';
         setDate();setupProjectSidebar();
-        document.getElementById('page-title').textContent='Selecione um módulo';
-        document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
+        var firstProj=(cu.projetos||[])[0];
+        if(cu.is_admin&&!firstProj)firstProj='credenciamento';
+        if(firstProj)openProject(firstProj);
       }
     }
-  }catch(e){/* sessão inválida — mantém tela de login normalmente */}
+  }catch(e){/* sem sessão válida — mantém tela de login normalmente */}
 }
 async function doLogin(){
   var btn=document.getElementById('login-btn');btn.disabled=true;btn.textContent='Entrando...';
   var u=document.getElementById('inp-user').value.trim().toLowerCase();
   var p=document.getElementById('inp-pass').value;
   try{
+    var {data,error}=await sbAuth.auth.signInWithPassword({email:u,password:p});
+    if(error||!data.session){
+      var el=document.getElementById('login-error');el.style.display='block';setTimeout(function(){el.style.display='none';},3000);
+      btn.disabled=false;btn.textContent='Entrar no Sistema';return;
+    }
+    sb.headers.Authorization='Bearer '+data.session.access_token;
     EQUIPE=await sb.get('equipe','order=id');
-    var m=EQUIPE.find(function(x){return x.email===u&&x.pass===p;});
+    var m=EQUIPE.find(function(x){return x.email===u;});
     if(m){
       cu={id:m.id,name:m.name,email:m.email,role:m.acesso,color:m.color,initials:m.initials,is_admin:!!m.is_admin,permissao:m.permissao||'leitura_escrita',projetos:m.projetos||[]};
-      sessionStorage.setItem('cda_sessao',JSON.stringify(cu));
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
       setDate();setupProjectSidebar();
-      document.getElementById('page-title').textContent='Selecione um módulo';
-      document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
-    }else{var el=document.getElementById('login-error');el.style.display='block';setTimeout(function(){el.style.display='none';},3000);}
+      var firstProj=(cu.projetos||[])[0];
+      if(cu.is_admin&&!firstProj)firstProj='credenciamento';
+      if(firstProj)openProject(firstProj);
+    }else{
+      // Autenticou no Supabase mas não tem cadastro em "equipe" — sem acesso
+      await sbAuth.auth.signOut();
+      var el2=document.getElementById('login-error');el2.style.display='block';setTimeout(function(){el2.style.display='none';},3000);
+    }
   }catch(e){showToast('Erro de conexão com o banco de dados','error');}
   btn.disabled=false;btn.textContent='Entrar no Sistema';
 }
@@ -410,7 +337,12 @@ async function loadData(){
   try{ACOES=await sb.get('acoes','order=id');MODULOS=await sb.get('modulos','order=id');TAREFAS=await sb.get('tarefas','order=id');}
   catch(e){console.error('Erro ao carregar dados',e);}
 }
-function doLogout(){cu=null;ACOES=[];MODULOS=[];TAREFAS=[];expandedAcoes={};currentProject=null;sessionStorage.removeItem('cda_sessao');document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('inp-user').value='';document.getElementById('inp-pass').value='';}
+async function doLogout(){
+  await sbAuth.auth.signOut();
+  cu=null;ACOES=[];MODULOS=[];TAREFAS=[];expandedAcoes={};currentProject=null;
+  sb.headers.Authorization='Bearer '+SUPABASE_KEY;
+  document.getElementById('app').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('inp-user').value='';document.getElementById('inp-pass').value='';
+}
 
 // ── SIDEBAR DE PROJETOS (1º nível) ─────────────────────────────────
 function setupProjectSidebar(){
@@ -432,8 +364,6 @@ function renderSidebarNav(){
     nav.innerHTML+='<div class="sb-section">Administração</div>';
     var active=currentProject==='credenciamento'?'active':'';
     nav.innerHTML+='<div class="nav-item '+active+'" id="nav-proj-credenciamento" onclick="openProject(\'credenciamento\')"><span class="nav-icon">🔑</span>Credenciamento</div>';
-    var activeSeg=currentProject==='seguranca'?'active':'';
-    nav.innerHTML+='<div class="nav-item '+activeSeg+'" id="nav-proj-seguranca" onclick="openProject(\'seguranca\')"><span class="nav-icon">🛡</span>Segurança</div>';
   }
   // Se o projeto ativo tiver submenu (hoje só Marketing), mostra embaixo
   if(currentProject==='marketing'&&RC[cu.role]){
@@ -451,50 +381,14 @@ function renderSidebarNav(){
       });
     }
   }
-  if((currentProject==='comercial'||currentProject==='financeiro')){
-    nav.innerHTML+='<div class="sb-section">'+(currentProject==='comercial'?'Comercial':'Financeiro')+'</div>';
-    Object.keys(CRM_PAGES).forEach(function(id){
-      var p=CRM_PAGES[id];
-      var activeSub=(window._crmPage===id)?'active':'';
-      nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
-    });
-    if(currentProject==='comercial'){
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
-    }
-    if(currentProject==='financeiro'){
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='canais'?'active':'')+'" id="nav-crm-canais" onclick="navigateCRM(\'canais\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">🏷</span>Canais de Venda</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cvpage'?'active':'')+'" id="nav-crm-cvpage" onclick="navigateCRM(\'cvpage\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">👤</span>Collabs / Vendedores</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cfgfin'?'active':'')+'" id="nav-crm-cfgfin" onclick="navigateCRM(\'cfgfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⚙</span>Tipos e Coleções</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='prest'?'active':'')+'" id="nav-crm-prest" onclick="navigateCRM(\'prest\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📄</span>Prestação de Contas</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='upload'?'active':'')+'" id="nav-crm-upload" onclick="navigateCRM(\'upload\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⬆</span>Importar Planilha</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cardapios'?'active':'')+'" id="nav-crm-cardapios" onclick="navigateCRM(\'cardapios\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📋</span>Cardápios</div>';
-    }
-  }
 }
 async function openProject(key){
   currentProject=key;
   document.getElementById('page-title').textContent=PROJETOS[key]?PROJETOS[key].label:(PM[key]?PM[key].label:key);
   renderSidebarNav();
   var el=document.getElementById('main-content');
-  var iframeWrap0=document.getElementById('financeiro-iframe-wrap');
-  if(key!=='comercial'&&key!=='financeiro'&&iframeWrap0) iframeWrap0.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   if(key==='credenciamento'){el.innerHTML=roBanner;renderCredenciamento(el);return;}
-  if(key==='seguranca'){
-    el.innerHTML=roBanner+'<div class="crm-embed">'+
-      '<div class="sec-t">Segurança</div><div class="sec-d">Backup e restauração dos dados do Financeiro (Prestação de Contas, Cardápios, Canais)</div>'+
-      '<div class="cc" style="max-width:520px"><h3>💾 Backup de Dados</h3><p class="tmu" style="margin-bottom:10px">Baixa um arquivo .json com uma cópia completa dos dados do Financeiro. Guarde antes de fazer alterações grandes.</p>'+
-      '<button class="btn rust" id="seg-btn-backup">💾 Fazer Backup Agora</button></div>'+
-      '<div class="cc" style="max-width:520px;margin-top:16px"><h3>⬆ Restaurar Backup</h3><p class="tmu" style="margin-bottom:10px">Restaura os dados a partir de um arquivo .json de backup gerado anteriormente. <b>Isso substitui os dados atuais</b> — use com cuidado.</p>'+
-      '<input type="file" id="seg-restore-input" accept=".json" style="display:none">'+
-      '<button class="btn" id="seg-btn-restaurar">⬆ Escolher Arquivo e Restaurar</button></div>'+
-      '</div>';
-    document.getElementById('seg-btn-backup').addEventListener('click', hubBackupFinanceiro);
-    document.getElementById('seg-restore-input').addEventListener('change', function(){ hubRestaurarBackupFinanceiro(this); });
-    document.getElementById('seg-btn-restaurar').addEventListener('click', function(){ document.getElementById('seg-restore-input').click(); });
-    return;
-  }
   if(key==='marketing'){
     if(!ACOES.length&&!MODULOS.length)await loadData();
     window._marketingPage='dashboard';renderSidebarNav();
@@ -502,434 +396,10 @@ async function openProject(key){
     navigate('dashboard');
     return;
   }
-  if(key==='comercial'||key==='financeiro'){
-    navigateCRM('clientes');
-    return;
-  }
+  if(key==='comercial'){el.innerHTML=roBanner+'<div class="ph"><h1>🛍 Comercial</h1><p>CRM, clientes e vendas</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Este projeto será migrado do sistema de Prestação de Contas/CRM existente na próxima etapa.</p></div>';return;}
+  if(key==='financeiro'){window.location.href='/financeiro.html';return;}
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
-}
-
-function garantirIframeFinanceiroCarregado(callback){
-  var frame=document.getElementById('financeiro-iframe');
-  if(frame.dataset.loaded){ callback(); return; }
-  frame.src='/financeiro.html#dash';
-  frame.dataset.loaded='1';
-  frame.dataset.currentPage='dash';
-  frame.onload=function(){ setTimeout(callback, 600); };
-}
-function hubBackupFinanceiro(){
-  garantirIframeFinanceiroCarregado(function(){
-    try{ document.getElementById('financeiro-iframe').contentWindow.backupSistema(); }
-    catch(e){ alert('Erro ao gerar backup — tenta de novo em alguns segundos.'); console.error(e); }
-  });
-}
-function hubRestaurarBackupFinanceiro(el){
-  garantirIframeFinanceiroCarregado(function(){
-    try{ document.getElementById('financeiro-iframe').contentWindow.restaurarBackup(el); }
-    catch(e){ alert('Erro ao restaurar — tenta de novo em alguns segundos.'); console.error(e); }
-  });
-}
-async function navigateCRM(pageId){
-  window._crmPage=pageId;
-  renderSidebarNav();
-  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',tarefas:'Tarefas & Follow-up',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
-  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId);
-  var el=document.getElementById('main-content');
-  var iframeWrap=document.getElementById('financeiro-iframe-wrap');
-  if(pageId!=='prest'&&pageId!=='upload'&&pageId!=='cardapios'&&iframeWrap) iframeWrap.style.display='none';
-  var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
-  var podeEditarCompras=(currentProject==='financeiro')&&!isReadOnly();
-  var podeEditar=!isReadOnly();
-  if(pageId==='clientes'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-clientes"></div></div>';
-    montarModuloClientes('container-clientes');
-  }else if(pageId==='compras'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-compras"></div></div>';
-    montarModuloCompras('container-compras',{editavel:podeEditarCompras});
-  }else if(pageId==='produtos'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-produtos"></div></div>';
-    montarModuloProdutos('container-produtos',{editavel:podeEditar});
-  }else if(pageId==='segmentacao'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-segmentacao"></div></div>';
-    montarModuloSegmentacao('container-segmentacao');
-  }else if(pageId==='pipelineb2c'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-pipeline-b2c"></div></div>';
-    montarModuloPipelineB2C('container-pipeline-b2c');
-  }else if(pageId==='tarefas'){
-    el.innerHTML=roBanner+'<div class="crm-embed" id="container-tarefas"></div>';
-    montarModuloTarefas('container-tarefas');
-  }else if(pageId==='canais'){
-    el.innerHTML=roBanner+'<div class="crm-embed" id="container-canais"></div>';
-    montarCanaisVenda('container-canais');
-  }else if(pageId==='cvpage'){
-    el.innerHTML=roBanner+'<div class="crm-embed" id="container-cvpage"></div>';
-    montarCollabsVendedores('container-cvpage');
-  }else if(pageId==='cfgfin'){
-    el.innerHTML=roBanner+'<div class="crm-embed" id="container-cfgfin"></div>';
-    montarConfigFinanceiro('container-cfgfin');
-  }else if(pageId==='prest'||pageId==='upload'||pageId==='cardapios'){
-    el.innerHTML=roBanner;
-    var wrap=document.getElementById('financeiro-iframe-wrap');
-    var frame=document.getElementById('financeiro-iframe');
-    wrap.style.display='block';
-    if(!frame.dataset.loaded){
-      frame.src='/financeiro.html#'+pageId;
-      frame.dataset.loaded='1';
-      frame.dataset.currentPage=pageId;
-    }else if(frame.dataset.currentPage!==pageId){
-      try{
-        frame.contentWindow.go(pageId);
-        frame.dataset.currentPage=pageId;
-      }catch(e){
-        // Se por algum motivo não conseguir navegar internamente, recarrega (perde estado, mas não quebra)
-        frame.src='/financeiro.html#'+pageId;
-        frame.dataset.currentPage=pageId;
-      }
-    }
-    return;
-  }
-}
-
-// ── TAREFAS & FOLLOW-UP (Comercial) — dados locais (localStorage), contatos via Supabase ──
-var TAREFAS=JSON.parse(localStorage.getItem('cda_com_tarefas')||'[]');
-var RESPONSAVEIS_TAR=JSON.parse(localStorage.getItem('cda_com_resp')||'[]');
-var _clientesTarCache=null;
-function saveTarefasLocal(){localStorage.setItem('cda_com_tarefas',JSON.stringify(TAREFAS));}
-async function montarModuloTarefas(containerId){
-  var host=document.getElementById(containerId);
-  if(!_clientesTarCache){
-    try{ _clientesTarCache=await cdaCarregarClientes(); }catch(e){ _clientesTarCache=[]; }
-  }
-  var clientes=_clientesTarCache;
-  function nomeContatoTar(id){var c=clientes.find(function(x){return String(x.id)===String(id);});return c?c.nome:'—';}
-  function statusTarefaReal(t){
-    if(t.status==='concluida')return 'concluida';
-    var hoje=new Date().toISOString().slice(0,10);
-    return (t.data<hoje)?'atrasada':'pendente';
-  }
-  host.innerHTML=
-    '<div class="row-bt"><div><div class="sec-t">Tarefas &amp; Follow-up</div><div class="sec-d">Ligações, propostas, visitas e follow-ups vinculados a contatos</div></div>'+
-    '<button class="btn rust" id="tar-btn-novo">＋ Nova Tarefa</button></div>'+
-    '<div class="fb"><select id="f-tar-status"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="concluida">Concluída</option><option value="atrasada">Atrasada</option></select>'+
-    '<select id="f-tar-resp"><option value="">Todos os responsáveis</option>'+RESPONSAVEIS_TAR.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('')+'</select>'+
-    '<span class="fc" id="tar-cnt"></span></div>'+
-    '<div class="tw"><div class="ts"><table><thead><tr><th>Tarefa</th><th>Contato</th><th>Tipo</th><th>Responsável</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbl-tarefas"></tbody></table></div></div>'+
-    '<div class="mo" id="modal-tarefa"><div class="mo-box"><div class="mo-h"><h3 id="mo-tar-title">Nova Tarefa</h3><button class="mo-x" id="tar-modal-x">✕</button></div>'+
-    '<div class="mo-b"><div class="fg">'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="tf-desc" placeholder="ex: Ligar para confirmar proposta"></div>'+
-    '<div class="fgr"><label>Contato Vinculado</label><select id="tf-contato"><option value="">—</option>'+clientes.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('')+'</select></div>'+
-    '<div class="fgr"><label>Tipo</label><select id="tf-tipo"><option value="ligacao">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="reuniao">Reunião</option><option value="visita">Visita</option><option value="proposta">Enviar Proposta</option><option value="outro">Outro</option></select></div>'+
-    '<div class="fgr"><label>Responsável</label><select id="tf-resp"><option value="">—</option>'+RESPONSAVEIS_TAR.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('')+'</select></div>'+
-    '<div class="fgr"><label>Data de Vencimento *</label><input type="date" id="tf-data"></div>'+
-    '<div class="fgr"><label>Status</label><select id="tf-status"><option value="pendente">Pendente</option><option value="concluida">Concluída</option></select></div>'+
-    '</div></div><div class="mo-f"><button class="btn" id="tar-m-cancelar">Cancelar</button><button class="btn rust" id="tar-m-salvar">Salvar</button></div></div></div>';
-
-  var modal=host.querySelector('#modal-tarefa');
-  function abrirModal(id){
-    document.getElementById('mo-tar-title').textContent=id?'Editar Tarefa':'Nova Tarefa';
-    var t=id?TAREFAS.find(function(x){return x.id===id;}):null;
-    host.querySelector('#tf-desc').value=t?t.desc:'';
-    host.querySelector('#tf-contato').value=t?(t.contato_id||''):'';
-    host.querySelector('#tf-tipo').value=t?t.tipo:'ligacao';
-    host.querySelector('#tf-resp').value=t?(t.resp||''):'';
-    host.querySelector('#tf-data').value=t?t.data:'';
-    host.querySelector('#tf-status').value=t?t.status:'pendente';
-    modal.dataset.editId=id||'';
-    modal.classList.add('op');
-  }
-  function fecharModal(){modal.classList.remove('op');}
-  function render(){
-    var fStatus=host.querySelector('#f-tar-status').value;
-    var fResp=host.querySelector('#f-tar-resp').value;
-    var list=TAREFAS.filter(function(t){
-      var st=statusTarefaReal(t);
-      if(fStatus&&st!==fStatus)return false;
-      if(fResp&&t.resp!==fResp)return false;
-      return true;
-    }).sort(function(a,b){return a.data.localeCompare(b.data);});
-    var badgeMap={pendente:'gd',concluida:'sage',atrasada:'rust'};
-    var labelMap={pendente:'Pendente',concluida:'Concluída',atrasada:'Atrasada'};
-    var tb=host.querySelector('#tbl-tarefas');
-    tb.innerHTML=list.map(function(t){
-      var st=statusTarefaReal(t);
-      return '<tr><td>'+t.desc+'</td><td>'+nomeContatoTar(t.contato_id)+'</td><td>'+t.tipo+'</td><td>'+(t.resp||'—')+'</td>'+
-        '<td class="mn">'+t.data.split('-').reverse().join('/')+'</td><td><span class="badge b-'+badgeMap[st]+'">'+labelMap[st]+'</span></td>'+
-        '<td><button class="btn sm" data-toggle="'+t.id+'">'+(t.status==='concluida'?'Reabrir':'Concluir')+'</button> <button class="btn sm" data-edit="'+t.id+'">Editar</button> <button class="btn sm" data-del="'+t.id+'">Excluir</button></td></tr>';
-    }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma tarefa cadastrada ainda.</td></tr>';
-    host.querySelector('#tar-cnt').textContent=list.length+' tarefa(s)';
-    tb.querySelectorAll('[data-toggle]').forEach(function(b){b.addEventListener('click',function(){
-      var t=TAREFAS.find(function(x){return x.id===b.dataset.toggle;});
-      t.status=t.status==='concluida'?'pendente':'concluida';
-      saveTarefasLocal();render();
-    });});
-    tb.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
-    tb.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){
-      if(!confirm('Excluir esta tarefa?'))return;
-      TAREFAS=TAREFAS.filter(function(x){return x.id!==b.dataset.del;});
-      saveTarefasLocal();render();
-    });});
-  }
-  host.querySelector('#tar-btn-novo').addEventListener('click',function(){abrirModal(null);});
-  host.querySelector('#tar-modal-x').addEventListener('click',fecharModal);
-  host.querySelector('#tar-m-cancelar').addEventListener('click',fecharModal);
-  host.querySelector('#tar-m-salvar').addEventListener('click',function(){
-    var desc=host.querySelector('#tf-desc').value.trim();
-    var data=host.querySelector('#tf-data').value;
-    if(!desc||!data){alert('Preencha descrição e data de vencimento.');return;}
-    var editId=modal.dataset.editId;
-    var d={desc:desc,contato_id:host.querySelector('#tf-contato').value,tipo:host.querySelector('#tf-tipo').value,
-      resp:host.querySelector('#tf-resp').value,data:data,status:host.querySelector('#tf-status').value};
-    if(editId){
-      var idx=TAREFAS.findIndex(function(x){return x.id===editId;});
-      d.id=editId;TAREFAS[idx]=d;
-    }else{
-      d.id='t'+Date.now()+Math.floor(Math.random()*10000);
-      TAREFAS.push(d);
-    }
-    saveTarefasLocal();fecharModal();render();
-  });
-  host.querySelector('#f-tar-status').addEventListener('change',render);
-  host.querySelector('#f-tar-resp').addEventListener('change',render);
-  render();
-}
-
-// ── CONFIG FINANCEIRO — Tipos de Peça e Coleções (Supabase) ─────────
-async function montarConfigFinanceiro(containerId){
-  var host=document.getElementById(containerId);
-  var tipos=[],colecoes=[];
-  try{
-    tipos=await cdaCarregarTiposProduto();
-    colecoes=await cdaCarregarColecoes();
-  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
-  function render(){
-    host.innerHTML=
-      '<div class="sec-t">Tipos e Coleções</div><div class="sec-d">Listas usadas no cadastro de produtos</div>'+
-      '<div class="cc"><h3>Tipos de Peça</h3><div id="tp-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+
-      tipos.map(function(t){return '<span class="badge b-vio" style="padding:4px 11px;font-size:10px;cursor:pointer" data-rmtp="'+t+'">'+t+' ✕</span>';}).join('')+
-      '</div><div style="display:flex;gap:7px;"><input type="text" id="new-tp" placeholder="Ex: Moletom" style="font-family:\'Syne\',sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" id="btn-add-tp">+ Adicionar</button></div></div>'+
-      '<div class="cc"><h3>Coleções</h3><div id="col-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">'+
-      colecoes.map(function(c){return '<span class="badge b-gd" style="padding:4px 11px;font-size:10px;cursor:pointer" data-rmcol="'+c+'">'+c+' ✕</span>';}).join('')+
-      '</div><div style="display:flex;gap:7px;"><input type="text" id="new-col" placeholder="Ex: Tour 2026" style="font-family:\'Syne\',sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" id="btn-add-col">+ Adicionar</button></div></div>';
-    host.querySelectorAll('[data-rmtp]').forEach(function(el){el.addEventListener('click',async function(){
-      if(!confirm('Remover o tipo "'+el.dataset.rmtp+'"?'))return;
-      try{await cdaExcluirTipoProduto(el.dataset.rmtp);tipos=tipos.filter(function(t){return t!==el.dataset.rmtp;});render();}catch(e){alert('Erro ao remover.');console.error(e);}
-    });});
-    host.querySelectorAll('[data-rmcol]').forEach(function(el){el.addEventListener('click',async function(){
-      if(!confirm('Remover a coleção "'+el.dataset.rmcol+'"?'))return;
-      try{await cdaExcluirColecao(el.dataset.rmcol);colecoes=colecoes.filter(function(c){return c!==el.dataset.rmcol;});render();}catch(e){alert('Erro ao remover.');console.error(e);}
-    });});
-    host.querySelector('#btn-add-tp').addEventListener('click',async function(){
-      var v=host.querySelector('#new-tp').value.trim();if(!v||tipos.includes(v))return;
-      try{await cdaAdicionarTipoProduto(v);tipos.push(v);render();}catch(e){alert('Erro ao adicionar.');console.error(e);}
-    });
-    host.querySelector('#btn-add-col').addEventListener('click',async function(){
-      var v=host.querySelector('#new-col').value.trim();if(!v||colecoes.includes(v))return;
-      try{await cdaAdicionarColecao(v);colecoes.push(v);render();}catch(e){alert('Erro ao adicionar.');console.error(e);}
-    });
-  }
-  render();
-}
-
-// ── COLLABS / VENDEDORES (parceiros) — Supabase ─────────────────────
-async function montarCollabsVendedores(containerId){
-  var host=document.getElementById(containerId);
-  var parceiros=[],canais=[];
-  try{
-    parceiros=await cdaCarregarParceiros();
-    canais=await cdaCarregarCanais();
-  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
-  host.innerHTML=
-    '<div class="row-bt"><div><div class="sec-t">Collabs / Vendedores</div><div class="sec-d">Artistas e parceiros vinculados à Ciclo da Arte</div></div>'+
-    '<button class="btn rust sm" id="cv-btn-novo">+ Novo</button></div>'+
-    '<div class="fb"><input type="text" id="f-cvnome" placeholder="Buscar collab / vendedor...">'+
-    '<select id="f-cv-canal"><option value="">Todos os canais</option>'+canais.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('')+'</select>'+
-    '<span class="fc" id="cv-cnt"></span></div>'+
-    '<div class="cc-g" id="cv-cards" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>'+
-    '<div class="mo" id="mo-cv"><div class="mo-box"><div class="mo-h"><h3 id="mo-cv-t">Novo Collab / Vendedor</h3><button class="mo-x" id="cv-modal-x">✕</button></div>'+
-    '<div class="mo-b"><div class="fg"><div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input id="cv-nome" type="text" placeholder="Ex: Duda Beat"></div>'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="cv-obs"></textarea></div></div></div>'+
-    '<div class="mo-f"><button class="btn" id="cv-m-cancelar">Cancelar</button><button class="btn rust" id="cv-m-salvar">Salvar</button></div></div></div>';
-
-  function render(){
-    var busca=host.querySelector('#f-cvnome').value.toLowerCase();
-    var fCanal=host.querySelector('#f-cv-canal').value;
-    var list=parceiros.filter(function(p){
-      if(busca&&!(p.nome||'').toLowerCase().includes(busca))return false;
-      if(fCanal&&!canais.some(function(c){return String(c.parceiroId)===String(p.id)&&String(c.id)===fCanal;}))return false;
-      return true;
-    });
-    host.querySelector('#cv-cnt').textContent=list.length+' collab(s)/vendedor(es)';
-    host.querySelector('#cv-cards').innerHTML=list.map(function(p){
-      var qtdCanais=canais.filter(function(c){return String(c.parceiroId)===String(p.id);}).length;
-      return '<div class="ccard"><div class="ccard-n">'+p.nome+'</div><div class="ccard-t">'+qtdCanais+' canal(is)</div>'+
-        '<div style="display:flex;gap:6px;margin-top:8px"><button class="btn sm" data-edit="'+p.id+'">✏</button>'+
-        '<button class="btn sm" style="background:var(--rust);color:#fff" data-del="'+p.id+'">🗑</button></div></div>';
-    }).join('')||'<p class="tmu" style="grid-column:1/-1">Nenhum collab/vendedor encontrado.</p>';
-    host.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
-    host.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){excluir(b.dataset.del);});});
-  }
-  var modal=host.querySelector('#mo-cv');
-  function abrirModal(id){
-    var p=id?parceiros.find(function(x){return String(x.id)===String(id);}):null;
-    host.querySelector('#mo-cv-t').textContent=id?'Editar Collab / Vendedor':'Novo Collab / Vendedor';
-    host.querySelector('#cv-nome').value=p?p.nome:'';
-    host.querySelector('#cv-obs').value=p?(p.obs||''):'';
-    modal.dataset.editId=id||'';
-    modal.classList.add('op');
-  }
-  function fecharModal(){modal.classList.remove('op');}
-  host.querySelector('#cv-btn-novo').addEventListener('click',function(){abrirModal(null);});
-  host.querySelector('#cv-modal-x').addEventListener('click',fecharModal);
-  host.querySelector('#cv-m-cancelar').addEventListener('click',fecharModal);
-  host.querySelector('#cv-m-salvar').addEventListener('click',async function(){
-    var nome=host.querySelector('#cv-nome').value.trim();
-    if(!nome){alert('Nome obrigatório.');return;}
-    var editId=modal.dataset.editId;
-    try{
-      var salvo=await cdaSalvarParceiro({id:editId||null,nome:nome,obs:host.querySelector('#cv-obs').value});
-      if(editId){var i=parceiros.findIndex(function(x){return String(x.id)===String(editId);});parceiros[i]=salvo;}
-      else parceiros.push(salvo);
-      fecharModal();render();
-    }catch(e){alert('Erro ao salvar.');console.error(e);}
-  });
-  async function excluir(id){
-    var nome=(parceiros.find(function(x){return String(x.id)===String(id);})||{}).nome||'';
-    if(!confirm('Deletar o Collab/Vendedor "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
-    var canaisVinc=canais.filter(function(c){return String(c.parceiroId)===String(id);});
-    if(canaisVinc.length>0){alert('Não é possível deletar: este Collab/Vendedor possui '+canaisVinc.length+' canal(is) de venda vinculado(s).');return;}
-    try{
-      await cdaExcluirParceiro(id);
-      parceiros=parceiros.filter(function(x){return String(x.id)!==String(id);});
-      render();
-    }catch(e){alert('Erro ao excluir.');console.error(e);}
-  }
-  host.querySelector('#f-cvnome').addEventListener('input',render);
-  host.querySelector('#f-cv-canal').addEventListener('change',render);
-  render();
-}
-
-// ── CANAIS DE VENDA — Supabase ───────────────────────────────────────
-var TIPO_L_CANAL={artista:'Artista',casa_shows:'Casa de Shows',revenda:'Revenda',ecommerce:'E-Commerce Dedicado',multi:'E-Commerce Multimarcas'};
-var TIPO_C_CANAL={multi:'mu',ecommerce:'ec',casa_shows:'cs'};
-async function montarCanaisVenda(containerId){
-  var host=document.getElementById(containerId);
-  var canais=[],parceiros=[];
-  try{
-    canais=await cdaCarregarCanais();
-    parceiros=await cdaCarregarParceiros();
-  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
-  host.innerHTML=
-    '<div class="row-bt"><div><div class="sec-t">Canais de Venda</div><div class="sec-d">Artistas, casas de shows, revendas e e-commerces</div></div>'+
-    '<button class="btn rust sm" id="col-btn-novo">+ Novo Canal de Venda</button></div>'+
-    '<div class="fb"><input type="text" id="f-col-nome" placeholder="Buscar canal...">'+
-    '<select id="f-col-cv"><option value="">Todos os collabs</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('')+'</select>'+
-    '<select id="f-col-tipo"><option value="">Todos os tipos</option><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select>'+
-    '<span class="fc" id="col-cnt"></span></div>'+
-    '<div class="kpi-g" style="margin-bottom:16px">'+
-    '<div class="kpi"><div class="kpi-l">Total Canais</div><div class="kpi-v" id="col-total-kpi">—</div><div class="kpi-s">conforme filtros</div></div>'+
-    '<div class="kpi gd"><div class="kpi-l">Artistas</div><div class="kpi-v" id="col-kpi-artista">—</div><div class="kpi-s">canais tipo artista</div></div>'+
-    '<div class="kpi vi"><div class="kpi-l">E-Commerce</div><div class="kpi-v" id="col-kpi-ecommerce">—</div><div class="kpi-s">canais e-commerce</div></div>'+
-    '<div class="kpi sa"><div class="kpi-l">Revendas</div><div class="kpi-v" id="col-kpi-revenda">—</div><div class="kpi-s">canais revenda</div></div>'+
-    '<div class="kpi li"><div class="kpi-l">Shows / Outros</div><div class="kpi-v" id="col-kpi-outros">—</div><div class="kpi-s">demais tipos</div></div></div>'+
-    '<div class="cc-g" id="col-cards"></div>'+
-    '<div class="mo" id="mo-col"><div class="mo-box"><div class="mo-h"><h3 id="mo-col-t">Novo Canal de Venda</h3><button class="mo-x" id="col-modal-x">✕</button></div>'+
-    '<div class="mo-b"><div class="fg">'+
-    '<div class="fgr"><label>Collab / Vendedor</label><select id="col-cv"><option value="">— Selecione —</option></select></div>'+
-    '<div class="fgr"><label>Tipo</label><select id="col-t"><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select></div>'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Nome do Canal *</label><input id="col-n" type="text"></div>'+
-    '<div class="fgr"><label>Comissão (%)</label><input id="col-c" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>Impostos (%)</label><input id="col-imp" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>Op. (%)</label><input id="col-op" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>CS (%)</label><input id="col-cs" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>E-mail</label><input id="col-e" type="email"></div>'+
-    '<div class="fgr" style="display:flex;align-items:center;gap:8px;padding-top:20px"><input type="checkbox" id="col-frete-flag"> <label style="text-transform:none;font-size:11px">Sem cobrança de frete</label></div>'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="col-o"></textarea></div>'+
-    '</div></div><div class="mo-f"><button class="btn" id="col-m-cancelar">Cancelar</button><button class="btn rust" id="col-m-salvar">Salvar</button></div></div></div>';
-
-  function render(){
-    var busca=host.querySelector('#f-col-nome').value.toLowerCase();
-    var fCv=host.querySelector('#f-col-cv').value;
-    var fTipo=host.querySelector('#f-col-tipo').value;
-    var list=canais.filter(function(c){
-      if(busca&&!(c.nome||'').toLowerCase().includes(busca))return false;
-      if(fCv&&String(c.parceiroId)!==fCv)return false;
-      if(fTipo&&c.tipo!==fTipo)return false;
-      return true;
-    });
-    host.querySelector('#col-cnt').textContent=list.length+' canal(is)';
-    host.querySelector('#col-total-kpi').textContent=list.length;
-    host.querySelector('#col-kpi-artista').textContent=list.filter(function(c){return c.tipo==='artista';}).length;
-    host.querySelector('#col-kpi-ecommerce').textContent=list.filter(function(c){return c.tipo==='ecommerce'||c.tipo==='multi';}).length;
-    host.querySelector('#col-kpi-revenda').textContent=list.filter(function(c){return c.tipo==='revenda';}).length;
-    host.querySelector('#col-kpi-outros').textContent=list.filter(function(c){return c.tipo!=='artista'&&c.tipo!=='ecommerce'&&c.tipo!=='multi'&&c.tipo!=='revenda';}).length;
-    host.querySelector('#col-cards').innerHTML=list.map(function(c){
-      var parc=parceiros.find(function(p){return String(p.id)===String(c.parceiroId);});
-      var cls=TIPO_C_CANAL[c.tipo]||'';
-      return '<div class="ccard '+cls+'"><div class="ccard-n">'+c.nome+'</div><div class="ccard-t">'+(TIPO_L_CANAL[c.tipo]||c.tipo)+(parc?' · '+parc.nome:'')+'</div>'+
-        '<div class="ccard-st"><button class="btn sm" data-edit="'+c.id+'">✏</button>'+
-        '<button class="btn sm" style="background:var(--rust);color:#fff" data-del="'+c.id+'" data-nome="'+c.nome+'">🗑</button></div></div>';
-    }).join('')||'<p class="tmu" style="grid-column:1/-1">Nenhum canal encontrado.</p>';
-    host.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
-    host.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){excluir(b.dataset.del,b.dataset.nome);});});
-  }
-  var modal=host.querySelector('#mo-col');
-  function abrirModal(id){
-    var c=id?canais.find(function(x){return String(x.id)===String(id);}):null;
-    host.querySelector('#mo-col-t').textContent=c?'Editar Canal de Venda':'Novo Canal de Venda';
-    var selCv=host.querySelector('#col-cv');
-    selCv.innerHTML='<option value="">— Selecione —</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
-    selCv.value=c?(c.parceiroId||''):'';
-    host.querySelector('#col-n').value=c?c.nome:'';
-    host.querySelector('#col-t').value=c?(c.tipo||'artista'):'artista';
-    host.querySelector('#col-c').value=c&&c.comissao!=null?c.comissao:'';
-    host.querySelector('#col-imp').value=c&&c.pctImp!=null?c.pctImp:'';
-    host.querySelector('#col-op').value=c&&c.pctOp!=null?c.pctOp:'';
-    host.querySelector('#col-cs').value=c&&c.pctCs!=null?c.pctCs:'';
-    host.querySelector('#col-frete-flag').checked=c?!!c.semFrete:false;
-    host.querySelector('#col-e').value=c?(c.email||''):'';
-    host.querySelector('#col-o').value=c?(c.obs||''):'';
-    modal.dataset.editId=id||'';
-    modal.classList.add('op');
-  }
-  function fecharModal(){modal.classList.remove('op');}
-  host.querySelector('#col-btn-novo').addEventListener('click',function(){abrirModal(null);});
-  host.querySelector('#col-modal-x').addEventListener('click',fecharModal);
-  host.querySelector('#col-m-cancelar').addEventListener('click',fecharModal);
-  host.querySelector('#col-m-salvar').addEventListener('click',async function(){
-    var nome=host.querySelector('#col-n').value.trim();
-    if(!nome){alert('Nome obrigatório.');return;}
-    var editId=modal.dataset.editId;
-    var com=parseFloat(host.querySelector('#col-c').value);
-    var pctImp=parseFloat(host.querySelector('#col-imp').value);
-    var pctOp=parseFloat(host.querySelector('#col-op').value);
-    var pctCs=parseFloat(host.querySelector('#col-cs').value);
-    var o={id:editId||null,nome:nome,tipo:host.querySelector('#col-t').value,comissao:isNaN(com)?null:com,
-      pctImp:isNaN(pctImp)?null:pctImp,pctOp:isNaN(pctOp)?null:pctOp,pctCs:isNaN(pctCs)?null:pctCs,
-      semFrete:host.querySelector('#col-frete-flag').checked,email:host.querySelector('#col-e').value,
-      obs:host.querySelector('#col-o').value,parceiroId:host.querySelector('#col-cv').value||null};
-    try{
-      var salvo=await cdaSalvarCanal(o);
-      if(editId){var i=canais.findIndex(function(x){return String(x.id)===String(editId);});canais[i]=salvo;}
-      else canais.push(salvo);
-      fecharModal();render();
-    }catch(e){alert('Erro ao salvar.');console.error(e);}
-  });
-  async function excluir(id,nome){
-    if(!confirm('Deletar canal "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
-    try{
-      await cdaExcluirCanal(id);
-      canais=canais.filter(function(x){return String(x.id)!==String(id);});
-      render();
-    }catch(e){
-      alert('Não foi possível excluir. Pode haver histórico de compras ou prestações vinculadas a este canal.');
-      console.error(e);
-    }
-  }
-  host.querySelector('#f-col-nome').addEventListener('input',render);
-  host.querySelector('#f-col-cv').addEventListener('change',render);
-  host.querySelector('#f-col-tipo').addEventListener('change',render);
-  render();
 }
 
 // ── CREDENCIAMENTO DE USUÁRIOS (admin only) ─────────────────────────
@@ -986,13 +456,13 @@ function confirmDeleteCred(id){
 async function saveCredAdd(){
   var d=getCredFormData();if(!validateCredForm(d,null))return;
   d.initials=initials(d.name);d.acesso=null;d.tipo='Interno';
-  try{var res=await sb.post('equipe',d);EQUIPE.push(res[0]||Object.assign({id:Date.now()},d));closeModal();openProject('credenciamento');showToast(d.name+' credenciado!','success');}
+  try{var res=await sb.post('equipe',d);EQUIPE.push(res[0]||Object.assign({id:Date.now()},d));closeModal();openProject('credenciamento');showToast(d.name+' cadastrado! ⚠️ Peça ao Claude para ativar o acesso de login deste usuário.','info');}
   catch(e){showToast('Erro ao salvar','error');}
 }
 async function saveCredEdit(id){
   var d=getCredFormData();if(!validateCredForm(d,id))return;
   d.initials=initials(d.name);
-  try{await sb.patch('equipe',id,d);var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado!','success');}
+  try{await sb.patch('equipe',id,d);var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');}
   catch(e){showToast('Erro ao salvar','error');}
 }
 async function deleteCred(id){
