@@ -116,12 +116,12 @@ const CDA_PRODUTO_MAP = {
   fromRow: r => ({
     id: r.id, nome: r.nome, tipo: r.tipo, colecao: r.colecao,
     canalId: r.canal_id, parceiroId: r.parceiro_id, preco: r.preco, cor: r.cor, tam: r.tam,
-    status: r.status || 'Ativo'
+    status: r.status || 'Ativo', codigoBling: r.codigo_bling || ''
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, tipo: o.tipo || null, colecao: o.colecao || null,
     canal_id: o.canalId || null, parceiro_id: o.parceiroId || null, preco: o.preco, cor: o.cor || null, tam: o.tam || null,
-    status: o.status || 'Ativo'
+    status: o.status || 'Ativo', codigo_bling: o.codigoBling || null
   })
 };
 async function cdaCarregarProdutos() {
@@ -182,15 +182,18 @@ const CDA_COMPRA_MAP = {
     canalId: r.canal_id != null ? String(r.canal_id) : null,
     produtoId: r.produto_id != null ? String(r.produto_id) : null,
     produto: r.produto, variacao: r.variacao, quantidade: r.quantidade,
-    valorUnitario: r.valor_unitario, valorTotal: r.valor_total,
-    dataCompra: r.data_compra, numeroPedido: r.numero_pedido,
+    valorUnitario: r.valor_unitario, valorBruto: r.valor_bruto, valorTotal: r.valor_total,
+    desconto: r.desconto, frete: r.frete, outrasDespesas: r.outras_despesas,
+    situacao: r.situacao, dataCompra: r.data_compra, numeroPedido: r.numero_pedido,
     origem: r.origem, obs: r.obs
   }),
   toRow: o => ({
     id: o.id, cliente_id: o.clienteId || null, canal_id: o.canalId || null,
     produto_id: o.produtoId || null, produto: o.produto || null, variacao: o.variacao || null,
     quantidade: o.quantidade || null, valor_unitario: o.valorUnitario || null,
-    valor_total: o.valorTotal || null, data_compra: o.dataCompra || null,
+    valor_bruto: o.valorBruto || null, valor_total: o.valorTotal || null,
+    desconto: o.desconto || null, frete: o.frete || null, outras_despesas: o.outrasDespesas || null,
+    situacao: o.situacao || null, data_compra: o.dataCompra || null,
     numero_pedido: o.numeroPedido || null, origem: o.origem || null, obs: o.obs || null
   })
 };
