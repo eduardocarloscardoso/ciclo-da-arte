@@ -57,7 +57,13 @@ const CDA_CLIENTE_MAP = {
     origem: r.origem || '', origemDados: r.origem_dados || '',
     responsavelComercial: r.responsavel_comercial || '',
     tagsComercial: r.tags_comercial ? r.tags_comercial.split(',').map(t => t.trim()).filter(Boolean) : [],
-    obsComercial: r.obs_comercial || ''
+    obsComercial: r.obs_comercial || '',
+    // Status CRM — SOMENTE LEITURA aqui. Calculado pelo job noturno
+    // cda_recalcular_status_crm() no Supabase; nunca gravado pelo frontend
+    // (por isso não aparece em toRow), pra não sobrescrever com dado velho.
+    statusCrmId: r.status_crm_id != null ? Number(r.status_crm_id) : null,
+    statusCrmAtualizadoEm: r.status_crm_atualizado_em || null,
+    cadastroIncompleto: !!r.cadastro_incompleto
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, email: o.email || null, cpf: o.cpf || null, sexo: o.sexo || null,
@@ -155,7 +161,9 @@ async function cdaCarregarCanais() {
   const rows = await cdaFetchAll('canais');
   return rows.map(r => ({
     id: r.id, nome: r.nome, tipo: r.tipo, comissao: r.comissao, pctImp: r.pct_imp,
-    pctOp: r.pct_op, pctCs: r.pct_cs, semFrete: r.sem_frete, email: r.email, obs: r.obs, parceiroId: r.parceiro_id
+    pctOp: r.pct_op, pctCs: r.pct_cs, semFrete: r.sem_frete, email: r.email, obs: r.obs, parceiroId: r.parceiro_id,
+    // 'b2c' | 'b2b' — define se o canal entra no universo de Segmentação/Pipeline B2C
+    escopo: r.escopo || 'b2c'
   }));
 }
 async function cdaCarregarParceiros() {
@@ -265,6 +273,18 @@ async function cdaSalvarSegmento(o) {
 async function cdaExcluirSegmento(id) {
   const { error } = await cdaClient.from('segmentos_salvos').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ── STATUS CRM (catálogo — segmentação e resultados de pipeline) ────
+// Somente leitura pelo Comercial. Alimenta os atalhos rápidos de
+// Segmentação e o modal de transição do Pipeline B2C.
+async function cdaCarregarStatusCrm() {
+  const rows = await cdaFetchAll('cda_status_crm', '*', 'ordem');
+  return rows.filter(r => r.ativo !== false).map(r => ({
+    id: r.id, tipo: r.tipo, codigo: r.codigo, nome: r.nome, descricao: r.descricao,
+    acaoSugerida: r.acao_sugerida, cor: r.cor || '#888', ordem: r.ordem,
+    etapaAplicavel: r.etapa_aplicavel || []
+  }));
 }
 
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
