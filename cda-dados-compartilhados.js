@@ -63,7 +63,8 @@ const CDA_CLIENTE_MAP = {
     // (por isso não aparece em toRow), pra não sobrescrever com dado velho.
     statusCrmId: r.status_crm_id != null ? Number(r.status_crm_id) : null,
     statusCrmAtualizadoEm: r.status_crm_atualizado_em || null,
-    cadastroIncompleto: !!r.cadastro_incompleto
+    cadastroIncompleto: !!r.cadastro_incompleto,
+    criadoEm: r.criado_em || null
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, email: o.email || null, cpf: o.cpf || null, sexo: o.sexo || null,
