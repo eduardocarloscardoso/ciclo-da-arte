@@ -16,20 +16,50 @@
 //   <script>montarModuloSegmentacao('container-segmentacao');</script>
 // ════════════════════════════════════════════════════════════════════
 
+// Cada filtro pertence a um GRUPO — os mesmos 8 grupos do documento de
+// especificação da Segmentação. Os itens de "Datas" (último contato/
+// proposta) e "CRM" (sem contato/follow-up/oportunidade) dependem do
+// histórico de interações, que ainda não existe (fica pra quando o
+// Pipeline B2C for redesenhado) — por isso não aparecem aqui ainda.
 var CDA_TIPOS_FILTRO_SEG = [
-  { id: 'status_crm', label: 'Status CRM (ciclo de vida)' },
-  { id: 'tag_valor', label: 'Classificação de valor (VIP/Premium)' },
-  { id: 'aniversario', label: 'Aniversário (mês)' },
-  { id: 'recencia_compra', label: 'Dias desde a última compra' },
-  { id: 'nunca_comprou', label: 'Nunca comprou' },
-  { id: 'valor_gasto', label: 'Valor total gasto (R$)' },
-  { id: 'qtd_compras', label: 'Quantidade de compras' },
-  { id: 'canal', label: 'Comprou pelo menos 1x no canal' },
-  { id: 'produto', label: 'Comprou o produto' },
-  { id: 'cidade', label: 'Cidade' },
-  { id: 'estado', label: 'Estado (UF)' },
-  { id: 'tipo_comercial', label: 'Tipo Comercial' }
+  { id: 'status_crm', label: 'Status CRM (ciclo de vida)', grupo: 'Inteligência' },
+  { id: 'tag_valor', label: 'Classificação de valor (VIP/Premium)', grupo: 'Inteligência' },
+
+  { id: 'valor_gasto', label: 'Valor total gasto (R$)', grupo: 'Compras' },
+  { id: 'ticket_medio', label: 'Ticket médio (R$)', grupo: 'Compras' },
+  { id: 'qtd_compras', label: 'Quantidade de compras', grupo: 'Compras' },
+  { id: 'canal', label: 'Comprou pelo menos 1x no canal', grupo: 'Compras' },
+
+  { id: 'recencia_compra', label: 'Sem comprar há X dias', grupo: 'Frequência' },
+  { id: 'nunca_comprou', label: 'Nunca comprou (nenhum produto)', grupo: 'Frequência' },
+  { id: 'comprou_periodo', label: 'Comprou neste período', grupo: 'Frequência' },
+
+  { id: 'aniversario', label: 'Aniversariantes (mês)', grupo: 'Datas' },
+  { id: 'dias_cadastro', label: 'Dias desde o cadastro', grupo: 'Datas' },
+  { id: 'dias_primeira_compra', label: 'Dias desde a 1ª compra', grupo: 'Datas' },
+
+  { id: 'produto', label: 'Comprou o produto', grupo: 'Produtos' },
+  { id: 'nunca_comprou_produto', label: 'Nunca comprou o produto', grupo: 'Produtos' },
+
+  { id: 'cidade', label: 'Cidade', grupo: 'Geografia' },
+  { id: 'estado', label: 'Estado (UF)', grupo: 'Geografia' },
+  { id: 'regiao', label: 'Região', grupo: 'Geografia' },
+  { id: 'pais', label: 'País', grupo: 'Geografia' },
+  { id: 'cep', label: 'CEP (prefixo)', grupo: 'Geografia' },
+
+  { id: 'origem', label: 'Origem do lead', grupo: 'Marketing' },
+
+  { id: 'tipo_comercial', label: 'Tipo Comercial', grupo: 'CRM' },
+  { id: 'sem_vendedor', label: 'Sem vendedor responsável', grupo: 'CRM' }
 ];
+
+var CDA_UF_REGIAO = {
+  AC:'Norte', AM:'Norte', AP:'Norte', PA:'Norte', RO:'Norte', RR:'Norte', TO:'Norte',
+  AL:'Nordeste', BA:'Nordeste', CE:'Nordeste', MA:'Nordeste', PB:'Nordeste', PE:'Nordeste', PI:'Nordeste', RN:'Nordeste', SE:'Nordeste',
+  DF:'Centro-Oeste', GO:'Centro-Oeste', MT:'Centro-Oeste', MS:'Centro-Oeste',
+  ES:'Sudeste', MG:'Sudeste', RJ:'Sudeste', SP:'Sudeste',
+  PR:'Sul', RS:'Sul', SC:'Sul'
+};
 
 // Nota importante: todo o universo desta tela já sai filtrado por
 // canal.escopo === 'b2c' e cliente.cadastroIncompleto === false antes de
@@ -64,8 +94,10 @@ async function montarModuloSegmentacao(containerId) {
         '<button class="btn rust" id="seg-btn-exportar">⬇ Exportar XLSX</button>' +
       '</div>' +
     '</div>' +
+    '<div class="seg-and" style="margin-top:0">Inteligência — atalhos de 1 clique</div>' +
     '<div id="seg-pills" class="seg-pills-wrap"></div>' +
     '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
+    '<div class="seg-and">Construtor de filtros combináveis — organizados pelos 8 grupos da Segmentação</div>' +
     '<div id="seg-filtros"></div>' +
     '<button class="btn sm" id="seg-btn-addfiltro">＋ Adicionar Filtro</button>' +
     '<div class="tw" style="margin-top:16px">' +
@@ -108,18 +140,30 @@ async function montarModuloSegmentacao(containerId) {
   var statusCrmPorId = {}; ST.statusCrm.forEach(function (s) { statusCrmPorId[s.id] = s; });
 
   // ── Pré-computa agregados de compra por cliente (feito 1x, reusado em todo filtro) ──
-  var agregados = {}; // clienteId -> {qtd, total, ultimaData, canais:Set, produtos:Set}
+  var agora = new Date();
+  var inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+  var inicioTrimestre = new Date(agora.getFullYear(), Math.floor(agora.getMonth() / 3) * 3, 1);
+  var inicioAno = new Date(agora.getFullYear(), 0, 1);
+
+  var agregados = {}; // clienteId -> {qtd, total, primeiraData, ultimaData, canais:Set, produtos:Set, mes, trimestre, ano}
   ST.compras.forEach(function (cp) {
     if (!cp.clienteId) return;
     var a = agregados[cp.clienteId];
-    if (!a) { a = { qtd: 0, total: 0, ultimaData: null, canais: new Set(), produtos: new Set() }; agregados[cp.clienteId] = a; }
+    if (!a) { a = { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; agregados[cp.clienteId] = a; }
     a.qtd++;
     a.total += Number(cp.valorTotal) || 0;
     if (cp.dataCompra && (!a.ultimaData || cp.dataCompra > a.ultimaData)) a.ultimaData = cp.dataCompra;
+    if (cp.dataCompra && (!a.primeiraData || cp.dataCompra < a.primeiraData)) a.primeiraData = cp.dataCompra;
     if (cp.canalId) a.canais.add(String(cp.canalId));
     if (cp.produtoId) a.produtos.add(String(cp.produtoId));
+    if (cp.dataCompra) {
+      var d = new Date(cp.dataCompra);
+      if (d >= inicioMes) a.mes = true;
+      if (d >= inicioTrimestre) a.trimestre = true;
+      if (d >= inicioAno) a.ano = true;
+    }
   });
-  function aggDe(clienteId) { return agregados[clienteId] || { qtd: 0, total: 0, ultimaData: null, canais: new Set(), produtos: new Set() }; }
+  function aggDe(clienteId) { return agregados[clienteId] || { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; }
 
   // ── Atalhos rápidos (pills) — status de ciclo de vida + tags de valor ──
   function renderPills() {
@@ -151,13 +195,24 @@ async function montarModuloSegmentacao(containerId) {
   popularSelects();
 
   // ── Renderização das linhas de filtro ──
+  var CDA_GRUPOS_ORDEM = ['Inteligência', 'Compras', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
+  function optionsAgrupadas(valorSelecionado) {
+    return CDA_GRUPOS_ORDEM.map(function (grupo) {
+      var itens = CDA_TIPOS_FILTRO_SEG.filter(function (t) { return t.grupo === grupo; });
+      if (!itens.length) return '';
+      return '<optgroup label="' + grupo + '">' +
+        itens.map(function (t) { return '<option value="' + t.id + '"' + (valorSelecionado === t.id ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
+        '</optgroup>';
+    }).join('');
+  }
+
   function renderFiltros() {
     var wrap = host.querySelector('#seg-filtros');
     wrap.innerHTML = ST.filtros.map(function (f, idx) {
       return (idx > 0 ? '<div class="seg-and">E também...</div>' : '') +
         '<div class="seg-row" data-idx="' + idx + '">' +
           '<select class="seg-tipo" data-idx="' + idx + '">' +
-            CDA_TIPOS_FILTRO_SEG.map(function (t) { return '<option value="' + t.id + '"' + (f.tipo === t.id ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
+            optionsAgrupadas(f.tipo) +
           '</select>' +
           '<span class="seg-valor-area" data-idx="' + idx + '"></span>' +
           '<button class="btn sm" data-rm="' + idx + '">✕</button>' +
@@ -231,6 +286,33 @@ async function montarModuloSegmentacao(containerId) {
         return '<input class="seg-val" type="text" placeholder="Ex: Rio de Janeiro">';
       case 'estado':
         return '<input class="seg-val" type="text" placeholder="Ex: RJ" maxlength="2" style="width:60px">';
+      case 'ticket_medio':
+        return '<select class="seg-op"><option value=">">maior que</option><option value="<">menor que</option></select>' +
+          '<input class="seg-val" type="number" placeholder="R$" style="width:100px">';
+      case 'comprou_periodo':
+        return '<select class="seg-val"><option value="">Selecione...</option><option value="mes">Este mês</option><option value="trimestre">Este trimestre</option><option value="ano">Este ano</option></select>';
+      case 'dias_cadastro':
+        return '<select class="seg-op"><option value=">">mais de</option><option value="<">menos de</option></select>' +
+          '<input class="seg-val" type="number" placeholder="dias" style="width:80px">';
+      case 'dias_primeira_compra':
+        return '<select class="seg-op"><option value=">">mais de</option><option value="<">menos de</option></select>' +
+          '<input class="seg-val" type="number" placeholder="dias" style="width:80px">';
+      case 'nunca_comprou_produto':
+        return '<select class="seg-val"><option value="">Selecione...</option>' + ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
+          .map(function (p) { return '<option value="' + p.id + '">' + p.nome + '</option>'; }).join('') + '</select>';
+      case 'regiao':
+        return '<select class="seg-val"><option value="">Selecione...</option>' + ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul']
+          .map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('') + '</select>';
+      case 'pais':
+        return '<input class="seg-val" type="text" placeholder="Ex: Brasil">';
+      case 'cep':
+        return '<input class="seg-val" type="text" placeholder="Ex: 22793 (prefixo)" style="width:110px">';
+      case 'origem':
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          Array.from(new Set(ST.clientes.map(function (c) { return c.origem; }).filter(Boolean))).sort()
+            .map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join('') + '</select>';
+      case 'sem_vendedor':
+        return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
       case 'tipo_comercial':
         return '<select class="seg-val"><option value="">—</option><option value="__vazio__">Cliente Convertido (sem tipo)</option><option value="lead_b2c">Lead B2C</option><option value="canal_b2b">Canal B2B</option><option value="artista">Artista</option><option value="imprensa">Imprensa</option></select>';
       default: return '';
@@ -282,6 +364,42 @@ async function montarModuloSegmentacao(containerId) {
       case 'estado':
         if (!f.valor) return true;
         return (cliente.estado || '').toLowerCase() === f.valor.toLowerCase();
+      case 'ticket_medio': {
+        if (f.valor === '' || f.valor == null) return true;
+        var tm = agg.qtd ? agg.total / agg.qtd : 0;
+        return f.operador === '>' ? tm > Number(f.valor) : tm < Number(f.valor);
+      }
+      case 'comprou_periodo':
+        if (!f.valor) return true;
+        return !!agg[f.valor]; // agg.mes / agg.trimestre / agg.ano
+      case 'dias_cadastro': {
+        if (!f.valor || !cliente.criadoEm) return f.operador === '>';
+        var diasC = Math.floor((Date.now() - new Date(cliente.criadoEm).getTime()) / 86400000);
+        return f.operador === '>' ? diasC > Number(f.valor) : diasC < Number(f.valor);
+      }
+      case 'dias_primeira_compra': {
+        if (!f.valor) return true;
+        if (!agg.primeiraData) return f.operador === '>';
+        var diasP = Math.floor((Date.now() - new Date(agg.primeiraData).getTime()) / 86400000);
+        return f.operador === '>' ? diasP > Number(f.valor) : diasP < Number(f.valor);
+      }
+      case 'nunca_comprou_produto':
+        if (!f.valor) return true;
+        return !agg.produtos.has(String(f.valor));
+      case 'regiao':
+        if (!f.valor) return true;
+        return CDA_UF_REGIAO[(cliente.estado || '').toUpperCase()] === f.valor;
+      case 'pais':
+        if (!f.valor) return true;
+        return (cliente.pais || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
+      case 'cep':
+        if (!f.valor) return true;
+        return (cliente.cep || '').replace(/\D/g, '').indexOf(f.valor.replace(/\D/g, '')) === 0;
+      case 'origem':
+        if (!f.valor) return true;
+        return cliente.origem === f.valor;
+      case 'sem_vendedor':
+        return !cliente.responsavelComercial;
       case 'tipo_comercial':
         if (!f.valor) return true;
         if (f.valor === '__vazio__') return !cliente.tipoComercial;
@@ -341,7 +459,7 @@ async function montarModuloSegmentacao(containerId) {
   }
 
   host.querySelector('#seg-btn-addfiltro').addEventListener('click', function () {
-    ST.filtros.push({ tipo: 'aniversario', operador: '>', valor: '' });
+    ST.filtros.push({ tipo: 'status_crm', operador: '>', valor: '' });
     renderFiltros();
     aplicarFiltros();
   });
