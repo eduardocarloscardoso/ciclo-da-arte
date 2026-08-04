@@ -331,67 +331,71 @@ async function montarModuloSegmentacao(containerId) {
     });
   }
 
+  function opts(lista, valorAtual) {
+    // lista = [{v, l}] -> monta <option>, marcando selected se bater com valorAtual
+    return lista.map(function (o) { return '<option value="' + o.v + '"' + (String(valorAtual) === String(o.v) ? ' selected' : '') + '>' + o.l + '</option>'; }).join('');
+  }
+  function opInput(placeholder, largura, f) {
+    return '<select class="seg-op">' +
+      '<option value=">"' + (f.operador === '>' ? ' selected' : '') + '>maior/mais de</option>' +
+      '<option value="<"' + (f.operador === '<' ? ' selected' : '') + '>menor/menos de</option></select>' +
+      '<input class="seg-val" type="number" placeholder="' + placeholder + '" style="width:' + largura + 'px" value="' + (f.valor != null ? f.valor : '') + '">';
+  }
   function campoValorHtml(f) {
     switch (f.tipo) {
       case 'status_crm':
         return '<select class="seg-val"><option value="">Selecione...</option>' +
-          ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao' && s.codigo !== 'vip' && s.codigo !== 'premium'; })
-            .map(function (s) { return '<option value="' + s.id + '">' + s.nome + '</option>'; }).join('') + '</select>';
+          opts(ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao' && s.codigo !== 'vip' && s.codigo !== 'premium'; }).map(function (s) { return { v: s.id, l: s.nome }; }), f.valor) +
+          '</select>';
       case 'tag_valor':
-        return '<select class="seg-val"><option value="">Selecione...</option><option value="vip">VIP</option><option value="premium">Premium</option></select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' + opts([{ v: 'vip', l: 'VIP' }, { v: 'premium', l: 'Premium' }], f.valor) + '</select>';
       case 'aniversario':
-        return '<select class="seg-val">' + ['—','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-          .map(function (m, i) { return '<option value="' + (i === 0 ? '' : i) + '">' + m + '</option>'; }).join('') + '</select>';
+        return '<select class="seg-val">' + opts(['—','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
+          .map(function (m, i) { return { v: (i === 0 ? '' : i), l: m }; }), f.valor) + '</select>';
       case 'recencia_compra':
-        return '<select class="seg-op"><option value=">">mais de</option><option value="<">menos de</option></select>' +
-          '<input class="seg-val" type="number" placeholder="dias" style="width:80px">';
+        return opInput('dias', 80, f);
       case 'nunca_comprou':
         return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
       case 'valor_gasto':
-        return '<select class="seg-op"><option value=">">maior que</option><option value="<">menor que</option></select>' +
-          '<input class="seg-val" type="number" placeholder="R$" style="width:100px">';
+        return opInput('R$', 100, f);
       case 'qtd_compras':
-        return '<select class="seg-op"><option value=">">maior ou igual a</option><option value="<">menor que</option></select>' +
-          '<input class="seg-val" type="number" placeholder="qtd" style="width:80px">';
+        return opInput('qtd', 80, f);
       case 'canal':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
-          .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('') + '</select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          opts(ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (c) { return { v: c.id, l: c.nome }; }), f.valor) + '</select>';
       case 'produto':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
-          .map(function (p) { return '<option value="' + p.id + '">' + p.nome + '</option>'; }).join('') + '</select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'cidade':
-        return '<input class="seg-val" type="text" placeholder="Ex: Rio de Janeiro">';
+        return '<input class="seg-val" type="text" placeholder="Ex: Rio de Janeiro" value="' + (f.valor || '') + '">';
       case 'estado':
-        return '<input class="seg-val" type="text" placeholder="Ex: RJ" maxlength="2" style="width:60px">';
+        return '<input class="seg-val" type="text" placeholder="Ex: RJ" maxlength="2" style="width:60px" value="' + (f.valor || '') + '">';
       case 'ticket_medio':
-        return '<select class="seg-op"><option value=">">maior que</option><option value="<">menor que</option></select>' +
-          '<input class="seg-val" type="number" placeholder="R$" style="width:100px">';
+        return opInput('R$', 100, f);
       case 'comprou_periodo':
-        return '<select class="seg-val"><option value="">Selecione...</option><option value="mes">Este mês</option><option value="trimestre">Este trimestre</option><option value="ano">Este ano</option></select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          opts([{ v: 'mes', l: 'Este mês' }, { v: 'trimestre', l: 'Este trimestre' }, { v: 'ano', l: 'Este ano' }], f.valor) + '</select>';
       case 'dias_cadastro':
-        return '<select class="seg-op"><option value=">">mais de</option><option value="<">menos de</option></select>' +
-          '<input class="seg-val" type="number" placeholder="dias" style="width:80px">';
+        return opInput('dias', 80, f);
       case 'dias_primeira_compra':
-        return '<select class="seg-op"><option value=">">mais de</option><option value="<">menos de</option></select>' +
-          '<input class="seg-val" type="number" placeholder="dias" style="width:80px">';
+        return opInput('dias', 80, f);
       case 'nunca_comprou_produto':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
-          .map(function (p) { return '<option value="' + p.id + '">' + p.nome + '</option>'; }).join('') + '</select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'regiao':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul']
-          .map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('') + '</select>';
+        return '<select class="seg-val"><option value="">Selecione...</option>' +
+          opts(['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'].map(function (r) { return { v: r, l: r }; }), f.valor) + '</select>';
       case 'pais':
-        return '<input class="seg-val" type="text" placeholder="Ex: Brasil">';
+        return '<input class="seg-val" type="text" placeholder="Ex: Brasil" value="' + (f.valor || '') + '">';
       case 'cep':
-        return '<input class="seg-val" type="text" placeholder="Ex: 22793 (prefixo)" style="width:110px">';
+        return '<input class="seg-val" type="text" placeholder="Ex: 22793 (prefixo)" style="width:110px" value="' + (f.valor || '') + '">';
       case 'origem':
         return '<select class="seg-val"><option value="">Selecione...</option>' +
-          Array.from(new Set(ST.clientes.map(function (c) { return c.origem; }).filter(Boolean))).sort()
-            .map(function (o) { return '<option value="' + o + '">' + o + '</option>'; }).join('') + '</select>';
+          opts(Array.from(new Set(ST.clientes.map(function (c) { return c.origem; }).filter(Boolean))).sort().map(function (o) { return { v: o, l: o }; }), f.valor) + '</select>';
       case 'sem_vendedor':
         return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
       case 'tipo_comercial':
-        return '<select class="seg-val"><option value="">—</option><option value="__vazio__">Cliente Convertido (sem tipo)</option><option value="lead_b2c">Lead B2C</option><option value="canal_b2b">Canal B2B</option><option value="artista">Artista</option><option value="imprensa">Imprensa</option></select>';
+        return '<select class="seg-val">' + opts([{ v: '', l: '—' }, { v: '__vazio__', l: 'Cliente Convertido (sem tipo)' }, { v: 'lead_b2c', l: 'Lead B2C' }, { v: 'canal_b2b', l: 'Canal B2B' }, { v: 'artista', l: 'Artista' }, { v: 'imprensa', l: 'Imprensa' }], f.valor) + '</select>';
       default: return '';
     }
   }
@@ -550,11 +554,20 @@ async function montarModuloSegmentacao(containerId) {
   });
 
   host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
-    if (ST.filtros.length === 0) { alert('Adicione ao menos 1 filtro antes de salvar.'); return; }
-    var nome = prompt('Nome do segmento (ex: "Aniversariantes de Julho"):');
+    var filtrosParaSalvar = ST.filtros.slice();
+    if (ST.filtroRapido) {
+      if (ST.filtroRapido.campo === 'tag') {
+        filtrosParaSalvar.push({ tipo: 'tag_valor', operador: '=', valor: ST.filtroRapido.codigo });
+      } else {
+        var s = ST.statusCrm.find(function (x) { return x.codigo === ST.filtroRapido.codigo; });
+        if (s) filtrosParaSalvar.push({ tipo: 'status_crm', operador: '=', valor: String(s.id) });
+      }
+    }
+    if (filtrosParaSalvar.length === 0) { alert('Clique num status acima ou adicione ao menos 1 filtro antes de salvar.'); return; }
+    var nome = prompt('Nome do segmento (ex: "Em Risco 91-180d"):');
     if (!nome) return;
     try {
-      var salvo = await cdaSalvarSegmento({ nome: nome, filtros: ST.filtros });
+      var salvo = await cdaSalvarSegmento({ nome: nome, filtros: filtrosParaSalvar });
       ST.segmentos.push(salvo);
       popularSelects();
       alert('Segmento salvo!');
