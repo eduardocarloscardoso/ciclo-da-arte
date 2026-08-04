@@ -22,7 +22,7 @@ var CDA_TUTORIAL_CONTEUDO = [
     id: 'visao-geral', titulo: 'Visão Geral',
     html: '<p>O módulo Comercial organiza o relacionamento com o cliente em duas frentes que trabalham juntas:</p>' +
       '<p><b>Segmentação de Clientes</b> — classifica automaticamente, todo dia, cada cliente já convertido em um status de ciclo de vida (Lead, Ativo, Em Risco...) e uma classificação de valor (Premium/VIP). É o "retrato" atual da base.</p>' +
-      '<p><b>Pipeline B2C</b> — acompanha o cliente <i>antes</i> dele virar cliente de fato: da primeira mensagem até a compra e fidelização, com histórico completo de cada contato.</p>' +
+      '<p><b>Pipeline B2C</b> — acompanha uma oportunidade/interação comercial em andamento com uma pessoa, esteja ela já cadastrada como cliente ou não. <b>Não é "antes de virar cliente"</b>: quem já compra com você também passa pelo Pipeline sempre que há uma nova interação sendo trabalhada (reengajamento, nova venda, campanha). O vínculo com um cadastro de Cliente já existente é opcional e pode existir desde a criação do lead — campo <code>leads_b2c.cliente_id</code> (veja a busca de cliente existente, mais abaixo).</p>' +
       '<p>As duas telas já excluem automaticamente da análise: compras feitas em canais de revenda/atacado (B2B) e cadastros genéricos de venda em show sem dado de consumidor final — pra não distorcer os números.</p>'
   },
   {
@@ -48,7 +48,18 @@ var CDA_TUTORIAL_CONTEUDO = [
       '<h4>Recálculo de Valores (Premium/VIP)</h4>' +
       '<p>Painel no topo da tela com dois modos: <b>Manual</b> (você digita os valores; um botão "Confirmar" registra a data mesmo sem mudar o número) e <b>Automático</b> (o sistema calcula os percentis reais da base, mas só quando você clica em "Executar recálculo agora" — nunca sozinho por agendamento).</p>' +
       '<h4>Job noturno</h4>' +
-      '<p>Todo dia às 3h, o sistema reclassifica o ciclo de vida de todos os clientes com base nos dados de compra atualizados. Ele não altera os valores de Premium/VIP — isso só muda pelo painel de Recálculo.</p>'
+      '<p>Todo dia às 3h, o sistema reclassifica o ciclo de vida de todos os clientes com base nos dados de compra atualizados. Ele não altera os valores de Premium/VIP — isso só muda pelo painel de Recálculo.</p>' +
+      '<h4>Campo no banco — onde cada regra mora</h4>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Regra / Informação</th><th>Campo</th></tr>' +
+      '<tr><td>Status de ciclo de vida (Lead, Ativo, Em Risco...)</td><td><code>clientes.status_crm_id</code> → aponta pra <code>cda_status_crm.id</code></td></tr>' +
+      '<tr><td>Classificação de valor (Premium/VIP)</td><td><code>clientes.tags_comercial</code> (texto: "vip" ou "premium")</td></tr>' +
+      '<tr><td>Nome, descrição e ação sugerida de cada status</td><td>tabela <code>cda_status_crm</code> (tipo = "segmentacao")</td></tr>' +
+      '<tr><td>Limiares de valor do Premium/VIP</td><td><code>cda_parametros_segmentacao.valor_premium</code> / <code>valor_vip</code></td></tr>' +
+      '<tr><td>Modo do Recálculo (Automático/Manual)</td><td><code>cda_parametros_segmentacao.modo</code></td></tr>' +
+      '<tr><td>Data/quem fez o último recálculo de status do cliente</td><td><code>clientes.status_crm_atualizado_em</code></td></tr>' +
+      '<tr><td>Canal é considerado B2C ou B2B (entra ou não na análise)</td><td><code>canais.escopo</code></td></tr>' +
+      '<tr><td>Cliente é cadastro genérico (excluído da análise individual)</td><td><code>clientes.cadastro_incompleto</code></td></tr>' +
+      '</table>'
   },
   {
     id: 'pipeline', titulo: 'Pipeline B2C',
@@ -61,7 +72,16 @@ var CDA_TUTORIAL_CONTEUDO = [
       '<p>O sistema oferece criar automaticamente o cadastro de Cliente vinculado (se ainda não existir um).</p>' +
       '<h4>Buscar cliente existente ao criar um lead novo</h4>' +
       '<p>Ao clicar em "➕ Novo Lead", aparece um campo de busca por nome, telefone ou e-mail. Selecionando um resultado, o lead já nasce vinculado ao cadastro existente — evita criar um cliente duplicado quando alguém que já compra com você volta a aparecer pelo funil. Não achou? Um "Cadastrar novo" libera os campos em branco — nunca é obrigatório já existir.</p>' +
-      '<p class="cda-tut-nota">Se dois ou mais clientes tiverem o mesmo nome, o sistema mostra telefone, e-mail e cidade/UF de cada um lado a lado, pra você escolher o certo com segurança.</p>'
+      '<p class="cda-tut-nota">Se dois ou mais clientes tiverem o mesmo nome, o sistema mostra telefone, e-mail e cidade/UF de cada um lado a lado, pra você escolher o certo com segurança.</p>' +
+      '<h4>Campo no banco — onde cada regra mora</h4>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Regra / Informação</th><th>Campo</th></tr>' +
+      '<tr><td>Etapa atual do lead (uma das 5)</td><td><code>leads_b2c.etapa</code></td></tr>' +
+      '<tr><td>Resultado atual dentro da etapa (ex: "Pediu catálogo")</td><td><code>leads_b2c.resultado_id</code> → aponta pra <code>cda_status_crm.id</code> (tipo = "pipeline_resultado")</td></tr>' +
+      '<tr><td>Lead já vinculado a um cadastro de Cliente existente</td><td><code>leads_b2c.cliente_id</code> — nulo = ainda não vinculado (não significa "não é cliente")</td></tr>' +
+      '<tr><td>Data da última movimentação de etapa (usada pro "dias parado")</td><td><code>leads_b2c.movido_em</code></td></tr>' +
+      '<tr><td>Histórico completo de cada transição/interação</td><td>tabela <code>cda_historico_interacoes</code></td></tr>' +
+      '<tr><td>Em quais etapas cada resultado pode aparecer no modal</td><td><code>cda_status_crm.etapa_aplicavel</code></td></tr>' +
+      '</table>'
   }
 ];
 
@@ -86,6 +106,8 @@ async function montarModuloTutorial(containerId) {
       '.cda-tut-tabela th{background:var(--card,#f5f0e8);text-transform:uppercase;font-size:9px;letter-spacing:.4px;}' +
       '.cda-tut-comentario{background:var(--card,#f5f0e8);border:1px solid var(--border2,#ccc);padding:10px 12px;font-size:11px;margin-bottom:8px;white-space:pre-wrap;}' +
       '.cda-tut-comentario b{display:block;font-size:9px;text-transform:uppercase;color:var(--muted,#888);margin-bottom:4px;}' +
+      '.cda-tut-secao code{background:var(--card,#f5f0e8);border:1px solid var(--border2,#ccc);padding:1px 5px;border-radius:3px;font-size:10.5px;}' +
+      '.cda-tut-tabela-campos td:first-child{width:55%;}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📘 Tutorial</div><div class="sec-d">Manual de uso e regras de negócio — Segmentação de Clientes e Pipeline B2C</div></div>' +
@@ -131,7 +153,7 @@ async function montarModuloTutorial(containerId) {
   // nenhuma biblioteca externa (zero risco de link quebrado).
   function gerarHtmlWord() {
     var corpoHtml = CDA_TUTORIAL_CONTEUDO.map(function (s) {
-      return '<h2>' + s.titulo + '</h2>' + s.html.replace(/class="cda-tut-nota"/g, '').replace(/class="cda-tut-tabela"/g, 'border="1" cellpadding="4" cellspacing="0"');
+      return '<h2>' + s.titulo + '</h2>' + s.html.replace(/class="cda-tut-nota"/g, '').replace(/<table class="cda-tut-tabela[^"]*">/g, '<table border="1" cellpadding="4" cellspacing="0">').replace(/<code>/g, '<code style="background:#eee;padding:1px 4px;">');
     }).join('');
     var hoje = new Date().toLocaleDateString('pt-BR');
     return '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">' +
