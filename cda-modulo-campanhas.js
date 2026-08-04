@@ -140,7 +140,7 @@ async function montarModuloCampanhas(containerId) {
         (resultado.jaExistentes ? '\n' + resultado.jaExistentes + ' já estavam nesta campanha (não duplicados).' : ''));
     } catch (err) {
       console.error(err);
-      alert('Erro ao adicionar público — veja o console.');
+      alert('Erro ao adicionar público:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
     } finally {
       btn.textContent = textoOriginal; btn.disabled = false;
     }
@@ -195,8 +195,17 @@ async function montarModuloCampanhas(containerId) {
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
       responsavel: host.querySelector('#camp-m-resp').value.trim(), criadoPor: nomeUsuarioAtual()
     };
+    var salvo;
     try {
-      var salvo = await cdaSalvarCampanha(o);
+      salvo = await cdaSalvarCampanha(o);
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao GRAVAR no banco (nada foi salvo):\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+      return;
+    }
+    // A partir daqui já está gravado no banco — qualquer erro abaixo é só
+    // na atualização da tela, não desfaz o que já foi salvo.
+    try {
       if (ST.editId) {
         var idx = ST.campanhas.findIndex(function (x) { return String(x.id) === String(ST.editId); });
         ST.campanhas[idx] = salvo;
@@ -207,7 +216,7 @@ async function montarModuloCampanhas(containerId) {
       render();
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar — veja o console.');
+      alert('Campanha SALVA com sucesso, mas houve um erro ao atualizar a tela — recarregue a página (F5) pra ver:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
     }
   }
 
@@ -221,7 +230,7 @@ async function montarModuloCampanhas(containerId) {
       render();
     } catch (err) {
       console.error(err);
-      alert('Erro ao excluir — veja o console.');
+      alert('Erro ao excluir:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
     }
   }
 
