@@ -454,12 +454,16 @@ const CDA_CAMPANHA_MAP = {
     metaDescricao: r.meta_descricao, metaNumero: r.meta_numero != null ? Number(r.meta_numero) : null,
     responsavel: r.responsavel, status: r.status, criadoEm: r.criado_em, criadoPor: r.criado_por
   }),
-  toRow: o => ({
-    id: o.id || undefined, nome: o.nome, objetivo: o.objetivo || null, publico_segmento_id: o.publicoSegmentoId || null,
-    pipeline_etapa_entrada: o.pipelineEtapaEntrada || 'novo_lead', periodo_inicio: o.periodoInicio || null, periodo_fim: o.periodoFim || null,
-    meta_descricao: o.metaDescricao || null, meta_numero: o.metaNumero != null ? o.metaNumero : null,
-    responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null
-  })
+  toRow: o => {
+    const row = {
+      nome: o.nome, objetivo: o.objetivo || null, publico_segmento_id: o.publicoSegmentoId || null,
+      pipeline_etapa_entrada: o.pipelineEtapaEntrada || 'novo_lead', periodo_inicio: o.periodoInicio || null, periodo_fim: o.periodoFim || null,
+      meta_descricao: o.metaDescricao || null, meta_numero: o.metaNumero != null ? o.metaNumero : null,
+      responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null
+    };
+    if (o.id) row.id = o.id; // só inclui a chave se for edição — id é GENERATED ALWAYS AS IDENTITY, não pode ir undefined/null num insert
+    return row;
+  }
 };
 async function cdaCarregarCampanhas() {
   const rows = await cdaFetchAll('cda_campanhas', '*', 'criado_em');
@@ -467,7 +471,12 @@ async function cdaCarregarCampanhas() {
 }
 async function cdaSalvarCampanha(o) {
   const row = CDA_CAMPANHA_MAP.toRow(o);
-  const { data, error } = await cdaClient.from('cda_campanhas').upsert(row).select().single();
+  let data, error;
+  if (row.id) {
+    ({ data, error } = await cdaClient.from('cda_campanhas').update(row).eq('id', row.id).select().single());
+  } else {
+    ({ data, error } = await cdaClient.from('cda_campanhas').insert(row).select().single());
+  }
   if (error) throw error;
   return CDA_CAMPANHA_MAP.fromRow(data);
 }
