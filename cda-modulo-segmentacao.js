@@ -72,7 +72,7 @@ async function montarModuloSegmentacao(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], filtros: [], filtroRapido: null, resultado: [] };
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, filtros: [], filtroRapido: null, resultado: [] };
 
   host.innerHTML =
     '<style>' +
@@ -85,7 +85,13 @@ async function montarModuloSegmentacao(containerId) {
       '.seg-pills-wrap{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}' +
       '.seg-badge{display:inline-block;font-size:9px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:999px;color:#fff;}' +
       '.seg-nota{font-size:10px;color:var(--muted,#888);margin:6px 0 14px;}' +
+      '.seg-recalc{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:12px 14px;margin-bottom:14px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}' +
+      '.seg-recalc b{font-size:11px;}' +
+      '.seg-recalc .seg-modo-btn{font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;padding:5px 10px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;}' +
+      '.seg-recalc .seg-modo-btn.ativa{background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-recalc input{width:90px;font-size:11px;padding:5px 8px;border:2px solid var(--ink,#1a1a1a);}' +
     '</style>' +
+    '<div class="seg-recalc" id="seg-recalc"></div>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Atalhos rápidos por status, ou combine critérios abaixo pra grupos específicos</div></div>' +
       '<div style="display:flex;gap:7px;">' +
@@ -110,9 +116,9 @@ async function montarModuloSegmentacao(containerId) {
 
   try {
     var res = await Promise.all([
-      cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm()
+      cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm(), cdaCarregarParametrosSegmentacao()
     ]);
-    var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5];
+    var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5]; ST.parametros = res[6];
 
     // ── Exclui do universo da tela: cadastros genéricos (placeholder de show,
     // dado de teste etc.) — não representam consumidor final individual ──
@@ -186,6 +192,77 @@ async function montarModuloSegmentacao(containerId) {
     });
   }
   renderPills();
+
+  // ── Recálculo de Valores (Premium/VIP) ──────────────────────────────
+  function fmtBRL(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); }
+  function fmtDataBR(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
+
+  function renderRecalculo() {
+    var box = host.querySelector('#seg-recalc');
+    var p = ST.parametros;
+    var editando = box.dataset.editando === '1';
+    box.innerHTML =
+      '<div><b>Recálculo de Valores</b><br><span style="font-size:9px;color:var(--muted,#888)">Última atualização: ' + fmtDataBR(p.atualizadoEm) + (p.atualizadoPor ? ' — ' + p.atualizadoPor : '') + '</span></div>' +
+      '<div><button class="seg-modo-btn' + (p.modo === 'automatico' ? ' ativa' : '') + '" data-modo="automatico">A — Automático</button> ' +
+        '<button class="seg-modo-btn' + (p.modo === 'manual' ? ' ativa' : '') + '" data-modo="manual">M — Manual</button></div>' +
+      (p.modo === 'automatico'
+        ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b><br><span style="font-size:9px;color:var(--muted,#888)">Só recalcula quando você pedir — nunca sozinho por agendamento</span></div>' +
+          '<button class="btn sm rust" id="seg-recalc-executar">▶ Executar recálculo agora</button>'
+        : (!editando
+            ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b></div>' +
+              '<button class="btn sm" id="seg-recalc-editar">✎ Editar valores</button>' +
+              '<button class="btn sm" id="seg-recalc-confirmar" title="Confirma que os valores continuam válidos hoje, sem mudar nada">✓ Confirmar (atualiza a data)</button>'
+            : '<div style="display:flex;gap:8px;align-items:center">Premium: <input type="number" id="seg-recalc-premium" value="' + p.valorPremium + '"> VIP: <input type="number" id="seg-recalc-vip" value="' + p.valorVip + '">' +
+              '<button class="btn sm rust" id="seg-recalc-salvar">💾 Salvar</button>' +
+              '<button class="btn sm" id="seg-recalc-cancelar">Cancelar</button></div>'
+          )
+      );
+
+    box.querySelectorAll('.seg-modo-btn').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var novoModo = btn.dataset.modo;
+        if (novoModo === p.modo) return;
+        try {
+          ST.parametros = await cdaSalvarParametrosSegmentacao({ valorPremium: p.valorPremium, valorVip: p.valorVip, modo: novoModo, atualizadoPor: (window.cu && window.cu.name) || 'Usuário' });
+          box.dataset.editando = '0';
+          renderRecalculo();
+        } catch (err) { alert('Erro ao mudar o modo: ' + (err.message || err)); }
+      });
+    });
+    var btnEditar = host.querySelector('#seg-recalc-editar');
+    if (btnEditar) btnEditar.addEventListener('click', function () { box.dataset.editando = '1'; renderRecalculo(); });
+    var btnExecutar = host.querySelector('#seg-recalc-executar');
+    if (btnExecutar) btnExecutar.addEventListener('click', async function () {
+      btnExecutar.textContent = 'Calculando...'; btnExecutar.disabled = true;
+      try {
+        await cdaExecutarRecalculoValores((window.cu && window.cu.name) || 'Usuário');
+        ST.parametros = await cdaCarregarParametrosSegmentacao();
+        renderRecalculo();
+        alert('Recálculo concluído. A base foi reclassificada com os novos valores.');
+      } catch (err) { alert('Erro ao executar: ' + (err.message || err)); btnExecutar.textContent = '▶ Executar recálculo agora'; btnExecutar.disabled = false; }
+    });
+    var btnCancelar = host.querySelector('#seg-recalc-cancelar');
+    if (btnCancelar) btnCancelar.addEventListener('click', function () { box.dataset.editando = '0'; renderRecalculo(); });
+    var btnConfirmar = host.querySelector('#seg-recalc-confirmar');
+    if (btnConfirmar) btnConfirmar.addEventListener('click', async function () {
+      try {
+        ST.parametros = await cdaSalvarParametrosSegmentacao({ valorPremium: p.valorPremium, valorVip: p.valorVip, modo: 'manual', atualizadoPor: (window.cu && window.cu.name) || 'Usuário' });
+        renderRecalculo();
+      } catch (err) { alert('Erro ao confirmar: ' + (err.message || err)); }
+    });
+    var btnSalvar = host.querySelector('#seg-recalc-salvar');
+    if (btnSalvar) btnSalvar.addEventListener('click', async function () {
+      var novoPremium = Number(host.querySelector('#seg-recalc-premium').value);
+      var novoVip = Number(host.querySelector('#seg-recalc-vip').value);
+      if (!novoPremium || !novoVip || novoVip <= novoPremium) { alert('Valores inválidos — VIP precisa ser maior que Premium.'); return; }
+      try {
+        ST.parametros = await cdaSalvarParametrosSegmentacao({ valorPremium: novoPremium, valorVip: novoVip, modo: 'manual', atualizadoPor: (window.cu && window.cu.name) || 'Usuário' });
+        box.dataset.editando = '0';
+        renderRecalculo();
+      } catch (err) { alert('Erro ao salvar: ' + (err.message || err)); }
+    });
+  }
+  renderRecalculo();
 
   function popularSelects() {
     var selSeg = host.querySelector('#seg-carregar');
