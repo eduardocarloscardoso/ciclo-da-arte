@@ -336,6 +336,19 @@ async function cdaExecutarRecalculoValores(usuario) {
   return data && data[0] ? { valorPremium: Number(data[0].valor_premium), valorVip: Number(data[0].valor_vip) } : null;
 }
 
+// ── TUTORIAL — comentários da equipe (importados de Word) ────────────
+async function cdaCarregarComentariosTutorial() {
+  const { data, error } = await cdaClient.from('cda_tutorial_comentarios').select('*').order('importado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(r => ({ id: r.id, conteudo: r.conteudo, arquivoOrigem: r.arquivo_origem, importadoEm: r.importado_em, importadoPor: r.importado_por }));
+}
+async function cdaSalvarComentarioTutorial(o) {
+  const row = { conteudo: o.conteudo, arquivo_origem: o.arquivoOrigem || null, importado_por: o.importadoPor || null };
+  const { data, error } = await cdaClient.from('cda_tutorial_comentarios').insert(row).select().single();
+  if (error) throw error;
+  return { id: data.id, conteudo: data.conteudo, arquivoOrigem: data.arquivo_origem, importadoEm: data.importado_em, importadoPor: data.importado_por };
+}
+
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
 async function cdaSalvarCanal(o) {
   const row = {
