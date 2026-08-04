@@ -473,7 +473,9 @@ async function cdaSalvarCampanha(o) {
   const row = CDA_CAMPANHA_MAP.toRow(o);
   let data, error;
   if (row.id) {
-    ({ data, error } = await cdaClient.from('cda_campanhas').update(row).eq('id', row.id).select().single());
+    const id = row.id;
+    delete row.id; // GENERATED ALWAYS AS IDENTITY — não pode aparecer no corpo do UPDATE, só no WHERE
+    ({ data, error } = await cdaClient.from('cda_campanhas').update(row).eq('id', id).select().single());
   } else {
     ({ data, error } = await cdaClient.from('cda_campanhas').insert(row).select().single());
   }
