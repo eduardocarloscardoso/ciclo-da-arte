@@ -47,9 +47,8 @@ select.form-input option{background:var(--navy3);color:var(--white)}
 .sidebar.sb-hidden{transform:translateX(-100%)}
 .main{margin-left:220px;flex:1;min-height:100vh;transition:margin-left .22s ease}
 .main.sb-full{margin-left:0}
-.sb-toggle{position:fixed;top:16px;left:228px;z-index:110;width:30px;height:30px;border-radius:8px;background:var(--card);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:left .22s ease}
+.sb-toggle{width:30px;height:30px;flex-shrink:0;border-radius:8px;background:var(--card);border:1px solid var(--border2);color:var(--muted2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;margin-right:14px}
 .sb-toggle:hover{background:var(--card2);color:var(--white)}
-.sidebar.sb-hidden ~ .sb-toggle,.sb-toggle.sb-toggle-full{left:16px}
 .sb-logo{padding:22px 20px 18px;border-bottom:1px solid var(--border)}
 .sb-logo .brand{font-family:var(--ff-d);font-size:16px;font-weight:900}
 .sb-logo .brand span{color:var(--gold)}
@@ -307,9 +306,9 @@ tbody td{padding:11px 13px;vertical-align:middle}
 <div class="sb-nav" id="sidebar-nav"></div>
 <div class="sb-footer"><button class="logout-btn" onclick="doLogout()">&#8592; Sair do Sistema</button></div>
 </nav>
-<button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Mostrar/ocultar menu">☰</button>
 <div class="main">
 <div class="topbar">
+<button class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()" title="Mostrar/ocultar menu">☰</button>
 <div class="topbar-title" id="page-title">Dashboard</div>
 <div class="topbar-right"><div class="topbar-date" id="topbar-date"></div></div>
 </div>
@@ -440,7 +439,6 @@ async function doLogout(){
 function toggleSidebar(){
   var hidden = document.querySelector('.sidebar').classList.toggle('sb-hidden');
   document.querySelector('.main').classList.toggle('sb-full', hidden);
-  document.getElementById('sb-toggle').classList.toggle('sb-toggle-full', hidden);
   try{ localStorage.setItem('cda_sidebar_oculta', hidden ? '1' : '0'); }catch(e){}
 }
 function applySidebarState(){
@@ -448,7 +446,6 @@ function applySidebarState(){
   try{ hidden = localStorage.getItem('cda_sidebar_oculta') === '1'; }catch(e){}
   document.querySelector('.sidebar').classList.toggle('sb-hidden', hidden);
   document.querySelector('.main').classList.toggle('sb-full', hidden);
-  document.getElementById('sb-toggle').classList.toggle('sb-toggle-full', hidden);
 }
 // ── SIDEBAR DE PROJETOS (1º nível) ─────────────────────────────────
 function setupProjectSidebar(){
