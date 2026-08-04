@@ -96,6 +96,8 @@ async function montarModuloSegmentacao(containerId) {
       '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Atalhos rápidos por status, ou combine critérios abaixo pra grupos específicos</div></div>' +
       '<div style="display:flex;gap:7px;">' +
         '<select id="seg-carregar"><option value="">Carregar segmento salvo...</option></select>' +
+        '<button class="btn sm" id="seg-btn-renomear" disabled>✎ Renomear</button>' +
+        '<button class="btn sm" id="seg-btn-excluir-seg" disabled>🗑 Excluir</button>' +
         '<button class="btn" id="seg-btn-salvar">💾 Salvar Segmento</button>' +
         '<button class="btn rust" id="seg-btn-exportar">⬇ Exportar XLSX</button>' +
       '</div>' +
@@ -547,10 +549,51 @@ async function montarModuloSegmentacao(containerId) {
 
   host.querySelector('#seg-carregar').addEventListener('change', function (e) {
     var seg = ST.segmentos.find(function (s) { return s.id === e.target.value; });
+    host.querySelector('#seg-btn-renomear').disabled = !seg;
+    host.querySelector('#seg-btn-excluir-seg').disabled = !seg;
     if (!seg) return;
     ST.filtros = JSON.parse(JSON.stringify(seg.filtros));
+    ST.filtroRapido = null;
+    renderPills();
     renderFiltros();
     aplicarFiltros();
+  });
+
+  host.querySelector('#seg-btn-renomear').addEventListener('click', async function () {
+    var sel = host.querySelector('#seg-carregar');
+    var seg = ST.segmentos.find(function (s) { return s.id === sel.value; });
+    if (!seg) return;
+    var novoNome = prompt('Novo nome do segmento:', seg.nome);
+    if (!novoNome || novoNome === seg.nome) return;
+    try {
+      var atualizado = await cdaSalvarSegmento({ id: seg.id, nome: novoNome, filtros: seg.filtros });
+      var idx = ST.segmentos.findIndex(function (s) { return s.id === seg.id; });
+      ST.segmentos[idx] = atualizado;
+      popularSelects();
+      sel.value = seg.id;
+      alert('Segmento renomeado!');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao renomear — veja o console.');
+    }
+  });
+
+  host.querySelector('#seg-btn-excluir-seg').addEventListener('click', async function () {
+    var sel = host.querySelector('#seg-carregar');
+    var seg = ST.segmentos.find(function (s) { return s.id === sel.value; });
+    if (!seg) return;
+    if (!confirm('Excluir o segmento "' + seg.nome + '"? Essa ação não pode ser desfeita.')) return;
+    try {
+      await cdaExcluirSegmento(seg.id);
+      ST.segmentos = ST.segmentos.filter(function (s) { return s.id !== seg.id; });
+      popularSelects();
+      host.querySelector('#seg-btn-renomear').disabled = true;
+      host.querySelector('#seg-btn-excluir-seg').disabled = true;
+      alert('Segmento excluído.');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao excluir — veja o console.');
+    }
   });
 
   host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
