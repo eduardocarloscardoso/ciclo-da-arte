@@ -230,13 +230,16 @@ const CDA_LEAD_B2C_MAP = {
     canalId: r.canal_id != null ? String(r.canal_id) : null,
     etapa: r.etapa, valorEstimado: r.valor_estimado, responsavel: r.responsavel,
     clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
-    obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em, motivoPerda: r.motivo_perda
+    obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em, motivoPerda: r.motivo_perda,
+    // resultado atual dentro da etapa (ex: 'pediu_catalogo') — aponta pro catálogo cda_status_crm
+    resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
     canal_id: o.canalId || null, etapa: o.etapa || 'novo_lead', valor_estimado: o.valorEstimado,
     responsavel: o.responsavel || null, cliente_id: o.clienteId || null, obs: o.obs || null,
-    movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null
+    movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null,
+    resultado_id: o.resultadoId != null ? o.resultadoId : null
   })
 };
 async function cdaCarregarLeadsB2C() {
@@ -253,6 +256,26 @@ async function cdaSalvarLeadB2C(o) {
 async function cdaExcluirLeadB2C(id) {
   const { error } = await cdaClient.from('leads_b2c').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ── HISTÓRICO DE INTERAÇÕES (transições do Pipeline B2C) ─────────────
+const CDA_HISTORICO_MAP = {
+  fromRow: r => ({
+    id: r.id, leadId: r.lead_id, clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
+    etapa: r.etapa, resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
+    observacao: r.observacao, criadoEm: r.criado_em, criadoPor: r.criado_por
+  })
+};
+async function cdaCarregarHistoricoPorLead(leadId) {
+  const { data, error } = await cdaClient.from('cda_historico_interacoes').select('*').eq('lead_id', leadId).order('criado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(CDA_HISTORICO_MAP.fromRow);
+}
+async function cdaSalvarHistoricoInteracao(o) {
+  const row = { lead_id: o.leadId, cliente_id: o.clienteId || null, etapa: o.etapa, resultado_id: o.resultadoId || null, observacao: o.observacao || null, criado_por: o.criadoPor || null };
+  const { data, error } = await cdaClient.from('cda_historico_interacoes').insert(row).select().single();
+  if (error) throw error;
+  return CDA_HISTORICO_MAP.fromRow(data);
 }
 
 // ── SEGMENTOS SALVOS (filtros de segmentação de clientes) ────────────
