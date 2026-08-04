@@ -34,7 +34,7 @@ async function montarModuloPipelineB2C(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
+  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
 
   host.innerHTML =
     '<style>' +
@@ -68,6 +68,8 @@ async function montarModuloPipelineB2C(containerId) {
       '<button class="btn rust" id="pb2c-btn-novo">＋ Novo Lead</button>' +
     '</div>' +
     '<div class="fb">' +
+      '<select id="pb2c-f-campanha"><option value="">Todas as campanhas</option></select>' +
+      '<input type="text" id="pb2c-f-cliente" placeholder="🔎 Buscar por nome do cliente...">' +
       '<select id="pb2c-f-canal"><option value="">Todos os canais</option></select>' +
       '<select id="pb2c-f-resp"><option value="">Todos os responsáveis</option></select>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
@@ -123,8 +125,8 @@ async function montarModuloPipelineB2C(containerId) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes()]);
-    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3];
+    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes(), cdaCarregarCampanhas()]);
+    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3]; ST.campanhas = res[4];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || JSON.stringify(err) || 'Erro desconhecido';
@@ -134,6 +136,7 @@ async function montarModuloPipelineB2C(containerId) {
 
   var canalById = {}; ST.canais.forEach(function (c) { canalById[String(c.id)] = c; });
   var statusCrmById = {}; ST.statusCrm.forEach(function (s) { statusCrmById[s.id] = s; });
+  var campanhaPorId = {}; ST.campanhas.forEach(function (c) { campanhaPorId[c.id] = c; });
   var resultadosPipeline = ST.statusCrm.filter(function (s) { return s.tipo === 'pipeline_resultado'; });
   function resultadosDaEtapa(etapaId) {
     var label = CDA_ETAPA_LABEL_CATALOGO[etapaId];
@@ -142,6 +145,10 @@ async function montarModuloPipelineB2C(containerId) {
   function nomeUsuarioAtual() { return (window.cu && window.cu.name) || 'Usuário'; }
 
   function popularFiltros() {
+    host.querySelector('#pb2c-f-campanha').innerHTML = '<option value="">Todas as campanhas</option>' +
+      '<option value="__sem_campanha__">Sem campanha vinculada</option>' +
+      ST.campanhas.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
+        .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
     host.querySelector('#pb2c-f-canal').innerHTML = '<option value="">Todos os canais</option>' +
       ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
         .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
@@ -152,9 +159,14 @@ async function montarModuloPipelineB2C(containerId) {
   popularFiltros();
 
   function getFiltro() {
+    var fCampanha = host.querySelector('#pb2c-f-campanha').value;
+    var fCliente = host.querySelector('#pb2c-f-cliente').value.trim().toLowerCase();
     var fCanal = host.querySelector('#pb2c-f-canal').value;
     var fResp = host.querySelector('#pb2c-f-resp').value;
     return ST.leads.filter(function (l) {
+      if (fCampanha === '__sem_campanha__' && l.campanhaId) return false;
+      if (fCampanha && fCampanha !== '__sem_campanha__' && String(l.campanhaId) !== fCampanha) return false;
+      if (fCliente && (l.nome || '').toLowerCase().indexOf(fCliente) === -1) return false;
       if (fCanal && String(l.canalId) !== fCanal) return false;
       if (fResp && l.responsavel !== fResp) return false;
       return true;
@@ -180,15 +192,17 @@ async function montarModuloPipelineB2C(containerId) {
       var soma = cards.reduce(function (s, c) { return s + (Number(c.valorEstimado) || 0); }, 0);
       var cardsHtml = cards.map(function (l) {
         var canal = canalById[l.canalId];
+        var campanha = campanhaPorId[l.campanhaId];
         var dias = diasParado(l.movidoEm);
         var cor = corIdade(dias);
         var resultado = statusCrmById[l.resultadoId];
         return '<div class="pb2c-card" draggable="true" data-id="' + l.id + '">' +
           '<div class="nm">' + (l.nome || '—') + '</div>' +
+          (campanha ? '<span class="badge b-rust" style="font-size:8px">📣 ' + campanha.nome + '</span>' : '') +
           (canal ? '<span class="badge b-vio" style="font-size:8px">' + canal.nome + '</span>' : '') +
           '<div class="rw"><span><span class="pb2c-age ' + cor + '"></span>' + dias + 'd parado</span>' +
           '<span>' + (l.valorEstimado ? 'R$ ' + Number(l.valorEstimado).toLocaleString('pt-BR') : '') + '</span></div>' +
-          (l.responsavel ? '<div class="rw"><span>' + l.responsavel + '</span><span></span></div>' : '') +
+          '<div class="rw"><span>👤 ' + (l.responsavel || 'sem responsável') + '</span><span></span></div>' +
           (resultado ? '<span class="pb2c-resultado-badge" style="background:' + resultado.cor + '">' + resultado.nome + '</span>' : '') +
           '</div>';
       }).join('');
@@ -509,6 +523,8 @@ async function montarModuloPipelineB2C(containerId) {
   host.querySelector('#pb2c-t-cancelar').addEventListener('click', fecharModalTransicao);
   host.querySelector('#pb2c-t-x').addEventListener('click', fecharModalTransicao);
   host.querySelector('#pb2c-t-confirmar').addEventListener('click', confirmarTransicao);
+  host.querySelector('#pb2c-f-campanha').addEventListener('change', render);
+  host.querySelector('#pb2c-f-cliente').addEventListener('input', render);
   host.querySelector('#pb2c-f-canal').addEventListener('change', render);
   host.querySelector('#pb2c-f-resp').addEventListener('change', render);
 
