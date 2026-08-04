@@ -497,8 +497,8 @@ function renderSidebarNav(){
       nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
     });
     if(currentProject==='comercial'){
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
       nav.innerHTML+='<div class="nav-item '+(window._crmPage==='campanhas'?'active':'')+'" id="nav-crm-campanhas" onclick="navigateCRM(\'campanhas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📣</span>Campanhas</div>';
+      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
       nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
       nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tutorial'?'active':'')+'" id="nav-crm-tutorial" onclick="navigateCRM(\'tutorial\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📘</span>Tutorial</div>';
     }
