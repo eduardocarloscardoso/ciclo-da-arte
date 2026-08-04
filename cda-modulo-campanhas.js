@@ -53,7 +53,7 @@ async function montarModuloCampanhas(containerId) {
         '<div class="mo-b"><div class="fg">' +
           '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Público (segmento salvo) *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Público (segmento salvo) *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select><div id="camp-m-publico-alvo" style="font-size:11px;margin-top:4px;color:var(--muted,#888)"></div></div>' +
           '<div class="fgr"><label>Etapa de entrada no Pipeline</label><select id="camp-m-etapa"></select></div>' +
           '<div class="fgr"><label>Status</label><select id="camp-m-status"></select></div>' +
           '<div class="fgr"><label>Início</label><input type="date" id="camp-m-inicio"></div>' +
@@ -95,13 +95,15 @@ async function montarModuloCampanhas(containerId) {
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
     box.innerHTML = ST.campanhas.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
+      var qtdPublico = seg ? cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []).length : null;
       var etapa = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === c.pipelineEtapaEntrada; });
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       return '<div class="camp-card" data-id="' + c.id + '">' +
         '<div class="camp-topo"><div class="camp-nome">' + c.nome + '</div><span class="camp-badge" style="background:' + statusInfo.cor + '">' + statusInfo.label + '</span></div>' +
         (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
         '<div class="camp-grid">' +
-          '<div><div class="l">Público</div>' + (seg ? seg.nome : '<i>segmento não encontrado</i>') + '</div>' +
+          '<div><div class="l">Público-Alvo</div><b>' + (qtdPublico != null ? qtdPublico.toLocaleString('pt-BR') + ' cliente(s)' : '—') + '</b></div>' +
+          '<div><div class="l">Segmento</div>' + (seg ? seg.nome : '<i>segmento não encontrado</i>') + '</div>' +
           '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
           '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
           '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
@@ -151,6 +153,16 @@ async function montarModuloCampanhas(containerId) {
       ST.segmentos.map(function (s) { return '<option value="' + s.id + '"' + (s.id === valorAtual ? ' selected' : '') + '>' + s.nome + '</option>'; }).join('');
   }
 
+  function atualizarPublicoAlvoNoModal() {
+    var segId = host.querySelector('#camp-m-segmento').value;
+    var box = host.querySelector('#camp-m-publico-alvo');
+    var seg = segmentoPorId[segId];
+    if (!seg) { box.textContent = ''; return; }
+    var qtd = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []).length;
+    box.innerHTML = '👥 <b>Público-Alvo: ' + qtd.toLocaleString('pt-BR') + ' cliente(s)</b> — recalculado agora';
+  }
+  host.querySelector('#camp-m-segmento').addEventListener('change', atualizarPublicoAlvoNoModal);
+
   function abrirModal(id) {
     ST.editId = id || null;
     var c = id ? ST.campanhas.find(function (x) { return String(x.id) === String(id); }) : null;
@@ -158,6 +170,7 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-nome').value = c ? c.nome : '';
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
+    atualizarPublicoAlvoNoModal();
     selEtapa.value = c ? c.pipelineEtapaEntrada : 'novo_lead';
     selStatus.value = c ? c.status : 'ativa';
     host.querySelector('#camp-m-inicio').value = c ? (c.periodoInicio || '') : '';
