@@ -34,7 +34,7 @@ async function montarModuloPipelineB2C(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
+  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], compras: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
 
   host.innerHTML =
     '<style>' +
@@ -100,6 +100,7 @@ async function montarModuloPipelineB2C(containerId) {
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="pb2c-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
+          '<button class="btn" id="pb2c-m-ver-compras" style="display:none">🛒 Ver Histórico de Compras</button>' +
           '<button class="btn" id="pb2c-m-mover" style="display:none">🔀 Mover de Etapa</button>' +
           '<button class="btn" id="pb2c-m-cancelar">Cancelar</button>' +
           '<button class="btn rust" id="pb2c-m-salvar">💾 Salvar</button>' +
@@ -122,11 +123,22 @@ async function montarModuloPipelineB2C(containerId) {
           '<button class="btn rust" id="pb2c-t-confirmar">✓ Confirmar Movimentação</button>' +
         '</div>' +
       '</div>' +
+    '</div>' +
+
+    '<div class="mo" id="pb2c-modal-compras">' +
+      '<div class="mo-box">' +
+        '<div class="mo-h"><h3 id="pb2c-c-title">Histórico de Compras</h3><button class="mo-x" id="pb2c-c-x">✕</button></div>' +
+        '<div class="mo-b">' +
+          '<div id="pb2c-c-resumo" class="pb2c-transicao-info" style="text-align:left"></div>' +
+          '<div class="pb2c-hist" id="pb2c-c-lista" style="max-height:260px"></div>' +
+        '</div>' +
+        '<div class="mo-f"><button class="btn" id="pb2c-c-fechar">Fechar</button></div>' +
+      '</div>' +
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes(), cdaCarregarCampanhas()]);
-    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3]; ST.campanhas = res[4];
+    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes(), cdaCarregarCampanhas(), cdaCarregarCompras()]);
+    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3]; ST.campanhas = res[4]; ST.compras = res[5];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || JSON.stringify(err) || 'Erro desconhecido';
@@ -412,6 +424,8 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-m-resp').value = l ? (l.responsavel || '') : '';
     host.querySelector('#pb2c-m-obs').value = l ? (l.obs || '') : '';
     host.querySelector('#pb2c-m-excluir').style.display = id ? 'inline-block' : 'none';
+    host.querySelector('#pb2c-m-ver-compras').style.display = (l && l.clienteId) ? 'inline-block' : 'none';
+    host.querySelector('#pb2c-m-ver-compras').dataset.clienteId = l ? (l.clienteId || '') : '';
     host.querySelector('#pb2c-m-mover').style.display = id ? 'inline-block' : 'none';
 
     // Busca de cliente existente só faz sentido na criação de um lead novo
@@ -512,6 +526,48 @@ async function montarModuloPipelineB2C(containerId) {
   host.querySelector('#pb2c-modal-x').addEventListener('click', fecharModal);
   host.querySelector('#pb2c-m-salvar').addEventListener('click', salvar);
   host.querySelector('#pb2c-m-excluir').addEventListener('click', excluir);
+
+  // ── Popup de Histórico de Compras (resumido) ────────────────────────
+  var modalCompras = host.querySelector('#pb2c-modal-compras');
+  function abrirHistoricoCompras(clienteId) {
+    var cliente = ST.clientes.find(function (c) { return String(c.id) === String(clienteId); });
+    var statusInfo = cliente ? statusCrmById[cliente.statusCrmId] : null;
+    var comprasCliente = ST.compras.filter(function (cp) { return String(cp.clienteId) === String(clienteId); })
+      .sort(function (a, b) { return (b.dataCompra || '').localeCompare(a.dataCompra || ''); });
+
+    host.querySelector('#pb2c-c-title').textContent = 'Histórico de Compras — ' + (cliente ? cliente.nome : '');
+
+    var totalGasto = comprasCliente.reduce(function (s, cp) { return s + (Number(cp.valorTotal) || 0); }, 0);
+    var qtdPedidos = new Set(comprasCliente.map(function (cp) { return cp.numeroPedido; }).filter(Boolean)).size || comprasCliente.length;
+    var ultimaData = comprasCliente[0] ? comprasCliente[0].dataCompra : null;
+    var fmtDataBR = function (iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; };
+
+    host.querySelector('#pb2c-c-resumo').innerHTML =
+      '<b>' + comprasCliente.length + '</b> item(ns) em <b>' + qtdPedidos + '</b> pedido(s) &nbsp;·&nbsp; ' +
+      'Total gasto: <b>R$ ' + totalGasto.toLocaleString('pt-BR') + '</b> &nbsp;·&nbsp; Última compra: <b>' + fmtDataBR(ultimaData) + '</b>' +
+      (statusInfo ? '<br>Status atual: <span class="pb2c-resultado-badge" style="background:' + statusInfo.cor + '">' + statusInfo.nome + '</span>' : '') +
+      ((cliente && cliente.tagsComercial && cliente.tagsComercial.length) ? ' ' + cliente.tagsComercial.map(function (t) {
+        var ts = ST.statusCrm.find(function (s) { return s.codigo === t; });
+        return ts ? '<span class="pb2c-resultado-badge" style="background:' + ts.cor + '">' + ts.nome + '</span>' : '';
+      }).join(' ') : '');
+
+    var lista = host.querySelector('#pb2c-c-lista');
+    lista.innerHTML = comprasCliente.length ? comprasCliente.map(function (cp) {
+      var canal = canalById[cp.canalId];
+      return '<div class="pb2c-hist-item"><b>' + fmtDataBR(cp.dataCompra) + '</b> — ' + (cp.produto || 'Produto') +
+        ' — R$ ' + Number(cp.valorTotal || 0).toLocaleString('pt-BR') +
+        (canal ? ' <span style="color:var(--muted,#888)">(' + canal.nome + ')</span>' : '') + '</div>';
+    }).join('') : '<div class="pb2c-hist-item">Nenhuma compra registrada.</div>';
+
+    modalCompras.classList.add('op');
+  }
+  host.querySelector('#pb2c-m-ver-compras').addEventListener('click', function () {
+    var clienteId = this.dataset.clienteId;
+    if (!clienteId) return;
+    abrirHistoricoCompras(clienteId);
+  });
+  host.querySelector('#pb2c-c-x').addEventListener('click', function () { modalCompras.classList.remove('op'); });
+  host.querySelector('#pb2c-c-fechar').addEventListener('click', function () { modalCompras.classList.remove('op'); });
   host.querySelector('#pb2c-m-mover').addEventListener('click', function () {
     if (!ST.editId) return;
     var lead = ST.leads.find(function (x) { return x.id === ST.editId; });
