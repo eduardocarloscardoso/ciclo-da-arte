@@ -232,14 +232,16 @@ const CDA_LEAD_B2C_MAP = {
     clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
     obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em, motivoPerda: r.motivo_perda,
     // resultado atual dentro da etapa (ex: 'pediu_catalogo') — aponta pro catálogo cda_status_crm
-    resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null
+    resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
+    campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
     canal_id: o.canalId || null, etapa: o.etapa || 'novo_lead', valor_estimado: o.valorEstimado,
     responsavel: o.responsavel || null, cliente_id: o.clienteId || null, obs: o.obs || null,
     movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null,
-    resultado_id: o.resultadoId != null ? o.resultadoId : null
+    resultado_id: o.resultadoId != null ? o.resultadoId : null,
+    campanha_id: o.campanhaId != null ? o.campanhaId : null
   })
 };
 async function cdaCarregarLeadsB2C() {
@@ -347,6 +349,161 @@ async function cdaSalvarComentarioTutorial(o) {
   const { data, error } = await cdaClient.from('cda_tutorial_comentarios').insert(row).select().single();
   if (error) throw error;
   return { id: data.id, conteudo: data.conteudo, arquivoOrigem: data.arquivo_origem, importadoEm: data.importado_em, importadoPor: data.importado_por };
+}
+
+// ── AVALIAR SEGMENTO (compartilhado) ──────────────────────────────────
+// Recalcula, a qualquer momento, quais clientes batem com os filtros de
+// um segmento salvo. Espelha a lógica de cda-modulo-segmentacao.js —
+// usado por outros módulos (ex: Campanhas) que precisam da lista de
+// clientes de um segmento sem duplicar o motor de filtros inteiro na tela.
+const CDA_UF_REGIAO_COMPARTILHADO = {
+  AC:'Norte', AM:'Norte', AP:'Norte', PA:'Norte', RO:'Norte', RR:'Norte', TO:'Norte',
+  AL:'Nordeste', BA:'Nordeste', CE:'Nordeste', MA:'Nordeste', PB:'Nordeste', PE:'Nordeste', PI:'Nordeste', RN:'Nordeste', SE:'Nordeste',
+  DF:'Centro-Oeste', GO:'Centro-Oeste', MT:'Centro-Oeste', MS:'Centro-Oeste',
+  ES:'Sudeste', MG:'Sudeste', RJ:'Sudeste', SP:'Sudeste',
+  PR:'Sul', RS:'Sul', SC:'Sul'
+};
+function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros) {
+  var agora = new Date();
+  var inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
+  var inicioTrimestre = new Date(agora.getFullYear(), Math.floor(agora.getMonth() / 3) * 3, 1);
+  var inicioAno = new Date(agora.getFullYear(), 0, 1);
+  var agregados = {};
+  compras.forEach(function (cp) {
+    if (!cp.clienteId) return;
+    var a = agregados[cp.clienteId];
+    if (!a) { a = { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; agregados[cp.clienteId] = a; }
+    a.qtd++;
+    a.total += Number(cp.valorTotal) || 0;
+    if (cp.dataCompra && (!a.ultimaData || cp.dataCompra > a.ultimaData)) a.ultimaData = cp.dataCompra;
+    if (cp.dataCompra && (!a.primeiraData || cp.dataCompra < a.primeiraData)) a.primeiraData = cp.dataCompra;
+    if (cp.canalId) a.canais.add(String(cp.canalId));
+    if (cp.produtoId) a.produtos.add(String(cp.produtoId));
+    if (cp.dataCompra) {
+      var d = new Date(cp.dataCompra);
+      if (d >= inicioMes) a.mes = true;
+      if (d >= inicioTrimestre) a.trimestre = true;
+      if (d >= inicioAno) a.ano = true;
+    }
+  });
+  function aggDe(id) { return agregados[id] || { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; }
+
+  function passa(cliente, f) {
+    var agg = aggDe(cliente.id);
+    switch (f.tipo) {
+      case 'status_crm': return !f.valor || String(cliente.statusCrmId) === String(f.valor);
+      case 'tag_valor': return !f.valor || (cliente.tagsComercial || []).indexOf(f.valor) !== -1;
+      case 'aniversario': {
+        if (!f.valor) return true;
+        var dn = cliente['data-nascimento']; if (!dn) return false;
+        var partes = dn.split('/'); if (partes.length !== 3) return false;
+        return Number(partes[1]) === Number(f.valor);
+      }
+      case 'recencia_compra': {
+        if (!f.valor) return true;
+        if (!agg.ultimaData) return f.operador === '>';
+        var dias = Math.floor((Date.now() - new Date(agg.ultimaData).getTime()) / 86400000);
+        return f.operador === '>' ? dias > Number(f.valor) : dias < Number(f.valor);
+      }
+      case 'nunca_comprou': return agg.qtd === 0;
+      case 'valor_gasto': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.total > Number(f.valor) : agg.total < Number(f.valor));
+      case 'qtd_compras': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.qtd >= Number(f.valor) : agg.qtd < Number(f.valor));
+      case 'canal': return !f.valor || agg.canais.has(String(f.valor));
+      case 'produto': return !f.valor || agg.produtos.has(String(f.valor));
+      case 'cidade': return !f.valor || (cliente.cidade || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
+      case 'estado': return !f.valor || (cliente.estado || '').toLowerCase() === f.valor.toLowerCase();
+      case 'ticket_medio': {
+        if (f.valor === '' || f.valor == null) return true;
+        var tm = agg.qtd ? agg.total / agg.qtd : 0;
+        return f.operador === '>' ? tm > Number(f.valor) : tm < Number(f.valor);
+      }
+      case 'comprou_periodo': return !f.valor || !!agg[f.valor];
+      case 'dias_cadastro': {
+        if (!f.valor || !cliente.criadoEm) return f.operador === '>';
+        var diasC = Math.floor((Date.now() - new Date(cliente.criadoEm).getTime()) / 86400000);
+        return f.operador === '>' ? diasC > Number(f.valor) : diasC < Number(f.valor);
+      }
+      case 'dias_primeira_compra': {
+        if (!f.valor) return true;
+        if (!agg.primeiraData) return f.operador === '>';
+        var diasP = Math.floor((Date.now() - new Date(agg.primeiraData).getTime()) / 86400000);
+        return f.operador === '>' ? diasP > Number(f.valor) : diasP < Number(f.valor);
+      }
+      case 'nunca_comprou_produto': return !f.valor || !agg.produtos.has(String(f.valor));
+      case 'regiao': return !f.valor || CDA_UF_REGIAO_COMPARTILHADO[(cliente.estado || '').toUpperCase()] === f.valor;
+      case 'pais': return !f.valor || (cliente.pais || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
+      case 'cep': return !f.valor || (cliente.cep || '').replace(/\D/g, '').indexOf(f.valor.replace(/\D/g, '')) === 0;
+      case 'origem': return !f.valor || cliente.origem === f.valor;
+      case 'sem_vendedor': return !cliente.responsavelComercial;
+      case 'tipo_comercial':
+        if (!f.valor) return true;
+        if (f.valor === '__vazio__') return !cliente.tipoComercial;
+        return cliente.tipoComercial === f.valor;
+      default: return true;
+    }
+  }
+  return clientes.filter(function (c) { return !c.cadastroIncompleto && filtros.every(function (f) { return passa(c, f); }); });
+}
+
+
+// ── CAMPANHAS ──────────────────────────────────────────────────────
+const CDA_CAMPANHA_MAP = {
+  fromRow: r => ({
+    id: r.id, nome: r.nome, objetivo: r.objetivo, publicoSegmentoId: r.publico_segmento_id,
+    pipelineEtapaEntrada: r.pipeline_etapa_entrada, periodoInicio: r.periodo_inicio, periodoFim: r.periodo_fim,
+    metaDescricao: r.meta_descricao, metaNumero: r.meta_numero != null ? Number(r.meta_numero) : null,
+    responsavel: r.responsavel, status: r.status, criadoEm: r.criado_em, criadoPor: r.criado_por
+  }),
+  toRow: o => ({
+    id: o.id || undefined, nome: o.nome, objetivo: o.objetivo || null, publico_segmento_id: o.publicoSegmentoId || null,
+    pipeline_etapa_entrada: o.pipelineEtapaEntrada || 'novo_lead', periodo_inicio: o.periodoInicio || null, periodo_fim: o.periodoFim || null,
+    meta_descricao: o.metaDescricao || null, meta_numero: o.metaNumero != null ? o.metaNumero : null,
+    responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null
+  })
+};
+async function cdaCarregarCampanhas() {
+  const rows = await cdaFetchAll('cda_campanhas', '*', 'criado_em');
+  return rows.map(CDA_CAMPANHA_MAP.fromRow).reverse();
+}
+async function cdaSalvarCampanha(o) {
+  const row = CDA_CAMPANHA_MAP.toRow(o);
+  const { data, error } = await cdaClient.from('cda_campanhas').upsert(row).select().single();
+  if (error) throw error;
+  return CDA_CAMPANHA_MAP.fromRow(data);
+}
+async function cdaExcluirCampanha(id) {
+  const { error } = await cdaClient.from('cda_campanhas').delete().eq('id', id);
+  if (error) throw error;
+}
+
+// Adiciona em lote os clientes de um segmento ao Pipeline, vinculados a uma campanha.
+// Não duplica: pula quem já tem lead nessa campanha específica.
+async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
+  const { data: existentes, error: errExist } = await cdaClient.from('leads_b2c').select('cliente_id').eq('campanha_id', campanha.id);
+  if (errExist) throw errExist;
+  const jaAdicionados = new Set((existentes || []).map(r => String(r.cliente_id)));
+  const novos = clientesAlvo.filter(c => !jaAdicionados.has(String(c.id)));
+  if (!novos.length) return { adicionados: 0, jaExistentes: clientesAlvo.length };
+
+  const agora = new Date().toISOString();
+  const leadRows = novos.map(c => ({
+    id: 'lb2c' + cdaUid() + Math.random().toString(36).slice(2, 6),
+    nome: c.nome, telefone: c['telefone-celular'] || c['telefone-principal'] || null, email: c.email || null,
+    canal_id: null, etapa: campanha.pipelineEtapaEntrada || 'novo_lead', cliente_id: c.id,
+    campanha_id: campanha.id, movido_em: agora, obs: 'Adicionado via campanha "' + campanha.nome + '"'
+  }));
+  const { data: inseridos, error: errIns } = await cdaClient.from('leads_b2c').insert(leadRows).select();
+  if (errIns) throw errIns;
+
+  const histRows = (inseridos || []).map(l => ({
+    lead_id: l.id, cliente_id: l.cliente_id, etapa: l.etapa, resultado_id: null,
+    observacao: 'Entrou no funil via campanha "' + campanha.nome + '"', criado_por: usuario || 'Usuário'
+  }));
+  if (histRows.length) {
+    const { error: errHist } = await cdaClient.from('cda_historico_interacoes').insert(histRows);
+    if (errHist) throw errHist;
+  }
+  return { adicionados: novos.length, jaExistentes: clientesAlvo.length - novos.length };
 }
 
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
