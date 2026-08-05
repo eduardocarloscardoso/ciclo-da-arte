@@ -525,6 +525,56 @@ async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
   return { adicionados: novos.length, jaExistentes: clientesAlvo.length - novos.length };
 }
 
+// ── EQUIPE (responsáveis reais, usados por Tarefas e outros módulos) ─
+async function cdaCarregarEquipe() {
+  const rows = await cdaFetchAll('cda_equipe', '*', 'nome');
+  return rows.filter(r => r.ativo !== false).map(r => ({ id: r.id, nome: r.nome, email: r.email, ativo: r.ativo }));
+}
+
+// ── TAREFAS & FOLLOW-UP ────────────────────────────────────────────
+const CDA_TAREFA_MAP = {
+  fromRow: r => ({
+    id: r.id, descricao: r.descricao, leadId: r.lead_id,
+    clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
+    campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null,
+    responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null,
+    tipo: r.tipo, prioridade: r.prioridade, status: r.status,
+    dataInicio: r.data_inicio, dataPrevista: r.data_prevista, dataConclusao: r.data_conclusao,
+    resultado: r.resultado, criadoEm: r.criado_em, criadoPor: r.criado_por
+  }),
+  toRow: o => {
+    const row = {
+      descricao: o.descricao, lead_id: o.leadId || null, cliente_id: o.clienteId || null,
+      campanha_id: o.campanhaId || null, responsavel_id: o.responsavelId || null,
+      tipo: o.tipo || 'outro', prioridade: o.prioridade || 'media', status: o.status || 'pendente',
+      data_inicio: o.dataInicio || null, data_prevista: o.dataPrevista || null, data_conclusao: o.dataConclusao || null,
+      resultado: o.resultado || null, criado_por: o.criadoPor || null
+    };
+    if (o.id) row.id = o.id;
+    return row;
+  }
+};
+async function cdaCarregarTarefas() {
+  const rows = await cdaFetchAll('cda_tarefas', '*', 'data_prevista');
+  return rows.map(CDA_TAREFA_MAP.fromRow);
+}
+async function cdaSalvarTarefa(o) {
+  const row = CDA_TAREFA_MAP.toRow(o);
+  let data, error;
+  if (row.id) {
+    const id = row.id; delete row.id;
+    ({ data, error } = await cdaClient.from('cda_tarefas').update(row).eq('id', id).select().single());
+  } else {
+    ({ data, error } = await cdaClient.from('cda_tarefas').insert(row).select().single());
+  }
+  if (error) throw error;
+  return CDA_TAREFA_MAP.fromRow(data);
+}
+async function cdaExcluirTarefa(id) {
+  const { error } = await cdaClient.from('cda_tarefas').delete().eq('id', id);
+  if (error) throw error;
+}
+
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
 async function cdaSalvarCanal(o) {
   const row = {
