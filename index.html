@@ -469,7 +469,8 @@ function podeVerSubmodulo(projeto,slug){
   if(cu.is_admin)return true;
   var doProjeto=CU_PERMISSOES_SUBMODULO&&CU_PERMISSOES_SUBMODULO[projeto];
   if(!doProjeto)return true; // ninguém configurou nada pra esse projeto ainda — rede de segurança: mostra tudo
-  return doProjeto.hasOwnProperty(slug);
+  if(!doProjeto.hasOwnProperty(slug))return false; // projeto já configurado, mas este submódulo não tem linha = tratado como negado
+  return doProjeto[slug]!=='desabilitado';
 }
 
 // ── SIDEBAR DE PROJETOS (1º nível) ─────────────────────────────────
@@ -1248,11 +1249,11 @@ function renderPermissoesSubmodulo(catalogo,permissoesExistentes,projetosSelecio
   return Object.keys(porProjeto).map(function(proj){
     var visivel=(projetosSelecionados||[]).indexOf(proj)>=0;
     var itens=porProjeto[proj].map(function(s){
-      var temOverride=porUsuario.hasOwnProperty(s.id);
-      var nivelAtual=temOverride?porUsuario[s.id]:(permissaoGeral||'leitura_escrita');
+      var nivelAtual=porUsuario.hasOwnProperty(s.id)?porUsuario[s.id]:(permissaoGeral||'leitura_escrita');
       return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px">'+
-        '<label style="display:flex;align-items:center;gap:6px;flex:1;cursor:pointer"><input type="checkbox" class="cred-sub-chk" data-sub="'+s.id+'" checked> '+s.submodulo_label+'</label>'+
+        '<span style="flex:1">'+s.submodulo_label+'</span>'+
         '<select class="cred-sub-nivel" data-sub="'+s.id+'" style="font-size:11px;padding:3px 6px">'+
+          '<option value="desabilitado"'+(nivelAtual==='desabilitado'?' selected':'')+'>Desabilitado</option>'+
           '<option value="leitura"'+(nivelAtual==='leitura'?' selected':'')+'>Leitura</option>'+
           '<option value="leitura_escrita"'+(nivelAtual==='leitura_escrita'?' selected':'')+'>Leitura e Gravação</option>'+
         '</select></div>';
@@ -1285,10 +1286,8 @@ function confirmDeleteCred(id){
   openModal('<div class="modal-box" onclick="event.stopPropagation()" style="max-width:380px"><div class="modal-title" style="color:var(--red)">⚠️ Remover Usuário</div><p style="font-size:14px;color:var(--muted2);line-height:1.6">Tem certeza que deseja remover <strong style="color:var(--white)">'+u.name+'</strong>? Ele perderá acesso imediatamente.</p><div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-danger" onclick="deleteCred('+id+')">Sim, remover</button></div></div>');
 }
 function getPermissoesSubmoduloData(){
-  return Array.from(document.querySelectorAll('.cred-sub-chk:checked')).map(function(chk){
-    var subId=chk.dataset.sub;
-    var nivelEl=document.querySelector('.cred-sub-nivel[data-sub="'+subId+'"]');
-    return {submodulo_id:Number(subId),nivel:nivelEl?nivelEl.value:'leitura'};
+  return Array.from(document.querySelectorAll('.cred-sub-nivel')).map(function(sel){
+    return {submodulo_id:Number(sel.dataset.sub),nivel:sel.value};
   });
 }
 async function sincronizarPermissoesSubmodulo(equipeId){
