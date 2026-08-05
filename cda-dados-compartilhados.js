@@ -530,9 +530,12 @@ async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
 }
 
 // ── EQUIPE (responsáveis reais, usados por Tarefas e outros módulos) ─
+// Lê da mesma tabela 'equipe' usada pelo Credenciamento — uma fonte única
+// de pessoas, não uma lista separada. name→nome pra manter o resto do
+// app usando .nome como já fazia antes desta unificação.
 async function cdaCarregarEquipe() {
-  const rows = await cdaFetchAll('cda_equipe', '*', 'nome');
-  return rows.filter(r => r.ativo !== false).map(r => ({ id: r.id, nome: r.nome, email: r.email, ativo: r.ativo }));
+  const rows = await cdaFetchAll('equipe', '*', 'name');
+  return rows.map(r => ({ id: r.id, nome: r.name, email: r.email, ativo: true }));
 }
 
 // ── TAREFAS & FOLLOW-UP ────────────────────────────────────────────
