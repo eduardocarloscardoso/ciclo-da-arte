@@ -637,108 +637,283 @@ async function navigateCRM(pageId){
   }
 }
 
-// ── TAREFAS & FOLLOW-UP (Comercial) — dados locais (localStorage), contatos via Supabase ──
-var TAREFAS=JSON.parse(localStorage.getItem('cda_com_tarefas')||'[]');
-var RESPONSAVEIS_TAR=JSON.parse(localStorage.getItem('cda_com_resp')||'[]');
-var _clientesTarCache=null;
-function saveTarefasLocal(){localStorage.setItem('cda_com_tarefas',JSON.stringify(TAREFAS));}
+// ── TAREFAS & FOLLOW-UP (Comercial) — Supabase, ligado a Cliente/Lead/Campanha ──
 async function montarModuloTarefas(containerId){
   var host=document.getElementById(containerId);
-  if(!_clientesTarCache){
-    try{ _clientesTarCache=await cdaCarregarClientes(); }catch(e){ _clientesTarCache=[]; }
-  }
-  var clientes=_clientesTarCache;
-  function nomeContatoTar(id){var c=clientes.find(function(x){return String(x.id)===String(id);});return c?c.nome:'—';}
-  function statusTarefaReal(t){
-    if(t.status==='concluida')return 'concluida';
-    var hoje=new Date().toISOString().slice(0,10);
-    return (t.data<hoje)?'atrasada':'pendente';
-  }
+  var ST_TAR={tarefas:[],clientes:[],leads:[],campanhas:[],equipe:[],editId:null,visao:'lista'};
+
   host.innerHTML=
-    '<div class="row-bt"><div><div class="sec-t">Tarefas &amp; Follow-up</div><div class="sec-d">Ligações, propostas, visitas e follow-ups vinculados a contatos</div></div>'+
-    '<button class="btn rust" id="tar-btn-novo">＋ Nova Tarefa</button></div>'+
-    '<div class="fb"><select id="f-tar-status"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="concluida">Concluída</option><option value="atrasada">Atrasada</option></select>'+
-    '<select id="f-tar-resp"><option value="">Todos os responsáveis</option>'+RESPONSAVEIS_TAR.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('')+'</select>'+
+    '<style>'+
+      '.tar-roadmap-grupo{background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);margin-bottom:14px;}'+
+      '.tar-roadmap-h{padding:10px 14px;border-bottom:2px solid var(--ink,#1a1a1a);display:flex;justify-content:space-between;align-items:center;}'+
+      '.tar-roadmap-h b{font-size:12px;}'+
+      '.tar-roadmap-h .pct{font-size:11px;color:var(--muted,#888);}'+
+      '.tar-item{padding:8px 14px;border-bottom:1px solid var(--border2,#eee);font-size:11px;display:flex;justify-content:space-between;align-items:center;gap:10px;}'+
+      '.tar-item:last-child{border-bottom:none;}'+
+      '.tar-badge-prior{display:inline-block;font-size:8px;font-weight:700;text-transform:uppercase;padding:2px 7px;border-radius:999px;color:#fff;}'+
+      '.tar-busca-resultados{position:absolute;top:100%;left:0;right:0;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);border-top:none;max-height:160px;overflow-y:auto;z-index:20;}'+
+      '.tar-busca-item{padding:6px 10px;font-size:11px;cursor:pointer;border-bottom:1px solid var(--border2,#eee);}'+
+      '.tar-busca-item:hover{background:var(--card,#f5f0e8);}'+
+    '</style>'+
+    '<div class="row-bt"><div><div class="sec-t">Tarefas &amp; Follow-up</div><div class="sec-d">Ações de acompanhamento ligadas a Clientes, Leads do Pipeline e Campanhas</div></div>'+
+    '<div style="display:flex;gap:7px"><button class="btn sm" id="tar-btn-visao">🗺 Ver por Campanha</button><button class="btn rust" id="tar-btn-novo">＋ Nova Tarefa</button></div></div>'+
+    '<div class="fb"><select id="f-tar-status"><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="em_andamento">Em Andamento</option><option value="concluida">Concluída</option><option value="atrasada">Atrasada</option><option value="cancelada">Cancelada</option></select>'+
+    '<select id="f-tar-resp"><option value="">Todos os responsáveis</option></select>'+
+    '<select id="f-tar-campanha"><option value="">Todas as campanhas</option></select>'+
     '<span class="fc" id="tar-cnt"></span></div>'+
-    '<div class="tw"><div class="ts"><table><thead><tr><th>Tarefa</th><th>Contato</th><th>Tipo</th><th>Responsável</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbl-tarefas"></tbody></table></div></div>'+
+    '<div id="tar-lista-wrap"><div class="tw"><div class="ts"><table><thead><tr><th>Tarefa</th><th>Cliente</th><th>Campanha</th><th>Responsável</th><th>Prioridade</th><th>Previsto</th><th>Status</th><th>Ações</th></tr></thead><tbody id="tbl-tarefas"></tbody></table></div></div></div>'+
+    '<div id="tar-roadmap-wrap" style="display:none"></div>'+
+
     '<div class="mo" id="modal-tarefa"><div class="mo-box"><div class="mo-h"><h3 id="mo-tar-title">Nova Tarefa</h3><button class="mo-x" id="tar-modal-x">✕</button></div>'+
     '<div class="mo-b"><div class="fg">'+
     '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="tf-desc" placeholder="ex: Ligar para confirmar proposta"></div>'+
-    '<div class="fgr"><label>Contato Vinculado</label><select id="tf-contato"><option value="">—</option>'+clientes.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('')+'</select></div>'+
+    '<div class="fgr" style="grid-column:1/-1;position:relative"><label>Cliente vinculado (busca por nome)</label><input type="text" id="tf-busca-cliente" placeholder="Digite pelo menos 3 letras..."><div class="tar-busca-resultados" id="tf-busca-resultados" style="display:none"></div><div id="tf-cliente-vinculado" style="font-size:11px;margin-top:4px;color:var(--muted,#888)"></div></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Lead do Pipeline vinculado (opcional)</label><select id="tf-lead"><option value="">—</option></select></div>'+
     '<div class="fgr"><label>Tipo</label><select id="tf-tipo"><option value="ligacao">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="reuniao">Reunião</option><option value="visita">Visita</option><option value="proposta">Enviar Proposta</option><option value="outro">Outro</option></select></div>'+
-    '<div class="fgr"><label>Responsável</label><select id="tf-resp"><option value="">—</option>'+RESPONSAVEIS_TAR.map(function(r){return '<option value="'+r+'">'+r+'</option>';}).join('')+'</select></div>'+
-    '<div class="fgr"><label>Data de Vencimento *</label><input type="date" id="tf-data"></div>'+
-    '<div class="fgr"><label>Status</label><select id="tf-status"><option value="pendente">Pendente</option><option value="concluida">Concluída</option></select></div>'+
-    '</div></div><div class="mo-f"><button class="btn" id="tar-m-cancelar">Cancelar</button><button class="btn rust" id="tar-m-salvar">Salvar</button></div></div></div>';
+    '<div class="fgr"><label>Responsável</label><select id="tf-resp"><option value="">—</option></select></div>'+
+    '<div class="fgr"><label>Prioridade</label><select id="tf-prioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>'+
+    '<div class="fgr"><label>Status</label><select id="tf-status"><option value="pendente">Pendente</option><option value="em_andamento">Em Andamento</option><option value="concluida">Concluída</option><option value="cancelada">Cancelada</option></select></div>'+
+    '<div class="fgr"><label>Data Início</label><input type="date" id="tf-inicio"></div>'+
+    '<div class="fgr"><label>Data Prevista *</label><input type="date" id="tf-prevista"></div>'+
+    '<div class="fgr"><label>Data Conclusão</label><input type="date" id="tf-conclusao"></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Resultado / Observação</label><input type="text" id="tf-resultado" placeholder="O que aconteceu de fato"></div>'+
+    '</div></div><div class="mo-f"><button class="btn" id="tar-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button><button class="btn" id="tar-m-cancelar">Cancelar</button><button class="btn rust" id="tar-m-salvar">💾 Salvar</button></div></div></div>';
 
-  var modal=host.querySelector('#modal-tarefa');
-  function abrirModal(id){
-    document.getElementById('mo-tar-title').textContent=id?'Editar Tarefa':'Nova Tarefa';
-    var t=id?TAREFAS.find(function(x){return x.id===id;}):null;
-    host.querySelector('#tf-desc').value=t?t.desc:'';
-    host.querySelector('#tf-contato').value=t?(t.contato_id||''):'';
-    host.querySelector('#tf-tipo').value=t?t.tipo:'ligacao';
-    host.querySelector('#tf-resp').value=t?(t.resp||''):'';
-    host.querySelector('#tf-data').value=t?t.data:'';
-    host.querySelector('#tf-status').value=t?t.status:'pendente';
-    modal.dataset.editId=id||'';
-    modal.classList.add('op');
+  try{
+    var res=await Promise.all([cdaCarregarTarefas(),cdaCarregarClientes(),cdaCarregarLeadsB2C(),cdaCarregarCampanhas(),cdaCarregarEquipe()]);
+    ST_TAR.tarefas=res[0];ST_TAR.clientes=res[1];ST_TAR.leads=res[2];ST_TAR.campanhas=res[3];ST_TAR.equipe=res[4];
+  }catch(err){
+    console.error(err);
+    var msg=(err&&(err.message||err.details||err.hint))||'Erro desconhecido';
+    host.querySelector('#tbl-tarefas').innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>'+msg+'</b></td></tr>';
+    return;
   }
-  function fecharModal(){modal.classList.remove('op');}
-  function render(){
+
+  var clientePorId={};ST_TAR.clientes.forEach(function(c){clientePorId[String(c.id)]=c;});
+  var leadPorId={};ST_TAR.leads.forEach(function(l){leadPorId[l.id]=l;});
+  var campanhaPorId={};ST_TAR.campanhas.forEach(function(c){campanhaPorId[c.id]=c;});
+  var equipePorId={};ST_TAR.equipe.forEach(function(e){equipePorId[e.id]=e;});
+  var clienteSelecionadoTarefa=null;
+  function nomeUsuarioAtualTar(){return (window.cu&&window.cu.name)||'Usuário';}
+
+  host.querySelector('#f-tar-resp').innerHTML='<option value="">Todos os responsáveis</option>'+
+    ST_TAR.equipe.map(function(e){return '<option value="'+e.id+'">'+e.nome+'</option>';}).join('');
+  host.querySelector('#f-tar-campanha').innerHTML='<option value="">Todas as campanhas</option>'+
+    ST_TAR.campanhas.map(function(c){return '<option value="'+c.id+'">'+c.nome+'</option>';}).join('');
+  host.querySelector('#tf-resp').innerHTML='<option value="">—</option>'+
+    ST_TAR.equipe.map(function(e){return '<option value="'+e.id+'">'+e.nome+'</option>';}).join('');
+  host.querySelector('#tf-lead').innerHTML='<option value="">—</option>'+
+    ST_TAR.leads.slice().sort(function(a,b){return (a.nome||'').localeCompare(b.nome||'');}).map(function(l){
+      var camp=campanhaPorId[l.campanhaId];
+      return '<option value="'+l.id+'">'+(l.nome||'—')+(camp?' — '+camp.nome:'')+'</option>';
+    }).join('');
+
+  function statusTarefaReal(t){
+    if(t.status==='concluida')return 'concluida';
+    if(t.status==='cancelada')return 'cancelada';
+    var hoje=new Date().toISOString().slice(0,10);
+    if(t.dataPrevista&&t.dataPrevista<hoje)return 'atrasada';
+    return t.status||'pendente';
+  }
+  var BADGE_MAP={pendente:'gd',em_andamento:'vio',concluida:'sage',atrasada:'rust',cancelada:'gd'};
+  var LABEL_MAP={pendente:'Pendente',em_andamento:'Em Andamento',concluida:'Concluída',atrasada:'Atrasada',cancelada:'Cancelada'};
+  var PRIOR_COR={baixa:'#6B7280',media:'#F59E0B',alta:'#c0392b'};
+  function fmtDataTar(iso){if(!iso)return '—';var p=iso.split('-');return p[2]+'/'+p[1]+'/'+p[0];}
+
+  function getFiltroTar(){
     var fStatus=host.querySelector('#f-tar-status').value;
     var fResp=host.querySelector('#f-tar-resp').value;
-    var list=TAREFAS.filter(function(t){
-      var st=statusTarefaReal(t);
-      if(fStatus&&st!==fStatus)return false;
-      if(fResp&&t.resp!==fResp)return false;
+    var fCampanha=host.querySelector('#f-tar-campanha').value;
+    return ST_TAR.tarefas.filter(function(t){
+      if(fStatus&&statusTarefaReal(t)!==fStatus)return false;
+      if(fResp&&String(t.responsavelId)!==fResp)return false;
+      if(fCampanha&&String(t.campanhaId)!==fCampanha)return false;
       return true;
-    }).sort(function(a,b){return a.data.localeCompare(b.data);});
-    var badgeMap={pendente:'gd',concluida:'sage',atrasada:'rust'};
-    var labelMap={pendente:'Pendente',concluida:'Concluída',atrasada:'Atrasada'};
+    }).sort(function(a,b){return (a.dataPrevista||'9999').localeCompare(b.dataPrevista||'9999');});
+  }
+
+  function renderLista(){
+    var list=getFiltroTar();
+    host.querySelector('#tar-cnt').textContent=list.length.toLocaleString('pt-BR')+' tarefa(s)';
     var tb=host.querySelector('#tbl-tarefas');
     tb.innerHTML=list.map(function(t){
       var st=statusTarefaReal(t);
-      return '<tr><td>'+t.desc+'</td><td>'+nomeContatoTar(t.contato_id)+'</td><td>'+t.tipo+'</td><td>'+(t.resp||'—')+'</td>'+
-        '<td class="mn">'+t.data.split('-').reverse().join('/')+'</td><td><span class="badge b-'+badgeMap[st]+'">'+labelMap[st]+'</span></td>'+
-        '<td><button class="btn sm" data-toggle="'+t.id+'">'+(t.status==='concluida'?'Reabrir':'Concluir')+'</button> <button class="btn sm" data-edit="'+t.id+'">Editar</button> <button class="btn sm" data-del="'+t.id+'">Excluir</button></td></tr>';
-    }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:20px">Nenhuma tarefa cadastrada ainda.</td></tr>';
-    host.querySelector('#tar-cnt').textContent=list.length+' tarefa(s)';
-    tb.querySelectorAll('[data-toggle]').forEach(function(b){b.addEventListener('click',function(){
-      var t=TAREFAS.find(function(x){return x.id===b.dataset.toggle;});
-      t.status=t.status==='concluida'?'pendente':'concluida';
-      saveTarefasLocal();render();
-    });});
-    tb.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
-    tb.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){
-      if(!confirm('Excluir esta tarefa?'))return;
-      TAREFAS=TAREFAS.filter(function(x){return x.id!==b.dataset.del;});
-      saveTarefasLocal();render();
-    });});
+      var cliente=clientePorId[t.clienteId];
+      var camp=campanhaPorId[t.campanhaId];
+      var resp=equipePorId[t.responsavelId];
+      return '<tr>'+
+        '<td><b>'+t.descricao+'</b></td>'+
+        '<td>'+(cliente?cliente.nome:'—')+'</td>'+
+        '<td>'+(camp?'<span class="badge b-rust" style="font-size:8px">📣 '+camp.nome+'</span>':'—')+'</td>'+
+        '<td>'+(resp?resp.nome:'—')+'</td>'+
+        '<td><span class="tar-badge-prior" style="background:'+PRIOR_COR[t.prioridade||'media']+'">'+(t.prioridade||'media')+'</span></td>'+
+        '<td>'+fmtDataTar(t.dataPrevista)+'</td>'+
+        '<td><span class="badge b-'+BADGE_MAP[st]+'">'+LABEL_MAP[st]+'</span></td>'+
+        '<td><button class="btn sm" data-editar-tar="'+t.id+'">✎</button> <button class="btn sm" data-excluir-tar="'+t.id+'">🗑</button></td>'+
+        '</tr>';
+    }).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--muted,#888);padding:20px">Nenhuma tarefa encontrada.</td></tr>';
+    tb.querySelectorAll('[data-editar-tar]').forEach(function(b){b.addEventListener('click',function(){abrirModalTar(b.dataset.editarTar);});});
+    tb.querySelectorAll('[data-excluir-tar]').forEach(function(b){b.addEventListener('click',function(){excluirTarefa(b.dataset.excluirTar);});});
   }
-  host.querySelector('#tar-btn-novo').addEventListener('click',function(){abrirModal(null);});
-  host.querySelector('#tar-modal-x').addEventListener('click',fecharModal);
-  host.querySelector('#tar-m-cancelar').addEventListener('click',fecharModal);
-  host.querySelector('#tar-m-salvar').addEventListener('click',function(){
-    var desc=host.querySelector('#tf-desc').value.trim();
-    var data=host.querySelector('#tf-data').value;
-    if(!desc||!data){alert('Preencha descrição e data de vencimento.');return;}
-    var editId=modal.dataset.editId;
-    var d={desc:desc,contato_id:host.querySelector('#tf-contato').value,tipo:host.querySelector('#tf-tipo').value,
-      resp:host.querySelector('#tf-resp').value,data:data,status:host.querySelector('#tf-status').value};
-    if(editId){
-      var idx=TAREFAS.findIndex(function(x){return x.id===editId;});
-      d.id=editId;TAREFAS[idx]=d;
-    }else{
-      d.id='t'+Date.now()+Math.floor(Math.random()*10000);
-      TAREFAS.push(d);
-    }
-    saveTarefasLocal();fecharModal();render();
+
+  function renderRoadmap(){
+    var list=getFiltroTar();
+    var grupos={};
+    list.forEach(function(t){
+      var chave=t.campanhaId?String(t.campanhaId):'__sem_campanha__';
+      if(!grupos[chave])grupos[chave]=[];
+      grupos[chave].push(t);
+    });
+    var chaves=Object.keys(grupos).sort(function(a,b){return a==='__sem_campanha__'?1:(b==='__sem_campanha__'?-1:0);});
+    var box=host.querySelector('#tar-roadmap-wrap');
+    box.innerHTML=chaves.length?chaves.map(function(chave){
+      var tarefas=grupos[chave];
+      var camp=chave!=='__sem_campanha__'?campanhaPorId[chave]:null;
+      var concluidas=tarefas.filter(function(t){return t.status==='concluida';}).length;
+      var pct=Math.round((concluidas/tarefas.length)*100);
+      return '<div class="tar-roadmap-grupo">'+
+        '<div class="tar-roadmap-h"><b>'+(camp?'📣 '+camp.nome:'Sem campanha vinculada')+'</b><span class="pct">'+concluidas+' de '+tarefas.length+' concluídas ('+pct+'%)</span></div>'+
+        tarefas.map(function(t){
+          var st=statusTarefaReal(t);
+          var cliente=clientePorId[t.clienteId];
+          var resp=equipePorId[t.responsavelId];
+          return '<div class="tar-item"><span><b>'+t.descricao+'</b>'+(cliente?' — '+cliente.nome:'')+(resp?' · '+resp.nome:'')+'</span>'+
+            '<span><span class="badge b-'+BADGE_MAP[st]+'">'+LABEL_MAP[st]+'</span> '+fmtDataTar(t.dataPrevista)+'</span></div>';
+        }).join('')+
+      '</div>';
+    }).join('') : '<p class="tmu">Nenhuma tarefa encontrada.</p>';
+  }
+
+  function render(){
+    if(ST_TAR.visao==='lista'){renderLista();}else{renderRoadmap();}
+  }
+
+  host.querySelector('#tar-btn-visao').addEventListener('click',function(){
+    ST_TAR.visao=ST_TAR.visao==='lista'?'roadmap':'lista';
+    host.querySelector('#tar-lista-wrap').style.display=ST_TAR.visao==='lista'?'':'none';
+    host.querySelector('#tar-roadmap-wrap').style.display=ST_TAR.visao==='roadmap'?'':'none';
+    this.textContent=ST_TAR.visao==='lista'?'🗺 Ver por Campanha':'📋 Ver Lista';
+    render();
   });
+
+  var modalTar=host.querySelector('#modal-tarefa');
+  function buscarClientesTar(termo){
+    var t=termo.trim().toLowerCase();
+    if(t.length<3)return [];
+    return ST_TAR.clientes.filter(function(c){return c.nome&&c.nome.toLowerCase().indexOf(t)!==-1;}).slice(0,8);
+  }
+  function vincularClienteTar(cliente){
+    clienteSelecionadoTarefa=cliente;
+    host.querySelector('#tf-busca-cliente').style.display='none';
+    host.querySelector('#tf-busca-resultados').style.display='none';
+    host.querySelector('#tf-cliente-vinculado').innerHTML='🔗 <b>'+cliente.nome+'</b> <button class="btn sm" id="tf-trocar-cliente" type="button">Trocar</button>';
+    host.querySelector('#tf-trocar-cliente').addEventListener('click',function(){
+      clienteSelecionadoTarefa=null;
+      host.querySelector('#tf-busca-cliente').style.display='';
+      host.querySelector('#tf-busca-cliente').value='';
+      host.querySelector('#tf-cliente-vinculado').innerHTML='';
+    });
+  }
+  host.querySelector('#tf-busca-cliente').addEventListener('input',function(){
+    var resultados=buscarClientesTar(this.value);
+    var box=host.querySelector('#tf-busca-resultados');
+    if(!resultados.length){box.style.display='none';return;}
+    box.innerHTML=resultados.map(function(c){return '<div class="tar-busca-item" data-id="'+c.id+'"><b>'+c.nome+'</b><br><span style="color:var(--muted,#888)">'+(c.email||c['telefone-celular']||'')+'</span></div>';}).join('');
+    box.style.display='';
+    box.querySelectorAll('.tar-busca-item').forEach(function(item){
+      item.addEventListener('click',function(){var c=clientePorId[item.dataset.id];if(c)vincularClienteTar(c);});
+    });
+  });
+  host.querySelector('#tf-lead').addEventListener('change',function(){
+    var lead=leadPorId[this.value];
+    if(lead&&lead.clienteId){
+      var c=clientePorId[lead.clienteId];
+      if(c)vincularClienteTar(c);
+    }
+  });
+
+  function abrirModalTar(id){
+    ST_TAR.editId=id||null;
+    var t=id?ST_TAR.tarefas.find(function(x){return String(x.id)===String(id);}):null;
+    host.querySelector('#mo-tar-title').textContent=id?'Editar Tarefa':'Nova Tarefa';
+    host.querySelector('#tf-desc').value=t?t.descricao:'';
+    host.querySelector('#tf-lead').value=t?(t.leadId||''):'';
+    host.querySelector('#tf-tipo').value=t?t.tipo:'ligacao';
+    host.querySelector('#tf-resp').value=t?(t.responsavelId||''):'';
+    host.querySelector('#tf-prioridade').value=t?(t.prioridade||'media'):'media';
+    host.querySelector('#tf-status').value=t?t.status:'pendente';
+    host.querySelector('#tf-inicio').value=t?(t.dataInicio||''):new Date().toISOString().slice(0,10);
+    host.querySelector('#tf-prevista').value=t?(t.dataPrevista||''):'';
+    host.querySelector('#tf-conclusao').value=t?(t.dataConclusao||''):'';
+    host.querySelector('#tf-resultado').value=t?(t.resultado||''):'';
+    clienteSelecionadoTarefa=null;
+    host.querySelector('#tf-busca-cliente').style.display='';
+    host.querySelector('#tf-busca-cliente').value='';
+    host.querySelector('#tf-busca-resultados').style.display='none';
+    host.querySelector('#tf-cliente-vinculado').innerHTML='';
+    if(t&&t.clienteId){
+      var c=clientePorId[t.clienteId];
+      if(c)vincularClienteTar(c);
+    }
+    host.querySelector('#tar-m-excluir').style.display=id?'inline-block':'none';
+    modalTar.classList.add('op');
+  }
+  function fecharModalTar(){modalTar.classList.remove('op');}
+
+  async function salvarTarefa(){
+    var descricao=host.querySelector('#tf-desc').value.trim();
+    if(!descricao){alert('Informe a descrição da tarefa.');return;}
+    var leadId=host.querySelector('#tf-lead').value||null;
+    var lead=leadId?leadPorId[leadId]:null;
+    var o={
+      id:ST_TAR.editId||undefined, descricao:descricao, leadId:leadId,
+      clienteId:clienteSelecionadoTarefa?String(clienteSelecionadoTarefa.id):(lead?lead.clienteId:null),
+      campanhaId:lead?lead.campanhaId:null,
+      responsavelId:host.querySelector('#tf-resp').value||null,
+      tipo:host.querySelector('#tf-tipo').value, prioridade:host.querySelector('#tf-prioridade').value,
+      status:host.querySelector('#tf-status').value,
+      dataInicio:host.querySelector('#tf-inicio').value||null, dataPrevista:host.querySelector('#tf-prevista').value||null,
+      dataConclusao:host.querySelector('#tf-conclusao').value||null, resultado:host.querySelector('#tf-resultado').value.trim(),
+      criadoPor:nomeUsuarioAtualTar()
+    };
+    try{
+      var salvo=await cdaSalvarTarefa(o);
+      if(ST_TAR.editId){
+        var idx=ST_TAR.tarefas.findIndex(function(x){return String(x.id)===String(ST_TAR.editId);});
+        ST_TAR.tarefas[idx]=salvo;
+      }else{
+        ST_TAR.tarefas.push(salvo);
+      }
+      fecharModalTar();render();
+    }catch(err){
+      console.error(err);
+      alert('Erro ao salvar:\n'+((err&&(err.message||err.details||err.hint))||'Erro desconhecido'));
+    }
+  }
+  async function excluirTarefa(id){
+    if(!confirm('Excluir esta tarefa?'))return;
+    try{
+      await cdaExcluirTarefa(id);
+      ST_TAR.tarefas=ST_TAR.tarefas.filter(function(x){return String(x.id)!==String(id);});
+      render();
+    }catch(err){
+      console.error(err);
+      alert('Erro ao excluir:\n'+((err&&(err.message||err.details||err.hint))||'Erro desconhecido'));
+    }
+  }
+
+  host.querySelector('#tar-btn-novo').addEventListener('click',function(){abrirModalTar(null);});
+  host.querySelector('#tar-modal-x').addEventListener('click',fecharModalTar);
+  host.querySelector('#tar-m-cancelar').addEventListener('click',fecharModalTar);
+  host.querySelector('#tar-m-salvar').addEventListener('click',salvarTarefa);
+  host.querySelector('#tar-m-excluir').addEventListener('click',function(){excluirTarefa(ST_TAR.editId);fecharModalTar();});
   host.querySelector('#f-tar-status').addEventListener('change',render);
   host.querySelector('#f-tar-resp').addEventListener('change',render);
+  host.querySelector('#f-tar-campanha').addEventListener('change',render);
   render();
 }
+
+// ── CONFIG FINANCEIRO — Tipos de Peça e Coleções (Supabase) ─────────
 
 // ── CONFIG FINANCEIRO — Tipos de Peça e Coleções (Supabase) ─────────
 async function montarConfigFinanceiro(containerId){
