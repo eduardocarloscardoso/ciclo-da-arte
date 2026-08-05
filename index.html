@@ -1171,17 +1171,18 @@ function renderCredenciamento(el){
   }).join('')
   +'</tbody></table></div></div>';
 }
-function credForm(u){
+function credForm(u,catalogo,permissoesExistentes){
   var v=u||{};
   var colorOpts=COLORS.map(function(c){return'<option value="'+c+'"'+(v.color===c?' selected':'')+'>'+c+'</option>';}).join('');
   return'<div class="form-group"><label class="form-label">Nome completo</label><input class="form-input" id="cf-name" value="'+(v.name||'')+'" placeholder="Ex: João Silva"></div>'
   +'<div class="form-group"><label class="form-label">Cargo</label><input class="form-input" id="cf-role" value="'+(v.role||'')+'" placeholder="Ex: Atendente SAC"></div>'
-  +'<div class="form-group"><label class="form-label">E-mail (login)</label><input class="form-input" id="cf-email" type="email" value="'+(v.email||'')+'" placeholder="email@empresa.com"></div>'
-  +'<div class="form-group"><label class="form-label">Senha</label><input class="form-input" id="cf-pass" value="'+(v.pass||'')+'" placeholder="Senha de acesso"></div>'
+  +'<div class="form-group"><label class="form-label">E-mail (login)</label><input class="form-input" id="cf-email" type="email" value="'+(v.email||'')+'" placeholder="email@empresa.com — deixe em branco se não vai logar"></div>'
+  +'<div class="form-group"><label class="form-label">Senha</label><input class="form-input" id="cf-pass" value="'+(v.pass||'')+'" placeholder="Senha de acesso — deixe em branco se não vai logar"></div>'
   +'<div class="form-group"><label class="form-label">Cor do Avatar</label><select class="form-input" id="cf-color">'+colorOpts+'</select></div>'
   +'<div class="form-group"><label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="cf-admin" '+(v.is_admin?'checked':'')+'> Administrador do sistema (acesso total + credenciamento)</label></div>'
-  +'<div class="form-group"><label class="form-label">Tipo de Permissão</label><select class="form-input" id="cf-permissao"><option value="leitura_escrita"'+((!v.permissao||v.permissao==='leitura_escrita')?' selected':'')+'>Leitura e Escrita</option><option value="leitura"'+(v.permissao==='leitura'?' selected':'')+'>Somente Leitura</option></select></div>'
-  +'<div class="form-group"><label class="form-label">Projetos Permitidos</label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px">'+projChecksGlobal(v.projetos)+'</div></div>';
+  +'<div class="form-group"><label class="form-label">Tipo de Permissão (geral, legado)</label><select class="form-input" id="cf-permissao"><option value="leitura_escrita"'+((!v.permissao||v.permissao==='leitura_escrita')?' selected':'')+'>Leitura e Escrita</option><option value="leitura"'+(v.permissao==='leitura'?' selected':'')+'>Somente Leitura</option></select></div>'
+  +'<div class="form-group"><label class="form-label">Projetos Permitidos</label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px">'+projChecksGlobal(v.projetos)+'</div></div>'
+  +'<div class="form-group"><label class="form-label">Permissões por Submódulo <span style="font-weight:400;color:var(--muted2)">(marque um projeto acima pra ver os submódulos dele)</span></label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px;max-height:260px;overflow-y:auto">'+renderPermissoesSubmodulo(catalogo||[],permissoesExistentes||[],v.projetos)+'</div></div>';
 }
 function projChecksGlobal(sel){return Object.keys(PROJETOS).map(function(k){var c=(sel||[]).indexOf(k)>=0;return'<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" class="cred-proj-chk" value="'+k+'" '+(c?'checked':'')+'> '+PROJETOS[k].icon+' '+PROJETOS[k].label+'</label>';}).join('');}
 function getCredFormData(){
@@ -1198,24 +1199,94 @@ function validateCredForm(d,excludeId){
   if(!d.is_admin&&!d.projetos.length){showToast('Selecione ao menos um projeto','error');return false;}
   return true;
 }
-function openModalCred(id){
+var CDA_CATALOGO_PERM_CACHE=null;
+async function carregarCatalogoPermissoes(){
+  if(CDA_CATALOGO_PERM_CACHE)return CDA_CATALOGO_PERM_CACHE;
+  var {data,error}=await cdaClient.from('cda_permissoes_catalogo').select('*').order('projeto').order('ordem');
+  if(error){console.error(error);return [];}
+  CDA_CATALOGO_PERM_CACHE=data;
+  return data;
+}
+async function carregarPermissoesUsuario(equipeId){
+  if(!equipeId)return [];
+  var {data,error}=await cdaClient.from('cda_equipe_permissoes').select('*').eq('equipe_id',equipeId);
+  if(error){console.error(error);return [];}
+  return data;
+}
+function renderPermissoesSubmodulo(catalogo,permissoesExistentes,projetosSelecionados){
+  var porUsuario={};(permissoesExistentes||[]).forEach(function(p){porUsuario[p.submodulo_id]=p.nivel;});
+  var porProjeto={};catalogo.forEach(function(s){(porProjeto[s.projeto]=porProjeto[s.projeto]||[]).push(s);});
+  return Object.keys(porProjeto).map(function(proj){
+    var visivel=(projetosSelecionados||[]).indexOf(proj)>=0;
+    var itens=porProjeto[proj].map(function(s){
+      var nivelAtual=porUsuario[s.id];
+      var ativo=!!nivelAtual;
+      return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px">'+
+        '<label style="display:flex;align-items:center;gap:6px;flex:1;cursor:pointer"><input type="checkbox" class="cred-sub-chk" data-sub="'+s.id+'" '+(ativo?'checked':'')+'> '+s.submodulo_label+'</label>'+
+        '<select class="cred-sub-nivel" data-sub="'+s.id+'" style="font-size:11px;padding:3px 6px">'+
+          '<option value="leitura"'+(nivelAtual==='leitura'?' selected':'')+'>Leitura</option>'+
+          '<option value="leitura_escrita"'+(nivelAtual==='leitura_escrita'?' selected':'')+'>Leitura e Gravação</option>'+
+        '</select></div>';
+    }).join('');
+    return '<div class="cred-sub-grupo" data-projeto="'+proj+'" style="display:'+(visivel?'block':'none')+';margin-bottom:10px;padding:8px 10px;background:rgba(255,255,255,.03);border-radius:8px">'+
+      '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted2);margin-bottom:4px">'+(PROJETOS[proj]?PROJETOS[proj].icon+' '+PROJETOS[proj].label:proj)+'</div>'+
+      itens+'</div>';
+  }).join('');
+}
+async function openModalCred(id){
   var u=id?EQUIPE.find(function(x){return x.id===id;}):null;
-  openModal('<div class="modal-box" onclick="event.stopPropagation()"><div class="modal-title"><div class="cdot red"></div>'+(u?'Editar':'Novo')+' Usuário</div>'+credForm(u)+'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="'+(u?'saveCredEdit('+id+')':'saveCredAdd()')+'">Salvar</button></div></div>');
+  var catalogo=await carregarCatalogoPermissoes();
+  var permissoesExistentes=await carregarPermissoesUsuario(id);
+  openModal('<div class="modal-box" onclick="event.stopPropagation()"><div class="modal-title"><div class="cdot red"></div>'+(u?'Editar':'Novo')+' Usuário</div>'+credForm(u,catalogo,permissoesExistentes)+'<div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="'+(u?'saveCredEdit('+id+')':'saveCredAdd()')+'">Salvar</button></div></div>');
+  document.querySelectorAll('.cred-proj-chk').forEach(function(chk){
+    chk.addEventListener('change',function(){
+      var selecionados=Array.from(document.querySelectorAll('.cred-proj-chk:checked')).map(function(el){return el.value;});
+      document.querySelectorAll('.cred-sub-grupo').forEach(function(grupo){
+        grupo.style.display=selecionados.indexOf(grupo.dataset.projeto)>=0?'block':'none';
+      });
+    });
+  });
 }
 function confirmDeleteCred(id){
   var u=EQUIPE.find(function(x){return x.id===id;});
   openModal('<div class="modal-box" onclick="event.stopPropagation()" style="max-width:380px"><div class="modal-title" style="color:var(--red)">⚠️ Remover Usuário</div><p style="font-size:14px;color:var(--muted2);line-height:1.6">Tem certeza que deseja remover <strong style="color:var(--white)">'+u.name+'</strong>? Ele perderá acesso imediatamente.</p><div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-danger" onclick="deleteCred('+id+')">Sim, remover</button></div></div>');
 }
+function getPermissoesSubmoduloData(){
+  return Array.from(document.querySelectorAll('.cred-sub-chk:checked')).map(function(chk){
+    var subId=chk.dataset.sub;
+    var nivelEl=document.querySelector('.cred-sub-nivel[data-sub="'+subId+'"]');
+    return {submodulo_id:Number(subId),nivel:nivelEl?nivelEl.value:'leitura'};
+  });
+}
+async function sincronizarPermissoesSubmodulo(equipeId){
+  var itens=getPermissoesSubmoduloData();
+  await cdaClient.from('cda_equipe_permissoes').delete().eq('equipe_id',equipeId);
+  if(itens.length){
+    var rows=itens.map(function(it){return {equipe_id:equipeId,submodulo_id:it.submodulo_id,nivel:it.nivel};});
+    var {error}=await cdaClient.from('cda_equipe_permissoes').insert(rows);
+    if(error)console.error('Erro ao salvar permissões de submódulo:',error);
+  }
+}
 async function saveCredAdd(){
   var d=getCredFormData();if(!validateCredForm(d,null))return;
   d.initials=initials(d.name);d.acesso=null;d.tipo='Interno';
-  try{var res=await sb.post('equipe',d);EQUIPE.push(res[0]||Object.assign({id:Date.now()},d));closeModal();openProject('credenciamento');showToast(d.name+' cadastrado! ⚠️ Peça ao Claude para ativar o acesso de login deste usuário.','info');}
+  try{
+    var res=await sb.post('equipe',d);
+    var novoUsuario=res[0]||Object.assign({id:Date.now()},d);
+    EQUIPE.push(novoUsuario);
+    if(novoUsuario.id)await sincronizarPermissoesSubmodulo(novoUsuario.id);
+    closeModal();openProject('credenciamento');showToast(d.name+' cadastrado! ⚠️ Peça ao Claude para ativar o acesso de login deste usuário.','info');
+  }
   catch(e){console.error(e);showToast('Erro ao salvar: '+((e&&(e.message||e.details||e.hint))||'erro desconhecido'),'error');}
 }
 async function saveCredEdit(id){
   var d=getCredFormData();if(!validateCredForm(d,id))return;
   d.initials=initials(d.name);
-  try{await sb.patch('equipe',id,d);var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');}
+  try{
+    await sb.patch('equipe',id,d);
+    await sincronizarPermissoesSubmodulo(id);
+    var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');
+  }
   catch(e){console.error(e);showToast('Erro ao salvar: '+((e&&(e.message||e.details||e.hint))||'erro desconhecido'),'error');}
 }
 async function deleteCred(id){
