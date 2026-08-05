@@ -73,15 +73,77 @@ var CDA_TUTORIAL_CONTEUDO = [
       '<h4>Buscar cliente existente ao criar um lead novo</h4>' +
       '<p>Ao clicar em "➕ Novo Lead", aparece um campo de busca por nome, telefone ou e-mail. Selecionando um resultado, o lead já nasce vinculado ao cadastro existente — evita criar um cliente duplicado quando alguém que já compra com você volta a aparecer pelo funil. Não achou? Um "Cadastrar novo" libera os campos em branco — nunca é obrigatório já existir.</p>' +
       '<p class="cda-tut-nota">Se dois ou mais clientes tiverem o mesmo nome, o sistema mostra telefone, e-mail e cidade/UF de cada um lado a lado, pra você escolher o certo com segurança.</p>' +
+      '<h4>Filtros do Kanban</h4>' +
+      '<p><b>Campanha</b> — isola só os leads de uma campanha específica (essencial quando há várias campanhas rodando ao mesmo tempo, senão tudo fica misturado na mesma coluna). <b>Buscar por nome do cliente</b> — acha rápido em qual etapa/campanha uma pessoa específica está. Canal e Responsável continuam existindo, mas dependem de campo nem sempre preenchido.</p>' +
+      '<p>Cada card mostra, quando existir: badge 📣 com o nome da campanha, badge do canal, e o responsável (ou "sem responsável" — deixado assim de propósito, pra não confundir com erro).</p>' +
+      '<h4>Ver Histórico de Compras (popup)</h4>' +
+      '<p>Dentro do modal do lead, se ele já estiver vinculado a um cliente, aparece o botão <b>"🛒 Ver Histórico de Compras"</b> — abre um resumo (itens, pedidos, total gasto, última compra, status atual e tags) e a lista das compras. Não carrega toda hora, só quando clicado — pra não pesar a tela.</p>' +
       '<h4>Campo no banco — onde cada regra mora</h4>' +
       '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Regra / Informação</th><th>Campo</th></tr>' +
       '<tr><td>Etapa atual do lead (uma das 5)</td><td><code>leads_b2c.etapa</code></td></tr>' +
       '<tr><td>Resultado atual dentro da etapa (ex: "Pediu catálogo")</td><td><code>leads_b2c.resultado_id</code> → aponta pra <code>cda_status_crm.id</code> (tipo = "pipeline_resultado")</td></tr>' +
       '<tr><td>Lead já vinculado a um cadastro de Cliente existente</td><td><code>leads_b2c.cliente_id</code> — nulo = ainda não vinculado (não significa "não é cliente")</td></tr>' +
+      '<tr><td>Campanha à qual o lead pertence</td><td><code>leads_b2c.campanha_id</code> — nulo = não veio de nenhuma campanha</td></tr>' +
       '<tr><td>Data da última movimentação de etapa (usada pro "dias parado")</td><td><code>leads_b2c.movido_em</code></td></tr>' +
       '<tr><td>Histórico completo de cada transição/interação</td><td>tabela <code>cda_historico_interacoes</code></td></tr>' +
       '<tr><td>Em quais etapas cada resultado pode aparecer no modal</td><td><code>cda_status_crm.etapa_aplicavel</code></td></tr>' +
       '</table>'
+  },
+  {
+    id: 'campanhas', titulo: 'Campanhas',
+    html: '<p>Liga um <b>segmento salvo</b> (Segmentação) a uma <b>etapa do Pipeline</b>, com período, meta e benefício — é o que transforma o Pipeline de "quadro de acompanhamento" em motor de campanha, ao invés de campanhas viverem soltas fora do CRM.</p>' +
+      '<h4>Fluxo de uso</h4>' +
+      '<p>1) Cria/usa um segmento salvo na Segmentação (ex: "Em Risco 91-180d"). 2) Cria a campanha, escolhendo esse segmento como Público e a etapa de entrada no Pipeline. 3) Clica em "➕ Adicionar público ao Pipeline" — o sistema recalcula quem bate com o segmento <i>naquele momento</i> e cria os leads, já vinculados aos clientes existentes (sem duplicar quem já foi adicionado antes). 4) A equipe trabalha os leads no Pipeline normalmente — cada movimentação já fica automaticamente atribuída à campanha.</p>' +
+      '<p class="cda-tut-nota">O público não é uma lista congelada — é sempre recalculado do segmento na hora de clicar "Adicionar público". Se a base mudar, a próxima leva de "adicionar público" reflete o estado atual, e quem já foi adicionado não duplica.</p>' +
+      '<h4>Público-Alvo (contagem ao vivo)</h4>' +
+      '<p>Assim que você escolhe o segmento no formulário, o sistema já mostra quantos clientes batem com ele agora — sem precisar sair da tela pra conferir na Segmentação.</p>' +
+      '<h4>🎁 Benefício oferecido</h4>' +
+      '<p>Tipo (Nenhum, Desconto %, Desconto R$, Frete Grátis, Cashback, Brinde) + valor + cupom + condições. É a "isca" registrada oficialmente — evita que a equipe invente condição diferente do que foi combinado.</p>' +
+      '<p class="cda-tut-nota">O sistema <b>não processa a venda</b> (isso acontece no Bling/Loja Integrada, fora daqui) — não aplica desconto automaticamente nem valida cupom em tempo real. O campo é registro, não checkout. Rastrear quem de fato usou o benefício e medir o retorno líquido é uma evolução futura, que vai exigir vincular campanha também às compras.</p>' +
+      '<h4>🧭 Roteiro de Canais — as 5 perguntas, como campos de verdade</h4>' +
+      '<p>Público conhecido ou anônimo? Quente ou frio? Quais canais escolhidos? Quem executa (Responsável, já capturado)? Por que essa combinação? Cada pergunta é um campo do formulário, não uma caixa de texto livre — fica estruturado e consultável depois.</p>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Conhecido</th><th>Temperatura</th><th>Sugestão automática mostrada</th></tr>' +
+      '<tr><td>Conhecido</td><td>Quente</td><td>WhatsApp pessoal converte melhor que qualquer anúncio</td></tr>' +
+      '<tr><td>Conhecido</td><td>Frio</td><td>WhatsApp/DM pessoal pra reengajar; Remarketing não compensa pra quem você já pode chamar</td></tr>' +
+      '<tr><td>Anônimo</td><td>Frio</td><td>Remarketing pago e Instagram pago são o caminho certo; WhatsApp/DM não se aplica</td></tr>' +
+      '<tr><td>Anônimo</td><td>Quente</td><td>Aproveite janelas gratuitas (ex: 72h após clique em anúncio) antes de precisar pagar de novo</td></tr>' +
+      '</table>' +
+      '<h4>📊 Indicadores da Campanha (KPI)</h4>' +
+      '<p>Calculado ao vivo a partir dos leads reais da campanha, sem precisar de planilha:</p>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Indicador</th><th>Como é calculado</th></tr>' +
+      '<tr><td>Leads no funil</td><td>Total de leads com essa campanha vinculada</td></tr>' +
+      '<tr><td>Taxa de Contato</td><td>Leads que já saíram de "Novo Lead" ou já têm algum resultado registrado, dividido pelo total</td></tr>' +
+      '<tr><td>Taxa de Resposta</td><td>Dos contatados, quantos têm resultado "positivo" (respondeu, pediu catálogo, solicitou orçamento, perguntou preço/frete/tamanho, salvou produtos, curtiu coleção, reservou, venda concluída)</td></tr>' +
+      '<tr><td>Chegaram em Compra</td><td>Leads cuja etapa atual é Compra ou Fidelização</td></tr>' +
+      '<tr><td>Barra de progresso da meta</td><td>"Chegaram em Compra" dividido pela Meta (número), em %</td></tr>' +
+      '</table>' +
+      '<h4>Campo no banco — onde cada regra mora</h4>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Regra / Informação</th><th>Campo</th></tr>' +
+      '<tr><td>Segmento que define o público</td><td><code>cda_campanhas.publico_segmento_id</code> → aponta pra <code>segmentos_salvos.id</code></td></tr>' +
+      '<tr><td>Etapa do Pipeline onde o público entra</td><td><code>cda_campanhas.pipeline_etapa_entrada</code></td></tr>' +
+      '<tr><td>Meta (número, usado na barra de progresso)</td><td><code>cda_campanhas.meta_numero</code></td></tr>' +
+      '<tr><td>Benefício (tipo/valor/cupom/condições)</td><td><code>cda_campanhas.beneficio_tipo</code>, <code>beneficio_valor</code>, <code>beneficio_cupom</code>, <code>beneficio_condicoes</code></td></tr>' +
+      '<tr><td>Roteiro de canais (as 5 perguntas)</td><td><code>cda_campanhas.publico_conhecido</code>, <code>publico_temperatura</code>, <code>canais_selecionados</code>, <code>estrategia_canal</code></td></tr>' +
+      '<tr><td>Qual campanha um lead pertence</td><td><code>leads_b2c.campanha_id</code></td></tr>' +
+      '</table>'
+  },
+  {
+    id: 'canais-marketing', titulo: 'Guia de Canais de Marketing',
+    html: '<p>Referência rápida pra decidir canal por campanha — nascida de um caso real trabalhado ("Em Risco 91-180d"). <b>Não é regra fixa</b>: o público muda a resposta certa, por isso o método (as 5 perguntas) importa mais que a conclusão de um caso específico.</p>' +
+      '<h4>O método — rode estas perguntas pra toda campanha nova</h4>' +
+      '<p>1) Esse público já é conhecido (nome/contato) ou é gente anônima? 2) Ele já demonstrou interesse recente, ou está frio? 3) Dado isso, qual canal tem melhor custo-benefício? 4) Quem executa? 5) Quais indicadores medem se funcionou?</p>' +
+      '<h4>2.1 — WhatsApp</h4>' +
+      '<p><b>Custo real (2026):</b> desde jul/2025 a Meta cobra por mensagem individual, não mais por conversa. No Brasil, mensagem de marketing sai a partir de ~US$ 0,06. Respostas dentro de uma janela de 24h são gratuitas — mas isso muda a partir de out/2026, quando a Meta passa a cobrar até essas respostas.</p>' +
+      '<p><b>Onde a IA ajuda:</b> gerar a mensagem personalizada por cliente (histórico real, não texto genérico) e o Cowork pode preparar os rascunhos de toda a lista pra revisão humana.</p>' +
+      '<p><b>Onde não ajuda:</b> disparo automatizado em massa via WhatsApp Web — viola os Termos da Meta e arrisca banimento do número. O envio continua manual, feito pelo vendedor/responsável.</p>' +
+      '<h4>2.2 — Instagram</h4>' +
+      '<p><b>Onde a IA ajuda:</b> roteiro de Story/DM personalizado, calendário de conteúdo, direção de arte.</p>' +
+      '<p><b>Onde não ajuda:</b> DM automatizada em massa (risco de restrição da conta, regra parecida com WhatsApp) e postagem automática (exigiria integração própria com a API da Meta). Story agendado pelo Meta Business Suite (grátis, sem integração) é o caminho mais simples hoje.</p>' +
+      '<p><b>Divisão de responsabilidade:</b> Claude gera texto/roteiro/calendário → vendedor manda DM manual → agência/equipe de conteúdo publica/agenda o Story.</p>' +
+      '<h4>2.3 — Remarketing pago</h4>' +
+      '<p>Faz sentido pra público <b>anônimo e frio</b> (ex: campanha de prospecção de novos clientes) — não pra quem você já conhece e pode simplesmente chamar (ex: "Em Risco", onde foi descartado). Claude ajuda a redigir os textos do anúncio; configurar a campanha em si (Meta Ads/Google Ads) é ação de quem gerencia mídia paga.</p>' +
+      '<h4>2.4 — E-mail</h4>' +
+      '<p>Baixo retorno direto isoladamente, mas custo quase zero e gera <b>dado de comportamento</b> (quem abriu/clicou) que realimenta a Segmentação. Não tem risco de banimento por automação — é o único dos 4 canais onde vale a pena construir disparo automático de verdade (ex: via Resend/SendGrid) numa fase futura.</p>'
   }
 ];
 
