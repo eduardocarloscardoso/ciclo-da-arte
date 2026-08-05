@@ -34,7 +34,7 @@ async function montarModuloPipelineB2C(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], compras: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
+  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], compras: [], equipe: [], tarefas: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
 
   host.innerHTML =
     '<style>' +
@@ -94,13 +94,14 @@ async function montarModuloPipelineB2C(containerId) {
           '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
           '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
           '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
-          '<div class="fgr"><label>Responsável</label><input type="text" id="pb2c-m-resp"></div>' +
+          '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="pb2c-m-hist-wrap"><label>Histórico de interações</label><div class="pb2c-hist" id="pb2c-m-hist"></div></div>' +
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="pb2c-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
           '<button class="btn" id="pb2c-m-ver-compras" style="display:none">🛒 Ver Histórico de Compras</button>' +
+          '<button class="btn" id="pb2c-m-tarefas">✅ Tarefas &amp; Follow-up</button>' +
           '<button class="btn" id="pb2c-m-mover" style="display:none">🔀 Mover de Etapa</button>' +
           '<button class="btn" id="pb2c-m-cancelar">Cancelar</button>' +
           '<button class="btn rust" id="pb2c-m-salvar">💾 Salvar</button>' +
@@ -134,11 +135,28 @@ async function montarModuloPipelineB2C(containerId) {
         '</div>' +
         '<div class="mo-f"><button class="btn" id="pb2c-c-fechar">Fechar</button></div>' +
       '</div>' +
+    '</div>' +
+
+    '<div class="mo" id="pb2c-modal-tarefas">' +
+      '<div class="mo-box">' +
+        '<div class="mo-h"><h3 id="pb2c-tf-title">Tarefas &amp; Follow-up</h3><button class="mo-x" id="pb2c-tf-x">✕</button></div>' +
+        '<div class="mo-b">' +
+          '<div class="pb2c-hist" id="pb2c-tf-lista" style="max-height:160px;margin-bottom:14px"></div>' +
+          '<div class="seg-and" style="margin:0 0 8px">＋ Nova tarefa (já vinculada a este lead)</div>' +
+          '<div class="fg">' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="pb2c-tf-desc" placeholder="Ex: Ligar pra confirmar interesse"></div>' +
+            '<div class="fgr"><label>Responsável</label><select id="pb2c-tf-resp"><option value="">—</option></select></div>' +
+            '<div class="fgr"><label>Prioridade</label><select id="pb2c-tf-prioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Data Prevista</label><input type="date" id="pb2c-tf-prevista"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mo-f"><button class="btn" id="pb2c-tf-fechar">Fechar</button><button class="btn rust" id="pb2c-tf-salvar">💾 Criar Tarefa</button></div>' +
+      '</div>' +
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes(), cdaCarregarCampanhas(), cdaCarregarCompras()]);
-    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3]; ST.campanhas = res[4]; ST.compras = res[5];
+    var res = await Promise.all([cdaCarregarLeadsB2C(), cdaCarregarCanais(), cdaCarregarStatusCrm(), cdaCarregarClientes(), cdaCarregarCampanhas(), cdaCarregarCompras(), cdaCarregarEquipe(), cdaCarregarTarefas()]);
+    ST.leads = res[0]; ST.canais = res[1]; ST.statusCrm = res[2]; ST.clientes = res[3]; ST.campanhas = res[4]; ST.compras = res[5]; ST.equipe = res[6]; ST.tarefas = res[7];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || JSON.stringify(err) || 'Erro desconhecido';
@@ -149,6 +167,7 @@ async function montarModuloPipelineB2C(containerId) {
   var canalById = {}; ST.canais.forEach(function (c) { canalById[String(c.id)] = c; });
   var statusCrmById = {}; ST.statusCrm.forEach(function (s) { statusCrmById[s.id] = s; });
   var campanhaPorId = {}; ST.campanhas.forEach(function (c) { campanhaPorId[c.id] = c; });
+  var equipePorId = {}; ST.equipe.forEach(function (e) { equipePorId[e.id] = e; });
   var resultadosPipeline = ST.statusCrm.filter(function (s) { return s.tipo === 'pipeline_resultado'; });
   function resultadosDaEtapa(etapaId) {
     var label = CDA_ETAPA_LABEL_CATALOGO[etapaId];
@@ -164,11 +183,12 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-f-canal').innerHTML = '<option value="">Todos os canais</option>' +
       ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
         .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
-    var resps = Array.from(new Set(ST.leads.map(function (l) { return l.responsavel; }).filter(Boolean))).sort();
     host.querySelector('#pb2c-f-resp').innerHTML = '<option value="">Todos os responsáveis</option>' +
-      resps.map(function (r) { return '<option value="' + r + '">' + r + '</option>'; }).join('');
+      ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
   }
   popularFiltros();
+  host.querySelector('#pb2c-m-resp').innerHTML = '<option value="">—</option>' +
+    ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
 
   function getFiltro() {
     var fCampanha = host.querySelector('#pb2c-f-campanha').value;
@@ -180,7 +200,7 @@ async function montarModuloPipelineB2C(containerId) {
       if (fCampanha && fCampanha !== '__sem_campanha__' && String(l.campanhaId) !== fCampanha) return false;
       if (fCliente && (l.nome || '').toLowerCase().indexOf(fCliente) === -1) return false;
       if (fCanal && String(l.canalId) !== fCanal) return false;
-      if (fResp && l.responsavel !== fResp) return false;
+      if (fResp && String(l.responsavelId) !== fResp) return false;
       return true;
     });
   }
@@ -214,7 +234,7 @@ async function montarModuloPipelineB2C(containerId) {
           (canal ? '<span class="badge b-vio" style="font-size:8px">' + canal.nome + '</span>' : '') +
           '<div class="rw"><span><span class="pb2c-age ' + cor + '"></span>' + dias + 'd parado</span>' +
           '<span>' + (l.valorEstimado ? 'R$ ' + Number(l.valorEstimado).toLocaleString('pt-BR') : '') + '</span></div>' +
-          '<div class="rw"><span>👤 ' + (l.responsavel || 'sem responsável') + '</span><span></span></div>' +
+          '<div class="rw"><span>👤 ' + (equipePorId[l.responsavelId] ? equipePorId[l.responsavelId].nome : 'sem responsável') + '</span><span></span></div>' +
           (resultado ? '<span class="pb2c-resultado-badge" style="background:' + resultado.cor + '">' + resultado.nome + '</span>' : '') +
           '</div>';
       }).join('');
@@ -421,7 +441,7 @@ async function montarModuloPipelineB2C(containerId) {
     var etapaAtualEl = host.querySelector('#pb2c-m-etapa-atual');
     etapaAtualEl.textContent = l ? CDA_ETAPAS_B2C.find(function (e) { return e.id === l.etapa; }).label : 'Novo Lead (ao salvar)';
     host.querySelector('#pb2c-m-valor').value = l ? (l.valorEstimado != null ? l.valorEstimado : '') : '';
-    host.querySelector('#pb2c-m-resp').value = l ? (l.responsavel || '') : '';
+    host.querySelector('#pb2c-m-resp').value = l ? (l.responsavelId || '') : '';
     host.querySelector('#pb2c-m-obs').value = l ? (l.obs || '') : '';
     host.querySelector('#pb2c-m-excluir').style.display = id ? 'inline-block' : 'none';
     host.querySelector('#pb2c-m-ver-compras').style.display = (l && l.clienteId) ? 'inline-block' : 'none';
@@ -484,7 +504,7 @@ async function montarModuloPipelineB2C(containerId) {
       etapa: existente ? existente.etapa : 'novo_lead',
       resultadoId: existente ? existente.resultadoId : null,
       valorEstimado: parseFloat(host.querySelector('#pb2c-m-valor').value) || null,
-      responsavel: host.querySelector('#pb2c-m-resp').value.trim(), obs: host.querySelector('#pb2c-m-obs').value.trim(),
+      responsavelId: host.querySelector('#pb2c-m-resp').value ? Number(host.querySelector('#pb2c-m-resp').value) : null, obs: host.querySelector('#pb2c-m-obs').value.trim(),
       clienteId: existente ? existente.clienteId : (ST.clienteSelecionado ? String(ST.clienteSelecionado.id) : null),
       motivoPerda: existente ? existente.motivoPerda : null,
       movidoEm: existente ? existente.movidoEm : new Date().toISOString()
@@ -568,6 +588,64 @@ async function montarModuloPipelineB2C(containerId) {
   });
   host.querySelector('#pb2c-c-x').addEventListener('click', function () { modalCompras.classList.remove('op'); });
   host.querySelector('#pb2c-c-fechar').addEventListener('click', function () { modalCompras.classList.remove('op'); });
+
+  // ── Popup de Tarefas & Follow-up (lista + criação rápida já vinculada) ──
+  host.querySelector('#pb2c-tf-resp').innerHTML = '<option value="">—</option>' +
+    ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
+
+  var modalTarefas = host.querySelector('#pb2c-modal-tarefas');
+  var tarefaLeadAtual = null;
+  var PRIOR_COR_PB2C = { baixa: '#6B7280', media: '#F59E0B', alta: '#c0392b' };
+
+  function renderTarefasDoLead() {
+    var lista = ST.tarefas.filter(function (t) { return t.leadId === tarefaLeadAtual; });
+    var box = host.querySelector('#pb2c-tf-lista');
+    box.innerHTML = lista.length ? lista.map(function (t) {
+      var resp = equipePorId[t.responsavelId];
+      return '<div class="pb2c-hist-item"><b>' + t.descricao + '</b> ' +
+        '<span class="pb2c-resultado-badge" style="background:' + PRIOR_COR_PB2C[t.prioridade || 'media'] + '">' + (t.prioridade || 'media') + '</span><br>' +
+        (resp ? resp.nome + ' · ' : '') + 'status: ' + (t.status || 'pendente') + (t.dataPrevista ? ' · prevista ' + t.dataPrevista.split('-').reverse().join('/') : '') +
+        '</div>';
+    }).join('') : '<div class="pb2c-hist-item">Nenhuma tarefa registrada pra este lead ainda.</div>';
+  }
+  function abrirModalTarefas(leadId) {
+    tarefaLeadAtual = leadId;
+    var lead = ST.leads.find(function (x) { return x.id === leadId; });
+    host.querySelector('#pb2c-tf-title').textContent = 'Tarefas & Follow-up — ' + (lead ? lead.nome : '');
+    host.querySelector('#pb2c-tf-desc').value = '';
+    host.querySelector('#pb2c-tf-resp').value = '';
+    host.querySelector('#pb2c-tf-prioridade').value = 'media';
+    host.querySelector('#pb2c-tf-prevista').value = '';
+    renderTarefasDoLead();
+    modalTarefas.classList.add('op');
+  }
+  host.querySelector('#pb2c-m-tarefas').addEventListener('click', function () {
+    if (!ST.editId) return;
+    abrirModalTarefas(ST.editId);
+  });
+  host.querySelector('#pb2c-tf-x').addEventListener('click', function () { modalTarefas.classList.remove('op'); });
+  host.querySelector('#pb2c-tf-fechar').addEventListener('click', function () { modalTarefas.classList.remove('op'); });
+  host.querySelector('#pb2c-tf-salvar').addEventListener('click', async function () {
+    var descricao = host.querySelector('#pb2c-tf-desc').value.trim();
+    if (!descricao) { alert('Informe a descrição da tarefa.'); return; }
+    var lead = ST.leads.find(function (x) { return x.id === tarefaLeadAtual; });
+    try {
+      var nova = await cdaSalvarTarefa({
+        descricao: descricao, leadId: tarefaLeadAtual, clienteId: lead ? lead.clienteId : null, campanhaId: lead ? lead.campanhaId : null,
+        responsavelId: host.querySelector('#pb2c-tf-resp').value ? Number(host.querySelector('#pb2c-tf-resp').value) : null,
+        prioridade: host.querySelector('#pb2c-tf-prioridade').value, status: 'pendente',
+        dataInicio: new Date().toISOString().slice(0, 10), dataPrevista: host.querySelector('#pb2c-tf-prevista').value || null,
+        criadoPor: nomeUsuarioAtual()
+      });
+      ST.tarefas.push(nova);
+      host.querySelector('#pb2c-tf-desc').value = '';
+      host.querySelector('#pb2c-tf-prevista').value = '';
+      renderTarefasDoLead();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao criar tarefa:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+    }
+  });
   host.querySelector('#pb2c-m-mover').addEventListener('click', function () {
     if (!ST.editId) return;
     var lead = ST.leads.find(function (x) { return x.id === ST.editId; });
