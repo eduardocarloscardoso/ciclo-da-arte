@@ -72,6 +72,7 @@ async function montarModuloPipelineB2C(containerId) {
       '<input type="text" id="pb2c-f-cliente" placeholder="🔎 Buscar por nome do cliente...">' +
       '<select id="pb2c-f-canal"><option value="">Todos os canais</option></select>' +
       '<select id="pb2c-f-resp"><option value="">Todos os responsáveis</option></select>' +
+      '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
     '<div class="pb2c-board" id="pb2c-board"></div>' +
@@ -96,6 +97,16 @@ async function montarModuloPipelineB2C(containerId) {
           '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
           '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
+            '<label style="font-size:11px">💬 Mensagem Sugerida (gerada — nunca tem {variável} crua)</label>' +
+            '<div class="pb2c-hist" id="pb2c-m-msg-sugerida" style="min-height:50px"></div>' +
+            '<button class="btn sm" id="pb2c-m-msg-gerar" style="margin-top:5px">🔄 Gerar/Regenerar</button>' +
+          '</div>' +
+          '<div class="fgr" style="grid-column:1/-1">' +
+            '<label>Mensagem Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
+            '<textarea id="pb2c-m-msg-final" rows="3" placeholder="Deixe em branco pra usar a mensagem sugerida acima como está"></textarea>' +
+            '<button class="btn sm" id="pb2c-m-msg-copiar" style="margin-top:5px">📋 Copiar mensagem final</button>' +
+          '</div>' +
           '<div class="fgr" style="grid-column:1/-1" id="pb2c-m-hist-wrap"><label>Histórico de interações</label><div class="pb2c-hist" id="pb2c-m-hist"></div></div>' +
         '</div></div>' +
         '<div class="mo-f">' +
@@ -168,6 +179,7 @@ async function montarModuloPipelineB2C(containerId) {
   var statusCrmById = {}; ST.statusCrm.forEach(function (s) { statusCrmById[s.id] = s; });
   var campanhaPorId = {}; ST.campanhas.forEach(function (c) { campanhaPorId[c.id] = c; });
   var equipePorId = {}; ST.equipe.forEach(function (e) { equipePorId[e.id] = e; });
+  var clientePorId = {}; ST.clientes.forEach(function (c) { clientePorId[String(c.id)] = c; });
   var resultadosPipeline = ST.statusCrm.filter(function (s) { return s.tipo === 'pipeline_resultado'; });
   function resultadosDaEtapa(etapaId) {
     var label = CDA_ETAPA_LABEL_CATALOGO[etapaId];
@@ -434,6 +446,8 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-m-nome').value = l ? (l.nome || '') : '';
     host.querySelector('#pb2c-m-tel').value = l ? (l.telefone || '') : '';
     host.querySelector('#pb2c-m-email').value = l ? (l.email || '') : '';
+    host.querySelector('#pb2c-m-msg-sugerida').textContent = l && l.mensagemSugerida ? l.mensagemSugerida : 'Nenhuma mensagem gerada ainda — clica em "Gerar/Regenerar".';
+    host.querySelector('#pb2c-m-msg-final').value = l ? (l.mensagemFinalUsuario || '') : '';
     var selCanal = host.querySelector('#pb2c-m-canal');
     selCanal.innerHTML = '<option value="">—</option>' + ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
       .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
@@ -493,6 +507,32 @@ async function montarModuloPipelineB2C(containerId) {
   }
   function fecharModal() { modal.classList.remove('op'); }
 
+  host.querySelector('#pb2c-m-msg-gerar').addEventListener('click', async function () {
+    if (!ST.editId) { alert('Salve o lead primeiro (precisa ter sido criado) antes de gerar a mensagem.'); return; }
+    var lead = ST.leads.find(function (x) { return x.id === ST.editId; });
+    if (!lead) return;
+    var cliente = clientePorId[lead.clienteId];
+    var campanha = campanhaPorId[lead.campanhaId];
+    var template = (campanha && campanha.modeloMensagem) || CDA_TEMPLATE_PADRAO;
+    var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
+    var texto = cdaExplodirTemplate(template, dados);
+    try {
+      await cdaSalvarMensagensLote([{ id: lead.id, mensagemSugerida: texto }]);
+      lead.mensagemSugerida = texto;
+      host.querySelector('#pb2c-m-msg-sugerida').textContent = texto;
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar mensagem:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+    }
+  });
+  host.querySelector('#pb2c-m-msg-copiar').addEventListener('click', function () {
+    var final = host.querySelector('#pb2c-m-msg-final').value.trim();
+    var sugerida = host.querySelector('#pb2c-m-msg-sugerida').textContent;
+    var texto = final || sugerida;
+    if (!texto || texto.indexOf('Nenhuma mensagem') === 0) { alert('Não há mensagem pra copiar ainda.'); return; }
+    navigator.clipboard.writeText(texto).then(function () { alert('Mensagem copiada!'); }).catch(function () { alert('Não foi possível copiar automaticamente — selecione e copie manualmente:\n\n' + texto); });
+  });
+
   async function salvar() {
     var nome = host.querySelector('#pb2c-m-nome').value.trim();
     if (!nome) { alert('Informe o nome do lead.'); return; }
@@ -507,6 +547,7 @@ async function montarModuloPipelineB2C(containerId) {
       responsavelId: host.querySelector('#pb2c-m-resp').value ? Number(host.querySelector('#pb2c-m-resp').value) : null, obs: host.querySelector('#pb2c-m-obs').value.trim(),
       clienteId: existente ? existente.clienteId : (ST.clienteSelecionado ? String(ST.clienteSelecionado.id) : null),
       motivoPerda: existente ? existente.motivoPerda : null,
+      mensagemFinalUsuario: host.querySelector('#pb2c-m-msg-final').value.trim(),
       movidoEm: existente ? existente.movidoEm : new Date().toISOString()
     };
     try {
@@ -661,6 +702,32 @@ async function montarModuloPipelineB2C(containerId) {
   host.querySelector('#pb2c-f-cliente').addEventListener('input', render);
   host.querySelector('#pb2c-f-canal').addEventListener('change', render);
   host.querySelector('#pb2c-f-resp').addEventListener('change', render);
+  host.querySelector('#pb2c-btn-gerar-msg-filtro').addEventListener('click', async function () {
+    var lista = getFiltro();
+    if (!lista.length) { alert('Nenhum lead corresponde aos filtros atuais.'); return; }
+    if (!confirm('Gerar/atualizar a mensagem sugerida de ' + lista.length + ' lead(s) filtrado(s)?\n\nUsa o molde da campanha de cada lead (ou o padrão do sistema, se ele não tiver campanha/molde).')) return;
+    var btn = this;
+    var textoOriginal = btn.textContent;
+    btn.textContent = 'Gerando...'; btn.disabled = true;
+    try {
+      var atualizacoes = lista.map(function (lead) {
+        var cliente = clientePorId[lead.clienteId];
+        var campanha = campanhaPorId[lead.campanhaId];
+        var template = (campanha && campanha.modeloMensagem) || CDA_TEMPLATE_PADRAO;
+        var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
+        var texto = cdaExplodirTemplate(template, dados);
+        lead.mensagemSugerida = texto;
+        return { id: lead.id, mensagemSugerida: texto };
+      });
+      await cdaSalvarMensagensLote(atualizacoes);
+      alert('Pronto! ' + atualizacoes.length + ' mensagem(ns) gerada(s)/atualizada(s).');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar mensagens:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+    } finally {
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
+  });
 
   render();
 }
