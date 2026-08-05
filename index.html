@@ -1190,9 +1190,11 @@ function getCredFormData(){
 }
 function validateCredForm(d,excludeId){
   if(!d.name){showToast('Nome é obrigatório','error');return false;}
-  if(!d.email||!d.email.includes('@')){showToast('E-mail inválido','error');return false;}
-  if(!d.pass||d.pass.length<4){showToast('Senha mínima: 4 caracteres','error');return false;}
-  if(EQUIPE.find(function(u){return u.email===d.email&&u.id!==excludeId;})){showToast('E-mail já cadastrado','error');return false;}
+  if(d.email||d.pass){
+    if(!d.email||!d.email.includes('@')){showToast('E-mail inválido (ou deixe e-mail e senha em branco pra cadastrar sem login)','error');return false;}
+    if(!d.pass||d.pass.length<4){showToast('Senha mínima: 4 caracteres (ou deixe e-mail e senha em branco pra cadastrar sem login)','error');return false;}
+  }
+  if(d.email&&EQUIPE.find(function(u){return u.email===d.email&&u.id!==excludeId;})){showToast('E-mail já cadastrado','error');return false;}
   if(!d.is_admin&&!d.projetos.length){showToast('Selecione ao menos um projeto','error');return false;}
   return true;
 }
@@ -1208,13 +1210,13 @@ async function saveCredAdd(){
   var d=getCredFormData();if(!validateCredForm(d,null))return;
   d.initials=initials(d.name);d.acesso=null;d.tipo='Interno';
   try{var res=await sb.post('equipe',d);EQUIPE.push(res[0]||Object.assign({id:Date.now()},d));closeModal();openProject('credenciamento');showToast(d.name+' cadastrado! ⚠️ Peça ao Claude para ativar o acesso de login deste usuário.','info');}
-  catch(e){showToast('Erro ao salvar','error');}
+  catch(e){console.error(e);showToast('Erro ao salvar: '+((e&&(e.message||e.details||e.hint))||'erro desconhecido'),'error');}
 }
 async function saveCredEdit(id){
   var d=getCredFormData();if(!validateCredForm(d,id))return;
   d.initials=initials(d.name);
   try{await sb.patch('equipe',id,d);var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');}
-  catch(e){showToast('Erro ao salvar','error');}
+  catch(e){console.error(e);showToast('Erro ao salvar: '+((e&&(e.message||e.details||e.hint))||'erro desconhecido'),'error');}
 }
 async function deleteCred(id){
   var u=EQUIPE.find(function(x){return x.id===id;});
