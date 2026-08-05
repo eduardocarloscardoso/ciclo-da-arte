@@ -392,7 +392,7 @@ async function initApp(){
         cu={id:m.id,name:m.name,email:m.email,role:m.acesso,color:m.color,initials:m.initials,is_admin:!!m.is_admin,permissao:m.permissao||'leitura_escrita',projetos:m.projetos||[]};
         document.getElementById('login-screen').style.display='none';
         document.getElementById('app').style.display='flex';
-        setDate();setupProjectSidebar();
+        setDate();await setupProjectSidebar();
         document.getElementById('page-title').textContent='Selecione um módulo';
         document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
       }
@@ -416,7 +416,7 @@ async function doLogin(){
       cu={id:m.id,name:m.name,email:m.email,role:m.acesso,color:m.color,initials:m.initials,is_admin:!!m.is_admin,permissao:m.permissao||'leitura_escrita',projetos:m.projetos||[]};
       document.getElementById('login-screen').style.display='none';
       document.getElementById('app').style.display='flex';
-      setDate();setupProjectSidebar();
+      setDate();await setupProjectSidebar();
       document.getElementById('page-title').textContent='Selecione um módulo';
       document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
     }else{
@@ -449,12 +449,36 @@ function applySidebarState(){
   document.querySelector('.sidebar').classList.toggle('sb-hidden', hidden);
   document.querySelector('.main').classList.toggle('sb-full', hidden);
 }
+var CU_PERMISSOES_SUBMODULO=null; // {projeto: {slug: nivel} | null} — null = sem configuração granular (mostra tudo, rede de segurança)
+async function carregarPermissoesUsuarioAtual(){
+  CU_PERMISSOES_SUBMODULO={};
+  if(!cu||!cu.id)return;
+  try{
+    var {data,error}=await cdaClient.from('cda_equipe_permissoes').select('submodulo_id,nivel,cda_permissoes_catalogo(projeto,submodulo_slug)').eq('equipe_id',cu.id);
+    if(error){console.error(error);return;}
+    (data||[]).forEach(function(row){
+      var cat=row.cda_permissoes_catalogo;
+      if(!cat)return;
+      if(!CU_PERMISSOES_SUBMODULO[cat.projeto])CU_PERMISSOES_SUBMODULO[cat.projeto]={};
+      CU_PERMISSOES_SUBMODULO[cat.projeto][cat.submodulo_slug]=row.nivel;
+    });
+  }catch(e){console.error(e);}
+}
+function podeVerSubmodulo(projeto,slug){
+  if(!cu)return true;
+  if(cu.is_admin)return true;
+  var doProjeto=CU_PERMISSOES_SUBMODULO&&CU_PERMISSOES_SUBMODULO[projeto];
+  if(!doProjeto)return true; // ninguém configurou nada pra esse projeto ainda — rede de segurança: mostra tudo
+  return doProjeto.hasOwnProperty(slug);
+}
+
 // ── SIDEBAR DE PROJETOS (1º nível) ─────────────────────────────────
-function setupProjectSidebar(){
+async function setupProjectSidebar(){
   applySidebarState();
   var av=document.getElementById('sb-avatar');av.className='av '+(cu.color||'red');av.textContent=cu.initials||'?';
   document.getElementById('sb-name').textContent=cu.name;
   document.getElementById('sb-role-label').textContent=cu.is_admin?'Administrador':(isReadOnly()?'Somente leitura':'');
+  await carregarPermissoesUsuarioAtual();
   renderSidebarNav();
 }
 function renderSidebarNav(){
@@ -492,23 +516,24 @@ function renderSidebarNav(){
   if((currentProject==='comercial'||currentProject==='financeiro')){
     nav.innerHTML+='<div class="sb-section">'+(currentProject==='comercial'?'Comercial':'Financeiro')+'</div>';
     Object.keys(CRM_PAGES).forEach(function(id){
+      if(!podeVerSubmodulo(currentProject,id))return;
       var p=CRM_PAGES[id];
       var activeSub=(window._crmPage===id)?'active':'';
       nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-crm-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
     });
     if(currentProject==='comercial'){
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='campanhas'?'active':'')+'" id="nav-crm-campanhas" onclick="navigateCRM(\'campanhas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📣</span>Campanhas</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tutorial'?'active':'')+'" id="nav-crm-tutorial" onclick="navigateCRM(\'tutorial\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📘</span>Tutorial</div>';
+      if(podeVerSubmodulo('comercial','campanhas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='campanhas'?'active':'')+'" id="nav-crm-campanhas" onclick="navigateCRM(\'campanhas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📣</span>Campanhas</div>';
+      if(podeVerSubmodulo('comercial','pipelineb2c'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
+      if(podeVerSubmodulo('comercial','tarefas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
+      if(podeVerSubmodulo('comercial','tutorial'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tutorial'?'active':'')+'" id="nav-crm-tutorial" onclick="navigateCRM(\'tutorial\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📘</span>Tutorial</div>';
     }
     if(currentProject==='financeiro'){
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='canais'?'active':'')+'" id="nav-crm-canais" onclick="navigateCRM(\'canais\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">🏷</span>Canais de Venda</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cvpage'?'active':'')+'" id="nav-crm-cvpage" onclick="navigateCRM(\'cvpage\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">👤</span>Collabs / Vendedores</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cfgfin'?'active':'')+'" id="nav-crm-cfgfin" onclick="navigateCRM(\'cfgfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⚙</span>Tipos e Coleções</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='prest'?'active':'')+'" id="nav-crm-prest" onclick="navigateCRM(\'prest\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📄</span>Prestação de Contas</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='upload'?'active':'')+'" id="nav-crm-upload" onclick="navigateCRM(\'upload\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⬆</span>Importar Planilha</div>';
-      nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cardapios'?'active':'')+'" id="nav-crm-cardapios" onclick="navigateCRM(\'cardapios\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📋</span>Cardápios</div>';
+      if(podeVerSubmodulo('financeiro','canais'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='canais'?'active':'')+'" id="nav-crm-canais" onclick="navigateCRM(\'canais\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">🏷</span>Canais de Venda</div>';
+      if(podeVerSubmodulo('financeiro','cvpage'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cvpage'?'active':'')+'" id="nav-crm-cvpage" onclick="navigateCRM(\'cvpage\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">👤</span>Collabs / Vendedores</div>';
+      if(podeVerSubmodulo('financeiro','cfgfin'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cfgfin'?'active':'')+'" id="nav-crm-cfgfin" onclick="navigateCRM(\'cfgfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⚙</span>Tipos e Coleções</div>';
+      if(podeVerSubmodulo('financeiro','prest'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='prest'?'active':'')+'" id="nav-crm-prest" onclick="navigateCRM(\'prest\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📄</span>Prestação de Contas</div>';
+      if(podeVerSubmodulo('financeiro','upload'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='upload'?'active':'')+'" id="nav-crm-upload" onclick="navigateCRM(\'upload\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⬆</span>Importar Planilha</div>';
+      if(podeVerSubmodulo('financeiro','cardapios'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cardapios'?'active':'')+'" id="nav-crm-cardapios" onclick="navigateCRM(\'cardapios\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📋</span>Cardápios</div>';
     }
   }
 }
@@ -571,6 +596,10 @@ function hubRestaurarBackupFinanceiro(el){
   });
 }
 async function navigateCRM(pageId){
+  if(!podeVerSubmodulo(currentProject,pageId)){
+    showToast('Você não tem permissão para acessar este submódulo.','error');
+    return;
+  }
   window._crmPage=pageId;
   renderSidebarNav();
   var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
@@ -1289,7 +1318,7 @@ async function saveCredEdit(id){
   try{
     await sb.patch('equipe',id,d);
     await sincronizarPermissoesSubmodulo(id);
-    var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');
+    var idx=EQUIPE.findIndex(function(x){return x.id===id;});Object.assign(EQUIPE[idx],d);if(cu.id===id){Object.assign(cu,{name:d.name,color:d.color,initials:d.initials,is_admin:d.is_admin,permissao:d.permissao,projetos:d.projetos});await setupProjectSidebar();}closeModal();openProject('credenciamento');showToast('Usuário atualizado! ⚠️ Se mudou a senha, peça ao Claude para atualizar o acesso de login também.','info');
   }
   catch(e){console.error(e);showToast('Erro ao salvar: '+((e&&(e.message||e.details||e.hint))||'erro desconhecido'),'error');}
 }
