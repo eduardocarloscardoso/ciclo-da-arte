@@ -24,12 +24,30 @@ var CDA_STATUS_CAMPANHA = [
   { id: 'pausada', label: 'Pausada', cor: '#F59E0B' },
   { id: 'encerrada', label: 'Encerrada', cor: '#6B7280' }
 ];
+var CDA_TIPOS_BENEFICIO = [
+  { id: 'nenhum', label: 'Nenhum' },
+  { id: 'desconto_percentual', label: 'Desconto (%)' },
+  { id: 'desconto_valor', label: 'Desconto (R$)' },
+  { id: 'frete_gratis', label: 'Frete Grátis' },
+  { id: 'cashback', label: 'Cashback' },
+  { id: 'brinde', label: 'Brinde' }
+];
+var CDA_CANAIS_CAMPANHA = [
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'instagram_organico', label: 'Instagram orgânico' },
+  { id: 'instagram_pago', label: 'Instagram pago' },
+  { id: 'remarketing', label: 'Remarketing pago' },
+  { id: 'email', label: 'E-mail' },
+  { id: 'outro', label: 'Outro' }
+];
+// Resultados de pipeline que contam como "resposta positiva" pro KPI de taxa de resposta
+var CDA_RESULTADOS_POSITIVOS = ['respondeu', 'pediu_catalogo', 'solicitou_orcamento', 'perguntou_preco', 'perguntou_frete', 'perguntou_tamanho', 'salvou_produtos', 'curtiu_colecao', 'reservou_produto', 'venda_concluida'];
 
 async function montarModuloCampanhas(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], editId: null };
+  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], editId: null };
 
   host.innerHTML =
     '<style>' +
@@ -40,6 +58,15 @@ async function montarModuloCampanhas(containerId) {
       '.camp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0;font-size:11px;}' +
       '.camp-grid .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
       '.camp-acoes{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}' +
+      '.camp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,#ccc);}' +
+      '.camp-kpi .v{font-size:18px;font-weight:700;}' +
+      '.camp-kpi .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
+      '.camp-progresso-wrap{margin-top:10px;}' +
+      '.camp-progresso-bar{background:var(--card,#f5f0e8);border:1px solid var(--ink,#1a1a1a);height:16px;position:relative;overflow:hidden;}' +
+      '.camp-progresso-fill{background:var(--rust,#c0392b);height:100%;transition:width .3s ease;}' +
+      '.camp-progresso-txt{font-size:10px;margin-top:3px;}' +
+      '.camp-sugestao{background:#fff9e6;border-left:3px solid #F59E0B;padding:8px 10px;font-size:11px;margin-top:6px;}' +
+      '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
@@ -61,6 +88,19 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr"><label>Meta (descrição)</label><input type="text" id="camp-m-meta-desc" placeholder="Ex: 60 recompras no período"></div>' +
           '<div class="fgr"><label>Meta (número, opcional)</label><input type="number" id="camp-m-meta-num" placeholder="Ex: 60"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Responsável</label><input type="text" id="camp-m-resp"></div>' +
+
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🎁 Benefício oferecido</label></div>' +
+          '<div class="fgr"><label>Tipo</label><select id="camp-m-beneficio-tipo"></select></div>' +
+          '<div class="fgr"><label>Valor</label><input type="number" id="camp-m-beneficio-valor" placeholder="Ex: 15 ou 50"></div>' +
+          '<div class="fgr"><label>Cupom (se houver)</label><input type="text" id="camp-m-beneficio-cupom" placeholder="Ex: REATIVA15"></div>' +
+          '<div class="fgr"><label>Condições</label><input type="text" id="camp-m-beneficio-condicoes" placeholder="Ex: compra mínima R$200"></div>' +
+
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🧭 Roteiro de Canais</label></div>' +
+          '<div class="fgr"><label>Esse público já é conhecido (nome/contato) ou é gente anônima?</label><select id="camp-m-conhecido"><option value="">—</option><option value="conhecido">Conhecido</option><option value="anonimo">Anônimo</option></select></div>' +
+          '<div class="fgr"><label>Ele já demonstrou interesse recente, ou está frio?</label><select id="camp-m-temperatura"><option value="">—</option><option value="quente">Quente</option><option value="frio">Frio</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Canais escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
+          '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="camp-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
@@ -71,8 +111,8 @@ async function montarModuloCampanhas(containerId) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4];
+    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C()]);
+    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
@@ -89,6 +129,63 @@ async function montarModuloCampanhas(containerId) {
   selEtapa.innerHTML = CDA_ETAPAS_CAMPANHA.map(function (e) { return '<option value="' + e.id + '">' + e.label + '</option>'; }).join('');
   var selStatus = host.querySelector('#camp-m-status');
   selStatus.innerHTML = CDA_STATUS_CAMPANHA.map(function (s) { return '<option value="' + s.id + '">' + s.label + '</option>'; }).join('');
+  var selBeneficio = host.querySelector('#camp-m-beneficio-tipo');
+  selBeneficio.innerHTML = CDA_TIPOS_BENEFICIO.map(function (b) { return '<option value="' + b.id + '">' + b.label + '</option>'; }).join('');
+  host.querySelector('#camp-m-canais').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
+    return '<label><input type="checkbox" class="camp-canal-check" value="' + c.id + '"> ' + c.label + '</label>';
+  }).join('');
+
+  function atualizarSugestaoCanal() {
+    var conhecido = host.querySelector('#camp-m-conhecido').value;
+    var temperatura = host.querySelector('#camp-m-temperatura').value;
+    var box = host.querySelector('#camp-m-sugestao-wrap');
+    if (!conhecido || !temperatura) { box.innerHTML = ''; return; }
+    var texto;
+    if (conhecido === 'conhecido' && temperatura === 'quente') texto = '💡 Público conhecido e quente → WhatsApp pessoal costuma converter melhor que qualquer anúncio aqui.';
+    else if (conhecido === 'conhecido' && temperatura === 'frio') texto = '💡 Público conhecido mas frio → WhatsApp/DM pessoal pra reengajar; Remarketing pago não compensa pra quem você já pode simplesmente chamar.';
+    else if (conhecido === 'anonimo' && temperatura === 'frio') texto = '💡 Público anônimo e frio → Remarketing pago e Instagram pago são o caminho certo aqui; WhatsApp/DM pessoal não se aplica (você não tem o contato).';
+    else texto = '💡 Público anônimo mas já demonstrou interesse → aproveite janelas gratuitas (ex: 72h após clique em anúncio) antes de precisar pagar de novo.';
+    box.innerHTML = '<div class="camp-sugestao">' + texto + '</div>';
+  }
+  host.querySelector('#camp-m-conhecido').addEventListener('change', atualizarSugestaoCanal);
+  host.querySelector('#camp-m-temperatura').addEventListener('change', atualizarSugestaoCanal);
+
+  var statusCrmPipelineById = {}; ST.statusCrm.forEach(function (s) { statusCrmPipelineById[s.id] = s; });
+
+  function calcularKpi(campanha) {
+    var leadsCampanha = ST.leads.filter(function (l) { return String(l.campanhaId) === String(campanha.id); });
+    var total = leadsCampanha.length;
+    if (!total) return null;
+    var contatados = leadsCampanha.filter(function (l) { return l.etapa !== 'novo_lead' || l.resultadoId != null; }).length;
+    var responderam = leadsCampanha.filter(function (l) {
+      var r = statusCrmPipelineById[l.resultadoId];
+      return r && CDA_RESULTADOS_POSITIVOS.indexOf(r.codigo) !== -1;
+    }).length;
+    var convertidos = leadsCampanha.filter(function (l) { return l.etapa === 'compra' || l.etapa === 'fidelizacao'; }).length;
+    return {
+      total: total, contatados: contatados, responderam: responderam, convertidos: convertidos,
+      taxaContato: Math.round((contatados / total) * 100),
+      taxaResposta: contatados ? Math.round((responderam / contatados) * 100) : 0
+    };
+  }
+
+  function renderPainelKpi(campanha, kpi) {
+    var progressoHtml = '';
+    if (campanha.metaNumero) {
+      var pct = Math.min(100, Math.round((kpi.convertidos / campanha.metaNumero) * 100));
+      progressoHtml = '<div class="camp-progresso-wrap">' +
+        '<div class="camp-progresso-bar"><div class="camp-progresso-fill" style="width:' + pct + '%"></div></div>' +
+        '<div class="camp-progresso-txt"><b>' + kpi.convertidos + ' de ' + campanha.metaNumero + '</b> (' + pct + '%) — ' + (campanha.metaDescricao || 'meta') + '</div>' +
+        '</div>';
+    }
+    return progressoHtml +
+      '<div class="camp-kpi">' +
+        '<div><div class="v">' + kpi.total + '</div><div class="l">Leads no funil</div></div>' +
+        '<div><div class="v">' + kpi.taxaContato + '%</div><div class="l">Taxa de contato</div></div>' +
+        '<div><div class="v">' + kpi.taxaResposta + '%</div><div class="l">Taxa de resposta</div></div>' +
+        '<div><div class="v">' + kpi.convertidos + '</div><div class="l">Chegaram em Compra</div></div>' +
+      '</div>';
+  }
 
   function render() {
     var box = host.querySelector('#camp-lista');
@@ -98,6 +195,8 @@ async function montarModuloCampanhas(containerId) {
       var qtdPublico = seg ? cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []).length : null;
       var etapa = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === c.pipelineEtapaEntrada; });
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
+      var kpi = calcularKpi(c);
+      var beneficioInfo = CDA_TIPOS_BENEFICIO.find(function (b) { return b.id === c.beneficioTipo; });
       return '<div class="camp-card" data-id="' + c.id + '">' +
         '<div class="camp-topo"><div class="camp-nome">' + c.nome + '</div><span class="camp-badge" style="background:' + statusInfo.cor + '">' + statusInfo.label + '</span></div>' +
         (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
@@ -108,7 +207,9 @@ async function montarModuloCampanhas(containerId) {
           '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
           '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
           '<div><div class="l">Responsável</div>' + (c.responsavel || '—') + '</div>' +
+          '<div><div class="l">Benefício</div>' + (beneficioInfo && beneficioInfo.id !== 'nenhum' ? beneficioInfo.label + (c.beneficioValor ? ' — ' + c.beneficioValor : '') : '—') + '</div>' +
         '</div>' +
+        (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
         '<div class="camp-acoes">' +
           '<button class="btn sm rust" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
           '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
@@ -178,6 +279,16 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-meta-desc').value = c ? (c.metaDescricao || '') : '';
     host.querySelector('#camp-m-meta-num').value = c ? (c.metaNumero != null ? c.metaNumero : '') : '';
     host.querySelector('#camp-m-resp').value = c ? (c.responsavel || '') : '';
+    selBeneficio.value = c ? c.beneficioTipo : 'nenhum';
+    host.querySelector('#camp-m-beneficio-valor').value = c && c.beneficioValor != null ? c.beneficioValor : '';
+    host.querySelector('#camp-m-beneficio-cupom').value = c ? (c.beneficioCupom || '') : '';
+    host.querySelector('#camp-m-beneficio-condicoes').value = c ? (c.beneficioCondicoes || '') : '';
+    host.querySelector('#camp-m-conhecido').value = c ? (c.publicoConhecido || '') : '';
+    host.querySelector('#camp-m-temperatura').value = c ? (c.publicoTemperatura || '') : '';
+    host.querySelector('#camp-m-estrategia').value = c ? (c.estrategiaCanal || '') : '';
+    var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
+    host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
+    atualizarSugestaoCanal();
     host.querySelector('#camp-m-excluir').style.display = id ? 'inline-block' : 'none';
     modal.classList.add('op');
   }
@@ -193,7 +304,12 @@ async function montarModuloCampanhas(containerId) {
       publicoSegmentoId: segmentoId, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
-      responsavel: host.querySelector('#camp-m-resp').value.trim(), criadoPor: nomeUsuarioAtual()
+      responsavel: host.querySelector('#camp-m-resp').value.trim(), criadoPor: nomeUsuarioAtual(),
+      beneficioTipo: selBeneficio.value, beneficioValor: parseFloat(host.querySelector('#camp-m-beneficio-valor').value) || null,
+      beneficioCupom: host.querySelector('#camp-m-beneficio-cupom').value.trim(), beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
+      publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
+      canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
+      estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
     };
     var salvo;
     try {
