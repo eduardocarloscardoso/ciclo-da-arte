@@ -47,7 +47,7 @@ async function montarModuloCampanhas(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], editId: null };
+  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], editId: null };
 
   host.innerHTML =
     '<style>' +
@@ -87,7 +87,7 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr"><label>Fim</label><input type="date" id="camp-m-fim"></div>' +
           '<div class="fgr"><label>Meta (descrição)</label><input type="text" id="camp-m-meta-desc" placeholder="Ex: 60 recompras no período"></div>' +
           '<div class="fgr"><label>Meta (número, opcional)</label><input type="number" id="camp-m-meta-num" placeholder="Ex: 60"></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Responsável</label><input type="text" id="camp-m-resp"></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Responsável(is)</label><div class="camp-checks" id="camp-m-resp"></div></div>' +
 
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🎁 Benefício oferecido</label></div>' +
           '<div class="fgr"><label>Tipo</label><select id="camp-m-beneficio-tipo"></select></div>' +
@@ -111,8 +111,8 @@ async function montarModuloCampanhas(containerId) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5];
+    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe()]);
+    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
@@ -121,6 +121,7 @@ async function montarModuloCampanhas(containerId) {
   }
 
   var segmentoPorId = {}; ST.segmentos.forEach(function (s) { segmentoPorId[s.id] = s; });
+  var equipePorId = {}; ST.equipe.forEach(function (e) { equipePorId[e.id] = e; });
   function nomeUsuarioAtual() { return (window.cu && window.cu.name) || 'Usuário'; }
   function fmtData(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
 
@@ -133,6 +134,9 @@ async function montarModuloCampanhas(containerId) {
   selBeneficio.innerHTML = CDA_TIPOS_BENEFICIO.map(function (b) { return '<option value="' + b.id + '">' + b.label + '</option>'; }).join('');
   host.querySelector('#camp-m-canais').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
     return '<label><input type="checkbox" class="camp-canal-check" value="' + c.id + '"> ' + c.label + '</label>';
+  }).join('');
+  host.querySelector('#camp-m-resp').innerHTML = ST.equipe.map(function (e) {
+    return '<label><input type="checkbox" class="camp-resp-check" value="' + e.id + '"> ' + e.nome + '</label>';
   }).join('');
 
   function atualizarSugestaoCanal() {
@@ -206,7 +210,7 @@ async function montarModuloCampanhas(containerId) {
           '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
           '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
           '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
-          '<div><div class="l">Responsável</div>' + (c.responsavel || '—') + '</div>' +
+          '<div><div class="l">Responsável(is)</div>' + ((c.responsavelIds || []).map(function (id) { return equipePorId[id] ? equipePorId[id].nome : null; }).filter(Boolean).join(', ') || '—') + '</div>' +
           '<div><div class="l">Benefício</div>' + (beneficioInfo && beneficioInfo.id !== 'nenhum' ? beneficioInfo.label + (c.beneficioValor ? ' — ' + c.beneficioValor : '') : '—') + '</div>' +
         '</div>' +
         (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
@@ -278,7 +282,8 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-fim').value = c ? (c.periodoFim || '') : '';
     host.querySelector('#camp-m-meta-desc').value = c ? (c.metaDescricao || '') : '';
     host.querySelector('#camp-m-meta-num').value = c ? (c.metaNumero != null ? c.metaNumero : '') : '';
-    host.querySelector('#camp-m-resp').value = c ? (c.responsavel || '') : '';
+    var respAtivos = c ? (c.responsavelIds || []) : [];
+    host.querySelectorAll('.camp-resp-check').forEach(function (chk) { chk.checked = respAtivos.indexOf(Number(chk.value)) !== -1; });
     selBeneficio.value = c ? c.beneficioTipo : 'nenhum';
     host.querySelector('#camp-m-beneficio-valor').value = c && c.beneficioValor != null ? c.beneficioValor : '';
     host.querySelector('#camp-m-beneficio-cupom').value = c ? (c.beneficioCupom || '') : '';
@@ -304,7 +309,7 @@ async function montarModuloCampanhas(containerId) {
       publicoSegmentoId: segmentoId, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
-      responsavel: host.querySelector('#camp-m-resp').value.trim(), criadoPor: nomeUsuarioAtual(),
+      responsavelIds: Array.from(host.querySelectorAll('.camp-resp-check:checked')).map(function (c) { return Number(c.value); }), criadoPor: nomeUsuarioAtual(),
       beneficioTipo: selBeneficio.value, beneficioValor: parseFloat(host.querySelector('#camp-m-beneficio-valor').value) || null,
       beneficioCupom: host.querySelector('#camp-m-beneficio-cupom').value.trim(), beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
       publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
