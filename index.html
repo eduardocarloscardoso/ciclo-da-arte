@@ -1182,7 +1182,7 @@ function credForm(u,catalogo,permissoesExistentes){
   +'<div class="form-group"><label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer"><input type="checkbox" id="cf-admin" '+(v.is_admin?'checked':'')+'> Administrador do sistema (acesso total + credenciamento)</label></div>'
   +'<div class="form-group"><label class="form-label">Tipo de Permissão (geral, legado)</label><select class="form-input" id="cf-permissao"><option value="leitura_escrita"'+((!v.permissao||v.permissao==='leitura_escrita')?' selected':'')+'>Leitura e Escrita</option><option value="leitura"'+(v.permissao==='leitura'?' selected':'')+'>Somente Leitura</option></select></div>'
   +'<div class="form-group"><label class="form-label">Projetos Permitidos</label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px">'+projChecksGlobal(v.projetos)+'</div></div>'
-  +'<div class="form-group"><label class="form-label">Permissões por Submódulo <span style="font-weight:400;color:var(--muted2)">(marque um projeto acima pra ver os submódulos dele)</span></label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px;max-height:260px;overflow-y:auto">'+renderPermissoesSubmodulo(catalogo||[],permissoesExistentes||[],v.projetos)+'</div></div>';
+  +'<div class="form-group"><label class="form-label">Permissões por Submódulo <span style="font-weight:400;color:var(--muted2)">(marque um projeto acima pra ver os submódulos dele — já nascem com a permissão geral, ajuste só as exceções)</span></label><div style="border:1px solid var(--border2);border-radius:8px;padding:10px 14px;max-height:260px;overflow-y:auto">'+renderPermissoesSubmodulo(catalogo||[],permissoesExistentes||[],v.projetos,v.permissao)+'</div></div>';
 }
 function projChecksGlobal(sel){return Object.keys(PROJETOS).map(function(k){var c=(sel||[]).indexOf(k)>=0;return'<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 0"><input type="checkbox" class="cred-proj-chk" value="'+k+'" '+(c?'checked':'')+'> '+PROJETOS[k].icon+' '+PROJETOS[k].label+'</label>';}).join('');}
 function getCredFormData(){
@@ -1213,16 +1213,16 @@ async function carregarPermissoesUsuario(equipeId){
   if(error){console.error(error);return [];}
   return data;
 }
-function renderPermissoesSubmodulo(catalogo,permissoesExistentes,projetosSelecionados){
+function renderPermissoesSubmodulo(catalogo,permissoesExistentes,projetosSelecionados,permissaoGeral){
   var porUsuario={};(permissoesExistentes||[]).forEach(function(p){porUsuario[p.submodulo_id]=p.nivel;});
   var porProjeto={};catalogo.forEach(function(s){(porProjeto[s.projeto]=porProjeto[s.projeto]||[]).push(s);});
   return Object.keys(porProjeto).map(function(proj){
     var visivel=(projetosSelecionados||[]).indexOf(proj)>=0;
     var itens=porProjeto[proj].map(function(s){
-      var nivelAtual=porUsuario[s.id];
-      var ativo=!!nivelAtual;
+      var temOverride=porUsuario.hasOwnProperty(s.id);
+      var nivelAtual=temOverride?porUsuario[s.id]:(permissaoGeral||'leitura_escrita');
       return '<div style="display:flex;align-items:center;gap:10px;padding:5px 0;font-size:12px">'+
-        '<label style="display:flex;align-items:center;gap:6px;flex:1;cursor:pointer"><input type="checkbox" class="cred-sub-chk" data-sub="'+s.id+'" '+(ativo?'checked':'')+'> '+s.submodulo_label+'</label>'+
+        '<label style="display:flex;align-items:center;gap:6px;flex:1;cursor:pointer"><input type="checkbox" class="cred-sub-chk" data-sub="'+s.id+'" checked> '+s.submodulo_label+'</label>'+
         '<select class="cred-sub-nivel" data-sub="'+s.id+'" style="font-size:11px;padding:3px 6px">'+
           '<option value="leitura"'+(nivelAtual==='leitura'?' selected':'')+'>Leitura</option>'+
           '<option value="leitura_escrita"'+(nivelAtual==='leitura_escrita'?' selected':'')+'>Leitura e Gravação</option>'+
@@ -1245,6 +1245,10 @@ async function openModalCred(id){
         grupo.style.display=selecionados.indexOf(grupo.dataset.projeto)>=0?'block':'none';
       });
     });
+  });
+  var selPermGeral=document.getElementById('cf-permissao');
+  if(selPermGeral)selPermGeral.addEventListener('change',function(){
+    document.querySelectorAll('.cred-sub-nivel').forEach(function(sel){sel.value=selPermGeral.value;});
   });
 }
 function confirmDeleteCred(id){
