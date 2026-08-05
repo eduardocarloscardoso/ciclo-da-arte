@@ -170,10 +170,10 @@ async function montarModuloCampanhas(containerId) {
   }
 
   function renderPainelKpi(campanha, kpi) {
-    var progressoHtml = '';
+    var progressoHtml = '<div class="l" style="border-top:1px dashed var(--border2,#ccc);padding-top:10px;margin-top:10px">📊 Indicadores da Campanha</div>';
     if (campanha.metaNumero) {
       var pct = Math.min(100, Math.round((kpi.convertidos / campanha.metaNumero) * 100));
-      progressoHtml = '<div class="camp-progresso-wrap">' +
+      progressoHtml += '<div class="camp-progresso-wrap">' +
         '<div class="camp-progresso-bar"><div class="camp-progresso-fill" style="width:' + pct + '%"></div></div>' +
         '<div class="camp-progresso-txt"><b>' + kpi.convertidos + ' de ' + campanha.metaNumero + '</b> (' + pct + '%) — ' + (campanha.metaDescricao || 'meta') + '</div>' +
         '</div>';
