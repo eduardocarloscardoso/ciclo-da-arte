@@ -47,7 +47,7 @@ async function montarModuloCampanhas(containerId) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], editId: null };
+  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], editId: null };
 
   host.innerHTML =
     '<style>' +
@@ -101,6 +101,11 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr" style="grid-column:1/-1"><label>Canais escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
+            '<label style="font-size:11px">💬 Modelo de Mensagem (Nível 1 — molde pra todos os leads desta campanha)</label>' +
+            '<textarea id="camp-m-modelo-msg" rows="4" placeholder="Ex: Oi {nome}! ... a última peça foi {ultima_peca} ..."></textarea>' +
+            '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico} — deixe em branco pra usar o molde padrão do sistema</div>' +
+          '</div>' +
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="camp-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
@@ -111,8 +116,8 @@ async function montarModuloCampanhas(containerId) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6];
+    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais()]);
+    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
@@ -122,6 +127,7 @@ async function montarModuloCampanhas(containerId) {
 
   var segmentoPorId = {}; ST.segmentos.forEach(function (s) { segmentoPorId[s.id] = s; });
   var equipePorId = {}; ST.equipe.forEach(function (e) { equipePorId[e.id] = e; });
+  var clientePorId = {}; ST.clientes.forEach(function (c) { clientePorId[String(c.id)] = c; });
   function nomeUsuarioAtual() { return (window.cu && window.cu.name) || 'Usuário'; }
   function fmtData(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
 
@@ -216,6 +222,7 @@ async function montarModuloCampanhas(containerId) {
         (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
         '<div class="camp-acoes">' +
           '<button class="btn sm rust" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
+          '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
           '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
         '</div>' +
       '</div>';
@@ -223,6 +230,36 @@ async function montarModuloCampanhas(containerId) {
 
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
     box.querySelectorAll('[data-add-publico]').forEach(function (btn) { btn.addEventListener('click', function () { adicionarPublico(btn.dataset.addPublico, btn); }); });
+    box.querySelectorAll('[data-gerar-msg]').forEach(function (btn) { btn.addEventListener('click', function () { gerarMensagensCampanha(btn.dataset.gerarMsg, btn); }); });
+  }
+
+  async function gerarMensagensCampanha(campanhaId, btn) {
+    var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
+    if (!campanha) return;
+    var leadsCampanha = ST.leads.filter(function (l) { return String(l.campanhaId) === String(campanha.id); });
+    if (!leadsCampanha.length) { alert('Essa campanha ainda não tem leads no Pipeline — use "Adicionar público" primeiro.'); return; }
+    if (!confirm('Gerar/atualizar a mensagem sugerida de ' + leadsCampanha.length + ' lead(s) desta campanha, usando o molde configurado (ou o padrão do sistema)?')) return;
+
+    var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
+    var template = campanha.modeloMensagem || CDA_TEMPLATE_PADRAO;
+    var textoOriginal = btn.textContent;
+    btn.textContent = 'Gerando...'; btn.disabled = true;
+    try {
+      var atualizacoes = leadsCampanha.map(function (lead) {
+        var cliente = clientePorId[lead.clienteId];
+        var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalPorId);
+        var texto = cdaExplodirTemplate(template, dados);
+        lead.mensagemSugerida = texto; // atualiza em memória também
+        return { id: lead.id, mensagemSugerida: texto };
+      });
+      await cdaSalvarMensagensLote(atualizacoes);
+      alert('Pronto! ' + atualizacoes.length + ' mensagem(ns) gerada(s)/atualizada(s). Confira em cada lead no Pipeline B2C.');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar mensagens:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+    } finally {
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
   }
 
   async function adicionarPublico(campanhaId, btn) {
@@ -291,6 +328,7 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-conhecido').value = c ? (c.publicoConhecido || '') : '';
     host.querySelector('#camp-m-temperatura').value = c ? (c.publicoTemperatura || '') : '';
     host.querySelector('#camp-m-estrategia').value = c ? (c.estrategiaCanal || '') : '';
+    host.querySelector('#camp-m-modelo-msg').value = c ? (c.modeloMensagem || '') : '';
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
@@ -314,7 +352,8 @@ async function montarModuloCampanhas(containerId) {
       beneficioCupom: host.querySelector('#camp-m-beneficio-cupom').value.trim(), beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
       publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
       canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
-      estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
+      estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim(),
+      modeloMensagem: host.querySelector('#camp-m-modelo-msg').value.trim()
     };
     var salvo;
     try {
