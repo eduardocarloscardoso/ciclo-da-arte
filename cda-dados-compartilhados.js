@@ -233,7 +233,8 @@ const CDA_LEAD_B2C_MAP = {
     obs: r.obs, criadoEm: r.criado_em, movidoEm: r.movido_em, motivoPerda: r.motivo_perda,
     // resultado atual dentro da etapa (ex: 'pediu_catalogo') — aponta pro catálogo cda_status_crm
     resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
-    campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null
+    campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null,
+    responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
@@ -241,7 +242,8 @@ const CDA_LEAD_B2C_MAP = {
     responsavel: o.responsavel || null, cliente_id: o.clienteId || null, obs: o.obs || null,
     movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null,
     resultado_id: o.resultadoId != null ? o.resultadoId : null,
-    campanha_id: o.campanhaId != null ? o.campanhaId : null
+    campanha_id: o.campanhaId != null ? o.campanhaId : null,
+    responsavel_id: o.responsavelId != null ? o.responsavelId : null
   })
 };
 async function cdaCarregarLeadsB2C() {
@@ -456,7 +458,8 @@ const CDA_CAMPANHA_MAP = {
     beneficioTipo: r.beneficio_tipo || 'nenhum', beneficioValor: r.beneficio_valor != null ? Number(r.beneficio_valor) : null,
     beneficioCupom: r.beneficio_cupom, beneficioCondicoes: r.beneficio_condicoes,
     publicoConhecido: r.publico_conhecido, publicoTemperatura: r.publico_temperatura,
-    canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal
+    canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal,
+    responsavelIds: (r.responsavel_ids || []).map(Number)
   }),
   toRow: o => {
     const row = {
@@ -467,7 +470,8 @@ const CDA_CAMPANHA_MAP = {
       beneficio_tipo: o.beneficioTipo || 'nenhum', beneficio_valor: o.beneficioValor != null ? o.beneficioValor : null,
       beneficio_cupom: o.beneficioCupom || null, beneficio_condicoes: o.beneficioCondicoes || null,
       publico_conhecido: o.publicoConhecido || null, publico_temperatura: o.publicoTemperatura || null,
-      canais_selecionados: o.canaisSelecionados || [], estrategia_canal: o.estrategiaCanal || null
+      canais_selecionados: o.canaisSelecionados || [], estrategia_canal: o.estrategiaCanal || null,
+      responsavel_ids: o.responsavelIds || []
     };
     if (o.id) row.id = o.id;
     return row;
