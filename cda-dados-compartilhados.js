@@ -234,7 +234,8 @@ const CDA_LEAD_B2C_MAP = {
     // resultado atual dentro da etapa (ex: 'pediu_catalogo') — aponta pro catálogo cda_status_crm
     resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
     campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null,
-    responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null
+    responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null,
+    mensagemSugerida: r.mensagem_sugerida, mensagemFinalUsuario: r.mensagem_final_usuario
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
@@ -243,7 +244,9 @@ const CDA_LEAD_B2C_MAP = {
     movido_em: o.movidoEm || new Date().toISOString(), motivo_perda: o.motivoPerda || null,
     resultado_id: o.resultadoId != null ? o.resultadoId : null,
     campanha_id: o.campanhaId != null ? o.campanhaId : null,
-    responsavel_id: o.responsavelId != null ? o.responsavelId : null
+    responsavel_id: o.responsavelId != null ? o.responsavelId : null,
+    mensagem_sugerida: o.mensagemSugerida != null ? o.mensagemSugerida : undefined,
+    mensagem_final_usuario: o.mensagemFinalUsuario != null ? o.mensagemFinalUsuario : undefined
   })
 };
 async function cdaCarregarLeadsB2C() {
@@ -459,7 +462,7 @@ const CDA_CAMPANHA_MAP = {
     beneficioCupom: r.beneficio_cupom, beneficioCondicoes: r.beneficio_condicoes,
     publicoConhecido: r.publico_conhecido, publicoTemperatura: r.publico_temperatura,
     canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal,
-    responsavelIds: (r.responsavel_ids || []).map(Number)
+    responsavelIds: (r.responsavel_ids || []).map(Number), modeloMensagem: r.modelo_mensagem
   }),
   toRow: o => {
     const row = {
@@ -471,7 +474,7 @@ const CDA_CAMPANHA_MAP = {
       beneficio_cupom: o.beneficioCupom || null, beneficio_condicoes: o.beneficioCondicoes || null,
       publico_conhecido: o.publicoConhecido || null, publico_temperatura: o.publicoTemperatura || null,
       canais_selecionados: o.canaisSelecionados || [], estrategia_canal: o.estrategiaCanal || null,
-      responsavel_ids: o.responsavelIds || []
+      responsavel_ids: o.responsavelIds || [], modelo_mensagem: o.modeloMensagem || null
     };
     if (o.id) row.id = o.id;
     return row;
@@ -580,6 +583,45 @@ async function cdaSalvarTarefa(o) {
 async function cdaExcluirTarefa(id) {
   const { error } = await cdaClient.from('cda_tarefas').delete().eq('id', id);
   if (error) throw error;
+}
+
+// ── MENSAGENS (Explodir molde → texto pronto por lead) ───────────────
+// Substituição pura de {variável} — sem IA, grátis, instantâneo (Opção A
+// que fechamos). Nível 3 (o lead) nunca guarda {variável} crua — sempre
+// já explodida antes de virar mensagem_sugerida.
+var CDA_TEMPLATE_PADRAO = 'Oi {nome}! Tudo bem? Aqui é da Ciclo da Arte 💛 Reparamos que faz um tempo que você não passa por aqui — a última peça que você levou foi {ultima_peca}, e temos novidades que combinam com seu estilo. Separamos algumas peças pensando em você — quer dar uma olhada?';
+
+function cdaCalcularDadosVariaveis(lead, cliente, compras, canalPorId) {
+  var comprasCliente = (compras || []).filter(function (cp) { return String(cp.clienteId) === String(lead.clienteId); })
+    .sort(function (a, b) { return (b.dataCompra || '').localeCompare(a.dataCompra || ''); });
+  var ultima = comprasCliente[0];
+  var diasParado = ultima && ultima.dataCompra ? Math.floor((Date.now() - new Date(ultima.dataCompra).getTime()) / 86400000) : null;
+  var valorTotal = comprasCliente.reduce(function (s, cp) { return s + (Number(cp.valorTotal) || 0); }, 0);
+  var canal = ultima && canalPorId ? canalPorId[String(ultima.canalId)] : null;
+  return {
+    nome: (lead.nome || (cliente && cliente.nome) || '').split(' ')[0] || (lead.nome || ''),
+    cidade: (cliente && cliente.cidade) || '',
+    dias_parado: diasParado != null ? String(diasParado) : '',
+    ultima_peca: ultima ? (ultima.produto || 'uma peça especial') : 'uma peça especial',
+    ultima_collab: canal ? canal.nome : '',
+    valor_total_historico: valorTotal ? valorTotal.toLocaleString('pt-BR') : ''
+  };
+}
+function cdaExplodirTemplate(template, dados) {
+  var texto = template || CDA_TEMPLATE_PADRAO;
+  Object.keys(dados).forEach(function (chave) {
+    texto = texto.split('{' + chave + '}').join(dados[chave] || '');
+  });
+  return texto;
+}
+async function cdaSalvarMensagensLote(atualizacoes) {
+  // atualizacoes = [{id, mensagemSugerida}]
+  for (var i = 0; i < atualizacoes.length; i += 100) {
+    var lote = atualizacoes.slice(i, i + 100);
+    await Promise.all(lote.map(function (a) {
+      return cdaClient.from('leads_b2c').update({ mensagem_sugerida: a.mensagemSugerida }).eq('id', a.id);
+    }));
+  }
 }
 
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
