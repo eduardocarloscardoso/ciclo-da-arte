@@ -452,16 +452,24 @@ const CDA_CAMPANHA_MAP = {
     id: r.id, nome: r.nome, objetivo: r.objetivo, publicoSegmentoId: r.publico_segmento_id,
     pipelineEtapaEntrada: r.pipeline_etapa_entrada, periodoInicio: r.periodo_inicio, periodoFim: r.periodo_fim,
     metaDescricao: r.meta_descricao, metaNumero: r.meta_numero != null ? Number(r.meta_numero) : null,
-    responsavel: r.responsavel, status: r.status, criadoEm: r.criado_em, criadoPor: r.criado_por
+    responsavel: r.responsavel, status: r.status, criadoEm: r.criado_em, criadoPor: r.criado_por,
+    beneficioTipo: r.beneficio_tipo || 'nenhum', beneficioValor: r.beneficio_valor != null ? Number(r.beneficio_valor) : null,
+    beneficioCupom: r.beneficio_cupom, beneficioCondicoes: r.beneficio_condicoes,
+    publicoConhecido: r.publico_conhecido, publicoTemperatura: r.publico_temperatura,
+    canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal
   }),
   toRow: o => {
     const row = {
       nome: o.nome, objetivo: o.objetivo || null, publico_segmento_id: o.publicoSegmentoId || null,
       pipeline_etapa_entrada: o.pipelineEtapaEntrada || 'novo_lead', periodo_inicio: o.periodoInicio || null, periodo_fim: o.periodoFim || null,
       meta_descricao: o.metaDescricao || null, meta_numero: o.metaNumero != null ? o.metaNumero : null,
-      responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null
+      responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null,
+      beneficio_tipo: o.beneficioTipo || 'nenhum', beneficio_valor: o.beneficioValor != null ? o.beneficioValor : null,
+      beneficio_cupom: o.beneficioCupom || null, beneficio_condicoes: o.beneficioCondicoes || null,
+      publico_conhecido: o.publicoConhecido || null, publico_temperatura: o.publicoTemperatura || null,
+      canais_selecionados: o.canaisSelecionados || [], estrategia_canal: o.estrategiaCanal || null
     };
-    if (o.id) row.id = o.id; // só inclui a chave se for edição — id é GENERATED ALWAYS AS IDENTITY, não pode ir undefined/null num insert
+    if (o.id) row.id = o.id;
     return row;
   }
 };
