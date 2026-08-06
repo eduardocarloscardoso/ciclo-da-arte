@@ -462,7 +462,8 @@ const CDA_CAMPANHA_MAP = {
     beneficioCupom: r.beneficio_cupom, beneficioCondicoes: r.beneficio_condicoes,
     publicoConhecido: r.publico_conhecido, publicoTemperatura: r.publico_temperatura,
     canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal,
-    responsavelIds: (r.responsavel_ids || []).map(Number), modeloMensagem: r.modelo_mensagem
+    responsavelIds: (r.responsavel_ids || []).map(Number), modeloMensagemFinal: r.modelo_mensagem_final,
+    modeloMensagemSugerida: r.modelo_mensagem_sugerida
   }),
   toRow: o => {
     const row = {
@@ -474,7 +475,8 @@ const CDA_CAMPANHA_MAP = {
       beneficio_cupom: o.beneficioCupom || null, beneficio_condicoes: o.beneficioCondicoes || null,
       publico_conhecido: o.publicoConhecido || null, publico_temperatura: o.publicoTemperatura || null,
       canais_selecionados: o.canaisSelecionados || [], estrategia_canal: o.estrategiaCanal || null,
-      responsavel_ids: o.responsavelIds || [], modelo_mensagem: o.modeloMensagem || null
+      responsavel_ids: o.responsavelIds || [], modelo_mensagem_final: o.modeloMensagemFinal || null,
+      modelo_mensagem_sugerida: o.modeloMensagemSugerida != null ? o.modeloMensagemSugerida : undefined
     };
     if (o.id) row.id = o.id;
     return row;
@@ -622,6 +624,22 @@ async function cdaSalvarMensagensLote(atualizacoes) {
       return cdaClient.from('leads_b2c').update({ mensagem_sugerida: a.mensagemSugerida }).eq('id', a.id);
     }));
   }
+}
+
+// Chama a Edge Function (servidor) que usa a Claude API com a chave guardada
+// em segredo — o navegador nunca vê a chave, só o resultado.
+async function cdaGerarSugestaoMensagemIA(campanha) {
+  const { data, error } = await cdaClient.functions.invoke('gerar-modelo-mensagem', {
+    body: {
+      nomeCampanha: campanha.nome, objetivo: campanha.objetivo,
+      beneficioTipo: campanha.beneficioTipo, beneficioValor: campanha.beneficioValor, beneficioCondicoes: campanha.beneficioCondicoes,
+      publicoConhecido: campanha.publicoConhecido, publicoTemperatura: campanha.publicoTemperatura,
+      canaisSelecionados: campanha.canaisSelecionados, estrategiaCanal: campanha.estrategiaCanal
+    }
+  });
+  if (error) throw error;
+  if (data && data.error) throw new Error(data.error);
+  return data.texto;
 }
 
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
