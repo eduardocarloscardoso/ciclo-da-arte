@@ -513,7 +513,7 @@ async function montarModuloPipelineB2C(containerId) {
     if (!lead) return;
     var cliente = clientePorId[lead.clienteId];
     var campanha = campanhaPorId[lead.campanhaId];
-    var template = (campanha && campanha.modeloMensagemFinal) || CDA_TEMPLATE_PADRAO;
+    var template = (campanha && (campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || CDA_TEMPLATE_PADRAO;
     var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
     var texto = cdaExplodirTemplate(template, dados);
     try {
@@ -714,7 +714,7 @@ async function montarModuloPipelineB2C(containerId) {
       var atualizacoes = lista.map(function (lead) {
         var cliente = clientePorId[lead.clienteId];
         var campanha = campanhaPorId[lead.campanhaId];
-        var template = (campanha && campanha.modeloMensagemFinal) || CDA_TEMPLATE_PADRAO;
+        var template = (campanha && (campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || CDA_TEMPLATE_PADRAO;
         var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
         var texto = cdaExplodirTemplate(template, dados);
         lead.mensagemSugerida = texto;
