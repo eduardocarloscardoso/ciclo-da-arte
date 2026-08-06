@@ -546,6 +546,7 @@ async function montarModuloPipelineB2C(containerId) {
       valorEstimado: parseFloat(host.querySelector('#pb2c-m-valor').value) || null,
       responsavelId: host.querySelector('#pb2c-m-resp').value ? Number(host.querySelector('#pb2c-m-resp').value) : null, obs: host.querySelector('#pb2c-m-obs').value.trim(),
       clienteId: existente ? existente.clienteId : (ST.clienteSelecionado ? String(ST.clienteSelecionado.id) : null),
+      campanhaId: existente ? existente.campanhaId : null,
       motivoPerda: existente ? existente.motivoPerda : null,
       mensagemFinalUsuario: host.querySelector('#pb2c-m-msg-final').value.trim(),
       movidoEm: existente ? existente.movidoEm : new Date().toISOString()
