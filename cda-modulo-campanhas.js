@@ -102,9 +102,15 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
-            '<label style="font-size:11px">💬 Modelo de Mensagem (Nível 1 — molde pra todos os leads desta campanha)</label>' +
+            '<label style="font-size:11px">🤖 Modelo de Mensagem — Sugestão da IA (Nível 1)</label>' +
+            '<div class="pb2c-hist" id="camp-m-modelo-sugerida" style="min-height:60px;white-space:pre-wrap"></div>' +
+            '<button class="btn sm" id="camp-m-gerar-ia" type="button" style="margin-top:5px">🤖 Gerar sugestão com IA</button>' +
+          '</div>' +
+          '<div class="fgr" style="grid-column:1/-1">' +
+            '<label>Modelo de Mensagem — Final (usado pra gerar as mensagens dos leads) <span class="tmu" style="font-weight:400">— deixe em branco pra usar o molde padrão do sistema</span></label>' +
             '<textarea id="camp-m-modelo-msg" rows="4" placeholder="Ex: Oi {nome}! ... a última peça foi {ultima_peca} ..."></textarea>' +
-            '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico} — deixe em branco pra usar o molde padrão do sistema</div>' +
+            '<button class="btn sm" id="camp-m-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
+            '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico}</div>' +
           '</div>' +
         '</div></div>' +
         '<div class="mo-f">' +
@@ -241,7 +247,7 @@ async function montarModuloCampanhas(containerId) {
     if (!confirm('Gerar/atualizar a mensagem sugerida de ' + leadsCampanha.length + ' lead(s) desta campanha, usando o molde configurado (ou o padrão do sistema)?')) return;
 
     var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
-    var template = campanha.modeloMensagem || CDA_TEMPLATE_PADRAO;
+    var template = campanha.modeloMensagemFinal || CDA_TEMPLATE_PADRAO;
     var textoOriginal = btn.textContent;
     btn.textContent = 'Gerando...'; btn.disabled = true;
     try {
@@ -328,7 +334,8 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-conhecido').value = c ? (c.publicoConhecido || '') : '';
     host.querySelector('#camp-m-temperatura').value = c ? (c.publicoTemperatura || '') : '';
     host.querySelector('#camp-m-estrategia').value = c ? (c.estrategiaCanal || '') : '';
-    host.querySelector('#camp-m-modelo-msg').value = c ? (c.modeloMensagem || '') : '';
+    host.querySelector('#camp-m-modelo-msg').value = c ? (c.modeloMensagemFinal || '') : '';
+    host.querySelector('#camp-m-modelo-sugerida').textContent = c && c.modeloMensagemSugerida ? c.modeloMensagemSugerida : 'Nenhuma sugestão gerada ainda — clica em "Gerar sugestão com IA".';
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
@@ -353,7 +360,8 @@ async function montarModuloCampanhas(containerId) {
       publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
       canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
       estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim(),
-      modeloMensagem: host.querySelector('#camp-m-modelo-msg').value.trim()
+      modeloMensagemFinal: host.querySelector('#camp-m-modelo-msg').value.trim(),
+      modeloMensagemSugerida: host.querySelector('#camp-m-modelo-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-modelo-sugerida').textContent
     };
     var salvo;
     try {
@@ -397,6 +405,33 @@ async function montarModuloCampanhas(containerId) {
   host.querySelector('#camp-btn-nova').addEventListener('click', function () { abrirModal(null); });
   host.querySelector('#camp-modal-x').addEventListener('click', fecharModal);
   host.querySelector('#camp-m-cancelar').addEventListener('click', fecharModal);
+  host.querySelector('#camp-m-gerar-ia').addEventListener('click', async function () {
+    var btn = this;
+    var textoOriginal = btn.textContent;
+    btn.textContent = 'Gerando (chamando a IA)...'; btn.disabled = true;
+    try {
+      var campanhaTemp = {
+        nome: host.querySelector('#camp-m-nome').value.trim(), objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
+        beneficioTipo: selBeneficio.value, beneficioValor: parseFloat(host.querySelector('#camp-m-beneficio-valor').value) || null,
+        beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
+        publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
+        canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
+        estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
+      };
+      var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp);
+      host.querySelector('#camp-m-modelo-sugerida').textContent = texto;
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar sugestão com IA:\n' + ((err && err.message) || 'Erro desconhecido') + '\n\nConfira se a ANTHROPIC_API_KEY foi configurada nos Secrets da Edge Function no Supabase.');
+    } finally {
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
+  });
+  host.querySelector('#camp-m-copiar-ia').addEventListener('click', function () {
+    var sugerida = host.querySelector('#camp-m-modelo-sugerida').textContent;
+    if (sugerida.indexOf('Nenhuma sugestão') === 0) { alert('Gere uma sugestão com a IA primeiro.'); return; }
+    host.querySelector('#camp-m-modelo-msg').value = sugerida;
+  });
   host.querySelector('#camp-m-salvar').addEventListener('click', salvar);
   host.querySelector('#camp-m-excluir').addEventListener('click', excluir);
 
