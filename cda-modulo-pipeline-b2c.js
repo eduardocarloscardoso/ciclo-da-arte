@@ -455,6 +455,12 @@ async function montarModuloPipelineB2C(containerId) {
     var etapaAtualEl = host.querySelector('#pb2c-m-etapa-atual');
     etapaAtualEl.textContent = l ? CDA_ETAPAS_B2C.find(function (e) { return e.id === l.etapa; }).label : 'Novo Lead (ao salvar)';
     host.querySelector('#pb2c-m-valor').value = l ? (l.valorEstimado != null ? l.valorEstimado : '') : '';
+    var campanhaDoLead = l ? campanhaPorId[l.campanhaId] : null;
+    var equipeParaSelect = (campanhaDoLead && campanhaDoLead.responsavelIds && campanhaDoLead.responsavelIds.length)
+      ? ST.equipe.filter(function (e) { return campanhaDoLead.responsavelIds.indexOf(e.id) !== -1; })
+      : ST.equipe;
+    host.querySelector('#pb2c-m-resp').innerHTML = '<option value="">—</option>' +
+      equipeParaSelect.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
     host.querySelector('#pb2c-m-resp').value = l ? (l.responsavelId || '') : '';
     host.querySelector('#pb2c-m-obs').value = l ? (l.obs || '') : '';
     host.querySelector('#pb2c-m-excluir').style.display = id ? 'inline-block' : 'none';
