@@ -642,6 +642,14 @@ async function cdaGerarSugestaoMensagemIA(campanha) {
   return data.texto;
 }
 
+// Update direto de UM campo só — evita o risco de um save parcial
+// apagar os outros campos da campanha (toRow monta o objeto inteiro).
+async function cdaSalvarCampoCampanha(campanhaId, coluna, valor) {
+  var patch = {}; patch[coluna] = valor;
+  const { error } = await cdaClient.from('cda_campanhas').update(patch).eq('id', campanhaId);
+  if (error) throw error;
+}
+
 // ── CANAIS / PARCEIROS — escrita (agora liberada também para uso no hub unificado) ──
 async function cdaSalvarCanal(o) {
   const row = {
