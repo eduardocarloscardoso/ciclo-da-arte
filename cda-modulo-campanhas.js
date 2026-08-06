@@ -104,10 +104,10 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
             '<label style="font-size:11px">🤖 Modelo de Mensagem — Sugestão da IA (Nível 1)</label>' +
             '<div class="pb2c-hist" id="camp-m-modelo-sugerida" style="min-height:60px;white-space:pre-wrap"></div>' +
-            '<button class="btn sm" id="camp-m-gerar-ia" type="button" style="margin-top:5px">🤖 Gerar sugestão com IA</button>' +
+            '<button class="btn sm" id="camp-m-gerar-ia" type="button" style="margin-top:5px">🔄 Gerar/Regenerar Modelo com IA</button>' +
           '</div>' +
           '<div class="fgr" style="grid-column:1/-1">' +
-            '<label>Modelo de Mensagem — Final (usado pra gerar as mensagens dos leads) <span class="tmu" style="font-weight:400">— deixe em branco pra usar o molde padrão do sistema</span></label>' +
+            '<label>Modelo de Mensagem — Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
             '<textarea id="camp-m-modelo-msg" rows="4" placeholder="Ex: Oi {nome}! ... a última peça foi {ultima_peca} ..."></textarea>' +
             '<button class="btn sm" id="camp-m-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
             '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico}</div>' +
@@ -247,7 +247,7 @@ async function montarModuloCampanhas(containerId) {
     if (!confirm('Gerar/atualizar a mensagem sugerida de ' + leadsCampanha.length + ' lead(s) desta campanha, usando o molde configurado (ou o padrão do sistema)?')) return;
 
     var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
-    var template = campanha.modeloMensagemFinal || CDA_TEMPLATE_PADRAO;
+    var template = campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida || CDA_TEMPLATE_PADRAO;
     var textoOriginal = btn.textContent;
     btn.textContent = 'Gerando...'; btn.disabled = true;
     try {
@@ -420,6 +420,11 @@ async function montarModuloCampanhas(containerId) {
       };
       var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp);
       host.querySelector('#camp-m-modelo-sugerida').textContent = texto;
+      if (ST.editId) {
+        await cdaSalvarCampoCampanha(ST.editId, 'modelo_mensagem_sugerida', texto);
+        var campanhaAtual = ST.campanhas.find(function (c) { return String(c.id) === String(ST.editId); });
+        if (campanhaAtual) campanhaAtual.modeloMensagemSugerida = texto;
+      }
     } catch (err) {
       console.error(err);
       alert('Erro ao gerar sugestão com IA:\n' + ((err && err.message) || 'Erro desconhecido') + '\n\nConfira se a ANTHROPIC_API_KEY foi configurada nos Secrets da Edge Function no Supabase.');
