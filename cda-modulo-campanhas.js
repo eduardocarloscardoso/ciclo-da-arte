@@ -112,6 +112,16 @@ async function montarModuloCampanhas(containerId) {
             '<button class="btn sm" id="camp-m-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
             '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico}</div>' +
           '</div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
+            '<label style="font-size:11px">🤖 Modelo de Tarefa — Sugestão da IA (Roadmap)</label>' +
+            '<div class="pb2c-hist" id="camp-m-tarefa-sugerida" style="min-height:50px;white-space:pre-wrap"></div>' +
+            '<button class="btn sm" id="camp-m-tarefa-gerar-ia" type="button" style="margin-top:5px">🔄 Gerar/Regenerar Modelo com IA</button>' +
+          '</div>' +
+          '<div class="fgr" style="grid-column:1/-1">' +
+            '<label>Modelo de Tarefa — Final <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
+            '<textarea id="camp-m-tarefa-msg" rows="2" placeholder="Ex: Ligar para {nome} e oferecer..."></textarea>' +
+            '<button class="btn sm" id="camp-m-tarefa-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
+          '</div>' +
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="camp-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
@@ -229,6 +239,7 @@ async function montarModuloCampanhas(containerId) {
         '<div class="camp-acoes">' +
           '<button class="btn sm rust" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
           '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
+          '<button class="btn sm" data-gerar-roadmap="' + c.id + '">🗺 Gerar Roadmap de Tarefas</button>' +
           '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
         '</div>' +
       '</div>';
@@ -237,6 +248,41 @@ async function montarModuloCampanhas(containerId) {
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
     box.querySelectorAll('[data-add-publico]').forEach(function (btn) { btn.addEventListener('click', function () { adicionarPublico(btn.dataset.addPublico, btn); }); });
     box.querySelectorAll('[data-gerar-msg]').forEach(function (btn) { btn.addEventListener('click', function () { gerarMensagensCampanha(btn.dataset.gerarMsg, btn); }); });
+    box.querySelectorAll('[data-gerar-roadmap]').forEach(function (btn) { btn.addEventListener('click', function () { gerarRoadmapTarefas(btn.dataset.gerarRoadmap, btn); }); });
+  }
+
+  async function gerarRoadmapTarefas(campanhaId, btn) {
+    var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
+    if (!campanha) return;
+    var leadsCampanha = ST.leads.filter(function (l) { return String(l.campanhaId) === String(campanha.id); });
+    if (!leadsCampanha.length) { alert('Essa campanha ainda não tem leads no Pipeline — use "Adicionar público" primeiro.'); return; }
+    if (!confirm('Gerar o Roadmap de Tarefas pra ' + leadsCampanha.length + ' lead(s) desta campanha?\n\nCada lead vira 1 tarefa (Data Início/Prevista vêm do período da campanha; Responsável vem do que já estiver escolhido em cada Lead no Pipeline). Quem já tem tarefa desta campanha não duplica.')) return;
+
+    var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
+    var template = campanha.modeloTarefaFinal || campanha.modeloTarefaSugerida || 'Fazer contato com {nome} sobre a campanha "' + campanha.nome + '".';
+    var textoOriginal = btn.textContent;
+    btn.textContent = 'Gerando...'; btn.disabled = true;
+    try {
+      var tarefas = leadsCampanha.map(function (lead) {
+        var cliente = clientePorId[lead.clienteId];
+        var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalPorId);
+        var descricao = cdaExplodirTemplate(template, dados);
+        return {
+          descricao: descricao, leadId: lead.id, clienteId: lead.clienteId, campanhaId: campanha.id,
+          responsavelId: lead.responsavelId || null, tipo: 'whatsapp', prioridade: 'media',
+          dataInicio: campanha.periodoInicio, dataPrevista: campanha.periodoFim,
+          descricaoSugerida: campanha.modeloTarefaSugerida ? cdaExplodirTemplate(campanha.modeloTarefaSugerida, dados) : null,
+          criadoPor: nomeUsuarioAtual()
+        };
+      });
+      var resultado = await cdaCriarTarefasRoadmap(tarefas);
+      alert('Pronto!\n\n' + resultado.criadas + ' tarefa(s) nova(s) criada(s).' + (resultado.jaExistentes ? '\n' + resultado.jaExistentes + ' já tinham tarefa desta campanha (não duplicadas).' : '') + '\n\nConfira em Tarefas & Follow-up → 🗺 Ver por Campanha.');
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar roadmap:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+    } finally {
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
   }
 
   async function gerarMensagensCampanha(campanhaId, btn) {
@@ -336,6 +382,8 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-estrategia').value = c ? (c.estrategiaCanal || '') : '';
     host.querySelector('#camp-m-modelo-msg').value = c ? (c.modeloMensagemFinal || '') : '';
     host.querySelector('#camp-m-modelo-sugerida').textContent = c && c.modeloMensagemSugerida ? c.modeloMensagemSugerida : 'Nenhuma sugestão gerada ainda — clica em "Gerar sugestão com IA".';
+    host.querySelector('#camp-m-tarefa-msg').value = c ? (c.modeloTarefaFinal || '') : '';
+    host.querySelector('#camp-m-tarefa-sugerida').textContent = c && c.modeloTarefaSugerida ? c.modeloTarefaSugerida : 'Nenhuma sugestão gerada ainda — clica em "Gerar/Regenerar".';
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
@@ -361,7 +409,9 @@ async function montarModuloCampanhas(containerId) {
       canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
       estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim(),
       modeloMensagemFinal: host.querySelector('#camp-m-modelo-msg').value.trim(),
-      modeloMensagemSugerida: host.querySelector('#camp-m-modelo-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-modelo-sugerida').textContent
+      modeloMensagemSugerida: host.querySelector('#camp-m-modelo-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-modelo-sugerida').textContent,
+      modeloTarefaFinal: host.querySelector('#camp-m-tarefa-msg').value.trim(),
+      modeloTarefaSugerida: host.querySelector('#camp-m-tarefa-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-tarefa-sugerida').textContent
     };
     var salvo;
     try {
@@ -436,6 +486,38 @@ async function montarModuloCampanhas(containerId) {
     var sugerida = host.querySelector('#camp-m-modelo-sugerida').textContent;
     if (sugerida.indexOf('Nenhuma sugestão') === 0) { alert('Gere uma sugestão com a IA primeiro.'); return; }
     host.querySelector('#camp-m-modelo-msg').value = sugerida;
+  });
+  host.querySelector('#camp-m-tarefa-gerar-ia').addEventListener('click', async function () {
+    var btn = this;
+    var textoOriginal = btn.textContent;
+    btn.textContent = 'Gerando (chamando a IA)...'; btn.disabled = true;
+    try {
+      var campanhaTemp = {
+        nome: host.querySelector('#camp-m-nome').value.trim(), objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
+        beneficioTipo: selBeneficio.value, beneficioValor: parseFloat(host.querySelector('#camp-m-beneficio-valor').value) || null,
+        beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
+        publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
+        canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
+        estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
+      };
+      var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp, 'tarefa');
+      host.querySelector('#camp-m-tarefa-sugerida').textContent = texto;
+      if (ST.editId) {
+        await cdaSalvarCampoCampanha(ST.editId, 'modelo_tarefa_sugerida', texto);
+        var campanhaAtual = ST.campanhas.find(function (c) { return String(c.id) === String(ST.editId); });
+        if (campanhaAtual) campanhaAtual.modeloTarefaSugerida = texto;
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao gerar sugestão com IA:\n' + ((err && err.message) || 'Erro desconhecido'));
+    } finally {
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
+  });
+  host.querySelector('#camp-m-tarefa-copiar-ia').addEventListener('click', function () {
+    var sugerida = host.querySelector('#camp-m-tarefa-sugerida').textContent;
+    if (sugerida.indexOf('Nenhuma sugestão') === 0) { alert('Gere uma sugestão com a IA primeiro.'); return; }
+    host.querySelector('#camp-m-tarefa-msg').value = sugerida;
   });
   host.querySelector('#camp-m-salvar').addEventListener('click', salvar);
   host.querySelector('#camp-m-excluir').addEventListener('click', excluir);
