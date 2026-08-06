@@ -696,7 +696,8 @@ async function montarModuloTarefas(containerId){
 
     '<div class="mo" id="modal-tarefa"><div class="mo-box"><div class="mo-h"><h3 id="mo-tar-title">Nova Tarefa</h3><button class="mo-x" id="tar-modal-x">✕</button></div>'+
     '<div class="mo-b"><div class="fg">'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="tf-desc" placeholder="ex: Ligar para confirmar proposta"></div>'+
+    '<div class="fgr" style="grid-column:1/-1" id="tf-sugerida-wrap"><label>💬 Descrição Sugerida (IA/Roadmap)</label><div class="pb2c-hist" id="tf-desc-sugerida" style="min-height:40px"></div><button class="btn sm" id="tf-copiar-sugerida" type="button" style="margin-top:5px">📋 Copiar pra Descrição</button></div>'+
+    '<div class="fgr" style="grid-column:1/-1"><label>Descrição * <span class="tmu" style="font-weight:400">(se veio do Roadmap, é a que prevalece — edite à vontade)</span></label><input type="text" id="tf-desc" placeholder="ex: Ligar para confirmar proposta"></div>'+
     '<div class="fgr" style="grid-column:1/-1;position:relative"><label>Cliente vinculado (busca por nome)</label><input type="text" id="tf-busca-cliente" placeholder="Digite pelo menos 3 letras..."><div class="tar-busca-resultados" id="tf-busca-resultados" style="display:none"></div><div id="tf-cliente-vinculado" style="font-size:11px;margin-top:4px;color:var(--muted,#888)"></div></div>'+
     '<div class="fgr" style="grid-column:1/-1"><label>Lead do Pipeline vinculado (opcional)</label><select id="tf-lead"><option value="">—</option></select></div>'+
     '<div class="fgr"><label>Tipo</label><select id="tf-tipo"><option value="ligacao">Ligação</option><option value="whatsapp">WhatsApp</option><option value="email">E-mail</option><option value="reuniao">Reunião</option><option value="visita">Visita</option><option value="proposta">Enviar Proposta</option><option value="outro">Outro</option></select></div>'+
@@ -867,6 +868,8 @@ async function montarModuloTarefas(containerId){
     var t=id?ST_TAR.tarefas.find(function(x){return String(x.id)===String(id);}):null;
     host.querySelector('#mo-tar-title').textContent=id?'Editar Tarefa':'Nova Tarefa';
     host.querySelector('#tf-desc').value=t?t.descricao:'';
+    host.querySelector('#tf-sugerida-wrap').style.display=(t&&t.descricaoSugerida)?'':'none';
+    host.querySelector('#tf-desc-sugerida').textContent=(t&&t.descricaoSugerida)?t.descricaoSugerida:'';
     host.querySelector('#tf-lead').value=t?(t.leadId||''):'';
     host.querySelector('#tf-tipo').value=t?t.tipo:'ligacao';
     host.querySelector('#tf-resp').value=t?(t.responsavelId||''):'';
@@ -933,6 +936,11 @@ async function montarModuloTarefas(containerId){
   }
 
   host.querySelector('#tar-btn-novo').addEventListener('click',function(){abrirModalTar(null);});
+  host.querySelector('#tf-copiar-sugerida').addEventListener('click',function(){
+    var sugerida=host.querySelector('#tf-desc-sugerida').textContent;
+    if(!sugerida)return;
+    host.querySelector('#tf-desc').value=sugerida;
+  });
   host.querySelector('#tar-modal-x').addEventListener('click',fecharModalTar);
   host.querySelector('#tar-m-cancelar').addEventListener('click',fecharModalTar);
   host.querySelector('#tar-m-salvar').addEventListener('click',salvarTarefa);
