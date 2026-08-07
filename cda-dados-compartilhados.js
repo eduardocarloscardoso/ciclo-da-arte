@@ -271,8 +271,13 @@ async function cdaExcluirLeadB2C(id) {
 const CDA_HISTORICO_MAP = {
   fromRow: r => ({
     id: r.id, leadId: r.lead_id, clienteId: r.cliente_id != null ? String(r.cliente_id) : null,
-    etapa: r.etapa, resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
-    observacao: r.observacao, criadoEm: r.criado_em, criadoPor: r.criado_por
+    etapaNova: r.etapa_nova, etapaAnterior: r.etapa_anterior,
+    resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
+    observacao: r.observacao, criadoEm: r.criado_em, criadoPor: r.criado_por,
+    tipoInteracao: r.tipo_interacao || 'pipeline', canalId: r.canal_id != null ? String(r.canal_id) : null,
+    responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null,
+    campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null,
+    origemEvento: r.origem_evento || 'manual', agenteIaId: r.agente_ia_id != null ? Number(r.agente_ia_id) : null
   })
 };
 async function cdaCarregarHistoricoPorLead(leadId) {
@@ -281,7 +286,14 @@ async function cdaCarregarHistoricoPorLead(leadId) {
   return (data || []).map(CDA_HISTORICO_MAP.fromRow);
 }
 async function cdaSalvarHistoricoInteracao(o) {
-  const row = { lead_id: o.leadId, cliente_id: o.clienteId || null, etapa: o.etapa, resultado_id: o.resultadoId || null, observacao: o.observacao || null, criado_por: o.criadoPor || null };
+  const row = {
+    lead_id: o.leadId, cliente_id: o.clienteId || null, etapa_nova: o.etapaNova || null,
+    etapa_anterior: o.etapaAnterior || null, resultado_id: o.resultadoId || null,
+    observacao: o.observacao || null, criado_por: o.criadoPor || null,
+    tipo_interacao: o.tipoInteracao || 'pipeline', canal_id: o.canalId || null,
+    responsavel_id: o.responsavelId || null, campanha_id: o.campanhaId || null,
+    origem_evento: o.origemEvento || 'manual', agente_ia_id: o.agenteIaId || null
+  };
   const { data, error } = await cdaClient.from('cda_historico_interacoes').insert(row).select().single();
   if (error) throw error;
   return CDA_HISTORICO_MAP.fromRow(data);
@@ -529,8 +541,9 @@ async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
   if (errIns) throw errIns;
 
   const histRows = (inseridos || []).map(l => ({
-    lead_id: l.id, cliente_id: l.cliente_id, etapa: l.etapa, resultado_id: null,
-    observacao: 'Entrou no funil via campanha "' + campanha.nome + '"', criado_por: usuario || 'Usuário'
+    lead_id: l.id, cliente_id: l.cliente_id, etapa_nova: l.etapa, resultado_id: null,
+    observacao: 'Entrou no funil via campanha "' + campanha.nome + '"', criado_por: usuario || 'Usuário',
+    tipo_interacao: 'pipeline', origem_evento: 'manual', campanha_id: campanha.id
   }));
   if (histRows.length) {
     const { error: errHist } = await cdaClient.from('cda_historico_interacoes').insert(histRows);
