@@ -98,7 +98,7 @@ async function montarModuloCampanhas(containerId) {
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🧭 Roteiro de Canais</label></div>' +
           '<div class="fgr"><label>Esse público já é conhecido (nome/contato) ou é gente anônima?</label><select id="camp-m-conhecido"><option value="">—</option><option value="conhecido">Conhecido</option><option value="anonimo">Anônimo</option></select></div>' +
           '<div class="fgr"><label>Ele já demonstrou interesse recente, ou está frio?</label><select id="camp-m-temperatura"><option value="">—</option><option value="quente">Quente</option><option value="frio">Frio</option></select></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Canais escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Meios escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
@@ -111,14 +111,6 @@ async function montarModuloCampanhas(containerId) {
             '<textarea id="camp-m-modelo-msg" rows="4" placeholder="Ex: Oi {nome}! ... a última peça foi {ultima_peca} ..."></textarea>' +
             '<button class="btn sm" id="camp-m-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
             '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico}</div>' +
-          '</div>' +
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
-            '<label style="font-size:11px">🎯 Modelo de Tarefa (Roadmap) <span class="tmu" style="font-weight:400">— usado pra gerar as tarefas de cada lead</span></label>' +
-            '<textarea id="camp-m-tarefa-msg" rows="3" placeholder="Ex: Ligar para {nome} e oferecer..."></textarea>' +
-            '<div style="display:flex;gap:7px;margin-top:5px">' +
-              '<button class="btn sm" id="camp-m-tarefa-gerar-ia" type="button">🔄 Gerar com IA</button>' +
-              '<button class="btn sm" id="camp-m-tarefa-copiar-ia" type="button">📋 Usar Mensagem Final</button>' +
-            '</div>' +
           '</div>' +
         '</div></div>' +
         '<div class="mo-f">' +
@@ -257,7 +249,7 @@ async function montarModuloCampanhas(containerId) {
     if (!confirm('Gerar o Roadmap de Tarefas pra ' + leadsCampanha.length + ' lead(s) desta campanha?\n\nCada lead vira 1 tarefa (Data Início/Prevista vêm do período da campanha; Responsável vem do que já estiver escolhido em cada Lead no Pipeline). Quem já tem tarefa desta campanha não duplica.')) return;
 
     var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
-    var template = campanha.modeloTarefaFinal || campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida || 'Fazer contato com {nome} sobre a campanha "' + campanha.nome + '".';
+    var template = campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida || 'Fazer contato com {nome} sobre a campanha "' + campanha.nome + '".';
     var textoOriginal = btn.textContent;
     btn.textContent = 'Gerando...'; btn.disabled = true;
     try {
@@ -380,7 +372,6 @@ async function montarModuloCampanhas(containerId) {
     host.querySelector('#camp-m-estrategia').value = c ? (c.estrategiaCanal || '') : '';
     host.querySelector('#camp-m-modelo-msg').value = c ? (c.modeloMensagemFinal || '') : '';
     host.querySelector('#camp-m-modelo-sugerida').textContent = c && c.modeloMensagemSugerida ? c.modeloMensagemSugerida : 'Nenhuma sugestão gerada ainda — clica em "Gerar sugestão com IA".';
-    host.querySelector('#camp-m-tarefa-msg').value = c ? (c.modeloTarefaFinal || '') : '';
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
@@ -406,8 +397,7 @@ async function montarModuloCampanhas(containerId) {
       canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
       estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim(),
       modeloMensagemFinal: host.querySelector('#camp-m-modelo-msg').value.trim(),
-      modeloMensagemSugerida: host.querySelector('#camp-m-modelo-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-modelo-sugerida').textContent,
-      modeloTarefaFinal: host.querySelector('#camp-m-tarefa-msg').value.trim()
+      modeloMensagemSugerida: host.querySelector('#camp-m-modelo-sugerida').textContent.indexOf('Nenhuma sugestão') === 0 ? null : host.querySelector('#camp-m-modelo-sugerida').textContent
     };
     var salvo;
     try {
@@ -482,43 +472,6 @@ async function montarModuloCampanhas(containerId) {
     var sugerida = host.querySelector('#camp-m-modelo-sugerida').textContent;
     if (sugerida.indexOf('Nenhuma sugestão') === 0) { alert('Gere uma sugestão com a IA primeiro.'); return; }
     host.querySelector('#camp-m-modelo-msg').value = sugerida;
-  });
-  host.querySelector('#camp-m-tarefa-gerar-ia').addEventListener('click', async function () {
-    var btn = this;
-    var textoOriginal = btn.textContent;
-    btn.textContent = 'Gerando (chamando a IA)...'; btn.disabled = true;
-    try {
-      var campanhaTemp = {
-        nome: host.querySelector('#camp-m-nome').value.trim(), objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
-        beneficioTipo: selBeneficio.value, beneficioValor: parseFloat(host.querySelector('#camp-m-beneficio-valor').value) || null,
-        beneficioCondicoes: host.querySelector('#camp-m-beneficio-condicoes').value.trim(),
-        publicoConhecido: host.querySelector('#camp-m-conhecido').value || null, publicoTemperatura: host.querySelector('#camp-m-temperatura').value || null,
-        canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
-        estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
-      };
-      var mensagemFinalAtual = host.querySelector('#camp-m-modelo-msg').value.trim();
-      var mensagemSugeridaAtual = host.querySelector('#camp-m-modelo-sugerida').textContent;
-      var mensagemReferencia = mensagemFinalAtual || (mensagemSugeridaAtual.indexOf('Nenhuma sugestão') !== 0 ? mensagemSugeridaAtual : '');
-      var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp, 'tarefa', mensagemReferencia);
-      host.querySelector('#camp-m-tarefa-msg').value = texto;
-      if (ST.editId) {
-        await cdaSalvarCampoCampanha(ST.editId, 'modelo_tarefa_final', texto);
-        var campanhaAtual = ST.campanhas.find(function (c) { return String(c.id) === String(ST.editId); });
-        if (campanhaAtual) campanhaAtual.modeloTarefaFinal = texto;
-      }
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao gerar sugestão com IA:\n' + ((err && err.message) || 'Erro desconhecido'));
-    } finally {
-      btn.textContent = textoOriginal; btn.disabled = false;
-    }
-  });
-  host.querySelector('#camp-m-tarefa-copiar-ia').addEventListener('click', function () {
-    var mensagemFinal = host.querySelector('#camp-m-modelo-msg').value.trim();
-    var mensagemSugerida = host.querySelector('#camp-m-modelo-sugerida').textContent;
-    var fonte = mensagemFinal || (mensagemSugerida.indexOf('Nenhuma sugestão') !== 0 ? mensagemSugerida : '');
-    if (!fonte) { alert('Preencha a Mensagem Final, ou gere uma sugestão de mensagem com a IA primeiro.'); return; }
-    host.querySelector('#camp-m-tarefa-msg').value = fonte;
   });
   host.querySelector('#camp-m-salvar').addEventListener('click', salvar);
   host.querySelector('#camp-m-excluir').addEventListener('click', excluir);
