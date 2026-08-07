@@ -62,6 +62,7 @@ async function montarModuloPipelineB2C(containerId) {
       '.pb2c-busca-item:hover{background:var(--card,#f5f0e8);}' +
       '.pb2c-vinculado{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:8px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;}' +
       '.pb2c-aviso-duplicata{font-size:10px;color:var(--rust,#c0392b);margin-top:4px;cursor:pointer;text-decoration:underline;}' +
+      '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Pipeline B2C</div><div class="sec-d">Funil de leads do consumidor final — arrastar um card abre a confirmação de transição</div></div>' +
@@ -93,6 +94,7 @@ async function montarModuloPipelineB2C(containerId) {
           '<div class="fgr"><label>Telefone</label><input type="text" id="pb2c-m-tel"></div>' +
           '<div class="fgr"><label>E-mail</label><input type="email" id="pb2c-m-email"></div>' +
           '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div></div>' +
           '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
           '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
           '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
@@ -452,6 +454,12 @@ async function montarModuloPipelineB2C(containerId) {
     selCanal.innerHTML = '<option value="">—</option>' + ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
       .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
     selCanal.value = l ? (l.canalId || '') : '';
+    var campanhaDoLeadMeios = l ? campanhaPorId[l.campanhaId] : null;
+    host.querySelector('#pb2c-m-meios').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
+      return '<label><input type="checkbox" class="pb2c-meio-check" value="' + c.id + '"> ' + c.label + '</label>';
+    }).join('');
+    var meiosAtivos = (l && l.meiosSelecionados != null) ? l.meiosSelecionados : ((campanhaDoLeadMeios && campanhaDoLeadMeios.canaisSelecionados) || []);
+    host.querySelectorAll('.pb2c-meio-check').forEach(function (chk) { chk.checked = meiosAtivos.indexOf(chk.value) !== -1; });
     var etapaAtualEl = host.querySelector('#pb2c-m-etapa-atual');
     etapaAtualEl.textContent = l ? CDA_ETAPAS_B2C.find(function (e) { return e.id === l.etapa; }).label : 'Novo Lead (ao salvar)';
     host.querySelector('#pb2c-m-valor').value = l ? (l.valorEstimado != null ? l.valorEstimado : '') : '';
@@ -555,6 +563,7 @@ async function montarModuloPipelineB2C(containerId) {
       campanhaId: existente ? existente.campanhaId : null,
       motivoPerda: existente ? existente.motivoPerda : null,
       mensagemFinalUsuario: host.querySelector('#pb2c-m-msg-final').value.trim(),
+      meiosSelecionados: Array.from(host.querySelectorAll('.pb2c-meio-check:checked')).map(function (c) { return c.value; }),
       movidoEm: existente ? existente.movidoEm : new Date().toISOString()
     };
     try {
@@ -672,6 +681,14 @@ async function montarModuloPipelineB2C(containerId) {
         }
       });
     });
+    var btnSalvarTar = host.querySelector('#pb2c-tf-salvar');
+    if (lista.length) {
+      btnSalvarTar.disabled = true;
+      btnSalvarTar.textContent = 'Tarefa já criada';
+    } else {
+      btnSalvarTar.disabled = false;
+      btnSalvarTar.textContent = '💾 Criar Tarefa';
+    }
   }
   function abrirModalTarefas(leadId) {
     tarefaLeadAtual = leadId;
@@ -681,7 +698,7 @@ async function montarModuloPipelineB2C(containerId) {
     if (lead) {
       var campanha = campanhaPorId[lead.campanhaId];
       var cliente = clientePorId[lead.clienteId];
-      var template = (campanha && (campanha.modeloTarefaFinal || campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || 'Fazer contato com {nome}.';
+      var template = (campanha && (campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || 'Fazer contato com {nome}.';
       var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
       descricaoPreenchida = cdaExplodirTemplate(template, dados);
     }
