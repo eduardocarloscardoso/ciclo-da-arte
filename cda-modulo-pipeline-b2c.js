@@ -660,8 +660,16 @@ async function montarModuloPipelineB2C(containerId) {
     tarefaLeadAtual = leadId;
     var lead = ST.leads.find(function (x) { return x.id === leadId; });
     host.querySelector('#pb2c-tf-title').textContent = 'Tarefas & Follow-up — ' + (lead ? lead.nome : '');
-    host.querySelector('#pb2c-tf-desc').value = '';
-    host.querySelector('#pb2c-tf-resp').value = '';
+    var descricaoPreenchida = '';
+    if (lead) {
+      var campanha = campanhaPorId[lead.campanhaId];
+      var cliente = clientePorId[lead.clienteId];
+      var template = (campanha && (campanha.modeloTarefaFinal || campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || 'Fazer contato com {nome}.';
+      var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
+      descricaoPreenchida = cdaExplodirTemplate(template, dados);
+    }
+    host.querySelector('#pb2c-tf-desc').value = descricaoPreenchida;
+    host.querySelector('#pb2c-tf-resp').value = lead && lead.responsavelId ? lead.responsavelId : '';
     host.querySelector('#pb2c-tf-prioridade').value = 'media';
     host.querySelector('#pb2c-tf-prevista').value = '';
     renderTarefasDoLead();
