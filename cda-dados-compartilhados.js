@@ -631,15 +631,17 @@ async function cdaSalvarMensagensLote(atualizacoes) {
 }
 
 // Chama a Edge Function (servidor) que usa a Claude API com a chave guardada
-// em segredo — o navegador nunca vê a chave, só o resultado.
-async function cdaGerarSugestaoMensagemIA(campanha, tipo) {
+// em segredo — o navegador nunca vê a chave, só o resultado. Quando tipo
+// é 'tarefa', mensagemReferencia é passada pra IA ADAPTAR a mensagem em
+// instrução de ação, em vez de ignorá-la.
+async function cdaGerarSugestaoMensagemIA(campanha, tipo, mensagemReferencia) {
   const { data, error } = await cdaClient.functions.invoke('gerar-modelo-mensagem', {
     body: {
       nomeCampanha: campanha.nome, objetivo: campanha.objetivo,
       beneficioTipo: campanha.beneficioTipo, beneficioValor: campanha.beneficioValor, beneficioCondicoes: campanha.beneficioCondicoes,
       publicoConhecido: campanha.publicoConhecido, publicoTemperatura: campanha.publicoTemperatura,
       canaisSelecionados: campanha.canaisSelecionados, estrategiaCanal: campanha.estrategiaCanal,
-      tipo: tipo || 'mensagem'
+      tipo: tipo || 'mensagem', mensagemReferencia: mensagemReferencia || null
     }
   });
   if (error) throw error;
