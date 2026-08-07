@@ -153,12 +153,12 @@ async function montarModuloPipelineB2C(containerId) {
         '<div class="mo-h"><h3 id="pb2c-tf-title">Tarefas &amp; Follow-up</h3><button class="mo-x" id="pb2c-tf-x">✕</button></div>' +
         '<div class="mo-b">' +
           '<div class="pb2c-hist" id="pb2c-tf-lista" style="max-height:160px;margin-bottom:14px"></div>' +
-          '<div class="seg-and" style="margin:0 0 8px">＋ Nova tarefa (já vinculada a este lead)</div>' +
           '<div class="fg">' +
-            '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><input type="text" id="pb2c-tf-desc" placeholder="Ex: Ligar pra confirmar interesse"></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><textarea id="pb2c-tf-desc" rows="3" placeholder="Ex: Ligar pra confirmar interesse"></textarea></div>' +
             '<div class="fgr"><label>Responsável</label><select id="pb2c-tf-resp"><option value="">—</option></select></div>' +
             '<div class="fgr"><label>Prioridade</label><select id="pb2c-tf-prioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>' +
-            '<div class="fgr" style="grid-column:1/-1"><label>Data Prevista</label><input type="date" id="pb2c-tf-prevista"></div>' +
+            '<div class="fgr"><label>Data Início</label><input type="date" id="pb2c-tf-inicio"></div>' +
+            '<div class="fgr"><label>Data Fim</label><input type="date" id="pb2c-tf-prevista"></div>' +
           '</div>' +
         '</div>' +
         '<div class="mo-f"><button class="btn" id="pb2c-tf-fechar">Fechar</button><button class="btn rust" id="pb2c-tf-salvar">💾 Criar Tarefa</button></div>' +
@@ -688,7 +688,9 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-tf-desc').value = descricaoPreenchida;
     host.querySelector('#pb2c-tf-resp').value = lead && lead.responsavelId ? lead.responsavelId : '';
     host.querySelector('#pb2c-tf-prioridade').value = 'media';
-    host.querySelector('#pb2c-tf-prevista').value = '';
+    var campanhaDoLeadTar = lead ? campanhaPorId[lead.campanhaId] : null;
+    host.querySelector('#pb2c-tf-inicio').value = (campanhaDoLeadTar && campanhaDoLeadTar.periodoInicio) || new Date().toISOString().slice(0, 10);
+    host.querySelector('#pb2c-tf-prevista').value = (campanhaDoLeadTar && campanhaDoLeadTar.periodoFim) || '';
     renderTarefasDoLead();
     modalTarefas.classList.add('op');
   }
@@ -707,13 +709,14 @@ async function montarModuloPipelineB2C(containerId) {
         descricao: descricao, leadId: tarefaLeadAtual, clienteId: lead ? lead.clienteId : null, campanhaId: lead ? lead.campanhaId : null,
         responsavelId: host.querySelector('#pb2c-tf-resp').value ? Number(host.querySelector('#pb2c-tf-resp').value) : null,
         prioridade: host.querySelector('#pb2c-tf-prioridade').value, status: 'pendente',
-        dataInicio: new Date().toISOString().slice(0, 10), dataPrevista: host.querySelector('#pb2c-tf-prevista').value || null,
+        dataInicio: host.querySelector('#pb2c-tf-inicio').value || new Date().toISOString().slice(0, 10),
+        dataPrevista: host.querySelector('#pb2c-tf-prevista').value || null,
         criadoPor: nomeUsuarioAtual()
       });
       ST.tarefas.push(nova);
       host.querySelector('#pb2c-tf-desc').value = '';
-      host.querySelector('#pb2c-tf-prevista').value = '';
       renderTarefasDoLead();
+      alert('✓ Tarefa criada com êxito!');
     } catch (err) {
       console.error(err);
       alert('Erro ao criar tarefa:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
