@@ -235,7 +235,8 @@ const CDA_LEAD_B2C_MAP = {
     resultadoId: r.resultado_id != null ? Number(r.resultado_id) : null,
     campanhaId: r.campanha_id != null ? Number(r.campanha_id) : null,
     responsavelId: r.responsavel_id != null ? Number(r.responsavel_id) : null,
-    mensagemSugerida: r.mensagem_sugerida, mensagemFinalUsuario: r.mensagem_final_usuario
+    mensagemSugerida: r.mensagem_sugerida, mensagemFinalUsuario: r.mensagem_final_usuario,
+    meiosSelecionados: r.meios_selecionados
   }),
   toRow: o => ({
     id: o.id, nome: o.nome || null, telefone: o.telefone || null, email: o.email || null,
@@ -246,7 +247,8 @@ const CDA_LEAD_B2C_MAP = {
     campanha_id: o.campanhaId != null ? o.campanhaId : null,
     responsavel_id: o.responsavelId != null ? o.responsavelId : null,
     mensagem_sugerida: o.mensagemSugerida != null ? o.mensagemSugerida : undefined,
-    mensagem_final_usuario: o.mensagemFinalUsuario != null ? o.mensagemFinalUsuario : undefined
+    mensagem_final_usuario: o.mensagemFinalUsuario != null ? o.mensagemFinalUsuario : undefined,
+    meios_selecionados: o.meiosSelecionados !== undefined ? o.meiosSelecionados : undefined
   })
 };
 async function cdaCarregarLeadsB2C() {
