@@ -650,11 +650,28 @@ async function montarModuloPipelineB2C(containerId) {
     var box = host.querySelector('#pb2c-tf-lista');
     box.innerHTML = lista.length ? lista.map(function (t) {
       var resp = equipePorId[t.responsavelId];
-      return '<div class="pb2c-hist-item"><b>' + t.descricao + '</b> ' +
+      return '<div class="pb2c-hist-item" style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">' +
+        '<div><b>' + t.descricao + '</b> ' +
         '<span class="pb2c-resultado-badge" style="background:' + PRIOR_COR_PB2C[t.prioridade || 'media'] + '">' + (t.prioridade || 'media') + '</span><br>' +
         (resp ? resp.nome + ' · ' : '') + 'status: ' + (t.status || 'pendente') + (t.dataPrevista ? ' · prevista ' + t.dataPrevista.split('-').reverse().join('/') : '') +
+        '</div>' +
+        '<button class="btn sm" data-excluir-tarefa-pipeline="' + t.id + '" title="Excluir tarefa" style="flex-shrink:0">🗑</button>' +
         '</div>';
     }).join('') : '<div class="pb2c-hist-item">Nenhuma tarefa registrada pra este lead ainda.</div>';
+    box.querySelectorAll('[data-excluir-tarefa-pipeline]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        if (!confirm('Excluir esta tarefa?')) return;
+        var tarefaId = btn.dataset.excluirTarefaPipeline;
+        try {
+          await cdaExcluirTarefa(tarefaId);
+          ST.tarefas = ST.tarefas.filter(function (t) { return String(t.id) !== String(tarefaId); });
+          renderTarefasDoLead();
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao excluir:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+        }
+      });
+    });
   }
   function abrirModalTarefas(leadId) {
     tarefaLeadAtual = leadId;
