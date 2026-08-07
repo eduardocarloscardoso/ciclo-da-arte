@@ -604,8 +604,10 @@ function cdaCalcularDadosVariaveis(lead, cliente, compras, canalPorId) {
   var diasParado = ultima && ultima.dataCompra ? Math.floor((Date.now() - new Date(ultima.dataCompra).getTime()) / 86400000) : null;
   var valorTotal = comprasCliente.reduce(function (s, cp) { return s + (Number(cp.valorTotal) || 0); }, 0);
   var canal = ultima && canalPorId ? canalPorId[String(ultima.canalId)] : null;
+  var primeiroNome = (lead.nome || (cliente && cliente.nome) || '').split(' ')[0] || '';
+  if (primeiroNome) primeiroNome = primeiroNome.charAt(0).toUpperCase() + primeiroNome.slice(1).toLowerCase();
   return {
-    nome: (lead.nome || (cliente && cliente.nome) || '').split(' ')[0] || (lead.nome || ''),
+    nome: primeiroNome,
     cidade: (cliente && cliente.cidade) || '',
     dias_parado: diasParado != null ? String(diasParado) : '',
     ultima_peca: ultima ? (ultima.produto || 'uma peça especial') : 'uma peça especial',
