@@ -496,7 +496,10 @@ async function montarModuloCampanhas(containerId) {
         canaisSelecionados: Array.from(host.querySelectorAll('.camp-canal-check:checked')).map(function (c) { return c.value; }),
         estrategiaCanal: host.querySelector('#camp-m-estrategia').value.trim()
       };
-      var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp, 'tarefa');
+      var mensagemFinalAtual = host.querySelector('#camp-m-modelo-msg').value.trim();
+      var mensagemSugeridaAtual = host.querySelector('#camp-m-modelo-sugerida').textContent;
+      var mensagemReferencia = mensagemFinalAtual || (mensagemSugeridaAtual.indexOf('Nenhuma sugestão') !== 0 ? mensagemSugeridaAtual : '');
+      var texto = await cdaGerarSugestaoMensagemIA(campanhaTemp, 'tarefa', mensagemReferencia);
       host.querySelector('#camp-m-tarefa-msg').value = texto;
       if (ST.editId) {
         await cdaSalvarCampoCampanha(ST.editId, 'modelo_tarefa_final', texto);
