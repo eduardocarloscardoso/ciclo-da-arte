@@ -31,6 +31,7 @@ var CDA_ETAPAS_B2C = [
 var CDA_ETAPA_LABEL_CATALOGO = { novo_lead: 'Novo Lead', contato: 'Contato', engajado: 'Engajado', compra: 'Compra', fidelizacao: 'Fidelização' };
 
 async function montarModuloPipelineB2C(containerId) {
+  window._cdaAbrirLeadPipeline = null;
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
