@@ -124,10 +124,17 @@ async function montarModuloDiarioComercial(containerId) {
         var leadId = item.dataset.leadId;
         if (!leadId) return;
         navigateCRM('pipelineb2c');
-        setTimeout(function () {
+        var tentativas = 0;
+        var esperar = setInterval(function () {
+          tentativas++;
           var abrir = window._cdaAbrirLeadPipeline;
-          if (typeof abrir === 'function') abrir(leadId);
-        }, 300);
+          if (typeof abrir === 'function') {
+            clearInterval(esperar);
+            abrir(leadId);
+          } else if (tentativas > 40) {
+            clearInterval(esperar);
+          }
+        }, 100);
       });
     });
   }
