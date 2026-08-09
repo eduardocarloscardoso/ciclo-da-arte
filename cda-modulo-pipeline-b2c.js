@@ -73,6 +73,7 @@ async function montarModuloPipelineB2C(containerId) {
       '.pb2c-diario-item:hover{background:var(--card,#f5f0e8);}' +
       '.pb2c-diario-item .dt{display:flex;justify-content:space-between;font-weight:700;font-size:12px;}' +
       '.pb2c-diario-item .dd{color:var(--muted,#888);font-size:10px;margin-top:2px;}' +
+      '@media (max-width:600px){.pb2c-diario-panel{width:100%;max-width:100%;}}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Pipeline B2C</div><div class="sec-d">Funil de leads do consumidor final — arrastar um card abre a confirmação de transição</div></div>' +
