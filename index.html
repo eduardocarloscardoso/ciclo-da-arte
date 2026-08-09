@@ -15,7 +15,6 @@
 <script src="cda-modulo-pipeline-b2c.js"></script>
 <script src="cda-modulo-campanhas.js"></script>
 <script src="cda-modulo-tutorial.js"></script>
-<script src="cda-modulo-diario-comercial.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -529,7 +528,6 @@ function renderSidebarNav(){
       if(podeVerSubmodulo('comercial','campanhas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='campanhas'?'active':'')+'" id="nav-crm-campanhas" onclick="navigateCRM(\'campanhas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📣</span>Campanhas</div>';
       if(podeVerSubmodulo('comercial','pipelineb2c'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
       if(podeVerSubmodulo('comercial','tarefas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
-      if(podeVerSubmodulo('comercial','diario'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='diario'?'active':'')+'" id="nav-crm-diario" onclick="navigateCRM(\'diario\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📔</span>Diário Comercial</div>';
       if(podeVerSubmodulo('comercial','tutorial'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tutorial'?'active':'')+'" id="nav-crm-tutorial" onclick="navigateCRM(\'tutorial\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📘</span>Tutorial</div>';
     }
     if(currentProject==='financeiro'){
@@ -607,7 +605,7 @@ async function navigateCRM(pageId){
   }
   window._crmPage=pageId;
   renderSidebarNav();
-  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',diario:'Diário Comercial',tutorial:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
+  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
   document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId);
   var el=document.getElementById('main-content');
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');
@@ -636,9 +634,6 @@ async function navigateCRM(pageId){
   }else if(pageId==='tarefas'){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-tarefas"></div>';
     montarModuloTarefas('container-tarefas');
-  }else if(pageId==='diario'){
-    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-diario"></div></div>';
-    montarModuloDiarioComercial('container-diario');
   }else if(pageId==='tutorial'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-tutorial"></div></div>';
     montarModuloTutorial('container-tutorial');
