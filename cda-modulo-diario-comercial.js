@@ -40,6 +40,7 @@ async function montarModuloDiarioComercial(containerId) {
       '<div><div class="sec-t">📔 Diário Comercial</div><div class="sec-d">Feed cronológico de todas as interações do funil — clique numa linha pra abrir o Lead</div></div>' +
     '</div>' +
     '<div class="fb">' +
+      '<input type="text" id="dc-f-cliente" placeholder="🔎 Buscar por lead/cliente...">' +
       '<select id="dc-f-campanha"><option value="">Todas as campanhas</option></select>' +
       '<select id="dc-f-resp"><option value="">Todos os responsáveis</option></select>' +
       '<select id="dc-f-tipo"><option value="">Todos os tipos</option></select>' +
@@ -79,12 +80,17 @@ async function montarModuloDiarioComercial(containerId) {
   }
 
   function getFiltro() {
+    var fCliente = host.querySelector('#dc-f-cliente').value.trim().toLowerCase();
     var fCampanha = host.querySelector('#dc-f-campanha').value;
     var fResp = host.querySelector('#dc-f-resp').value;
     var fTipo = host.querySelector('#dc-f-tipo').value;
     var fDe = host.querySelector('#dc-f-de').value;
     var fAte = host.querySelector('#dc-f-ate').value;
     return ST.historico.filter(function (h) {
+      if (fCliente) {
+        var lead = leadPorId[h.leadId];
+        if (!lead || (lead.nome || '').toLowerCase().indexOf(fCliente) === -1) return false;
+      }
       if (fCampanha && String(h.campanhaId) !== fCampanha) return false;
       if (fResp && String(h.responsavelId) !== fResp) return false;
       if (fTipo && h.tipoInteracao !== fTipo) return false;
@@ -129,6 +135,7 @@ async function montarModuloDiarioComercial(containerId) {
     });
   }
 
+  host.querySelector('#dc-f-cliente').addEventListener('input', render);
   host.querySelector('#dc-f-campanha').addEventListener('change', render);
   host.querySelector('#dc-f-resp').addEventListener('change', render);
   host.querySelector('#dc-f-tipo').addEventListener('change', render);
