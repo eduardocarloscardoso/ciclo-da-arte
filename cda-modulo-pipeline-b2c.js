@@ -31,7 +31,6 @@ var CDA_ETAPAS_B2C = [
 var CDA_ETAPA_LABEL_CATALOGO = { novo_lead: 'Novo Lead', contato: 'Contato', engajado: 'Engajado', compra: 'Compra', fidelizacao: 'Fidelização' };
 
 async function montarModuloPipelineB2C(containerId) {
-  window._cdaAbrirLeadPipeline = null;
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
@@ -64,6 +63,16 @@ async function montarModuloPipelineB2C(containerId) {
       '.pb2c-vinculado{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:8px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;}' +
       '.pb2c-aviso-duplicata{font-size:10px;color:var(--rust,#c0392b);margin-top:4px;cursor:pointer;text-decoration:underline;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
+      '.pb2c-diario-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;}' +
+      '.pb2c-diario-overlay.op{display:block;}' +
+      '.pb2c-diario-panel{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:92vw;background:var(--paper,#fff);border-left:2px solid var(--ink,#1a1a1a);box-shadow:-4px 0 16px rgba(0,0,0,.15);display:flex;flex-direction:column;padding:16px;overflow-y:auto;}' +
+      '.pb2c-diario-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}' +
+      '.pb2c-diario-filtros{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;}' +
+      '.pb2c-diario-filtros input,.pb2c-diario-filtros select{font-family:Syne,sans-serif;font-size:11px;padding:6px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
+      '.pb2c-diario-item{border:1px solid var(--border2,#ccc);padding:8px 10px;margin-bottom:6px;cursor:pointer;font-size:11px;}' +
+      '.pb2c-diario-item:hover{background:var(--card,#f5f0e8);}' +
+      '.pb2c-diario-item .dt{display:flex;justify-content:space-between;font-weight:700;font-size:12px;}' +
+      '.pb2c-diario-item .dd{color:var(--muted,#888);font-size:10px;margin-top:2px;}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Pipeline B2C</div><div class="sec-d">Funil de leads do consumidor final — arrastar um card abre a confirmação de transição</div></div>' +
@@ -75,9 +84,22 @@ async function montarModuloPipelineB2C(containerId) {
       '<select id="pb2c-f-canal"><option value="">Todos os canais</option></select>' +
       '<select id="pb2c-f-resp"><option value="">Todos os responsáveis</option></select>' +
       '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
+      '<button class="btn sm" id="pb2c-btn-diario">📔 Diário</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
     '<div class="pb2c-board" id="pb2c-board"></div>' +
+
+    '<div class="pb2c-diario-overlay" id="pb2c-diario-overlay">' +
+      '<div class="pb2c-diario-panel">' +
+        '<div class="pb2c-diario-head"><span>📔 Diário Comercial</span><button class="mo-x" id="pb2c-diario-x" style="color:var(--ink,#1a1a1a)">✕</button></div>' +
+        '<div class="pb2c-diario-filtros">' +
+          '<input type="text" id="pb2c-diario-f-cliente" placeholder="🔎 Buscar lead/cliente...">' +
+          '<select id="pb2c-diario-f-campanha"><option value="">Todas as campanhas</option></select>' +
+          '<select id="pb2c-diario-f-tipo"><option value="">Todos os tipos</option></select>' +
+        '</div>' +
+        '<div id="pb2c-diario-lista"></div>' +
+      '</div>' +
+    '</div>' +
 
     '<div class="mo" id="pb2c-modal">' +
       '<div class="mo-box">' +
@@ -274,6 +296,73 @@ async function montarModuloPipelineB2C(containerId) {
       });
     });
   }
+
+  // ── Painel Diário Comercial (deslizante, dentro do Pipeline) ────────
+  var ST_DIARIO = { historico: null, carregando: false };
+  var diarioOverlay = host.querySelector('#pb2c-diario-overlay');
+  function fmtDataHoraDiario(iso) {
+    var d = new Date(iso);
+    return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  }
+  function renderDiario() {
+    var fCliente = host.querySelector('#pb2c-diario-f-cliente').value.trim().toLowerCase();
+    var fCampanha = host.querySelector('#pb2c-diario-f-campanha').value;
+    var fTipo = host.querySelector('#pb2c-diario-f-tipo').value;
+    var lista = (ST_DIARIO.historico || []).filter(function (h) {
+      if (fCliente) {
+        var lead = ST.leads.find(function (x) { return x.id === h.leadId; });
+        if (!lead || (lead.nome || '').toLowerCase().indexOf(fCliente) === -1) return false;
+      }
+      if (fCampanha && String(h.campanhaId) !== fCampanha) return false;
+      if (fTipo && h.tipoInteracao !== fTipo) return false;
+      return true;
+    });
+    var box = host.querySelector('#pb2c-diario-lista');
+    box.innerHTML = lista.length ? lista.map(function (h) {
+      var lead = ST.leads.find(function (x) { return x.id === h.leadId; });
+      var campanha = campanhaPorId[h.campanhaId];
+      var descricao = h.etapaNova ? (h.etapaAnterior ? h.etapaAnterior + ' → ' + h.etapaNova : h.etapaNova) : (h.observacao || 'Interação');
+      return '<div class="pb2c-diario-item" data-lead-id="' + (h.leadId || '') + '">' +
+        '<div class="dt"><span>' + (lead ? lead.nome : '—') + '</span><span style="font-weight:400">' + fmtDataHoraDiario(h.criadoEm) + '</span></div>' +
+        '<div class="dd">' + descricao + (campanha ? ' · ' + campanha.nome : '') + '</div>' +
+      '</div>';
+    }).join('') : '<p class="tmu" style="font-size:11px">Nenhuma interação encontrada.</p>';
+    box.querySelectorAll('.pb2c-diario-item').forEach(function (item) {
+      item.addEventListener('click', function () {
+        var leadId = item.dataset.leadId;
+        if (!leadId) return;
+        diarioOverlay.classList.remove('op');
+        abrirModalInfo(leadId);
+      });
+    });
+  }
+  async function abrirDiario() {
+    diarioOverlay.classList.add('op');
+    if (ST_DIARIO.historico) { renderDiario(); return; }
+    if (ST_DIARIO.carregando) return;
+    ST_DIARIO.carregando = true;
+    host.querySelector('#pb2c-diario-lista').innerHTML = '<p class="tmu" style="font-size:11px">Carregando...</p>';
+    try {
+      ST_DIARIO.historico = await cdaCarregarHistoricoCompleto();
+      renderDiario();
+    } catch (err) {
+      console.error(err);
+      host.querySelector('#pb2c-diario-lista').innerHTML = '<p style="color:var(--rust,#c0392b);font-size:11px">Erro ao carregar o diário.</p>';
+    }
+    ST_DIARIO.carregando = false;
+  }
+  host.querySelector('#pb2c-diario-f-campanha').innerHTML = '<option value="">Todas as campanhas</option>' +
+    ST.campanhas.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
+      .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+  host.querySelector('#pb2c-diario-f-tipo').innerHTML = '<option value="">Todos os tipos</option>' +
+    [{ id: 'pipeline', label: 'Movimentação de Pipeline' }, { id: 'ligacao', label: 'Ligação' }, { id: 'whatsapp', label: 'WhatsApp' }, { id: 'email', label: 'E-mail' }, { id: 'reuniao', label: 'Reunião' }, { id: 'tarefa_criada', label: 'Tarefa Criada' }, { id: 'outro', label: 'Outro' }]
+      .map(function (t) { return '<option value="' + t.id + '">' + t.label + '</option>'; }).join('');
+  host.querySelector('#pb2c-btn-diario').addEventListener('click', abrirDiario);
+  host.querySelector('#pb2c-diario-x').addEventListener('click', function () { diarioOverlay.classList.remove('op'); });
+  diarioOverlay.addEventListener('click', function (e) { if (e.target === diarioOverlay) diarioOverlay.classList.remove('op'); });
+  host.querySelector('#pb2c-diario-f-cliente').addEventListener('input', renderDiario);
+  host.querySelector('#pb2c-diario-f-campanha').addEventListener('change', renderDiario);
+  host.querySelector('#pb2c-diario-f-tipo').addEventListener('change', renderDiario);
 
   var modalT = host.querySelector('#pb2c-modal-transicao');
   function abrirModalTransicao(leadId, novaEtapa) {
@@ -779,11 +868,5 @@ async function montarModuloPipelineB2C(containerId) {
     }
   });
 
-  window._cdaAbrirLeadPipeline = abrirModalInfo;
   render();
-  if (window._cdaAbrirLeadPendente) {
-    var leadPendente = window._cdaAbrirLeadPendente;
-    window._cdaAbrirLeadPendente = null;
-    abrirModalInfo(leadPendente);
-  }
 }
