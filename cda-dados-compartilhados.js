@@ -285,6 +285,12 @@ async function cdaCarregarHistoricoPorLead(leadId) {
   if (error) throw error;
   return (data || []).map(CDA_HISTORICO_MAP.fromRow);
 }
+// Carrega TODO o histórico (todos os leads) — usado pelo Diário Comercial
+// (feed geral). Paginado via cdaFetchAll, mais recente primeiro.
+async function cdaCarregarHistoricoCompleto() {
+  const rows = await cdaFetchAll('cda_historico_interacoes', '*', 'criado_em');
+  return rows.map(CDA_HISTORICO_MAP.fromRow).reverse();
+}
 async function cdaSalvarHistoricoInteracao(o) {
   const row = {
     lead_id: o.leadId, cliente_id: o.clienteId || null, etapa_nova: o.etapaNova || null,
