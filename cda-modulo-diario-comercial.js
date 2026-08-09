@@ -123,18 +123,8 @@ async function montarModuloDiarioComercial(containerId) {
       item.addEventListener('click', function () {
         var leadId = item.dataset.leadId;
         if (!leadId) return;
+        window._cdaAbrirLeadPendente = leadId;
         navigateCRM('pipelineb2c');
-        var tentativas = 0;
-        var esperar = setInterval(function () {
-          tentativas++;
-          var abrir = window._cdaAbrirLeadPipeline;
-          if (typeof abrir === 'function') {
-            clearInterval(esperar);
-            abrir(leadId);
-          } else if (tentativas > 40) {
-            clearInterval(esperar);
-          }
-        }, 100);
       });
     });
   }
