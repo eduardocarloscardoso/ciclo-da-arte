@@ -781,4 +781,9 @@ async function montarModuloPipelineB2C(containerId) {
 
   window._cdaAbrirLeadPipeline = abrirModalInfo;
   render();
+  if (window._cdaAbrirLeadPendente) {
+    var leadPendente = window._cdaAbrirLeadPendente;
+    window._cdaAbrirLeadPendente = null;
+    abrirModalInfo(leadPendente);
+  }
 }
