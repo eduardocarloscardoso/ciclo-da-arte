@@ -81,40 +81,61 @@ async function montarModuloPipelineB2C(containerId) {
     '<div class="mo" id="pb2c-modal">' +
       '<div class="mo-box">' +
         '<div class="mo-h"><h3 id="pb2c-modal-title">Novo Lead</h3><button class="mo-x" id="pb2c-modal-x">✕</button></div>' +
-        '<div class="mo-b"><div class="fg">' +
-          '<div class="fgr pb2c-busca-wrap" style="grid-column:1/-1" id="pb2c-m-busca-wrap">' +
-            '<label>Buscar cliente existente (nome, telefone ou e-mail)</label>' +
-            '<input type="text" id="pb2c-m-busca" placeholder="Digite pelo menos 3 letras...">' +
-            '<div class="pb2c-busca-resultados" id="pb2c-m-busca-resultados" style="display:none"></div>' +
+        '<div class="pb2c-tabs" id="pb2c-tabs" style="display:none;background:var(--ink,#1a1a1a);padding:0 20px">' +
+          '<button class="pb2c-tab-btn active" data-tab="dados" style="background:none;border:none;color:var(--cream,#faf7f2);padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid var(--rust,#c0392b)">Dados</button>' +
+          '<button class="pb2c-tab-btn" data-tab="historico" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Histórico</button>' +
+          '<button class="pb2c-tab-btn" data-tab="compras" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Compras</button>' +
+          '<button class="pb2c-tab-btn" data-tab="tarefas" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Tarefas</button>' +
+        '</div>' +
+        '<div class="mo-b">' +
+          '<div id="pb2c-tabpanel-dados"><div class="fg">' +
+            '<div class="fgr pb2c-busca-wrap" style="grid-column:1/-1" id="pb2c-m-busca-wrap">' +
+              '<label>Buscar cliente existente (nome, telefone ou e-mail)</label>' +
+              '<input type="text" id="pb2c-m-busca" placeholder="Digite pelo menos 3 letras...">' +
+              '<div class="pb2c-busca-resultados" id="pb2c-m-busca-resultados" style="display:none"></div>' +
+            '</div>' +
+            '<div class="fgr" style="grid-column:1/-1;display:none" id="pb2c-m-vinculado-wrap">' +
+              '<div class="pb2c-vinculado"><span id="pb2c-m-vinculado-texto"></span><button class="btn sm" id="pb2c-m-trocar-cliente">Trocar</button></div>' +
+            '</div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="pb2c-m-nome"><div class="pb2c-aviso-duplicata" id="pb2c-m-aviso-duplicata" style="display:none"></div></div>' +
+            '<div class="fgr"><label>Telefone</label><input type="text" id="pb2c-m-tel"></div>' +
+            '<div class="fgr"><label>E-mail</label><input type="email" id="pb2c-m-email"></div>' +
+            '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div></div>' +
+            '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
+            '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
+            '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
+            '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
+              '<label style="font-size:11px">💬 Mensagem Sugerida (gerada — nunca tem {variável} crua)</label>' +
+              '<div class="pb2c-hist" id="pb2c-m-msg-sugerida" style="min-height:50px"></div>' +
+              '<button class="btn sm" id="pb2c-m-msg-gerar" style="margin-top:5px">🔄 Gerar/Regenerar</button>' +
+            '</div>' +
+            '<div class="fgr" style="grid-column:1/-1">' +
+              '<label>Mensagem Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
+              '<textarea id="pb2c-m-msg-final" rows="3" placeholder="Deixe em branco pra usar a mensagem sugerida acima como está"></textarea>' +
+              '<button class="btn sm" id="pb2c-m-msg-copiar" style="margin-top:5px">📋 Copiar mensagem final</button>' +
+            '</div>' +
+          '</div></div>' +
+          '<div id="pb2c-tabpanel-historico" style="display:none"><div class="pb2c-hist" id="pb2c-m-hist" style="max-height:400px"></div></div>' +
+          '<div id="pb2c-tabpanel-compras" style="display:none">' +
+            '<div id="pb2c-c-resumo" class="pb2c-transicao-info" style="text-align:left"></div>' +
+            '<div class="pb2c-hist" id="pb2c-c-lista" style="max-height:320px"></div>' +
           '</div>' +
-          '<div class="fgr" style="grid-column:1/-1;display:none" id="pb2c-m-vinculado-wrap">' +
-            '<div class="pb2c-vinculado"><span id="pb2c-m-vinculado-texto"></span><button class="btn sm" id="pb2c-m-trocar-cliente">Trocar</button></div>' +
+          '<div id="pb2c-tabpanel-tarefas" style="display:none">' +
+            '<div class="pb2c-hist" id="pb2c-tf-lista" style="max-height:160px;margin-bottom:14px"></div>' +
+            '<div class="fg">' +
+              '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><textarea id="pb2c-tf-desc" rows="3" placeholder="Ex: Ligar pra confirmar interesse"></textarea></div>' +
+              '<div class="fgr"><label>Responsável</label><select id="pb2c-tf-resp"><option value="">—</option></select></div>' +
+              '<div class="fgr"><label>Prioridade</label><select id="pb2c-tf-prioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>' +
+              '<div class="fgr"><label>Data Início</label><input type="date" id="pb2c-tf-inicio"></div>' +
+              '<div class="fgr"><label>Data Fim</label><input type="date" id="pb2c-tf-prevista"></div>' +
+            '</div>' +
+            '<button class="btn rust" id="pb2c-tf-salvar" style="margin-top:12px">💾 Criar Tarefa</button>' +
           '</div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="pb2c-m-nome"><div class="pb2c-aviso-duplicata" id="pb2c-m-aviso-duplicata" style="display:none"></div></div>' +
-          '<div class="fgr"><label>Telefone</label><input type="text" id="pb2c-m-tel"></div>' +
-          '<div class="fgr"><label>E-mail</label><input type="email" id="pb2c-m-email"></div>' +
-          '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div></div>' +
-          '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
-          '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
-          '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
-            '<label style="font-size:11px">💬 Mensagem Sugerida (gerada — nunca tem {variável} crua)</label>' +
-            '<div class="pb2c-hist" id="pb2c-m-msg-sugerida" style="min-height:50px"></div>' +
-            '<button class="btn sm" id="pb2c-m-msg-gerar" style="margin-top:5px">🔄 Gerar/Regenerar</button>' +
-          '</div>' +
-          '<div class="fgr" style="grid-column:1/-1">' +
-            '<label>Mensagem Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
-            '<textarea id="pb2c-m-msg-final" rows="3" placeholder="Deixe em branco pra usar a mensagem sugerida acima como está"></textarea>' +
-            '<button class="btn sm" id="pb2c-m-msg-copiar" style="margin-top:5px">📋 Copiar mensagem final</button>' +
-          '</div>' +
-          '<div class="fgr" style="grid-column:1/-1" id="pb2c-m-hist-wrap"><label>Histórico de interações</label><div class="pb2c-hist" id="pb2c-m-hist"></div></div>' +
-        '</div></div>' +
+        '</div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="pb2c-m-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
-          '<button class="btn" id="pb2c-m-ver-compras" style="display:none">🛒 Ver Histórico de Compras</button>' +
-          '<button class="btn" id="pb2c-m-tarefas">✅ Tarefas &amp; Follow-up</button>' +
           '<button class="btn" id="pb2c-m-mover" style="display:none">🔀 Mover de Etapa</button>' +
           '<button class="btn" id="pb2c-m-cancelar">Cancelar</button>' +
           '<button class="btn rust" id="pb2c-m-salvar">💾 Salvar</button>' +
@@ -136,34 +157,6 @@ async function montarModuloPipelineB2C(containerId) {
           '<button class="btn" id="pb2c-t-cancelar">Cancelar</button>' +
           '<button class="btn rust" id="pb2c-t-confirmar">✓ Confirmar Movimentação</button>' +
         '</div>' +
-      '</div>' +
-    '</div>' +
-
-    '<div class="mo" id="pb2c-modal-compras">' +
-      '<div class="mo-box">' +
-        '<div class="mo-h"><h3 id="pb2c-c-title">Histórico de Compras</h3><button class="mo-x" id="pb2c-c-x">✕</button></div>' +
-        '<div class="mo-b">' +
-          '<div id="pb2c-c-resumo" class="pb2c-transicao-info" style="text-align:left"></div>' +
-          '<div class="pb2c-hist" id="pb2c-c-lista" style="max-height:260px"></div>' +
-        '</div>' +
-        '<div class="mo-f"><button class="btn" id="pb2c-c-fechar">Fechar</button></div>' +
-      '</div>' +
-    '</div>' +
-
-    '<div class="mo" id="pb2c-modal-tarefas">' +
-      '<div class="mo-box">' +
-        '<div class="mo-h"><h3 id="pb2c-tf-title">Tarefas &amp; Follow-up</h3><button class="mo-x" id="pb2c-tf-x">✕</button></div>' +
-        '<div class="mo-b">' +
-          '<div class="pb2c-hist" id="pb2c-tf-lista" style="max-height:160px;margin-bottom:14px"></div>' +
-          '<div class="fg">' +
-            '<div class="fgr" style="grid-column:1/-1"><label>Descrição *</label><textarea id="pb2c-tf-desc" rows="3" placeholder="Ex: Ligar pra confirmar interesse"></textarea></div>' +
-            '<div class="fgr"><label>Responsável</label><select id="pb2c-tf-resp"><option value="">—</option></select></div>' +
-            '<div class="fgr"><label>Prioridade</label><select id="pb2c-tf-prioridade"><option value="baixa">Baixa</option><option value="media" selected>Média</option><option value="alta">Alta</option></select></div>' +
-            '<div class="fgr"><label>Data Início</label><input type="date" id="pb2c-tf-inicio"></div>' +
-            '<div class="fgr"><label>Data Fim</label><input type="date" id="pb2c-tf-prevista"></div>' +
-          '</div>' +
-        '</div>' +
-        '<div class="mo-f"><button class="btn" id="pb2c-tf-fechar">Fechar</button><button class="btn rust" id="pb2c-tf-salvar">💾 Criar Tarefa</button></div>' +
       '</div>' +
     '</div>';
 
@@ -358,6 +351,48 @@ async function montarModuloPipelineB2C(containerId) {
   }
 
   var modal = host.querySelector('#pb2c-modal');
+  function trocarAba(tab) {
+    ['dados', 'historico', 'compras', 'tarefas'].forEach(function (t) {
+      var painel = host.querySelector('#pb2c-tabpanel-' + t);
+      if (painel) painel.style.display = (t === tab) ? '' : 'none';
+      var btn = host.querySelector('.pb2c-tab-btn[data-tab="' + t + '"]');
+      if (btn) { btn.style.opacity = (t === tab) ? '1' : '.6'; btn.style.borderBottomColor = (t === tab) ? 'var(--rust,#c0392b)' : 'transparent'; }
+    });
+    if (tab === 'historico') carregarAbaHistorico();
+    if (tab === 'compras') carregarAbaCompras();
+    if (tab === 'tarefas') abrirModalTarefas(ST.editId);
+  }
+  async function carregarAbaHistorico() {
+    if (!ST.editId) return;
+    var histBox = host.querySelector('#pb2c-m-hist');
+    histBox.innerHTML = '<div class="pb2c-hist-item">Carregando...</div>';
+    try {
+      var hist = await cdaCarregarHistoricoPorLead(ST.editId);
+      histBox.innerHTML = hist.length ? hist.map(function (h) {
+        var r = statusCrmById[h.resultadoId];
+        var d = new Date(h.criadoEm);
+        var etapaNovaInfo = CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaNova; });
+        var etapaAnteriorInfo = h.etapaAnterior ? CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaAnterior; }) : null;
+        var labelEtapa = etapaAnteriorInfo && etapaNovaInfo ? (etapaAnteriorInfo.label + ' → ' + etapaNovaInfo.label) : (etapaNovaInfo ? etapaNovaInfo.label : (h.observacao || 'Interação'));
+        return '<div class="pb2c-hist-item"><b>' + d.toLocaleDateString('pt-BR') + '</b> — ' + labelEtapa +
+          (r ? ' · ' + r.nome : '') + (h.observacao ? '<br><i>' + h.observacao + '</i>' : '') +
+          (h.criadoPor ? '<br><span style="color:var(--muted,#888)">por ' + h.criadoPor + '</span>' : '') + '</div>';
+      }).join('') : '<div class="pb2c-hist-item">Nenhuma movimentação registrada ainda.</div>';
+    } catch (err) { histBox.innerHTML = '<div class="pb2c-hist-item">Erro ao carregar histórico.</div>'; }
+  }
+  function carregarAbaCompras() {
+    var lead = ST.editId ? ST.leads.find(function (x) { return x.id === ST.editId; }) : null;
+    var lista = host.querySelector('#pb2c-c-lista');
+    if (!lead || !lead.clienteId) {
+      host.querySelector('#pb2c-c-resumo').innerHTML = '<span class="tmu">Este lead ainda não está vinculado a um cliente cadastrado.</span>';
+      lista.innerHTML = '';
+      return;
+    }
+    abrirHistoricoCompras(lead.clienteId);
+  }
+  host.querySelectorAll('.pb2c-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { trocarAba(btn.dataset.tab); });
+  });
 
   function buscarClientes(termo) {
     var t = termo.trim().toLowerCase();
@@ -473,9 +508,8 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-m-resp').value = l ? (l.responsavelId || '') : '';
     host.querySelector('#pb2c-m-obs').value = l ? (l.obs || '') : '';
     host.querySelector('#pb2c-m-excluir').style.display = id ? 'inline-block' : 'none';
-    host.querySelector('#pb2c-m-ver-compras').style.display = (l && l.clienteId) ? 'inline-block' : 'none';
-    host.querySelector('#pb2c-m-ver-compras').dataset.clienteId = l ? (l.clienteId || '') : '';
     host.querySelector('#pb2c-m-mover').style.display = id ? 'inline-block' : 'none';
+    host.querySelector('#pb2c-tabs').style.display = id ? '' : 'none';
 
     // Busca de cliente existente só faz sentido na criação de um lead novo
     ST.clienteSelecionado = null;
@@ -500,27 +534,8 @@ async function montarModuloPipelineB2C(containerId) {
       host.querySelector('#pb2c-m-trocar-cliente').style.display = '';
     }
 
-    var histWrap = host.querySelector('#pb2c-m-hist-wrap');
-    var histBox = host.querySelector('#pb2c-m-hist');
-    if (id) {
-      histWrap.style.display = '';
-      histBox.innerHTML = '<div class="pb2c-hist-item">Carregando...</div>';
-      try {
-        var hist = await cdaCarregarHistoricoPorLead(id);
-        histBox.innerHTML = hist.length ? hist.map(function (h) {
-          var r = statusCrmById[h.resultadoId];
-          var d = new Date(h.criadoEm);
-          var etapaNovaInfo = CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaNova; });
-          var etapaAnteriorInfo = h.etapaAnterior ? CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaAnterior; }) : null;
-          var labelEtapa = etapaAnteriorInfo && etapaNovaInfo ? (etapaAnteriorInfo.label + ' → ' + etapaNovaInfo.label) : (etapaNovaInfo ? etapaNovaInfo.label : (h.observacao || 'Interação'));
-          return '<div class="pb2c-hist-item"><b>' + d.toLocaleDateString('pt-BR') + '</b> — ' + labelEtapa +
-            (r ? ' · ' + r.nome : '') + (h.observacao ? '<br><i>' + h.observacao + '</i>' : '') +
-            (h.criadoPor ? '<br><span style="color:var(--muted,#888)">por ' + h.criadoPor + '</span>' : '') + '</div>';
-        }).join('') : '<div class="pb2c-hist-item">Nenhuma movimentação registrada ainda.</div>';
-      } catch (err) { histBox.innerHTML = '<div class="pb2c-hist-item">Erro ao carregar histórico.</div>'; }
-    } else {
-      histWrap.style.display = 'none';
-    }
+    tarefaLeadAtual = id;
+    trocarAba('dados');
     modal.classList.add('op');
   }
   function fecharModal() { modal.classList.remove('op'); }
@@ -608,15 +623,12 @@ async function montarModuloPipelineB2C(containerId) {
   host.querySelector('#pb2c-m-salvar').addEventListener('click', salvar);
   host.querySelector('#pb2c-m-excluir').addEventListener('click', excluir);
 
-  // ── Popup de Histórico de Compras (resumido) ────────────────────────
-  var modalCompras = host.querySelector('#pb2c-modal-compras');
+  // ── Aba Compras (dentro do modal do Lead) ────────────────────────────
   function abrirHistoricoCompras(clienteId) {
     var cliente = ST.clientes.find(function (c) { return String(c.id) === String(clienteId); });
     var statusInfo = cliente ? statusCrmById[cliente.statusCrmId] : null;
     var comprasCliente = ST.compras.filter(function (cp) { return String(cp.clienteId) === String(clienteId); })
       .sort(function (a, b) { return (b.dataCompra || '').localeCompare(a.dataCompra || ''); });
-
-    host.querySelector('#pb2c-c-title').textContent = 'Histórico de Compras — ' + (cliente ? cliente.nome : '');
 
     var totalGasto = comprasCliente.reduce(function (s, cp) { return s + (Number(cp.valorTotal) || 0); }, 0);
     var qtdPedidos = new Set(comprasCliente.map(function (cp) { return cp.numeroPedido; }).filter(Boolean)).size || comprasCliente.length;
@@ -639,22 +651,11 @@ async function montarModuloPipelineB2C(containerId) {
         ' — R$ ' + Number(cp.valorTotal || 0).toLocaleString('pt-BR') +
         (canal ? ' <span style="color:var(--muted,#888)">(' + canal.nome + ')</span>' : '') + '</div>';
     }).join('') : '<div class="pb2c-hist-item">Nenhuma compra registrada.</div>';
-
-    modalCompras.classList.add('op');
   }
-  host.querySelector('#pb2c-m-ver-compras').addEventListener('click', function () {
-    var clienteId = this.dataset.clienteId;
-    if (!clienteId) return;
-    abrirHistoricoCompras(clienteId);
-  });
-  host.querySelector('#pb2c-c-x').addEventListener('click', function () { modalCompras.classList.remove('op'); });
-  host.querySelector('#pb2c-c-fechar').addEventListener('click', function () { modalCompras.classList.remove('op'); });
-
-  // ── Popup de Tarefas & Follow-up (lista + criação rápida já vinculada) ──
+  // ── Aba Tarefas (dentro do modal do Lead) ────────────────────────────
   host.querySelector('#pb2c-tf-resp').innerHTML = '<option value="">—</option>' +
     ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
 
-  var modalTarefas = host.querySelector('#pb2c-modal-tarefas');
   var tarefaLeadAtual = null;
   var PRIOR_COR_PB2C = { baixa: '#6B7280', media: '#F59E0B', alta: '#c0392b' };
 
@@ -697,7 +698,6 @@ async function montarModuloPipelineB2C(containerId) {
   function abrirModalTarefas(leadId) {
     tarefaLeadAtual = leadId;
     var lead = ST.leads.find(function (x) { return x.id === leadId; });
-    host.querySelector('#pb2c-tf-title').textContent = 'Tarefas & Follow-up — ' + (lead ? lead.nome : '');
     var descricaoPreenchida = '';
     if (lead) {
       var campanha = campanhaPorId[lead.campanhaId];
@@ -713,14 +713,7 @@ async function montarModuloPipelineB2C(containerId) {
     host.querySelector('#pb2c-tf-inicio').value = (campanhaDoLeadTar && campanhaDoLeadTar.periodoInicio) || new Date().toISOString().slice(0, 10);
     host.querySelector('#pb2c-tf-prevista').value = (campanhaDoLeadTar && campanhaDoLeadTar.periodoFim) || '';
     renderTarefasDoLead();
-    modalTarefas.classList.add('op');
   }
-  host.querySelector('#pb2c-m-tarefas').addEventListener('click', function () {
-    if (!ST.editId) return;
-    abrirModalTarefas(ST.editId);
-  });
-  host.querySelector('#pb2c-tf-x').addEventListener('click', function () { modalTarefas.classList.remove('op'); });
-  host.querySelector('#pb2c-tf-fechar').addEventListener('click', function () { modalTarefas.classList.remove('op'); });
   host.querySelector('#pb2c-tf-salvar').addEventListener('click', async function () {
     var descricao = host.querySelector('#pb2c-tf-desc').value.trim();
     if (!descricao) { alert('Informe a descrição da tarefa.'); return; }
@@ -785,5 +778,6 @@ async function montarModuloPipelineB2C(containerId) {
     }
   });
 
+  window._cdaAbrirLeadPipeline = abrirModalInfo;
   render();
 }
