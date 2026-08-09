@@ -327,8 +327,9 @@ async function montarModuloPipelineB2C(containerId) {
       var idx = ST.leads.findIndex(function (x) { return x.id === salvo.id; });
       ST.leads[idx] = salvo;
       await cdaSalvarHistoricoInteracao({
-        leadId: salvo.id, clienteId: salvo.clienteId, etapa: novaEtapa,
-        resultadoId: resultadoId ? Number(resultadoId) : null, observacao: observacao, criadoPor: nomeUsuarioAtual()
+        leadId: salvo.id, clienteId: salvo.clienteId, etapaNova: novaEtapa, etapaAnterior: etapaAnterior,
+        resultadoId: resultadoId ? Number(resultadoId) : null, observacao: observacao, criadoPor: nomeUsuarioAtual(),
+        tipoInteracao: 'pipeline', canalId: salvo.canalId, responsavelId: salvo.responsavelId, campanhaId: salvo.campanhaId
       });
       fecharModalTransicao();
       render();
@@ -509,7 +510,10 @@ async function montarModuloPipelineB2C(containerId) {
         histBox.innerHTML = hist.length ? hist.map(function (h) {
           var r = statusCrmById[h.resultadoId];
           var d = new Date(h.criadoEm);
-          return '<div class="pb2c-hist-item"><b>' + d.toLocaleDateString('pt-BR') + '</b> — ' + CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapa; }).label +
+          var etapaNovaInfo = CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaNova; });
+          var etapaAnteriorInfo = h.etapaAnterior ? CDA_ETAPAS_B2C.find(function (e) { return e.id === h.etapaAnterior; }) : null;
+          var labelEtapa = etapaAnteriorInfo && etapaNovaInfo ? (etapaAnteriorInfo.label + ' → ' + etapaNovaInfo.label) : (etapaNovaInfo ? etapaNovaInfo.label : (h.observacao || 'Interação'));
+          return '<div class="pb2c-hist-item"><b>' + d.toLocaleDateString('pt-BR') + '</b> — ' + labelEtapa +
             (r ? ' · ' + r.nome : '') + (h.observacao ? '<br><i>' + h.observacao + '</i>' : '') +
             (h.criadoPor ? '<br><span style="color:var(--muted,#888)">por ' + h.criadoPor + '</span>' : '') + '</div>';
         }).join('') : '<div class="pb2c-hist-item">Nenhuma movimentação registrada ainda.</div>';
@@ -573,7 +577,7 @@ async function montarModuloPipelineB2C(containerId) {
         ST.leads[idx] = salvo;
       } else {
         ST.leads.push(salvo);
-        await cdaSalvarHistoricoInteracao({ leadId: salvo.id, clienteId: salvo.clienteId, etapa: 'novo_lead', resultadoId: null, observacao: 'Lead criado', criadoPor: nomeUsuarioAtual() });
+        await cdaSalvarHistoricoInteracao({ leadId: salvo.id, clienteId: salvo.clienteId, etapaNova: 'novo_lead', resultadoId: null, observacao: 'Lead criado', criadoPor: nomeUsuarioAtual(), tipoInteracao: 'pipeline' });
       }
       fecharModal();
       popularFiltros();
