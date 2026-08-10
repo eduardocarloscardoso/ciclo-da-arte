@@ -86,6 +86,7 @@ async function montarModuloPipelineB2C(containerId) {
       '<select id="pb2c-f-resp"><option value="">Todos os responsáveis</option></select>' +
       '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
       '<button class="btn sm" id="pb2c-btn-diario">📔 Diário</button>' +
+      '<button class="btn sm" id="pb2c-btn-export-whats">📲 Exportar WhatsApp</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
     '<div class="pb2c-board" id="pb2c-board"></div>' +
@@ -235,6 +236,45 @@ async function montarModuloPipelineB2C(containerId) {
       if (fResp && String(l.responsavelId) !== fResp) return false;
       return true;
     });
+  }
+
+  function formatarTelefoneWhats(tel) {
+    var d = (tel || '').replace(/\D/g, '');
+    if (!d) return '';
+    if (d.length === 11) return '+55 (' + d.slice(0, 2) + ') ' + d.slice(2);
+    if (d.length === 10) return '+55 (' + d.slice(0, 2) + ') ' + d.slice(2);
+    return '+55 ' + d;
+  }
+
+  function exportarLeadsWhatsApp() {
+    var fCampanhaId = host.querySelector('#pb2c-f-campanha').value;
+    if (!fCampanhaId || fCampanhaId === '__sem_campanha__') {
+      alert('Selecione uma campanha específica no filtro "Todas as campanhas" antes de exportar.\n\nA mensagem exportada varia por campanha, então a exportação precisa ser feita campanha por campanha.');
+      return;
+    }
+    var campanha = campanhaPorId[fCampanhaId];
+    var lista = getFiltro().filter(function (l) { return l.mensagemSugerida && l.mensagemSugerida.trim(); });
+    if (!lista.length) {
+      alert('Nenhum lead com mensagem sugerida gerada para os filtros atuais.\n\nGere as mensagens primeiro com o botão "🚀 Gerar Mensagens (filtrados)".');
+      return;
+    }
+    var header = ['DESCRIÇÃO MENSAGEM WHATSAPP BUSINESS ', 'VARIAVEL CONTATO  NOME ', 'CONTATO TELEFONE WHATSAPP '];
+    var linhas = lista.map(function (l) {
+      return [l.mensagemSugerida, l.nome || '', formatarTelefoneWhats(l.telefone)];
+    });
+    var ws = XLSX.utils.aoa_to_sheet([header].concat(linhas));
+    ws['!cols'] = [{ wch: 90 }, { wch: 30 }, { wch: 22 }];
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'PIPELINE RISCO');
+    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    var blob = new Blob([wbout], { type: 'application/octet-stream' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var nomeCampanha = (campanha ? campanha.nome : 'campanha').replace(/[^\w\-]+/g, '_');
+    var dataStr = new Date().toISOString().slice(0, 10);
+    a.href = url; a.download = 'Exportacao_Leads_Campanha_WhatsApp_' + nomeCampanha + '_' + dataStr + '.xlsx';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   function diasParado(movidoEm) {
@@ -848,6 +888,7 @@ async function montarModuloPipelineB2C(containerId) {
   host.querySelector('#pb2c-f-cliente').addEventListener('input', render);
   host.querySelector('#pb2c-f-canal').addEventListener('change', render);
   host.querySelector('#pb2c-f-resp').addEventListener('change', render);
+  host.querySelector('#pb2c-btn-export-whats').addEventListener('click', exportarLeadsWhatsApp);
   host.querySelector('#pb2c-btn-gerar-msg-filtro').addEventListener('click', async function () {
     var lista = getFiltro();
     if (!lista.length) { alert('Nenhum lead corresponde aos filtros atuais.'); return; }
