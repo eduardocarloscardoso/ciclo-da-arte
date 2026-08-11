@@ -352,6 +352,7 @@ var PROJETOS={
   comercial:{icon:'🛍',label:'Comercial',desc:'CRM, clientes e vendas'},
   marketing:{icon:'📣',label:'Marketing',desc:'Roadmap, ações e KPIs'},
   financeiro:{icon:'💰',label:'Financeiro',desc:'Prestação de contas'},
+  estoque:{icon:'📦',label:'Estoque',desc:'Planejamento de compras e estoque'},
   sac:{icon:'🎧',label:'SAC Cliente',desc:'Atendimento e suporte'},
   calendario:{icon:'📅',label:'Calendário',desc:'Eventos e ações'}
 };
@@ -361,6 +362,8 @@ var RC={ceo:{label:'CEO / Dono',pages:['dashboard','roadmap','modulos','kpis','a
 var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Roadmap'},modulos:{icon:'🧩',label:'Módulos'},kpis:{icon:'📈',label:'KPIs & Metas'},acoes:{icon:'✅',label:'Plano de Ações'},equipe:{icon:'👥',label:'Equipe & Acessos'},config:{icon:'⚙',label:'Configurações'},credenciamento:{icon:'🔑',label:'Credenciamento de Usuários'}};
 // Submenu do CRM — compartilhado entre Comercial e Financeiro (Etapa 1 da unificação)
 var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
+// Submenu do módulo Estoque — primeiro submódulo: Planejamento de Compras (projeção por tipo de peça)
+var ESTOQUE_PAGES={planejcompras:{icon:'📈',label:'Planejamento de Compras'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -379,7 +382,13 @@ function setDate(){var d=new Date();document.getElementById('topbar-date').textC
 // isReadOnly(): true quando o usuário logado só pode visualizar, nunca gravar.
 function isReadOnly(){return cu&&cu.permissao==='leitura';}
 function canAccess(page){return RC[cu.role]&&RC[cu.role].pages.indexOf(page)>=0;}
-function canAccessProject(projKey){return cu&&(cu.is_admin||(cu.projetos||[]).indexOf(projKey)>=0);}
+function canAccessProject(projKey){
+  if(!cu)return false;
+  if(cu.is_admin)return true;
+  // Estoque não tem permissão própria: espelha sempre quem já tem acesso ao Financeiro.
+  if(projKey==='estoque')return (cu.projetos||[]).indexOf('financeiro')>=0;
+  return (cu.projetos||[]).indexOf(projKey)>=0;
+}
 
 async function initApp(){
   // Restaurar sessão real (Supabase Auth) — funciona ao voltar de outro
@@ -541,6 +550,15 @@ function renderSidebarNav(){
       if(podeVerSubmodulo('financeiro','cardapios'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cardapios'?'active':'')+'" id="nav-crm-cardapios" onclick="navigateCRM(\'cardapios\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📋</span>Cardápios</div>';
     }
   }
+  if(currentProject==='estoque'){
+    nav.innerHTML+='<div class="sb-section">Estoque</div>';
+    Object.keys(ESTOQUE_PAGES).forEach(function(id){
+      if(!podeVerSubmodulo('estoque',id))return;
+      var p=ESTOQUE_PAGES[id];
+      var activeSub=(window._crmPage===id)?'active':'';
+      nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-estoque-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    });
+  }
 }
 async function openProject(key){
   currentProject=key;
@@ -576,6 +594,7 @@ async function openProject(key){
     navigateCRM('clientes');
     return;
   }
+  if(key==='estoque'){navigateCRM('planejcompras');return;}
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
 }
@@ -607,8 +626,8 @@ async function navigateCRM(pageId){
   }
   window._crmPage=pageId;
   renderSidebarNav();
-  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios'};
-  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId);
+  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios',planejcompras:'Planejamento de Compras'};
+  document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(ESTOQUE_PAGES[pageId]?ESTOQUE_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId));
   var el=document.getElementById('main-content');
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');
   if(pageId!=='prest'&&pageId!=='upload'&&pageId!=='cardapios'&&iframeWrap) iframeWrap.style.display='none';
@@ -651,6 +670,12 @@ async function navigateCRM(pageId){
   }else if(pageId==='cfgfin'){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-cfgfin"></div>';
     montarConfigFinanceiro('container-cfgfin');
+  }else if(pageId==='planejcompras'){
+    el.innerHTML=roBanner+'<div class="crm-embed">'+
+      '<div class="sec-t">Planejamento de Compras</div>'+
+      '<div class="sec-d">Projeção de compras de matéria-prima por tipo de peça, com base no histórico de vendas a varejo (exclui Private Label)</div>'+
+      '<div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Parâmetros já validados com o CEO: filtro de período configurável, sazonalidade do 4º trimestre calculada por tipo de peça (excluindo o canal Private Label), com coluna de % sugerido e coluna editável para simulação de cenário. Relatório em desenvolvimento.</p></div>'+
+      '</div>';
   }else if(pageId==='prest'||pageId==='upload'||pageId==='cardapios'){
     el.innerHTML=roBanner;
     var wrap=document.getElementById('financeiro-iframe-wrap');
