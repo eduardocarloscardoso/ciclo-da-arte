@@ -272,7 +272,7 @@ async function montarModuloCompras(containerId, opts) {
           var canalPorNome = {}; ST.canais.forEach(function (c) { if (c.nome) canalPorNome[c.nome.trim().toLowerCase()] = c.id; });
           var produtoPorNome = {}; ST.produtos.forEach(function (p) { if (p.nome) produtoPorNome[p.nome.trim().toLowerCase()] = p.id; });
 
-          var added = 0, updated = 0, erros = 0, semVinculo = 0;
+          var added = 0, updated = 0, erros = 0, semVinculo = 0, produtosCriados = 0;
           for (var i = 0; i < rows.length; i++) {
             var row = rows[i];
             var idRaw = cv(row['id'] || row['ID']);
@@ -280,7 +280,30 @@ async function montarModuloCompras(containerId, opts) {
 
             var clienteId = cv(row['cliente_id']) || clientePorNome[cv(row['cliente_nome']).toLowerCase()] || '';
             var canalId = cv(row['canal_id']) || canalPorNome[cv(row['canal_nome']).toLowerCase()] || '';
-            var produtoId = cv(row['produto_id']) || produtoPorNome[cv(row['produto_nome']).toLowerCase()] || '';
+            var nomeProdutoRow = cv(row['produto_nome']);
+            var produtoId = cv(row['produto_id']) || produtoPorNome[nomeProdutoRow.toLowerCase()] || '';
+
+            // Produto ainda não existe no catálogo: cria automaticamente,
+            // já classificando o tipo de peça pelo nome (mesma lógica usada
+            // na classificação em massa do catálogo).
+            if (!produtoId && nomeProdutoRow) {
+              try {
+                var canalObjImp = canalId ? canalById[canalId] : null;
+                var tipoAuto = typeof cdaClassificarTipoPeca === 'function' ? cdaClassificarTipoPeca(nomeProdutoRow) : null;
+                var novoProdObj = {
+                  id: '', nome: nomeProdutoRow, tipo: tipoAuto,
+                  canalId: canalId || null, parceiroId: canalObjImp ? canalObjImp.parceiroId : null,
+                  status: 'Ativo'
+                };
+                var salvoProd = await cdaSalvarProduto(novoProdObj);
+                ST.produtos.push(salvoProd);
+                produtoById[salvoProd.id] = salvoProd;
+                produtoPorNome[nomeProdutoRow.toLowerCase()] = salvoProd.id;
+                produtoId = salvoProd.id;
+                produtosCriados++;
+              } catch (eProd) { console.error('Erro ao criar produto automaticamente durante import de compras:', eProd); }
+            }
+
             var dataCompra = cv(row['data_compra']);
 
             if (!clienteId || !canalId || !produtoId || !dataCompra) { semVinculo++; continue; }
@@ -307,6 +330,7 @@ async function montarModuloCompras(containerId, opts) {
           host.querySelector('#cdac-file').value = '';
           rerenderFromStart();
           alert('Importação concluída: ' + added + ' adicionadas, ' + updated + ' atualizadas' +
+            (produtosCriados ? ', ' + produtosCriados + ' produto(s) novo(s) criado(s) no catálogo com tipo de peça classificado automaticamente' : '') +
             (semVinculo ? ', ' + semVinculo + ' ignoradas (sem cliente/canal/produto/data)' : '') +
             (erros ? ', ' + erros + ' com erro' : '') + '.');
         } catch (err) {
