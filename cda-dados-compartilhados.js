@@ -288,6 +288,91 @@ function cdaCalcularVendasPorTipoPeca(params) {
   return { linhas: linhas, totais: totais };
 }
 
+// ── Vendas por Canal, dentro de uma Collab/Artista ──────────────────
+// Diferente do rateio de tipo de peça, aqui o canal do "Diversos" é
+// dado REAL (já sabemos exatamente em qual canal cada Diversos
+// aconteceu) — não precisamos ratear/estimar isso. A única estimativa
+// que sobra é converter o R$ do Diversos em nº de peças, já que o
+// campo "quantidade" das linhas de Diversos não é confiável (é
+// contagem de pedido/linha, não de peça física).
+//
+// params: { compras, produtoById, canais, dataIni, dataFim, collabId, canalIdFiltro }
+//   canais: array já carregado via cdaCarregarCanais() (precisa de .parceiroId)
+//   collabId: obrigatório — id do parceiro/collab selecionado
+//   canalIdFiltro: opcional — drill-down num canal específico da collab
+// Retorna: { linhas: [...], totais: {...}, precoMedioCollab }
+function cdaCalcularVendasPorCanal(params) {
+  var compras = params.compras || [];
+  var produtoById = params.produtoById || {};
+  var canais = params.canais || [];
+  var dataIni = params.dataIni, dataFim = params.dataFim;
+  var collabId = params.collabId;
+  var canalIdFiltro = params.canalIdFiltro || null;
+
+  function tipoDe(c) {
+    var p = produtoById[c.produtoId];
+    return p ? p.tipo : null;
+  }
+  function valorDe(c) {
+    if (c.valorTotal != null) return Number(c.valorTotal) || 0;
+    if (c.valorBruto != null) return Number(c.valorBruto) || 0;
+    return 0;
+  }
+
+  var canaisDaCollab = canais.filter(function (c) {
+    return collabId && String(c.parceiroId) === String(collabId) && String(c.id) !== CDA_CANAL_PRIVATE_LABEL_ID;
+  });
+  var canalIds = canaisDaCollab.map(function (c) { return String(c.id); });
+
+  var comprasPeriodo = compras.filter(function (c) {
+    if (!c.dataCompra || canalIds.indexOf(String(c.canalId)) === -1) return false;
+    if (dataIni && c.dataCompra < dataIni) return false;
+    if (dataFim && c.dataCompra > dataFim) return false;
+    return true;
+  });
+
+  var porCanalReal = {}; canalIds.forEach(function (id) { porCanalReal[id] = { qtd: 0, valor: 0 }; });
+  var porCanalDiversos = {}; canalIds.forEach(function (id) { porCanalDiversos[id] = 0; });
+
+  comprasPeriodo.forEach(function (c) {
+    var id = String(c.canalId);
+    var tipo = tipoDe(c);
+    if (tipo === 'Diversos') { porCanalDiversos[id] += valorDe(c); return; }
+    if (!tipo) return;
+    porCanalReal[id].qtd += Number(c.quantidade) || 0;
+    porCanalReal[id].valor += valorDe(c);
+  });
+
+  var totalCollabQtd = canalIds.reduce(function (s, id) { return s + porCanalReal[id].qtd; }, 0);
+  var totalCollabValor = canalIds.reduce(function (s, id) { return s + porCanalReal[id].valor; }, 0);
+  var precoMedioCollab = totalCollabQtd > 0 ? totalCollabValor / totalCollabQtd : 0;
+
+  var linhas = canaisDaCollab.map(function (canal) {
+    var id = String(canal.id);
+    var real = porCanalReal[id];
+    var pctParticipacao = totalCollabValor > 0 ? (real.valor / totalCollabValor) * 100 : 0;
+    var valorDiversos = porCanalDiversos[id];
+    var qtdEstimadaDiversos = precoMedioCollab > 0 ? valorDiversos / precoMedioCollab : 0;
+    return {
+      canal: canal.nome, canalId: id,
+      qtdReal: real.qtd, valorReal: real.valor, pctParticipacao: pctParticipacao,
+      valorDiversos: valorDiversos, qtdEstimadaDiversos: qtdEstimadaDiversos,
+      qtdTotal: real.qtd + qtdEstimadaDiversos, valorTotal: real.valor + valorDiversos
+    };
+  }).filter(function (l) { return l.qtdReal > 0 || l.valorReal > 0 || l.valorDiversos > 0; })
+    .filter(function (l) { return !canalIdFiltro || l.canalId === String(canalIdFiltro); })
+    .sort(function (a, b) { return b.valorTotal - a.valorTotal; });
+
+  var totais = linhas.reduce(function (acc, l) {
+    acc.qtdReal += l.qtdReal; acc.valorReal += l.valorReal;
+    acc.qtdEstimadaDiversos += l.qtdEstimadaDiversos; acc.valorDiversos += l.valorDiversos;
+    acc.qtdTotal += l.qtdTotal; acc.valorTotal += l.valorTotal;
+    return acc;
+  }, { qtdReal: 0, valorReal: 0, qtdEstimadaDiversos: 0, valorDiversos: 0, qtdTotal: 0, valorTotal: 0 });
+
+  return { linhas: linhas, totais: totais, precoMedioCollab: precoMedioCollab };
+}
+
 async function cdaSalvarProduto(o) {
   const row = CDA_PRODUTO_MAP.toRow(o);
   if (!row.id) row.id = cdaUid();
