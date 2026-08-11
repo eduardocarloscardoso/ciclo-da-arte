@@ -208,6 +208,14 @@ function cdaCalcularVendasPorTipoPeca(params) {
   var produtoById = params.produtoById || {};
   var dataIni = params.dataIni, dataFim = params.dataFim;
   var canalId = params.canalId || null;
+  // canalIds: lista opcional de ids — permite escopar por "todos os canais de uma collab".
+  // Se informado, tem prioridade sobre canalId (que continua funcionando sozinho, p/ compatibilidade).
+  var canalIds = params.canalIds ? params.canalIds.map(String) : null;
+  function noEscopo(c) {
+    if (canalIds) return canalIds.indexOf(String(c.canalId)) !== -1;
+    if (canalId) return String(c.canalId) === String(canalId);
+    return true;
+  }
 
   function tipoDe(c) {
     var p = produtoById[c.produtoId];
@@ -227,7 +235,7 @@ function cdaCalcularVendasPorTipoPeca(params) {
     return true;
   });
 
-  // Identificado = tipo != Diversos e != null, usado pra % de participação global (não filtra canal).
+  // Identificado = tipo != Diversos e != null, usado pra % de participação global (não filtra canal/collab).
   var identificadoGlobal = {}; // tipo -> {qtd, valor}
   comprasPeriodoTodos.forEach(function (c) {
     var tipo = tipoDe(c);
@@ -238,18 +246,18 @@ function cdaCalcularVendasPorTipoPeca(params) {
   });
   var valorTotalIdentificadoGlobal = Object.keys(identificadoGlobal).reduce(function (s, t) { return s + identificadoGlobal[t].valor; }, 0);
 
-  // Diversos a ratear — respeita o filtro de canal quando informado.
+  // Diversos a ratear — respeita o filtro de canal/canais quando informado.
   var valorDiversos = 0;
   comprasPeriodoTodos.forEach(function (c) {
-    if (canalId && String(c.canalId) !== String(canalId)) return;
+    if (!noEscopo(c)) return;
     var tipo = tipoDe(c);
     if (tipo === 'Diversos') valorDiversos += valorDe(c);
   });
 
-  // Vendas reais exibidas — respeitam o filtro de canal quando informado.
+  // Vendas reais exibidas — respeitam o filtro de canal/canais quando informado.
   var identificadoExibido = {};
   comprasPeriodoTodos.forEach(function (c) {
-    if (canalId && String(c.canalId) !== String(canalId)) return;
+    if (!noEscopo(c)) return;
     var tipo = tipoDe(c);
     if (!tipo || tipo === 'Diversos') return;
     if (!identificadoExibido[tipo]) identificadoExibido[tipo] = { qtd: 0, valor: 0 };
@@ -287,6 +295,7 @@ function cdaCalcularVendasPorTipoPeca(params) {
 
   return { linhas: linhas, totais: totais };
 }
+
 
 // ── Vendas por Canal, dentro de uma Collab/Artista ──────────────────
 // Diferente do rateio de tipo de peça, aqui o canal do "Diversos" é
