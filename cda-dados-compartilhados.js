@@ -180,6 +180,114 @@ function cdaClassificarTipoPeca(nomeRaw) {
       n.indexOf('JERSEY') === 0) return 'Diversos';
   return null;
 }
+var CDA_CANAL_PRIVATE_LABEL_ID = '1778540708657';
+
+// ── Vendas por Tipo de Peça, com rateio proporcional de "Diversos" ─────
+// Usada pelo submódulo "Vendas por Tipo de Peça" e, futuramente, pelo
+// "Planejamento de Compras" — mesma lógica, uma função só.
+//
+// Metodologia do rateio (validada com o CEO em ago/2026):
+// - % de participação de cada tipo é sempre calculado sobre TODOS os
+//   canais do período filtrado (nunca só o canal selecionado) — mantém
+//   o rateio estatisticamente estável ("Opção A").
+// - Preço médio usado para converter valor estimado em quantidade
+//   estimada também é sempre o preço médio GLOBAL do tipo (todos os
+//   canais), pelo mesmo motivo.
+// - Só as colunas "real" (Qtd/Valor real) e o valor de Diversos a
+//   ratear respeitam o filtro de canal, quando informado.
+// - Private Label é SEMPRE excluído (não é venda de varejo).
+//
+// params: { compras, produtoById, dataIni, dataFim, canalId }
+//   compras: array já carregado via cdaCarregarCompras()
+//   produtoById: mapa id -> produto (precisa ter .tipo)
+//   dataIni/dataFim: strings 'YYYY-MM-DD'
+//   canalId: opcional — string do id do canal para filtrar
+// Retorna: { linhas: [...], totais: {...} }
+function cdaCalcularVendasPorTipoPeca(params) {
+  var compras = params.compras || [];
+  var produtoById = params.produtoById || {};
+  var dataIni = params.dataIni, dataFim = params.dataFim;
+  var canalId = params.canalId || null;
+
+  function tipoDe(c) {
+    var p = produtoById[c.produtoId];
+    return p ? p.tipo : null;
+  }
+  function valorDe(c) {
+    if (c.valorTotal != null) return Number(c.valorTotal) || 0;
+    if (c.valorBruto != null) return Number(c.valorBruto) || 0;
+    return 0;
+  }
+
+  // Base do período — todos os canais, exclui Private Label sempre.
+  var comprasPeriodoTodos = compras.filter(function (c) {
+    if (!c.dataCompra || String(c.canalId) === CDA_CANAL_PRIVATE_LABEL_ID) return false;
+    if (dataIni && c.dataCompra < dataIni) return false;
+    if (dataFim && c.dataCompra > dataFim) return false;
+    return true;
+  });
+
+  // Identificado = tipo != Diversos e != null, usado pra % de participação global (não filtra canal).
+  var identificadoGlobal = {}; // tipo -> {qtd, valor}
+  comprasPeriodoTodos.forEach(function (c) {
+    var tipo = tipoDe(c);
+    if (!tipo || tipo === 'Diversos') return;
+    if (!identificadoGlobal[tipo]) identificadoGlobal[tipo] = { qtd: 0, valor: 0 };
+    identificadoGlobal[tipo].qtd += Number(c.quantidade) || 0;
+    identificadoGlobal[tipo].valor += valorDe(c);
+  });
+  var valorTotalIdentificadoGlobal = Object.keys(identificadoGlobal).reduce(function (s, t) { return s + identificadoGlobal[t].valor; }, 0);
+
+  // Diversos a ratear — respeita o filtro de canal quando informado.
+  var valorDiversos = 0;
+  comprasPeriodoTodos.forEach(function (c) {
+    if (canalId && String(c.canalId) !== String(canalId)) return;
+    var tipo = tipoDe(c);
+    if (tipo === 'Diversos') valorDiversos += valorDe(c);
+  });
+
+  // Vendas reais exibidas — respeitam o filtro de canal quando informado.
+  var identificadoExibido = {};
+  comprasPeriodoTodos.forEach(function (c) {
+    if (canalId && String(c.canalId) !== String(canalId)) return;
+    var tipo = tipoDe(c);
+    if (!tipo || tipo === 'Diversos') return;
+    if (!identificadoExibido[tipo]) identificadoExibido[tipo] = { qtd: 0, valor: 0 };
+    identificadoExibido[tipo].qtd += Number(c.quantidade) || 0;
+    identificadoExibido[tipo].valor += valorDe(c);
+  });
+
+  var tiposOrdenados = Object.keys(identificadoGlobal).sort(function (a, b) {
+    return identificadoGlobal[b].valor - identificadoGlobal[a].valor;
+  });
+
+  var linhas = tiposOrdenados.map(function (tipo) {
+    var g = identificadoGlobal[tipo];
+    var precoMedioReal = g.qtd > 0 ? g.valor / g.qtd : 0;
+    var pctParticipacao = valorTotalIdentificadoGlobal > 0 ? (g.valor / valorTotalIdentificadoGlobal) * 100 : 0;
+    var exib = identificadoExibido[tipo] || { qtd: 0, valor: 0 };
+    var valorEstimadoDiversos = (pctParticipacao / 100) * valorDiversos;
+    var qtdEstimadaDiversos = precoMedioReal > 0 ? valorEstimadoDiversos / precoMedioReal : 0;
+    return {
+      tipo: tipo,
+      qtdReal: exib.qtd, valorReal: exib.valor, precoMedioReal: precoMedioReal,
+      pctParticipacao: pctParticipacao,
+      qtdEstimadaDiversos: qtdEstimadaDiversos, valorEstimadoDiversos: valorEstimadoDiversos,
+      qtdTotal: exib.qtd + qtdEstimadaDiversos, valorTotal: exib.valor + valorEstimadoDiversos
+    };
+  }).filter(function (l) { return l.qtdReal > 0 || l.valorReal > 0 || l.qtdEstimadaDiversos > 0; });
+
+  var totais = linhas.reduce(function (acc, l) {
+    acc.qtdReal += l.qtdReal; acc.valorReal += l.valorReal;
+    acc.qtdEstimadaDiversos += l.qtdEstimadaDiversos; acc.valorEstimadoDiversos += l.valorEstimadoDiversos;
+    acc.qtdTotal += l.qtdTotal; acc.valorTotal += l.valorTotal;
+    return acc;
+  }, { qtdReal: 0, valorReal: 0, qtdEstimadaDiversos: 0, valorEstimadoDiversos: 0, qtdTotal: 0, valorTotal: 0 });
+  totais.valorDiversosFiltrado = valorDiversos;
+
+  return { linhas: linhas, totais: totais };
+}
+
 async function cdaSalvarProduto(o) {
   const row = CDA_PRODUTO_MAP.toRow(o);
   if (!row.id) row.id = cdaUid();
