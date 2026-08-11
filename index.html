@@ -18,6 +18,7 @@
 <script src="cda-modulo-painel-gerencial.js"></script>
 <script src="cda-modulo-planejamento-compras.js"></script>
 <script src="cda-modulo-vendas-tipo-peca.js"></script>
+<script src="cda-modulo-vendas-por-canal.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -364,8 +365,8 @@ var RC={ceo:{label:'CEO / Dono',pages:['dashboard','roadmap','modulos','kpis','a
 var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Roadmap'},modulos:{icon:'🧩',label:'Módulos'},kpis:{icon:'📈',label:'KPIs & Metas'},acoes:{icon:'✅',label:'Plano de Ações'},equipe:{icon:'👥',label:'Equipe & Acessos'},config:{icon:'⚙',label:'Configurações'},credenciamento:{icon:'🔑',label:'Credenciamento de Usuários'}};
 // Submenu do CRM — compartilhado entre Comercial e Financeiro (Etapa 1 da unificação)
 var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
-// Submenu do módulo Estoque — Vendas por Tipo de Peça vem antes do Planejamento de Compras
-var ESTOQUE_PAGES={vendastipopeca:{icon:'🛍',label:'Vendas por Tipo de Peça'},planejcompras:{icon:'📈',label:'Planejamento de Compras'}};
+// Submenu do módulo Estoque
+var ESTOQUE_PAGES={vendastipopeca:{icon:'🛍',label:'Vendas por Tipo de Peça'},vendascanal:{icon:'🏷',label:'Vendas por Canal'},planejcompras:{icon:'📈',label:'Planejamento de Compras'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -675,6 +676,9 @@ async function navigateCRM(pageId){
   }else if(pageId==='vendastipopeca'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-vendastipopeca"></div></div>';
     montarModuloVendasTipoPeca('container-vendastipopeca');
+  }else if(pageId==='vendascanal'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-vendascanal"></div></div>';
+    montarModuloVendasPorCanal('container-vendascanal');
   }else if(pageId==='planejcompras'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-planejcompras"></div></div>';
     montarModuloPlanejamentoCompras('container-planejcompras');
