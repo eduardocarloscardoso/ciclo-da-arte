@@ -10,6 +10,12 @@
 // nº de peças, usando o preço médio real da Collab inteira (estável,
 // mesmo espírito da "Opção A" do relatório de tipo de peça).
 //
+// Abaixo da tabela por canal, uma segunda tabela detalha por Tipo de
+// Peça, escopada pela mesma Collab (e Canal, se drill-down) — reusa
+// cdaCalcularVendasPorTipoPeca com canalIds, mesma metodologia do
+// submódulo "Vendas por Tipo de Peça" (% de participação sempre
+// global/empresa inteira).
+//
 // Somente leitura — não grava nada no banco.
 // Requer cda-dados-compartilhados.js carregado antes.
 // ════════════════════════════════════════════════════════════════════
@@ -64,6 +70,22 @@ async function montarModuloVendasPorCanal(containerId) {
         '</tr></thead>' +
         '<tbody id="cdavpc-tb"></tbody>' +
       '</table></div>' +
+    '</div>' +
+    '<div class="tw" id="cdavpc-bloco-tipo" style="margin-top:16px">' +
+      '<div class="th"><h3 id="cdavpc-tipo-titulo">Detalhamento por Tipo de Peça</h3></div>' +
+      '<div class="cdavpc-tbl-wrap"><table class="cdavpc-tbl">' +
+        '<thead><tr>' +
+          '<th>Tipo de Peça</th>' +
+          '<th class="cdavpc-num">Qtd real</th>' +
+          '<th class="cdavpc-num">Valor real</th>' +
+          '<th class="cdavpc-num">% participação (empresa)</th>' +
+          '<th class="cdavpc-num">Qtd estim. (Diversos)</th>' +
+          '<th class="cdavpc-num">Valor estim. (Diversos)</th>' +
+          '<th class="cdavpc-num">Qtd total</th>' +
+          '<th class="cdavpc-num">Valor total</th>' +
+        '</tr></thead>' +
+        '<tbody id="cdavpc-tb-tipo"></tbody>' +
+      '</table></div>' +
     '</div>';
 
   var ST = { compras: [], produtos: [], canais: [], parceiros: [] };
@@ -111,6 +133,7 @@ async function montarModuloVendasPorCanal(containerId) {
   }
 
   var ULTIMO_RESULTADO = null;
+  var ULTIMO_RESULTADO_TIPO = null;
 
   function render() {
     var collabId = selCollab.value;
@@ -118,7 +141,10 @@ async function montarModuloVendasPorCanal(containerId) {
     if (!collabId) {
       host.querySelector('#cdavpc-kpis').innerHTML = '';
       tb.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Selecione uma Collab/Artista para ver os canais dela.</td></tr>';
+      host.querySelector('#cdavpc-tipo-titulo').textContent = 'Detalhamento por Tipo de Peça';
+      host.querySelector('#cdavpc-tb-tipo').innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Selecione uma Collab/Artista.</td></tr>';
       ULTIMO_RESULTADO = null;
+      ULTIMO_RESULTADO_TIPO = null;
       return;
     }
     var resultado = cdaCalcularVendasPorCanal({
@@ -157,6 +183,51 @@ async function montarModuloVendasPorCanal(containerId) {
       '<td class="cdavpc-num">' + fmtQtd(totais.qtdTotal) + '</td>' +
       '<td class="cdavpc-num">' + fmtMoeda(totais.valorTotal) + '</td>' +
     '</tr>';
+
+    // ── Detalhamento por Tipo de Peça, escopado pela mesma Collab/Canal ──
+    var canalFiltro = selCanal.value;
+    var canaisEscopo = canalFiltro ? [canalFiltro] : ST.canais
+      .filter(function (c) { return String(c.parceiroId) === String(collabId) && String(c.id) !== CDA_CANAL_PRIVATE_LABEL_ID; })
+      .map(function (c) { return String(c.id); });
+    var resultadoTipo = cdaCalcularVendasPorTipoPeca({
+      compras: ST.compras, produtoById: produtoById,
+      dataIni: inpIni.value, dataFim: inpFim.value, canalIds: canaisEscopo
+    });
+    var nomeEscopo = canalFiltro ? selCanal.options[selCanal.selectedIndex].text : selCollab.options[selCollab.selectedIndex].text + ' (todos os canais)';
+    host.querySelector('#cdavpc-tipo-titulo').textContent = 'Detalhamento por Tipo de Peça — ' + nomeEscopo;
+
+    var tbTipo = host.querySelector('#cdavpc-tb-tipo');
+    tbTipo.innerHTML = resultadoTipo.linhas.map(function (l) {
+      return '<tr>' +
+        '<td>' + l.tipo + '</td>' +
+        '<td class="cdavpc-num">' + fmtQtd(l.qtdReal) + '</td>' +
+        '<td class="cdavpc-num">' + fmtMoeda(l.valorReal) + '</td>' +
+        '<td class="cdavpc-num">' + l.pctParticipacao.toFixed(2) + '%</td>' +
+        '<td class="cdavpc-num">' + fmtQtd(l.qtdEstimadaDiversos) + '</td>' +
+        '<td class="cdavpc-num">' + fmtMoeda(l.valorEstimadoDiversos) + '</td>' +
+        '<td class="cdavpc-num"><b>' + fmtQtd(l.qtdTotal) + '</b></td>' +
+        '<td class="cdavpc-num"><b>' + fmtMoeda(l.valorTotal) + '</b></td>' +
+      '</tr>';
+    }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda identificada nesse escopo.</td></tr>';
+
+    var totTipo = resultadoTipo.linhas.reduce(function (acc, l) {
+      acc.qtdReal += l.qtdReal; acc.valorReal += l.valorReal;
+      acc.qtdEstimadaDiversos += l.qtdEstimadaDiversos; acc.valorEstimadoDiversos += l.valorEstimadoDiversos;
+      acc.qtdTotal += l.qtdTotal; acc.valorTotal += l.valorTotal;
+      return acc;
+    }, { qtdReal: 0, valorReal: 0, qtdEstimadaDiversos: 0, valorEstimadoDiversos: 0, qtdTotal: 0, valorTotal: 0 });
+    tbTipo.innerHTML += '<tr class="total">' +
+      '<td>TOTAL</td>' +
+      '<td class="cdavpc-num">' + fmtQtd(totTipo.qtdReal) + '</td>' +
+      '<td class="cdavpc-num">' + fmtMoeda(totTipo.valorReal) + '</td>' +
+      '<td class="cdavpc-num">—</td>' +
+      '<td class="cdavpc-num">' + fmtQtd(totTipo.qtdEstimadaDiversos) + '</td>' +
+      '<td class="cdavpc-num">' + fmtMoeda(totTipo.valorEstimadoDiversos) + '</td>' +
+      '<td class="cdavpc-num">' + fmtQtd(totTipo.qtdTotal) + '</td>' +
+      '<td class="cdavpc-num">' + fmtMoeda(totTipo.valorTotal) + '</td>' +
+    '</tr>';
+
+    ULTIMO_RESULTADO_TIPO = resultadoTipo;
   }
 
   selCollab.addEventListener('change', function () { popularCanaisDaCollab(); render(); });
@@ -166,7 +237,7 @@ async function montarModuloVendasPorCanal(containerId) {
 
   host.querySelector('#cdavpc-btn-exp').addEventListener('click', function () {
     if (!ULTIMO_RESULTADO || !ULTIMO_RESULTADO.linhas.length) return;
-    var dados = ULTIMO_RESULTADO.linhas.map(function (l) {
+    var dadosCanal = ULTIMO_RESULTADO.linhas.map(function (l) {
       return {
         canal: l.canal, qtd_real: Number(l.qtdReal.toFixed(1)), valor_real: Number(l.valorReal.toFixed(2)),
         pct_participacao: Number(l.pctParticipacao.toFixed(2)), valor_diversos_real: Number(l.valorDiversos.toFixed(2)),
@@ -175,9 +246,19 @@ async function montarModuloVendasPorCanal(containerId) {
       };
     });
     var nomeCollab = selCollab.options[selCollab.selectedIndex].text;
-    var ws = XLSX.utils.json_to_sheet(dados);
     var wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Vendas por Canal');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dadosCanal), 'Por Canal');
+    if (ULTIMO_RESULTADO_TIPO && ULTIMO_RESULTADO_TIPO.linhas.length) {
+      var dadosTipo = ULTIMO_RESULTADO_TIPO.linhas.map(function (l) {
+        return {
+          tipo_peca: l.tipo, qtd_real: Number(l.qtdReal.toFixed(1)), valor_real: Number(l.valorReal.toFixed(2)),
+          pct_participacao: Number(l.pctParticipacao.toFixed(2)),
+          qtd_estimada_diversos: Number(l.qtdEstimadaDiversos.toFixed(1)), valor_estimado_diversos: Number(l.valorEstimadoDiversos.toFixed(2)),
+          qtd_total: Number(l.qtdTotal.toFixed(1)), valor_total: Number(l.valorTotal.toFixed(2))
+        };
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dadosTipo), 'Por Tipo de Peça');
+    }
     XLSX.writeFile(wb, 'vendas_por_canal_' + nomeCollab.replace(/[^a-z0-9]/gi, '_') + '.xlsx');
   });
 
