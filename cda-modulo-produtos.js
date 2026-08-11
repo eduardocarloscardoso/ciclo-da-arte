@@ -275,15 +275,18 @@ async function montarModuloProdutos(containerId, opts) {
           var ci = hdr.findIndex(function (h) { return h.indexOf('canal') !== -1 || h.indexOf('collab') !== -1; });
           var ti = hdr.findIndex(function (h) { return h.indexOf('tipo') !== -1; });
           var li = hdr.findIndex(function (h) { return h.indexOf('cole') !== -1; });
-          var added = 0, erros = 0;
+          var added = 0, erros = 0, autoClassificados = 0;
           for (var i = 1; i < rows.length; i++) {
             var row = rows[i];
             var nome = String(row[ni < 0 ? 0 : ni] || '').trim();
             if (!nome) continue;
             var nomeCanal = String(row[ci] || '').trim();
             var canalMatch = ST.canais.find(function (c) { return c.nome.toLowerCase() === nomeCanal.toLowerCase(); });
+            var tipoPlanilha = ti >= 0 ? String(row[ti] || '').trim() : '';
+            var tipoFinal = tipoPlanilha || (typeof cdaClassificarTipoPeca === 'function' ? cdaClassificarTipoPeca(nome) : null);
+            if (!tipoPlanilha && tipoFinal) autoClassificados++;
             var o = {
-              id: '', nome: nome, tipo: ti >= 0 ? String(row[ti] || '') : '', colecao: li >= 0 ? String(row[li] || '') : '',
+              id: '', nome: nome, tipo: tipoFinal, colecao: li >= 0 ? String(row[li] || '') : '',
               canalId: canalMatch ? canalMatch.id : null, parceiroId: canalMatch ? canalMatch.parceiroId : null,
               status: 'Ativo'
             };
@@ -293,7 +296,9 @@ async function montarModuloProdutos(containerId, opts) {
           host.querySelector('#cdap-file').value = '';
           rerenderFromStart();
           sync();
-          alert(added + ' produto(s) importado(s)' + (erros ? ', ' + erros + ' com erro' : '') + '.');
+          alert(added + ' produto(s) importado(s)' +
+            (autoClassificados ? ', ' + autoClassificados + ' com tipo de peça classificado automaticamente' : '') +
+            (erros ? ', ' + erros + ' com erro' : '') + '.');
         } catch (err) {
           console.error(err);
           alert('Erro ao importar: ' + err.message);
