@@ -16,6 +16,7 @@
 <script src="cda-modulo-campanhas.js"></script>
 <script src="cda-modulo-tutorial.js"></script>
 <script src="cda-modulo-painel-gerencial.js"></script>
+<script src="cda-modulo-planejamento-compras.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -671,11 +672,8 @@ async function navigateCRM(pageId){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-cfgfin"></div>';
     montarConfigFinanceiro('container-cfgfin');
   }else if(pageId==='planejcompras'){
-    el.innerHTML=roBanner+'<div class="crm-embed">'+
-      '<div class="sec-t">Planejamento de Compras</div>'+
-      '<div class="sec-d">Projeção de compras de matéria-prima por tipo de peça, com base no histórico de vendas a varejo (exclui Private Label)</div>'+
-      '<div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Parâmetros já validados com o CEO: filtro de período configurável, sazonalidade do 4º trimestre calculada por tipo de peça (excluindo o canal Private Label), com coluna de % sugerido e coluna editável para simulação de cenário. Relatório em desenvolvimento.</p></div>'+
-      '</div>';
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-planejcompras"></div></div>';
+    montarModuloPlanejamentoCompras('container-planejcompras');
   }else if(pageId==='prest'||pageId==='upload'||pageId==='cardapios'){
     el.innerHTML=roBanner;
     var wrap=document.getElementById('financeiro-iframe-wrap');
