@@ -10,10 +10,11 @@
 //
 // Metodologia (ago/2026, validada com o CEO):
 // - % de participação de cada tipo sempre calculado com TODOS os
-//   canais do período (não muda ao filtrar por canal — "Opção A").
+//   canais do período (visão empresa inteira, sem filtro de canal
+//   aqui — para análise por canal, ver o submódulo "Vendas por Canal").
 // - Preço médio usado pra estimar quantidade também é sempre o global.
-// - Filtro de canal só afeta as vendas reais exibidas e quanto de
-//   Diversos daquele canal específico entra no rateio.
+// - Filtro de tipo de peça só afeta quais linhas aparecem na tela —
+//   o cálculo do rateio continua olhando todos os tipos por trás.
 // - Private Label sempre excluído (não é venda de varejo).
 //
 // Somente leitura — não grava nada no banco.
@@ -54,7 +55,7 @@ async function montarModuloVendasTipoPeca(containerId) {
     '<div class="cdavtp-filtros">' +
       '<div class="cdavtp-fg"><label>Período — Data início</label><input type="date" id="cdavtp-f-ini"></div>' +
       '<div class="cdavtp-fg"><label>Período — Data fim</label><input type="date" id="cdavtp-f-fim"></div>' +
-      '<div class="cdavtp-fg" style="min-width:200px"><label>Canal</label><select id="cdavtp-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
+      '<div class="cdavtp-fg" style="min-width:200px"><label>Tipo de peça</label><select id="cdavtp-f-tipo"><option value="">Todos os tipos</option></select></div>' +
     '</div>' +
     '<div class="cdavtp-kpis" id="cdavtp-kpis"></div>' +
     '<div class="tw"><div class="th"><h3>Vendas por Tipo de Peça</h3></div>' +
@@ -74,10 +75,10 @@ async function montarModuloVendasTipoPeca(containerId) {
       '</table></div>' +
     '</div>';
 
-  var ST = { compras: [], produtos: [], canais: [] };
+  var ST = { compras: [], produtos: [], canais: [], tipos: [] };
   try {
-    var res = await Promise.all([cdaCarregarCompras(), cdaCarregarProdutos(), cdaCarregarCanais()]);
-    ST.compras = res[0]; ST.produtos = res[1]; ST.canais = res[2];
+    var res = await Promise.all([cdaCarregarCompras(), cdaCarregarProdutos(), cdaCarregarCanais(), cdaCarregarTiposProduto()]);
+    ST.compras = res[0]; ST.produtos = res[1]; ST.canais = res[2]; ST.tipos = res[3];
   } catch (err) {
     console.error(err);
     host.querySelector('#cdavtp-nota').textContent = 'Erro ao carregar dados do Supabase. Veja o console.';
@@ -86,10 +87,9 @@ async function montarModuloVendasTipoPeca(containerId) {
 
   var produtoById = {}; ST.produtos.forEach(function (p) { produtoById[String(p.id)] = p; });
 
-  var selCanal = host.querySelector('#cdavtp-f-canal');
-  selCanal.innerHTML += ST.canais.filter(function (c) { return String(c.id) !== CDA_CANAL_PRIVATE_LABEL_ID; })
-    .slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
-    .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+  var selTipo = host.querySelector('#cdavtp-f-tipo');
+  selTipo.innerHTML += ST.tipos.filter(function (t) { return t !== 'Diversos'; }).slice().sort()
+    .map(function (t) { return '<option value="' + t + '">' + t + '</option>'; }).join('');
 
   var datasDisponiveis = ST.compras.filter(function (c) { return c.dataCompra && String(c.canalId) !== CDA_CANAL_PRIVATE_LABEL_ID; })
     .map(function (c) { return c.dataCompra; }).sort();
@@ -105,7 +105,7 @@ async function montarModuloVendasTipoPeca(containerId) {
 
   host.querySelector('#cdavtp-nota').innerHTML =
     '📌 Base: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
-    'A % de participação de cada tipo é sempre calculada com todos os canais do período (não muda ao filtrar por canal) — só as colunas "real" e o valor de Diversos rateado respeitam o filtro de canal. ' +
+    'A % de participação de cada tipo é sempre calculada com todos os canais do período (visão empresa inteira). ' +
     'Última venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>.';
 
   var ULTIMO_RESULTADO = null;
@@ -113,10 +113,17 @@ async function montarModuloVendasTipoPeca(containerId) {
   function render() {
     var resultado = cdaCalcularVendasPorTipoPeca({
       compras: ST.compras, produtoById: produtoById,
-      dataIni: inpIni.value, dataFim: inpFim.value, canalId: selCanal.value || null
+      dataIni: inpIni.value, dataFim: inpFim.value
     });
+    var fTipo = selTipo.value;
+    if (fTipo) resultado.linhas = resultado.linhas.filter(function (l) { return l.tipo === fTipo; });
     ULTIMO_RESULTADO = resultado;
-    var linhas = resultado.linhas, totais = resultado.totais;
+    var linhas = resultado.linhas, totais = linhas.reduce(function (acc, l) {
+      acc.qtdReal += l.qtdReal; acc.valorReal += l.valorReal;
+      acc.qtdEstimadaDiversos += l.qtdEstimadaDiversos; acc.valorEstimadoDiversos += l.valorEstimadoDiversos;
+      acc.qtdTotal += l.qtdTotal; acc.valorTotal += l.valorTotal;
+      return acc;
+    }, { qtdReal: 0, valorReal: 0, qtdEstimadaDiversos: 0, valorEstimadoDiversos: 0, qtdTotal: 0, valorTotal: 0 });
 
     host.querySelector('#cdavtp-kpis').innerHTML =
       '<div class="cdavtp-kpi"><div class="v">' + fmtQtd(totais.qtdReal) + '</div><div class="l">Peças (venda real)</div></div>' +
@@ -154,7 +161,7 @@ async function montarModuloVendasTipoPeca(containerId) {
 
   inpIni.addEventListener('change', render);
   inpFim.addEventListener('change', render);
-  selCanal.addEventListener('change', render);
+  selTipo.addEventListener('change', render);
 
   host.querySelector('#cdavtp-btn-exp').addEventListener('click', function () {
     if (!ULTIMO_RESULTADO) return;
