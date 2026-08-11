@@ -143,6 +143,43 @@ async function cdaCarregarColecoes() {
   const rows = await cdaFetchAll('colecoes', 'nome', 'nome');
   return rows.map(r => r.nome).filter(Boolean);
 }
+// ── Classificação automática de Tipo de Peça (por nome do produto) ─────
+// Usada na importação de planilhas (Produtos e Histórico de Compras/Bling)
+// para preencher "tipo" automaticamente quando não vier informado.
+// Baseada nos mesmos critérios aplicados na classificação em massa do
+// catálogo (ago/2026). Retorna null quando não há match confiável —
+// nesse caso o produto fica sem tipo, para classificação manual depois.
+function cdaClassificarTipoPeca(nomeRaw) {
+  var n = String(nomeRaw || '').toUpperCase().trim();
+  if (!n) return null;
+  if (n.indexOf('T-SHIRT') !== -1 || n.indexOf('T- SHIRT') !== -1 || n.indexOf('T SHIRT') !== -1 ||
+      n.indexOf('CAMISETA') === 0 || n.indexOf('BODY INFANTIL') === 0) return 'T-shirt';
+  if (n.indexOf('BERMUDA') === 0) return 'Bermudas';
+  if (n.indexOf('CROPPED') === 0) return 'Cropped';
+  if (n.indexOf('CANGA') === 0 || n.indexOf('PANÔ') === 0 || n.indexOf('PANNEAUX') === 0 ||
+      n.indexOf('PANO ') === 0 || n.indexOf('MANTO') === 0) return 'Canga';
+  if (n.indexOf('HOT PANT') === 0) return 'Hot Pants';
+  if (n.indexOf('SHORTS') === 0 || n.indexOf('SHORT ') === 0 || n.indexOf('BOARDSHORT') === 0 ||
+      n.indexOf('WATER SHORTS') === 0) return 'Shorts';
+  if (n.indexOf('CALÇA') === 0) return 'Calça';
+  if (n.indexOf('MOLETOM') === 0 || n.indexOf('MOLETINHO') === 0) return 'Moletom';
+  if (n.indexOf('BONÉ') === 0 || n.indexOf('BONE ') === 0 || n.indexOf('BUCKET') === 0) return 'Bonés';
+  if (n.indexOf('JAQUETA') === 0 || n.indexOf('WINDBRAKER') === 0) return 'Casacos';
+  if (n.indexOf('POSTER') === 0) return 'Posters';
+  if (n.indexOf('REGATA') === 0 || n.indexOf('REGATÃO') === 0) return 'Regatas';
+  if (n.indexOf('LENÇO') === 0) return 'Lenços';
+  if (n.indexOf('MEIA') === 0) return 'Meias';
+  if (n.indexOf('TOTE') === 0) return 'Bolsas';
+  if (n.indexOf('DISCO') === 0 || (n.indexOf('DISCO') !== -1 && n.indexOf('VINIL') !== -1)) return 'Discos';
+  if (n.indexOf('COPO') === 0) return 'Copos';
+  if (n.indexOf('UNIFORME') === 0) return 'Uniformes';
+  if (n.indexOf('TOP ') === 0) return 'Tops';
+  if (n.indexOf('ABADA') === 0) return 'Abadás';
+  if (n.indexOf('GENÉRICO') === 0 || n.indexOf('DIVERSOS') === 0 || n.indexOf('COMERCIAL') === 0 ||
+      n.indexOf('SHOW DIA') === 0 || n.indexOf('VER DETALHAMENTO') === 0 || n.indexOf('MARCA MUC') === 0 ||
+      n.indexOf('JERSEY') === 0) return 'Diversos';
+  return null;
+}
 async function cdaSalvarProduto(o) {
   const row = CDA_PRODUTO_MAP.toRow(o);
   if (!row.id) row.id = cdaUid();
