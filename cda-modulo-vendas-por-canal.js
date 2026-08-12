@@ -84,7 +84,7 @@ async function montarModuloVendasPorCanal(containerId) {
           '<th>Tipo de Peça</th>' +
           '<th class="cdavpc-num">Qtd real</th>' +
           '<th class="cdavpc-num">Valor real</th>' +
-          '<th class="cdavpc-num">% do total da empresa em R$ (nesse tipo)</th>' +
+          '<th class="cdavpc-num">% Participação Total Vendas</th>' +
           '<th class="cdavpc-num">Qtd estim. (Diversos)</th>' +
           '<th class="cdavpc-num">Valor estim. (Diversos)</th>' +
           '<th class="cdavpc-num">Qtd total</th>' +
@@ -269,7 +269,7 @@ async function montarModuloVendasPorCanal(containerId) {
       var dadosTipo = ULTIMO_RESULTADO_TIPO.linhas.map(function (l) {
         return {
           tipo_peca: l.tipo, qtd_real: Number(l.qtdReal.toFixed(1)), valor_real: Number(l.valorReal.toFixed(2)),
-          pct_do_total_empresa_em_valor_nesse_tipo: Number(l.pctDoTotalEmpresa.toFixed(2)),
+          pct_participacao_total_vendas: Number(l.pctDoTotalEmpresa.toFixed(2)),
           qtd_estimada_diversos: Number(l.qtdEstimadaDiversos.toFixed(1)), valor_estimado_diversos: Number(l.valorEstimadoDiversos.toFixed(2)),
           qtd_total: Number(l.qtdTotal.toFixed(1)), valor_total: Number(l.valorTotal.toFixed(2))
         };
