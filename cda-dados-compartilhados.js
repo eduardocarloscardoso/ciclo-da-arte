@@ -620,16 +620,19 @@ async function cdaExecutarRecalculoValores(usuario) {
 }
 
 // ── TUTORIAL — comentários da equipe (importados de Word) ────────────
-async function cdaCarregarComentariosTutorial() {
-  const { data, error } = await cdaClient.from('cda_tutorial_comentarios').select('*').order('importado_em', { ascending: false });
+// modulo: identifica de qual tutorial é o comentário (ex: 'comercial', 'estoque').
+// Default 'comercial' por compatibilidade com o Tutorial original (Comercial),
+// que não passava esse parâmetro antes de o campo existir.
+async function cdaCarregarComentariosTutorial(modulo) {
+  const { data, error } = await cdaClient.from('cda_tutorial_comentarios').select('*').eq('modulo', modulo || 'comercial').order('importado_em', { ascending: false });
   if (error) throw error;
-  return (data || []).map(r => ({ id: r.id, conteudo: r.conteudo, arquivoOrigem: r.arquivo_origem, importadoEm: r.importado_em, importadoPor: r.importado_por }));
+  return (data || []).map(r => ({ id: r.id, conteudo: r.conteudo, arquivoOrigem: r.arquivo_origem, importadoEm: r.importado_em, importadoPor: r.importado_por, modulo: r.modulo }));
 }
 async function cdaSalvarComentarioTutorial(o) {
-  const row = { conteudo: o.conteudo, arquivo_origem: o.arquivoOrigem || null, importado_por: o.importadoPor || null };
+  const row = { conteudo: o.conteudo, arquivo_origem: o.arquivoOrigem || null, importado_por: o.importadoPor || null, modulo: o.modulo || 'comercial' };
   const { data, error } = await cdaClient.from('cda_tutorial_comentarios').insert(row).select().single();
   if (error) throw error;
-  return { id: data.id, conteudo: data.conteudo, arquivoOrigem: data.arquivo_origem, importadoEm: data.importado_em, importadoPor: data.importado_por };
+  return { id: data.id, conteudo: data.conteudo, arquivoOrigem: data.arquivo_origem, importadoEm: data.importado_em, importadoPor: data.importado_por, modulo: data.modulo };
 }
 
 // ── AVALIAR SEGMENTO (compartilhado) ──────────────────────────────────
