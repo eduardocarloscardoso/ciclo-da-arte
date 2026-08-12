@@ -16,6 +16,12 @@
 // submódulo "Vendas por Tipo de Peça" (% de participação sempre
 // global/empresa inteira).
 //
+// A coluna "% do total da empresa em R$ (nesse tipo)" responde: "desse
+// tipo de peça, que fatia do valor (R$) total vendido pela empresa
+// inteira veio dessa Collab/Canal?" — Qtd/Valor total (real + Diversos
+// já ratado) do escopo ÷ Qtd/Valor total (real + Diversos) da empresa
+// inteira nesse mesmo tipo, em R$ (validado com o CEO em ago/2026).
+//
 // Somente leitura — não grava nada no banco.
 // Requer cda-dados-compartilhados.js carregado antes.
 // ════════════════════════════════════════════════════════════════════
@@ -78,7 +84,7 @@ async function montarModuloVendasPorCanal(containerId) {
           '<th>Tipo de Peça</th>' +
           '<th class="cdavpc-num">Qtd real</th>' +
           '<th class="cdavpc-num">Valor real</th>' +
-          '<th class="cdavpc-num">% do total da empresa (nesse tipo)</th>' +
+          '<th class="cdavpc-num">% do total da empresa em R$ (nesse tipo)</th>' +
           '<th class="cdavpc-num">Qtd estim. (Diversos)</th>' +
           '<th class="cdavpc-num">Valor estim. (Diversos)</th>' +
           '<th class="cdavpc-num">Qtd total</th>' +
@@ -198,11 +204,11 @@ async function montarModuloVendasPorCanal(containerId) {
       compras: ST.compras, produtoById: produtoById,
       dataIni: inpIni.value, dataFim: inpFim.value
     });
-    var qtdTotalGlobalPorTipo = {};
-    resultadoTipoGlobal.linhas.forEach(function (l) { qtdTotalGlobalPorTipo[l.tipo] = l.qtdTotal; });
+    var valorTotalGlobalPorTipo = {};
+    resultadoTipoGlobal.linhas.forEach(function (l) { valorTotalGlobalPorTipo[l.tipo] = l.valorTotal; });
     resultadoTipo.linhas.forEach(function (l) {
-      var totalGlobal = qtdTotalGlobalPorTipo[l.tipo] || 0;
-      l.pctDoTotalEmpresa = totalGlobal > 0 ? (l.qtdTotal / totalGlobal) * 100 : 0;
+      var totalGlobal = valorTotalGlobalPorTipo[l.tipo] || 0;
+      l.pctDoTotalEmpresa = totalGlobal > 0 ? (l.valorTotal / totalGlobal) * 100 : 0;
     });
     var nomeEscopo = canalFiltro ? selCanal.options[selCanal.selectedIndex].text : selCollab.options[selCollab.selectedIndex].text + ' (todos os canais)';
     host.querySelector('#cdavpc-tipo-titulo').textContent = 'Detalhamento por Tipo de Peça — ' + nomeEscopo;
@@ -263,7 +269,7 @@ async function montarModuloVendasPorCanal(containerId) {
       var dadosTipo = ULTIMO_RESULTADO_TIPO.linhas.map(function (l) {
         return {
           tipo_peca: l.tipo, qtd_real: Number(l.qtdReal.toFixed(1)), valor_real: Number(l.valorReal.toFixed(2)),
-          pct_do_total_empresa_nesse_tipo: Number(l.pctDoTotalEmpresa.toFixed(2)),
+          pct_do_total_empresa_em_valor_nesse_tipo: Number(l.pctDoTotalEmpresa.toFixed(2)),
           qtd_estimada_diversos: Number(l.qtdEstimadaDiversos.toFixed(1)), valor_estimado_diversos: Number(l.valorEstimadoDiversos.toFixed(2)),
           qtd_total: Number(l.qtdTotal.toFixed(1)), valor_total: Number(l.valorTotal.toFixed(2))
         };
