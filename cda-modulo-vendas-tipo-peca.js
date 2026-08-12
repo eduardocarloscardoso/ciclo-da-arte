@@ -65,7 +65,7 @@ async function montarModuloVendasTipoPeca(containerId) {
           '<th class="cdavtp-num">Qtd real</th>' +
           '<th class="cdavtp-num">Valor real</th>' +
           '<th class="cdavtp-num">Preço médio real</th>' +
-          '<th class="cdavtp-num">% participação</th>' +
+          '<th class="cdavtp-num">% Participação Total Vendas</th>' +
           '<th class="cdavtp-num">Qtd estim. (Diversos)</th>' +
           '<th class="cdavtp-num">Valor estim. (Diversos)</th>' +
           '<th class="cdavtp-num">Qtd total</th>' +
@@ -105,7 +105,7 @@ async function montarModuloVendasTipoPeca(containerId) {
 
   host.querySelector('#cdavtp-nota').innerHTML =
     '📌 Base: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
-    'A % de participação de cada tipo é sempre calculada com todos os canais do período (visão empresa inteira). ' +
+    'A % Participação Total Vendas de cada tipo é sempre calculada com todos os canais do período (visão empresa inteira). ' +
     'Última venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>.';
 
   var ULTIMO_RESULTADO = null;
@@ -169,7 +169,7 @@ async function montarModuloVendasTipoPeca(containerId) {
       return {
         tipo_peca: l.tipo,
         qtd_real: Number(l.qtdReal.toFixed(1)), valor_real: Number(l.valorReal.toFixed(2)),
-        preco_medio_real: Number(l.precoMedioReal.toFixed(2)), pct_participacao: Number(l.pctParticipacao.toFixed(2)),
+        preco_medio_real: Number(l.precoMedioReal.toFixed(2)), pct_participacao_total_vendas: Number(l.pctParticipacao.toFixed(2)),
         qtd_estimada_diversos: Number(l.qtdEstimadaDiversos.toFixed(1)), valor_estimado_diversos: Number(l.valorEstimadoDiversos.toFixed(2)),
         qtd_total: Number(l.qtdTotal.toFixed(1)), valor_total: Number(l.valorTotal.toFixed(2))
       };
