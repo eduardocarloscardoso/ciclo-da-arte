@@ -122,36 +122,60 @@ async function montarModuloPlanejamentoCompras(containerId) {
     return c.dataCompra && String(c.canalId) !== CDA_CANAL_PRIVATE_LABEL_ID;
   });
 
-  // ── Sazonalidade histórica por tipo (2023–2025), ponderada por volume ──
-  function calcularSazonalidade() {
-    var acc = {}; // tipo -> ano -> {janSet, q4}
-    var somaQ4Geral = 0, somaEsperadoGeral = 0;
-    comprasVarejo.forEach(function (c) {
-      var ano = parseInt(c.dataCompra.slice(0, 4), 10);
-      var mes = parseInt(c.dataCompra.slice(5, 7), 10);
-      if (ano < 2023 || ano > 2025) return;
-      var tipo = tipoDe(c);
-      var qtd = Number(c.quantidade) || 0;
-      if (!acc[tipo]) acc[tipo] = {};
-      if (!acc[tipo][ano]) acc[tipo][ano] = { janSet: 0, q4: 0 };
-      if (mes >= 1 && mes <= 9) acc[tipo][ano].janSet += qtd;
-      else if (mes >= 10 && mes <= 12) acc[tipo][ano].q4 += qtd;
-    });
-    var pctPorTipo = {};
-    Object.keys(acc).forEach(function (tipo) {
-      var somaQ4 = 0, somaEsperado = 0;
-      Object.keys(acc[tipo]).forEach(function (ano) {
-        var d = acc[tipo][ano];
-        var esperado = (d.janSet / 9) * 3;
-        somaQ4 += d.q4; somaEsperado += esperado;
-        somaQ4Geral += d.q4; somaEsperadoGeral += esperado;
-      });
-      pctPorTipo[tipo] = somaEsperado > 0 ? ((somaQ4 / somaEsperado) - 1) * 100 : null;
-    });
-    var pctGeral = somaEsperadoGeral > 0 ? ((somaQ4Geral / somaEsperadoGeral) - 1) * 100 : 30;
-    return { porTipo: pctPorTipo, geral: pctGeral };
+  // ── Nova metodologia de projeção do Q4 (ago/2026, validada com o CEO) ──
+  // Substitui a sazonalidade fixa 2023-2025 por uma comparação dinâmica
+  // ano-a-ano, sempre baseada no "Período Estatístico" que o usuário
+  // filtrar — funciona mesmo com o ano corrente ainda em andamento
+  // (não depende de esperar o ano fechar):
+  //
+  // 1) Taxa de Crescimento (tipo) = Qtd Total do período filtrado (ano
+  //    atual) ÷ Qtd Total do MESMO intervalo de dias no ano anterior − 1
+  //    (ex: 01/01-11/08/2026 vs. 01/01-11/08/2025).
+  // 2) Qtd projetada Q4 (sugerido) = Qtd Total (real+estimada) de
+  //    Out-Dez do ano anterior × (1 + Taxa de Crescimento).
+  // 3) Valor projetado Q4 (sugerido) = Qtd projetada × Preço médio real
+  //    do tipo no período filtrado (ou, se o tipo não vendeu nada no
+  //    período atual, o preço médio do próprio Q4 do ano anterior).
+  // Fallback (tipo sem venda no mesmo intervalo do ano anterior): usa a
+  // Taxa de Crescimento geral da empresa. Sem limite de faixa — o
+  // número real sempre aparece, mesmo que pareça alto/baixo demais,
+  // porque não dá pra saber se um tipo é sazonalmente novo.
+  function anoAnterior(dataISO) {
+    var d = new Date(dataISO + 'T00:00:00');
+    d.setFullYear(d.getFullYear() - 1);
+    return d.toISOString().slice(0, 10);
   }
-  var SAZ = calcularSazonalidade();
+  function calcularCrescimentoEQ4Anterior(dataIni, dataFim, fCanal) {
+    var dataIniAnt = anoAnterior(dataIni), dataFimAnt = anoAnterior(dataFim);
+    var anoRefQ4 = parseInt(dataFim.slice(0, 4), 10) - 1; // Q4 do ano anterior ao fim do período filtrado
+    var q4Ini = anoRefQ4 + '-10-01', q4Fim = anoRefQ4 + '-12-31';
+
+    var resAtual = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: dataIni, dataFim: dataFim, canalId: fCanal || null });
+    var resAnoAnt = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: dataIniAnt, dataFim: dataFimAnt, canalId: fCanal || null });
+    var resQ4Ant = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: q4Ini, dataFim: q4Fim, canalId: fCanal || null });
+
+    var qtdAtualPorTipo = {}, precoMedioAtualPorTipo = {};
+    resAtual.linhas.forEach(function (l) { qtdAtualPorTipo[l.tipo] = l.qtdTotal; precoMedioAtualPorTipo[l.tipo] = l.precoMedioReal; });
+    var qtdAnoAntPorTipo = {};
+    resAnoAnt.linhas.forEach(function (l) { qtdAnoAntPorTipo[l.tipo] = l.qtdTotal; });
+    var qtdQ4AntPorTipo = {}, precoMedioQ4AntPorTipo = {};
+    resQ4Ant.linhas.forEach(function (l) { qtdQ4AntPorTipo[l.tipo] = l.qtdTotal; precoMedioQ4AntPorTipo[l.tipo] = l.precoMedioReal; });
+
+    var taxaGeral = resAnoAnt.totais.qtdTotal > 0 ? (resAtual.totais.qtdTotal / resAnoAnt.totais.qtdTotal - 1) * 100 : 0;
+    var precoMedioGeralAtual = resAtual.totais.qtdReal > 0 ? resAtual.totais.valorReal / resAtual.totais.qtdReal : 0;
+
+    return {
+      anoRefQ4: anoRefQ4, taxaGeral: taxaGeral,
+      taxaPorTipo: function (tipo) {
+        var atual = qtdAtualPorTipo[tipo] || 0, ant = qtdAnoAntPorTipo[tipo] || 0;
+        return ant > 0 ? (atual / ant - 1) * 100 : null;
+      },
+      qtdQ4Anterior: function (tipo) { return qtdQ4AntPorTipo[tipo] || 0; },
+      precoMedio: function (tipo) {
+        return precoMedioAtualPorTipo[tipo] || precoMedioQ4AntPorTipo[tipo] || precoMedioGeralAtual;
+      }
+    };
+  }
 
   // ── Popular filtro de canal (informativo — Private Label sempre fica de fora) ──
   var selCanal = host.querySelector('#cdapc-f-canal');
@@ -168,9 +192,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
   inpFim.value = dataMaisRecente;
 
   host.querySelector('#cdapc-nota').innerHTML =
-    '📌 Base de cálculo: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído, tanto do período filtrado quanto da sazonalidade histórica. ' +
+    '📌 Base de cálculo: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
     'Último dado de venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>. ' +
-    'Sazonalidade calculada sobre 2023–2025 (Q4 real vs. média mensal jan–set × 3, ponderado por volume). % geral da empresa: <b>' + SAZ.geral.toFixed(1) + '%</b>.';
+    'O % sugerido compara o Período Estatístico filtrado com o mesmo intervalo de dias no ano anterior, e aplica esse crescimento em cima do Q4 real do ano anterior — funciona mesmo com o ano corrente ainda em andamento.';
 
   function fmtDataBR(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
   function fmtMoeda(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -205,19 +229,23 @@ async function montarModuloPlanejamentoCompras(containerId) {
       };
     });
 
+    var CRESC = calcularCrescimentoEQ4Anterior(dataIni, dataFim, fCanal);
+
     var linhas = Object.keys(porTipo).map(function (tipo) {
       var d = porTipo[tipo];
-      // Média Mensal agora soma a Qtd vendida (real) + Qtd Estimada (Diversos), dividido pelos meses do período.
+      // Média Mensal soma a Qtd vendida (real) + Qtd Estimada (Diversos), dividido pelos meses do período.
       var mediaMensalQtd = (d.qtd + d.qtdEstimadaDiversos) / nMeses;
-      var mediaMensalValor = d.valor / nMeses;
-      var pctSug = SAZ.porTipo.hasOwnProperty(tipo) && SAZ.porTipo[tipo] != null ? SAZ.porTipo[tipo] : SAZ.geral;
-      var usouGeral = !(SAZ.porTipo.hasOwnProperty(tipo) && SAZ.porTipo[tipo] != null);
-      var qtdProjSug = mediaMensalQtd * 3 * (1 + pctSug / 100);
-      var valorProjSug = mediaMensalValor * 3 * (1 + pctSug / 100);
+      var taxaTipo = CRESC.taxaPorTipo(tipo);
+      var usouGeral = taxaTipo == null;
+      var pctSug = usouGeral ? CRESC.taxaGeral : taxaTipo;
+      var qtdQ4Ant = CRESC.qtdQ4Anterior(tipo);
+      var precoMedio = CRESC.precoMedio(tipo);
+      var qtdProjSug = qtdQ4Ant * (1 + pctSug / 100);
+      var valorProjSug = qtdProjSug * precoMedio;
       var pctSim = ST.simulado[tipo];
       var temSim = pctSim !== undefined && pctSim !== null && pctSim !== '';
-      var qtdProjSim = temSim ? mediaMensalQtd * 3 * (1 + Number(pctSim) / 100) : null;
-      var valorProjSim = temSim ? mediaMensalValor * 3 * (1 + Number(pctSim) / 100) : null;
+      var qtdProjSim = temSim ? qtdQ4Ant * (1 + Number(pctSim) / 100) : null;
+      var valorProjSim = temSim ? qtdProjSim * precoMedio : null;
       return {
         tipo: tipo, qtd: d.qtd, valor: d.valor,
         qtdEstimadaDiversos: d.qtdEstimadaDiversos, valorEstimadoDiversos: d.valorEstimadoDiversos,
