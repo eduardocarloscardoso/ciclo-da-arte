@@ -190,6 +190,23 @@ var CDA_CANAL_PRIVATE_LABEL_ID = '1778540708657';
 // - % de participação de cada tipo é sempre calculado sobre TODOS os
 //   canais do período filtrado (nunca só o canal selecionado) — mantém
 //   o rateio estatisticamente estável ("Opção A").
+//
+// FÓRMULA DO % PARTICIPAÇÃO (conforme definido pelo CEO):
+//   % participação (tipo) = (Valor real do tipo + Valor estimado de
+//   Diversos do tipo) ÷ (Valor real de TODOS os tipos + Valor total
+//   de Diversos) × 100
+//   Ou seja: soma o Diversos já ratado a cada tipo, tanto no numerador
+//   quanto no denominador, e divide depois de somar — não antes.
+//
+//   Isso é matematicamente EQUIVALENTE a calcular direto sobre o valor
+//   real (sem Diversos): Valor real do tipo ÷ Valor real de TODOS os
+//   tipos × 100 — é assim que o código calcula, por eficiência (evita
+//   uma referência circular: o valor de Diversos de cada tipo depende
+//   do % participação, que dependeria do valor de Diversos já somado).
+//   Quando o rateio é proporcional, a fatia de cada tipo ANTES de
+//   somar o Diversos é sempre igual à fatia DEPOIS de somar — por
+//   isso os dois caminhos sempre batem no mesmo número (confirmado
+//   com o CEO em ago/2026: T-shirt = 42,90% pelos dois métodos).
 // - Preço médio usado para converter valor estimado em quantidade
 //   estimada também é sempre o preço médio GLOBAL do tipo (todos os
 //   canais), pelo mesmo motivo.
