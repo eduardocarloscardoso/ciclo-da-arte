@@ -233,13 +233,13 @@ async function montarModuloPlanejamentoCompras(containerId) {
   }
 
   function renderKpis(linhas) {
-    var totQtd = linhas.reduce(function (s, l) { return s + l.qtd; }, 0);
-    var totValor = linhas.reduce(function (s, l) { return s + l.valor; }, 0);
+    var totQtdTotal = linhas.reduce(function (s, l) { return s + l.qtdTotal; }, 0);
+    var totValorTotal = linhas.reduce(function (s, l) { return s + l.valorTotal; }, 0);
     var totProjSug = linhas.reduce(function (s, l) { return s + l.qtdProjSug; }, 0);
     var totValorProjSug = linhas.reduce(function (s, l) { return s + l.valorProjSug; }, 0);
     host.querySelector('#cdapc-kpis').innerHTML =
-      '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totQtd) + '</div><div class="l">Peças vendidas no período</div></div>' +
-      '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValor) + '</div><div class="l">Valor vendido no período</div></div>' +
+      '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totQtdTotal) + '</div><div class="l">Quantidade Total (Real + Est)</div></div>' +
+      '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValorTotal) + '</div><div class="l">Valor Total (Real + Est)</div></div>' +
       '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totProjSug) + '</div><div class="l">Peças projetadas p/ Q4 (sugerido)</div></div>' +
       '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValorProjSug) + '</div><div class="l">Valor projetado p/ Q4 (sugerido)</div></div>';
   }
