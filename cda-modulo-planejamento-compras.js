@@ -6,16 +6,26 @@
 // (exclui sempre o canal Private Label — vendas no atacado não entram
 // na conta de sazonalidade nem na base do período).
 //
-// Sazonalidade: para cada tipo de peça, compara Q4 real (2023-2025)
-// contra o esperado (média mensal de jan-set × 3) e calcula o %
-// de variação ponderado por volume. Esse é o "% sugerido" — fixo,
-// não muda com o filtro de período (é uma referência histórica).
-// Quando não há dado suficiente para um tipo, cai no % geral da
-// empresa (todos os tipos, mesma metodologia).
+// EM REVISÃO (ago/2026): as colunas Qtd/Valor vendido e Qtd/Valor
+// estimado (Diversos) já usam a função compartilhada
+// cdaCalcularVendasPorTipoPeca (mesmo rateio de Diversos dos
+// submódulos Vendas por Tipo de Peça e Vendas por Canal). A Média
+// Mensal soma Qtd vendida + Qtd Estimada (Diversos), dividido pelos
+// meses do Período Estatístico Inicial/Final.
+// As colunas de % sugerido / projeção Q4 / simulação AINDA usam a
+// sazonalidade antiga (só quantidade, sem rateio de Diversos) —
+// ajuste pendente, próxima etapa.
 //
-// O filtro de período (data início/fim) é livre — define a "base de
-// vendas" usada pra calcular a média mensal atual, que depois é
-// projetada para os 3 meses do Q4 usando o % sugerido (ou o %
+// Sazonalidade (ainda na versão antiga): para cada tipo de peça,
+// compara Q4 real (2023-2025) contra o esperado (média mensal de
+// jan-set × 3) e calcula o % de variação ponderado por volume. Esse é
+// o "% sugerido" — fixo, não muda com o filtro de período (é uma
+// referência histórica). Quando não há dado suficiente para um tipo,
+// cai no % geral da empresa (todos os tipos, mesma metodologia).
+//
+// O filtro de Período Estatístico Inicial/Final é livre — define a
+// base de vendas usada pra calcular a média mensal atual, que depois
+// é projetada para os 3 meses do Q4 usando o % sugerido (ou o %
 // simulado, se o usuário preencher).
 //
 // Somente leitura — não grava nada no banco.
@@ -57,8 +67,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
     '</div>' +
     '<div class="cdapc-note" id="cdapc-nota">Carregando dados...</div>' +
     '<div class="cdapc-filtros">' +
-      '<div class="cdapc-fg"><label>Período — Data início</label><input type="date" id="cdapc-f-ini"></div>' +
-      '<div class="cdapc-fg"><label>Período — Data fim</label><input type="date" id="cdapc-f-fim"></div>' +
+      '<div class="cdapc-fg"><label>Período Estatístico Inicial</label><input type="date" id="cdapc-f-ini"></div>' +
+      '<div class="cdapc-fg"><label>Período Estatístico Final</label><input type="date" id="cdapc-f-fim"></div>' +
       '<div class="cdapc-fg" style="min-width:170px"><label>Canal</label><select id="cdapc-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
     '</div>' +
     '<div class="cdapc-kpis" id="cdapc-kpis"></div>' +
@@ -66,9 +76,11 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '<div class="cdapc-tbl-wrap"><table class="cdapc-tbl">' +
         '<thead><tr>' +
           '<th>Tipo de Peça</th>' +
-          '<th class="cdapc-num">Qtd vendida (período)</th>' +
-          '<th class="cdapc-num">Valor vendido (período)</th>' +
-          '<th class="cdapc-num">Média mensal (qtd)</th>' +
+          '<th class="cdapc-num">Qtd vendida</th>' +
+          '<th class="cdapc-num">Qtd Estimada (Diversos)</th>' +
+          '<th class="cdapc-num">Valor vendido</th>' +
+          '<th class="cdapc-num">Valor estimado (Diversos)</th>' +
+          '<th class="cdapc-num">Média Mensal (Qtd)</th>' +
           '<th class="cdapc-num">% sugerido</th>' +
           '<th class="cdapc-num">Qtd projetada Q4 (sugerido)</th>' +
           '<th class="cdapc-num">Valor projetado Q4 (sugerido)</th>' +
@@ -176,24 +188,25 @@ async function montarModuloPlanejamentoCompras(containerId) {
     if (!dataIni || !dataFim) return [];
     var nMeses = mesesEntre(dataIni, dataFim);
 
-    var comprasPeriodo = comprasVarejo.filter(function (c) {
-      if (c.dataCompra < dataIni || c.dataCompra > dataFim) return false;
-      if (fCanal && String(c.canalId) !== fCanal) return false;
-      return true;
+    var resultadoBase = cdaCalcularVendasPorTipoPeca({
+      compras: ST.compras, produtoById: produtoById,
+      dataIni: dataIni, dataFim: dataFim, canalId: fCanal || null
     });
-
-    var porTipo = {}; // tipo -> {qtd, valor}
-    ST.tipos.forEach(function (t) { porTipo[t] = { qtd: 0, valor: 0 }; });
-    comprasPeriodo.forEach(function (c) {
-      var tipo = tipoDe(c);
-      if (!porTipo[tipo]) porTipo[tipo] = { qtd: 0, valor: 0 };
-      porTipo[tipo].qtd += Number(c.quantidade) || 0;
-      porTipo[tipo].valor += valorDe(c);
+    var porTipo = {}; // tipo -> {qtd, valor, qtdEstimadaDiversos, valorEstimadoDiversos}
+    ST.tipos.filter(function (t) { return t !== 'Diversos'; }).forEach(function (t) {
+      porTipo[t] = { qtd: 0, valor: 0, qtdEstimadaDiversos: 0, valorEstimadoDiversos: 0 };
+    });
+    resultadoBase.linhas.forEach(function (l) {
+      porTipo[l.tipo] = {
+        qtd: l.qtdReal, valor: l.valorReal,
+        qtdEstimadaDiversos: l.qtdEstimadaDiversos, valorEstimadoDiversos: l.valorEstimadoDiversos
+      };
     });
 
     var linhas = Object.keys(porTipo).map(function (tipo) {
       var d = porTipo[tipo];
-      var mediaMensalQtd = d.qtd / nMeses;
+      // Média Mensal agora soma a Qtd vendida (real) + Qtd Estimada (Diversos), dividido pelos meses do período.
+      var mediaMensalQtd = (d.qtd + d.qtdEstimadaDiversos) / nMeses;
       var mediaMensalValor = d.valor / nMeses;
       var pctSug = SAZ.porTipo.hasOwnProperty(tipo) && SAZ.porTipo[tipo] != null ? SAZ.porTipo[tipo] : SAZ.geral;
       var usouGeral = !(SAZ.porTipo.hasOwnProperty(tipo) && SAZ.porTipo[tipo] != null);
@@ -204,11 +217,13 @@ async function montarModuloPlanejamentoCompras(containerId) {
       var qtdProjSim = temSim ? mediaMensalQtd * 3 * (1 + Number(pctSim) / 100) : null;
       var valorProjSim = temSim ? mediaMensalValor * 3 * (1 + Number(pctSim) / 100) : null;
       return {
-        tipo: tipo, qtd: d.qtd, valor: d.valor, mediaMensalQtd: mediaMensalQtd,
+        tipo: tipo, qtd: d.qtd, valor: d.valor,
+        qtdEstimadaDiversos: d.qtdEstimadaDiversos, valorEstimadoDiversos: d.valorEstimadoDiversos,
+        mediaMensalQtd: mediaMensalQtd,
         pctSug: pctSug, usouGeral: usouGeral, qtdProjSug: qtdProjSug, valorProjSug: valorProjSug,
         pctSim: temSim ? Number(pctSim) : null, qtdProjSim: qtdProjSim, valorProjSim: valorProjSim
       };
-    }).filter(function (l) { return l.qtd > 0 || l.mediaMensalQtd > 0; })
+    }).filter(function (l) { return l.qtd > 0 || l.qtdEstimadaDiversos > 0 || l.mediaMensalQtd > 0; })
       .sort(function (a, b) { return b.qtd - a.qtd; });
 
     return linhas;
@@ -235,7 +250,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
       return '<tr>' +
         '<td>' + l.tipo + '</td>' +
         '<td class="cdapc-num">' + fmtQtd(l.qtd) + '</td>' +
+        '<td class="cdapc-num">' + fmtQtd(l.qtdEstimadaDiversos) + '</td>' +
         '<td class="cdapc-num">' + fmtMoeda(l.valor) + '</td>' +
+        '<td class="cdapc-num">' + fmtMoeda(l.valorEstimadoDiversos) + '</td>' +
         '<td class="cdapc-num">' + fmtQtd(l.mediaMensalQtd) + '</td>' +
         '<td class="cdapc-num">' + l.pctSug.toFixed(1) + '%' + (l.usouGeral ? ' <span class="cdapc-pct-geral">(geral)</span>' : '') + '</td>' +
         '<td class="cdapc-num"><b>' + fmtQtd(l.qtdProjSug) + '</b></td>' +
@@ -244,10 +261,12 @@ async function montarModuloPlanejamentoCompras(containerId) {
         '<td class="cdapc-num">' + (l.qtdProjSim != null ? fmtQtd(l.qtdProjSim) : '—') + '</td>' +
         '<td class="cdapc-num">' + (l.valorProjSim != null ? fmtMoeda(l.valorProjSim) : '—') + '</td>' +
       '</tr>';
-    }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
+    }).join('') || '<tr><td colspan="12" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
 
     var totQtd = linhas.reduce(function (s, l) { return s + l.qtd; }, 0);
+    var totQtdEstDiv = linhas.reduce(function (s, l) { return s + l.qtdEstimadaDiversos; }, 0);
     var totValor = linhas.reduce(function (s, l) { return s + l.valor; }, 0);
+    var totValorEstDiv = linhas.reduce(function (s, l) { return s + l.valorEstimadoDiversos; }, 0);
     var totMedia = linhas.reduce(function (s, l) { return s + l.mediaMensalQtd; }, 0);
     var totProjSug = linhas.reduce(function (s, l) { return s + l.qtdProjSug; }, 0);
     var totValorProjSug = linhas.reduce(function (s, l) { return s + l.valorProjSug; }, 0);
@@ -257,7 +276,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
     tb.innerHTML += '<tr class="total">' +
       '<td>TOTAL</td>' +
       '<td class="cdapc-num">' + fmtQtd(totQtd) + '</td>' +
+      '<td class="cdapc-num">' + fmtQtd(totQtdEstDiv) + '</td>' +
       '<td class="cdapc-num">' + fmtMoeda(totValor) + '</td>' +
+      '<td class="cdapc-num">' + fmtMoeda(totValorEstDiv) + '</td>' +
       '<td class="cdapc-num">' + fmtQtd(totMedia) + '</td>' +
       '<td class="cdapc-num">—</td>' +
       '<td class="cdapc-num">' + fmtQtd(totProjSug) + '</td>' +
@@ -289,7 +310,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
     var linhas = ULTIMO_CALC.length ? ULTIMO_CALC : calcularLinhas();
     var dados = linhas.map(function (l) {
       return {
-        tipo_peca: l.tipo, qtd_vendida_periodo: l.qtd, valor_vendido_periodo: l.valor,
+        tipo_peca: l.tipo, qtd_vendida: l.qtd, qtd_estimada_diversos: Number(l.qtdEstimadaDiversos.toFixed(1)),
+        valor_vendido: l.valor, valor_estimado_diversos: Number(l.valorEstimadoDiversos.toFixed(2)),
         media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
         qtd_projetada_q4_sugerido: Math.round(l.qtdProjSug), valor_projetado_q4_sugerido: Number(l.valorProjSug.toFixed(2)),
         pct_simulado: l.pctSim != null ? l.pctSim : '', qtd_projetada_q4_simulado: l.qtdProjSim != null ? Math.round(l.qtdProjSim) : '',
