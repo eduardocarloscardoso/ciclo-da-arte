@@ -197,7 +197,7 @@ async function montarModuloTutorial(containerId) {
   async function carregarComentarios() {
     var box = host.querySelector('#tut-comentarios-lista');
     try {
-      var comentarios = await cdaCarregarComentariosTutorial();
+      var comentarios = await cdaCarregarComentariosTutorial('comercial');
       box.innerHTML = comentarios.length ? comentarios.map(function (c) {
         var d = new Date(c.importadoEm);
         return '<div class="cda-tut-comentario"><b>' + d.toLocaleDateString('pt-BR') + ' — ' + (c.importadoPor || 'Usuário') + (c.arquivoOrigem ? ' · ' + c.arquivoOrigem : '') + '</b>' + c.conteudo + '</div>';
@@ -270,7 +270,7 @@ async function montarModuloTutorial(containerId) {
       // remove a frase de instrução que fica logo abaixo do marcador no arquivo original
       apos = apos.replace(/Escreva seus comentários[\s\S]*?só de referência\.\s*/, '').trim();
       if (!apos) { alert('Não encontrei nenhum comentário escrito abaixo da linha "' + CDA_TUTORIAL_MARCADOR + '".'); return; }
-      await cdaSalvarComentarioTutorial({ conteudo: apos, arquivoOrigem: file.name, importadoPor: (window.cu && window.cu.name) || 'Usuário' });
+      await cdaSalvarComentarioTutorial({ conteudo: apos, arquivoOrigem: file.name, importadoPor: (window.cu && window.cu.name) || 'Usuário', modulo: 'comercial' });
       this.value = '';
       await carregarComentarios();
       alert('Comentário importado com sucesso!');
