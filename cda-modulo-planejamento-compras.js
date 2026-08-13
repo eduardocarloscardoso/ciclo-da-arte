@@ -70,6 +70,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '</select></div>' +
       '<div class="cdapc-fg" style="min-width:120px"><label>Ano de Exercício</label><input type="number" id="cdapc-f-ano" step="1" style="width:100px"></div>' +
       '<div class="cdapc-fg" style="min-width:170px"><label>Canal</label><select id="cdapc-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
+      '<div class="cdapc-fg" style="min-width:130px"><label>% Sugerido (simular)</label><input type="number" step="0.1" id="cdapc-f-pctsug" placeholder="auto"></div>' +
     '</div>' +
     '<div class="cdapc-kpis" id="cdapc-kpis"></div>' +
     '<div class="tw"><div class="th"><h3>Projeção por Tipo de Peça — 4º Trimestre (Out–Dez)</h3></div>' +
@@ -85,18 +86,14 @@ async function montarModuloPlanejamentoCompras(containerId) {
           '<th class="cdapc-num">Média Mensal (Qtd)</th>' +
           '<th class="cdapc-num">Qx Ano Anterior</th>' +
           '<th class="cdapc-num">% Taxa Cresc. Ano Anterior</th>' +
-          '<th class="cdapc-num">% sugerido</th>' +
           '<th class="cdapc-num">Qtd projetada Qx (sugerido)</th>' +
           '<th class="cdapc-num">Valor projetado Qx (sugerido)</th>' +
-          '<th class="cdapc-num">% simulado</th>' +
-          '<th class="cdapc-num">Qtd projetada Qx (simulado)</th>' +
-          '<th class="cdapc-num">Valor projetado Qx (simulado)</th>' +
         '</tr></thead>' +
         '<tbody id="cdapc-tb"></tbody>' +
       '</table></div>' +
     '</div>';
 
-  var ST = { compras: [], produtos: [], canais: [], tipos: [], simulado: {} };
+  var ST = { compras: [], produtos: [], canais: [], tipos: [] };
   try {
     var res = await Promise.all([cdaCarregarCompras(), cdaCarregarProdutos(), cdaCarregarCanais(), cdaCarregarTiposProduto()]);
     ST.compras = res[0]; ST.produtos = res[1]; ST.canais = res[2]; ST.tipos = res[3];
@@ -191,6 +188,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
     .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
   var selQuad = host.querySelector('#cdapc-f-quad');
   var inpAno = host.querySelector('#cdapc-f-ano');
+  var inpPctSug = host.querySelector('#cdapc-f-pctsug');
 
   // ── Datas padrão: 1º de janeiro do ano corrente até a data mais recente disponível na base ──
   var datasDisponiveis = comprasVarejo.map(function (c) { return c.dataCompra; }).sort();
@@ -205,7 +203,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
     '📌 Base de cálculo: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
     'Último dado de venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>. ' +
     'O Período Estatístico mede o ritmo atual (Qtd/Valor/Média Mensal) e deve sempre estar dentro do Ano de Exercício informado — a Taxa de Crescimento compara esse período contra o mesmo intervalo de mês/dia, fixado no ano (Ano de Exercício − 1). ' +
-    'O Quadrante + Ano de Exercício definem a âncora da projeção: sempre o mesmo quadrante, no ano (Ano de Exercício − 1) — independente do Período Estatístico filtrado.';
+    'O Quadrante + Ano de Exercício definem a âncora da projeção: sempre o mesmo quadrante, no ano (Ano de Exercício − 1) — independente do Período Estatístico filtrado. ' +
+    'O filtro <b>"% Sugerido (simular)"</b> é opcional: vazio, cada tipo usa sua própria Taxa de Crescimento calculada; preenchido, esse % substitui a taxa de <b>todos</b> os tipos na projeção (útil pra simular um cenário só). A coluna "% Taxa Cresc. Ano Anterior" sempre mostra o número real calculado, mesmo simulando.';
 
   function fmtDataBR(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
   function fmtMoeda(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -243,6 +242,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
     });
 
     var CRESC = calcularCrescimentoEAncora(dataIni, dataFim, fCanal, quadrante, anoExercicio);
+    var pctSugGlobal = inpPctSug.value.trim(); // filtro "% Sugerido (simular)" — vazio = usa a taxa calculada de cada tipo
+    var temPctSugGlobal = pctSugGlobal !== '';
 
     var linhas = Object.keys(porTipo).map(function (tipo) {
       var d = porTipo[tipo];
@@ -250,22 +251,21 @@ async function montarModuloPlanejamentoCompras(containerId) {
       var mediaMensalQtd = (d.qtd + d.qtdEstimadaDiversos) / nMeses;
       var taxaTipo = CRESC.taxaPorTipo(tipo);
       var usouGeral = taxaTipo == null;
+      // "% Taxa Cresc. Ano Anterior" SEMPRE mostra o número real calculado (referência histórica),
+      // mesmo quando o filtro "% Sugerido" estiver preenchido pra simular outro cenário.
       var pctSug = usouGeral ? CRESC.taxaGeral : taxaTipo;
       var qtdAncora = CRESC.qtdAncora(tipo);
       var precoMedio = CRESC.precoMedio(tipo);
-      var qtdProjSug = qtdAncora * (1 + pctSug / 100);
+      // A projeção usa o % do filtro (se preenchido, aplicado igual pra todos os tipos) ou o pctSug calculado.
+      var pctUsadoNaProjecao = temPctSugGlobal ? Number(pctSugGlobal) : pctSug;
+      var qtdProjSug = qtdAncora * (1 + pctUsadoNaProjecao / 100);
       var valorProjSug = qtdProjSug * precoMedio;
-      var pctSim = ST.simulado[tipo];
-      var temSim = pctSim !== undefined && pctSim !== null && pctSim !== '';
-      var qtdProjSim = temSim ? qtdAncora * (1 + Number(pctSim) / 100) : null;
-      var valorProjSim = temSim ? qtdProjSim * precoMedio : null;
       return {
         tipo: tipo, qtd: d.qtd, valor: d.valor,
         qtdEstimadaDiversos: d.qtdEstimadaDiversos, valorEstimadoDiversos: d.valorEstimadoDiversos,
         qtdTotal: d.qtd + d.qtdEstimadaDiversos, valorTotal: d.valor + d.valorEstimadoDiversos,
         mediaMensalQtd: mediaMensalQtd, qtdAncora: qtdAncora, anoRefQuad: CRESC.anoRefQuad, quadrante: CRESC.quadrante,
-        pctSug: pctSug, usouGeral: usouGeral, qtdProjSug: qtdProjSug, valorProjSug: valorProjSug,
-        pctSim: temSim ? Number(pctSim) : null, qtdProjSim: qtdProjSim, valorProjSim: valorProjSim
+        pctSug: pctSug, usouGeral: usouGeral, qtdProjSug: qtdProjSug, valorProjSug: valorProjSug
       };
     }).filter(function (l) { return l.qtd > 0 || l.qtdEstimadaDiversos > 0 || l.mediaMensalQtd > 0; })
       .sort(function (a, b) { return b.qtd - a.qtd; });
@@ -302,14 +302,10 @@ async function montarModuloPlanejamentoCompras(containerId) {
         '<td class="cdapc-num">' + fmtQtd(l.mediaMensalQtd) + '</td>' +
         '<td class="cdapc-num">' + fmtQtd(l.qtdAncora) + '</td>' +
         '<td class="cdapc-num">' + l.pctSug.toFixed(1) + '%' + (l.usouGeral ? ' <span class="cdapc-pct-geral">(geral)</span>' : '') + '</td>' +
-        '<td class="cdapc-num">' + l.pctSug.toFixed(1) + '%' + (l.usouGeral ? ' <span class="cdapc-pct-geral">(geral)</span>' : '') + '</td>' +
         '<td class="cdapc-num"><b>' + fmtQtd(l.qtdProjSug) + '</b></td>' +
         '<td class="cdapc-num"><b>' + fmtMoeda(l.valorProjSug) + '</b></td>' +
-        '<td class="cdapc-num"><input type="number" step="0.1" class="cdapc-sim-input" data-tipo="' + l.tipo.replace(/"/g, '&quot;') + '" placeholder="—" value="' + (l.pctSim != null ? l.pctSim : '') + '">%</td>' +
-        '<td class="cdapc-num">' + (l.qtdProjSim != null ? fmtQtd(l.qtdProjSim) : '—') + '</td>' +
-        '<td class="cdapc-num">' + (l.valorProjSim != null ? fmtMoeda(l.valorProjSim) : '—') + '</td>' +
       '</tr>';
-    }).join('') || '<tr><td colspan="16" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
+    }).join('') || '<tr><td colspan="13" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
 
     var totQtd = linhas.reduce(function (s, l) { return s + l.qtd; }, 0);
     var totQtdEstDiv = linhas.reduce(function (s, l) { return s + l.qtdEstimadaDiversos; }, 0);
@@ -321,9 +317,6 @@ async function montarModuloPlanejamentoCompras(containerId) {
     var totQ4Ant = linhas.reduce(function (s, l) { return s + l.qtdAncora; }, 0);
     var totProjSug = linhas.reduce(function (s, l) { return s + l.qtdProjSug; }, 0);
     var totValorProjSug = linhas.reduce(function (s, l) { return s + l.valorProjSug; }, 0);
-    var totProjSim = linhas.reduce(function (s, l) { return s + (l.qtdProjSim || 0); }, 0);
-    var totValorProjSim = linhas.reduce(function (s, l) { return s + (l.valorProjSim || 0); }, 0);
-    var temAlgumSim = linhas.some(function (l) { return l.qtdProjSim != null; });
     tb.innerHTML += '<tr class="total">' +
       '<td>TOTAL</td>' +
       '<td class="cdapc-num">' + fmtQtd(totQtd) + '</td>' +
@@ -335,26 +328,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '<td class="cdapc-num">' + fmtQtd(totMedia) + '</td>' +
       '<td class="cdapc-num">' + fmtQtd(totQ4Ant) + '</td>' +
       '<td class="cdapc-num">—</td>' +
-      '<td class="cdapc-num">—</td>' +
       '<td class="cdapc-num">' + fmtQtd(totProjSug) + '</td>' +
       '<td class="cdapc-num">' + fmtMoeda(totValorProjSug) + '</td>' +
-      '<td class="cdapc-num">—</td>' +
-      '<td class="cdapc-num">' + (temAlgumSim ? fmtQtd(totProjSim) : '—') + '</td>' +
-      '<td class="cdapc-num">' + (temAlgumSim ? fmtMoeda(totValorProjSim) : '—') + '</td>' +
     '</tr>';
-
-    // Listeners dos campos de simulação (não recarrega tudo — só recalcula aquela linha)
-    tb.querySelectorAll('.cdapc-sim-input').forEach(function (inp) {
-      inp.addEventListener('input', function () {
-        var tipo = inp.dataset.tipo;
-        var v = inp.value.trim();
-        ST.simulado[tipo] = v === '' ? null : v;
-        render();
-        // Recoloca o foco no mesmo campo após o re-render (senão perde o foco a cada tecla)
-        var novo = host.querySelector('.cdapc-sim-input[data-tipo="' + tipo.replace(/"/g, '\\"') + '"]');
-        if (novo) { novo.focus(); var val = novo.value; novo.value = ''; novo.value = val; }
-      });
-    });
   }
 
   inpIni.addEventListener('change', render);
@@ -362,6 +338,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
   selCanal.addEventListener('change', render);
   selQuad.addEventListener('change', render);
   inpAno.addEventListener('change', render);
+  inpPctSug.addEventListener('input', render);
 
   host.querySelector('#cdapc-btn-exp').addEventListener('click', function () {
     var linhas = ULTIMO_CALC.length ? ULTIMO_CALC : calcularLinhas();
@@ -371,10 +348,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
         qtd_total_real_mais_estimada: Number(l.qtdTotal.toFixed(1)),
         valor_vendido: l.valor, valor_estimado: Number(l.valorEstimadoDiversos.toFixed(2)),
         valor_total_real_mais_estimado: Number(l.valorTotal.toFixed(2)),
-        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), quadrante: l.quadrante, ano_ref_quadrante: l.anoRefQuad, qx_ano_anterior: Number(l.qtdAncora.toFixed(1)), pct_taxa_cresc_ano_anterior: Number(l.pctSug.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
-        qtd_projetada_q4_sugerido: Math.round(l.qtdProjSug), valor_projetado_q4_sugerido: Number(l.valorProjSug.toFixed(2)),
-        pct_simulado: l.pctSim != null ? l.pctSim : '', qtd_projetada_q4_simulado: l.qtdProjSim != null ? Math.round(l.qtdProjSim) : '',
-        valor_projetado_q4_simulado: l.valorProjSim != null ? Number(l.valorProjSim.toFixed(2)) : ''
+        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), quadrante: l.quadrante, ano_ref_quadrante: l.anoRefQuad,
+        qx_ano_anterior: Number(l.qtdAncora.toFixed(1)), pct_taxa_cresc_ano_anterior: Number(l.pctSug.toFixed(1)),
+        qtd_projetada_qx_sugerido: Math.round(l.qtdProjSug), valor_projetado_qx_sugerido: Number(l.valorProjSug.toFixed(2))
       };
     });
     var ws = XLSX.utils.json_to_sheet(dados);
