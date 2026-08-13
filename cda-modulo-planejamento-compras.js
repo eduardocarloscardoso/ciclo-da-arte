@@ -64,11 +64,11 @@ async function montarModuloPlanejamentoCompras(containerId) {
     '<div class="cdapc-filtros">' +
       '<div class="cdapc-fg"><label>Período Estatístico Inicial</label><input type="date" id="cdapc-f-ini"></div>' +
       '<div class="cdapc-fg"><label>Período Estatístico Final</label><input type="date" id="cdapc-f-fim"></div>' +
-      '<div class="cdapc-fg" style="min-width:170px"><label>Canal</label><select id="cdapc-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
       '<div class="cdapc-fg" style="min-width:110px"><label>Quadrante a simular</label><select id="cdapc-f-quad">' +
         '<option value="Q1">Q1 (Jan-Mar)</option><option value="Q2">Q2 (Abr-Jun)</option><option value="Q3">Q3 (Jul-Set)</option><option value="Q4" selected>Q4 (Out-Dez)</option>' +
       '</select></div>' +
       '<div class="cdapc-fg" style="min-width:120px"><label>Ano de Exercício</label><input type="number" id="cdapc-f-ano" step="1" style="width:100px"></div>' +
+      '<div class="cdapc-fg" style="min-width:170px"><label>Canal</label><select id="cdapc-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
     '</div>' +
     '<div class="cdapc-kpis" id="cdapc-kpis"></div>' +
     '<div class="tw"><div class="th"><h3>Projeção por Tipo de Peça — 4º Trimestre (Out–Dez)</h3></div>' +
