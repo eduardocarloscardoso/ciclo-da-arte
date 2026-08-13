@@ -179,7 +179,7 @@ async function montarModuloSegmentacao(containerId) {
     var itens = ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao'; });
     wrap.innerHTML = itens.map(function (s) {
       var ativa = ST.filtroRapido && ST.filtroRapido.codigo === s.codigo;
-      return '<span class="seg-pill' + (ativa ? ' ativa' : '') + '" data-codigo="' + s.codigo + '" data-tipo-campo="' + (s.codigo === 'vip' || s.codigo === 'premium' ? 'tag' : 'status') + '" title="' + (s.acaoSugerida || '') + '">' +
+      return '<span class="seg-pill' + (ativa ? ' ativa' : '') + '" data-codigo="' + s.codigo + '" data-tipo-campo="' + (s.codigo === 'vip' || s.codigo === 'premium' || s.codigo === 'gold' ? 'tag' : 'status') + '" title="' + (s.acaoSugerida || '') + '">' +
         '<span class="dot" style="background:' + s.cor + '"></span>' + s.nome +
         '</span>';
     }).join('');
@@ -208,13 +208,14 @@ async function montarModuloSegmentacao(containerId) {
       '<div><button class="seg-modo-btn' + (p.modo === 'automatico' ? ' ativa' : '') + '" data-modo="automatico">A — Automático</button> ' +
         '<button class="seg-modo-btn' + (p.modo === 'manual' ? ' ativa' : '') + '" data-modo="manual">M — Manual</button></div>' +
       (p.modo === 'automatico'
-        ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b><br><span style="font-size:9px;color:var(--muted,#888)">Só recalcula quando você pedir — nunca sozinho por agendamento</span></div>' +
+        ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; Gold: <b>' + fmtBRL(p.valorGold) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b><br><span style="font-size:9px;color:var(--muted,#888)">Gold é sempre a média entre Premium e VIP — calculado automaticamente. Só recalcula quando você pedir — nunca sozinho por agendamento</span></div>' +
           '<button class="btn sm rust" id="seg-recalc-executar">▶ Executar recálculo agora</button>'
         : (!editando
-            ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b></div>' +
+            ? '<div style="font-size:11px">Premium: <b>' + fmtBRL(p.valorPremium) + '</b> &nbsp; Gold: <b>' + fmtBRL(p.valorGold) + '</b> &nbsp; VIP: <b>' + fmtBRL(p.valorVip) + '</b><br><span style="font-size:9px;color:var(--muted,#888)">Gold é sempre a média entre Premium e VIP</span></div>' +
               '<button class="btn sm" id="seg-recalc-editar">✎ Editar valores</button>' +
               '<button class="btn sm" id="seg-recalc-confirmar" title="Confirma que os valores continuam válidos hoje, sem mudar nada">✓ Confirmar (atualiza a data)</button>'
-            : '<div style="display:flex;gap:8px;align-items:center">Premium: <input type="number" id="seg-recalc-premium" value="' + p.valorPremium + '"> VIP: <input type="number" id="seg-recalc-vip" value="' + p.valorVip + '">' +
+            : '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">Premium: <input type="number" id="seg-recalc-premium" value="' + p.valorPremium + '"> VIP: <input type="number" id="seg-recalc-vip" value="' + p.valorVip + '">' +
+              '<span style="font-size:10px;color:var(--muted,#888)">Gold = média automática, não editável</span>' +
               '<button class="btn sm rust" id="seg-recalc-salvar">💾 Salvar</button>' +
               '<button class="btn sm" id="seg-recalc-cancelar">Cancelar</button></div>'
           )

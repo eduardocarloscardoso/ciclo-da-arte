@@ -337,6 +337,13 @@ const EDGE_URL='https://gsizoiwefejsllgtsard.supabase.co/functions/v1/exportar-e
 // localStorage do navegador e é compartilhada com o financeiro.html (iframe),
 // já que estão na mesma origem.
 const sbAuth=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+// Mantém sb.headers.Authorization sempre sincronizado com o token de sessão.
+// Sem isso, o token capturado no login expira (~1h) e o Supabase Auth renova
+// sozinho em background, mas as chamadas via axios (sb.*) continuavam usando
+// o token antigo expirado -> 401 em qualquer PATCH/POST (ex: salvar colaborador).
+sbAuth.auth.onAuthStateChange(function(event,session){
+  if(session&&session.access_token){sb.headers.Authorization='Bearer '+session.access_token;}
+});
 const sb={
 headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
 async get(t,p=''){var r=await axios.get(SUPABASE_URL+'/rest/v1/'+t+'?'+p,{headers:this.headers});return r.data;},

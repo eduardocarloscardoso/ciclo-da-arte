@@ -600,23 +600,26 @@ async function cdaCarregarParametrosSegmentacao() {
   if (error) throw error;
   return {
     valorPremium: Number(data.valor_premium), valorVip: Number(data.valor_vip),
+    valorGold: Number(data.valor_gold != null ? data.valor_gold : (data.valor_premium + data.valor_vip) / 2),
     modo: data.modo, atualizadoEm: data.atualizado_em, atualizadoPor: data.atualizado_por
   };
 }
 async function cdaSalvarParametrosSegmentacao(o) {
+  // valorGold nunca é um input do usuário — é sempre a média entre Premium e VIP
+  var valorGold = Math.round(((o.valorPremium + o.valorVip) / 2) * 100) / 100;
   const row = {
-    id: 1, valor_premium: o.valorPremium, valor_vip: o.valorVip, modo: o.modo,
+    id: 1, valor_premium: o.valorPremium, valor_vip: o.valorVip, valor_gold: valorGold, modo: o.modo,
     atualizado_em: new Date().toISOString().slice(0, 10), atualizado_por: o.atualizadoPor || null
   };
   const { data, error } = await cdaClient.from('cda_parametros_segmentacao').upsert(row).select().single();
   if (error) throw error;
-  return { valorPremium: Number(data.valor_premium), valorVip: Number(data.valor_vip), modo: data.modo, atualizadoEm: data.atualizado_em, atualizadoPor: data.atualizado_por };
+  return { valorPremium: Number(data.valor_premium), valorVip: Number(data.valor_vip), valorGold: Number(data.valor_gold), modo: data.modo, atualizadoEm: data.atualizado_em, atualizadoPor: data.atualizado_por };
 }
 
 async function cdaExecutarRecalculoValores(usuario) {
   const { data, error } = await cdaClient.rpc('cda_executar_recalculo_valores', { p_usuario: usuario || 'Usuário' });
   if (error) throw error;
-  return data && data[0] ? { valorPremium: Number(data[0].valor_premium), valorVip: Number(data[0].valor_vip) } : null;
+  return data && data[0] ? { valorPremium: Number(data[0].valor_premium), valorVip: Number(data[0].valor_vip), valorGold: Number(data[0].valor_gold) } : null;
 }
 
 // ── TUTORIAL — comentários da equipe (importados de Word) ────────────
