@@ -40,7 +40,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
 
   host.innerHTML =
     '<style>' +
-      '.cdapc-note{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:12px 14px;font-size:11.5px;color:var(--muted,#888);margin-bottom:14px;line-height:1.5;}' +
+      '.cdapc-note{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:12px 14px;font-size:11.5px;color:var(--muted,#888);margin-bottom:14px;line-height:1.6;box-sizing:border-box;width:100%;overflow-wrap:break-word;word-break:break-word;white-space:normal;}' +
       '.cdapc-note b{color:var(--ink,#1a1a1a);}' +
       '.cdapc-filtros{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;}' +
       '.cdapc-fg{display:flex;flex-direction:column;gap:3px;}' +
@@ -83,6 +83,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
           '<th class="cdapc-num">Valor Estimado</th>' +
           '<th class="cdapc-num">Valor Total (Real + Estimado)</th>' +
           '<th class="cdapc-num">Média Mensal (Qtd)</th>' +
+          '<th class="cdapc-num">Q4 do ano anterior</th>' +
           '<th class="cdapc-num">% sugerido</th>' +
           '<th class="cdapc-num">Qtd projetada Q4 (sugerido)</th>' +
           '<th class="cdapc-num">Valor projetado Q4 (sugerido)</th>' +
@@ -250,7 +251,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         tipo: tipo, qtd: d.qtd, valor: d.valor,
         qtdEstimadaDiversos: d.qtdEstimadaDiversos, valorEstimadoDiversos: d.valorEstimadoDiversos,
         qtdTotal: d.qtd + d.qtdEstimadaDiversos, valorTotal: d.valor + d.valorEstimadoDiversos,
-        mediaMensalQtd: mediaMensalQtd,
+        mediaMensalQtd: mediaMensalQtd, qtdQ4Ant: qtdQ4Ant, anoRefQ4: CRESC.anoRefQ4,
         pctSug: pctSug, usouGeral: usouGeral, qtdProjSug: qtdProjSug, valorProjSug: valorProjSug,
         pctSim: temSim ? Number(pctSim) : null, qtdProjSim: qtdProjSim, valorProjSim: valorProjSim
       };
@@ -287,6 +288,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         '<td class="cdapc-num">' + fmtMoeda(l.valorEstimadoDiversos) + '</td>' +
         '<td class="cdapc-num"><b>' + fmtMoeda(l.valorTotal) + '</b></td>' +
         '<td class="cdapc-num">' + fmtQtd(l.mediaMensalQtd) + '</td>' +
+        '<td class="cdapc-num">' + fmtQtd(l.qtdQ4Ant) + '</td>' +
         '<td class="cdapc-num">' + l.pctSug.toFixed(1) + '%' + (l.usouGeral ? ' <span class="cdapc-pct-geral">(geral)</span>' : '') + '</td>' +
         '<td class="cdapc-num"><b>' + fmtQtd(l.qtdProjSug) + '</b></td>' +
         '<td class="cdapc-num"><b>' + fmtMoeda(l.valorProjSug) + '</b></td>' +
@@ -294,7 +296,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         '<td class="cdapc-num">' + (l.qtdProjSim != null ? fmtQtd(l.qtdProjSim) : '—') + '</td>' +
         '<td class="cdapc-num">' + (l.valorProjSim != null ? fmtMoeda(l.valorProjSim) : '—') + '</td>' +
       '</tr>';
-    }).join('') || '<tr><td colspan="14" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
+    }).join('') || '<tr><td colspan="15" style="text-align:center;color:var(--muted);padding:20px">Nenhuma venda no período/canal selecionado.</td></tr>';
 
     var totQtd = linhas.reduce(function (s, l) { return s + l.qtd; }, 0);
     var totQtdEstDiv = linhas.reduce(function (s, l) { return s + l.qtdEstimadaDiversos; }, 0);
@@ -303,6 +305,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
     var totValorEstDiv = linhas.reduce(function (s, l) { return s + l.valorEstimadoDiversos; }, 0);
     var totValorTotal = linhas.reduce(function (s, l) { return s + l.valorTotal; }, 0);
     var totMedia = linhas.reduce(function (s, l) { return s + l.mediaMensalQtd; }, 0);
+    var totQ4Ant = linhas.reduce(function (s, l) { return s + l.qtdQ4Ant; }, 0);
     var totProjSug = linhas.reduce(function (s, l) { return s + l.qtdProjSug; }, 0);
     var totValorProjSug = linhas.reduce(function (s, l) { return s + l.valorProjSug; }, 0);
     var totProjSim = linhas.reduce(function (s, l) { return s + (l.qtdProjSim || 0); }, 0);
@@ -317,6 +320,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '<td class="cdapc-num">' + fmtMoeda(totValorEstDiv) + '</td>' +
       '<td class="cdapc-num">' + fmtMoeda(totValorTotal) + '</td>' +
       '<td class="cdapc-num">' + fmtQtd(totMedia) + '</td>' +
+      '<td class="cdapc-num">' + fmtQtd(totQ4Ant) + '</td>' +
       '<td class="cdapc-num">—</td>' +
       '<td class="cdapc-num">' + fmtQtd(totProjSug) + '</td>' +
       '<td class="cdapc-num">' + fmtMoeda(totValorProjSug) + '</td>' +
@@ -351,7 +355,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         qtd_total_real_mais_estimada: Number(l.qtdTotal.toFixed(1)),
         valor_vendido: l.valor, valor_estimado: Number(l.valorEstimadoDiversos.toFixed(2)),
         valor_total_real_mais_estimado: Number(l.valorTotal.toFixed(2)),
-        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
+        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), qtd_q4_ano_anterior: Number(l.qtdQ4Ant.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
         qtd_projetada_q4_sugerido: Math.round(l.qtdProjSug), valor_projetado_q4_sugerido: Number(l.valorProjSug.toFixed(2)),
         pct_simulado: l.pctSim != null ? l.pctSim : '', qtd_projetada_q4_simulado: l.qtdProjSim != null ? Math.round(l.qtdProjSim) : '',
         valor_projetado_q4_simulado: l.valorProjSim != null ? Number(l.valorProjSim.toFixed(2)) : ''
