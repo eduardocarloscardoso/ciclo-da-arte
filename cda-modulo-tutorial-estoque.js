@@ -27,12 +27,12 @@ var CDA_TUTORIAL_ESTOQUE_MARCADOR = 'COMENTÁRIOS DA EQUIPE';
 var CDA_TUTORIAL_ESTOQUE_CONTEUDO = [
   {
     id: 'visao-geral', titulo: 'Visão Geral',
-    html: '<p>O módulo Estoque existe pra responder uma pergunta de negócio concreta: <b>quanto comprar de matéria-prima por tipo de peça pro 4º trimestre</b>, que historicamente vende bem mais que o resto do ano (Black Friday, Natal, shows e feiras de fim de ano).</p>' +
+    html: '<p>O módulo Estoque existe pra responder uma pergunta de negócio concreta: <b>quanto comprar de matéria-prima por tipo de peça pro trimestre que vem</b> — inclusive o 4º trimestre, que historicamente vende bem mais que o resto do ano (Black Friday, Natal, shows e feiras de fim de ano), mas a ferramenta serve pra qualquer Q1-Q4, de qualquer ano.</p>' +
       '<p>Ele tem 3 submódulos:</p>' +
       '<table class="cda-tut-tabela"><tr><th>Submódulo</th><th>Responde</th></tr>' +
       '<tr><td><b>Vendas por Tipo de Peça</b></td><td>De tudo que a empresa vendeu num período, quanto foi de cada tipo (T-shirt, Cropped, Shorts...)?</td></tr>' +
       '<tr><td><b>Vendas por Canal</b></td><td>Dentro de uma Collab/Artista (ex: Luedji Luna), quanto cada canal dela vendeu — e o que exatamente foi vendido lá?</td></tr>' +
-      '<tr><td><b>Planejamento de Compras</b></td><td><i>(próxima etapa)</i> Aplica sazonalidade histórica em cima dos números acima pra sugerir quanto comprar pro Q4.</td></tr>' +
+      '<tr><td><b>Planejamento de Compras</b></td><td>Compara o ritmo atual de vendas contra o ano anterior e projeta quanto comprar pro Quadrante (Q1-Q4) e Ano de Exercício escolhidos.</td></tr>' +
       '</table>' +
       '<p class="cda-tut-nota">O canal <b>Private Label</b> (vendas no atacado) é <b>sempre excluído</b> de todo o módulo Estoque — o objetivo é planejar estoque de varejo, não atacado.</p>'
   },
@@ -85,6 +85,35 @@ var CDA_TUTORIAL_ESTOQUE_CONTEUDO = [
       '<p><code>% Participação Total Vendas (canal, tipo) = Valor total do tipo NESSE canal/collab (real + Diversos) ÷ Valor total do tipo na EMPRESA INTEIRA (real + Diversos) × 100</code></p>' +
       '<p>Exemplo real: T-shirt vendido pela Luedji Luna = R$ 427.638,36 (todos os canais dela). T-shirt vendido pela empresa inteira = R$ 1.206.040,21. 427.638,36 ÷ 1.206.040,21 = <b>35,46%</b> — ou seja, mais de 1/3 de todo T-shirt vendido pela Ciclo da Arte passa pela Luedji Luna.</p>' +
       '<p class="cda-tut-nota">Essa conta é <b>por valor (R$)</b>, não por quantidade de peças — decisão confirmada com o CEO em ago/2026, depois de comparar as duas versões (por quantidade dava 33,07%, por valor dá 35,46% — a diferença existe porque o preço médio de T-shirt vendido pela Luedji é mais alto que a média da empresa).</p>'
+  },
+  {
+    id: 'planejamento-compras', titulo: 'Planejamento de Compras — a fórmula final',
+    html: '<p>É aqui que tudo se junta: usa a mesma função de rateio de Diversos (<code>cdaCalcularVendasPorTipoPeca</code>) do submódulo Vendas por Tipo de Peça, e adiciona uma camada de projeção pro trimestre que você quer comprar.</p>' +
+      '<h4>Os dois grupos de filtro — completamente desacoplados por design</h4>' +
+      '<table class="cda-tut-tabela"><tr><th>Filtro</th><th>Pra que serve</th></tr>' +
+      '<tr><td><b>Período Estatístico Inicial/Final</b></td><td>Mede o <b>ritmo atual</b> da empresa — deve sempre ficar dentro do Ano de Exercício informado (ex: 01/01/2026 até hoje). Alimenta Qtd/Valor real, estimado, Total e Média Mensal.</td></tr>' +
+      '<tr><td><b>Quadrante (Q1-Q4) + Ano de Exercício</b></td><td>Define a <b>âncora</b> da projeção — sempre o mesmo Quadrante, no ano (Ano de Exercício − 1). Não depende do Período Estatístico.</td></tr>' +
+      '<tr><td><b>Canal</b></td><td>Opcional — filtra tudo (real, estimado e âncora) por um canal específico.</td></tr>' +
+      '<tr><td><b>% Sugerido (simular)</b></td><td>Opcional — vazio usa a taxa calculada de cada tipo; preenchido, substitui a taxa de <b>todos</b> os tipos na projeção, de uma vez.</td></tr>' +
+      '</table>' +
+      '<h4>Passo 1 — Qx Ano Anterior (a âncora)</h4>' +
+      '<p><code>Qx Ano Anterior = Qtd Total (real + estimada) do Quadrante escolhido, no ano (Ano de Exercício − 1)</code></p>' +
+      '<p>Exemplo: Quadrante = Q4, Ano de Exercício = 2026 → busca Out-Dez/<b>2025</b>. Pro T-shirt: 547 peças reais + 96,1 estimadas de Diversos = <b>643 peças</b>.</p>' +
+      '<h4>Passo 2 — % Taxa Cresc. Ano Anterior</h4>' +
+      '<p>Compara o Período Estatístico contra o <b>mesmo intervalo de mês/dia, fixado no ano (Ano de Exercício − 1)</b> — não "1 ano antes do período" cru, porque isso daria errado se o período filtrado caísse num ano diferente do Ano de Exercício.</p>' +
+      '<p><code>% Taxa Cresc. Ano Anterior = Qtd Total do Período Estatístico (Ano de Exercício) ÷ Qtd Total do MESMO intervalo de mês/dia (Ano de Exercício − 1) − 1</code></p>' +
+      '<p>Exemplo: Período = 01/01 a 30/06/2026 (Ano de Exercício 2026) → compara contra 01/01 a 30/06/<b>2025</b>. T-shirt: 1.061,4 peças (2026) ÷ 631,8 peças (2025) − 1 = <b>68,0%</b>.</p>' +
+      '<p class="cda-tut-nota">Tipo sem venda no mesmo intervalo do ano anterior → usa a Taxa de Crescimento <b>geral da empresa</b> (mesma fórmula, todos os tipos somados) — marcado "(geral)" na tela.</p>' +
+      '<h4>Passo 3 — Projeção final</h4>' +
+      '<p><code>Qtd projetada Qx (sugerido) = Qx Ano Anterior × (1 + % Taxa Cresc. Ano Anterior ÷ 100)</code></p>' +
+      '<p><code>Valor projetado Qx (sugerido) = Qtd projetada × Preço médio real do tipo no Período Estatístico</code></p>' +
+      '<p>Exemplo: 643 × (1 + 68,0%) = <b>1.080,5 peças</b> projetadas pro Q4/2026.</p>' +
+      '<p class="cda-tut-nota">Sem limite de faixa — o número real sempre aparece, mesmo que pareça alto/baixo demais, porque não dá pra saber se um tipo é sazonalmente novo ou está passando por uma mudança real de patamar.</p>' +
+      '<h4>Erros já cometidos e corrigidos nessa fórmula (pra não repetir)</h4>' +
+      '<p>1) Uma versão inicial comparava o Período Estatístico contra "o resto do próprio ano" (jan-set vs. Q4) — foi trocada porque não usava o dado mais recente disponível.</p>' +
+      '<p>2) Uma versão testou "Período Estatístico ÷ Âncora" como taxa — só dá um número coerente quando as duas janelas têm o mesmo tamanho/época por coincidência; foi descartada.</p>' +
+      '<p>3) Uma versão testou "Âncora ÷ Total do ano inteiro" (peso sazonal) como se fosse taxa de crescimento — mas isso sempre gera número positivo, inflando a projeção pra cima mesmo quando as vendas estão caindo; foi descartada.</p>' +
+      '<p>4) A versão final (documentada acima) foi validada comparando manualmente os números com o CEO em vários cenários reais antes de ser fixada.</p>'
   }
 ];
 
