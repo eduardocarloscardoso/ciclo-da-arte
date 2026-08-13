@@ -1,32 +1,27 @@
 // ════════════════════════════════════════════════════════════════════
 // cda-modulo-planejamento-compras.js
 // Módulo Estoque → submódulo "Planejamento de Compras".
-// Projeta a compra de matéria-prima por tipo de peça para o 4º
-// trimestre (out-dez), com base no histórico de vendas a VAREJO
-// (exclui sempre o canal Private Label — vendas no atacado não entram
-// na conta de sazonalidade nem na base do período).
+// Projeta a compra de matéria-prima por tipo de peça para qualquer
+// Quadrante (Q1-Q4) e Ano de Exercício escolhidos, com base no
+// histórico de vendas a VAREJO (exclui sempre o canal Private Label).
 //
-// EM REVISÃO (ago/2026): as colunas Qtd/Valor vendido e Qtd/Valor
-// estimado (Diversos) já usam a função compartilhada
-// cdaCalcularVendasPorTipoPeca (mesmo rateio de Diversos dos
-// submódulos Vendas por Tipo de Peça e Vendas por Canal). A Média
-// Mensal soma Qtd vendida + Qtd Estimada (Diversos), dividido pelos
-// meses do Período Estatístico Inicial/Final.
-// As colunas de % sugerido / projeção Q4 / simulação AINDA usam a
-// sazonalidade antiga (só quantidade, sem rateio de Diversos) —
-// ajuste pendente, próxima etapa.
-//
-// Sazonalidade (ainda na versão antiga): para cada tipo de peça,
-// compara Q4 real (2023-2025) contra o esperado (média mensal de
-// jan-set × 3) e calcula o % de variação ponderado por volume. Esse é
-// o "% sugerido" — fixo, não muda com o filtro de período (é uma
-// referência histórica). Quando não há dado suficiente para um tipo,
-// cai no % geral da empresa (todos os tipos, mesma metodologia).
-//
-// O filtro de Período Estatístico Inicial/Final é livre — define a
-// base de vendas usada pra calcular a média mensal atual, que depois
-// é projetada para os 3 meses do Q4 usando o % sugerido (ou o %
-// simulado, se o usuário preencher).
+// Metodologia final (ago/2026, validada com o CEO) — duas coisas
+// completamente desacopladas por design:
+// 1) O "Período Estatístico" (Inicial/Final) mede o RITMO ATUAL da
+//    empresa: Qtd/Valor real, estimado (Diversos — mesmo rateio de
+//    cdaCalcularVendasPorTipoPeca dos outros 2 submódulos de Estoque),
+//    Qtd/Valor Total e Média Mensal (soma real + estimado, ÷ meses do
+//    período). Também a Taxa de Crescimento, comparando esse período
+//    contra o mesmo intervalo de dias 1 ano antes — funciona mesmo com
+//    o ano corrente em andamento, não depende de esperar ele fechar.
+// 2) O "Quadrante" (Q1-Q4) + "Ano de Exercício" definem a ÂNCORA da
+//    projeção ("Qx Ano Anterior"): sempre o mesmo quadrante, no ano
+//    (Ano de Exercício − 1) — independente de qual Período Estatístico
+//    foi filtrado.
+// Projeção final = Âncora × (1 + Taxa de Crescimento do Período
+// Estatístico). Fallback (tipo sem venda no mesmo intervalo do ano
+// anterior): usa a Taxa de Crescimento geral da empresa — marcado
+// "(geral)" na tela. Sem limite de faixa — número real sempre aparece.
 //
 // Somente leitura — não grava nada no banco.
 // Requer cda-dados-compartilhados.js carregado antes.
@@ -62,7 +57,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '.cdapc-pct-geral{font-size:9px;color:var(--muted,#888);font-weight:400;}' +
     '</style>' +
     '<div class="row-bt">' +
-      '<div><div class="sec-t">📈 Planejamento de Compras</div><div class="sec-d">Projeção de compra de matéria-prima por tipo de peça para o 4º trimestre, com base no histórico de vendas a varejo</div></div>' +
+      '<div><div class="sec-t">📈 Planejamento de Compras</div><div class="sec-d">Projeção de compra de matéria-prima por tipo de peça para o quadrante (Q1-Q4) e ano de exercício escolhidos, com base no histórico de vendas a varejo</div></div>' +
       '<button class="btn" id="cdapc-btn-exp">⬇ Exportar XLSX</button>' +
     '</div>' +
     '<div class="cdapc-note" id="cdapc-nota">Carregando dados...</div>' +
@@ -70,6 +65,10 @@ async function montarModuloPlanejamentoCompras(containerId) {
       '<div class="cdapc-fg"><label>Período Estatístico Inicial</label><input type="date" id="cdapc-f-ini"></div>' +
       '<div class="cdapc-fg"><label>Período Estatístico Final</label><input type="date" id="cdapc-f-fim"></div>' +
       '<div class="cdapc-fg" style="min-width:170px"><label>Canal</label><select id="cdapc-f-canal"><option value="">Todos (exceto Private Label)</option></select></div>' +
+      '<div class="cdapc-fg" style="min-width:110px"><label>Quadrante a simular</label><select id="cdapc-f-quad">' +
+        '<option value="Q1">Q1 (Jan-Mar)</option><option value="Q2">Q2 (Abr-Jun)</option><option value="Q3">Q3 (Jul-Set)</option><option value="Q4" selected>Q4 (Out-Dez)</option>' +
+      '</select></div>' +
+      '<div class="cdapc-fg" style="min-width:120px"><label>Ano de Exercício</label><input type="number" id="cdapc-f-ano" step="1" style="width:100px"></div>' +
     '</div>' +
     '<div class="cdapc-kpis" id="cdapc-kpis"></div>' +
     '<div class="tw"><div class="th"><h3>Projeção por Tipo de Peça — 4º Trimestre (Out–Dez)</h3></div>' +
@@ -83,13 +82,13 @@ async function montarModuloPlanejamentoCompras(containerId) {
           '<th class="cdapc-num">Valor Estimado</th>' +
           '<th class="cdapc-num">Valor Total (Real + Estimado)</th>' +
           '<th class="cdapc-num">Média Mensal (Qtd)</th>' +
-          '<th class="cdapc-num">Q4 do ano anterior</th>' +
+          '<th class="cdapc-num">Qx Ano Anterior</th>' +
           '<th class="cdapc-num">% sugerido</th>' +
-          '<th class="cdapc-num">Qtd projetada Q4 (sugerido)</th>' +
-          '<th class="cdapc-num">Valor projetado Q4 (sugerido)</th>' +
+          '<th class="cdapc-num">Qtd projetada Qx (sugerido)</th>' +
+          '<th class="cdapc-num">Valor projetado Qx (sugerido)</th>' +
           '<th class="cdapc-num">% simulado</th>' +
-          '<th class="cdapc-num">Qtd projetada Q4 (simulado)</th>' +
-          '<th class="cdapc-num">Valor projetado Q4 (simulado)</th>' +
+          '<th class="cdapc-num">Qtd projetada Qx (simulado)</th>' +
+          '<th class="cdapc-num">Valor projetado Qx (simulado)</th>' +
         '</tr></thead>' +
         '<tbody id="cdapc-tb"></tbody>' +
       '</table></div>' +
@@ -123,57 +122,59 @@ async function montarModuloPlanejamentoCompras(containerId) {
     return c.dataCompra && String(c.canalId) !== CDA_CANAL_PRIVATE_LABEL_ID;
   });
 
-  // ── Nova metodologia de projeção do Q4 (ago/2026, validada com o CEO) ──
-  // Substitui a sazonalidade fixa 2023-2025 por uma comparação dinâmica
-  // ano-a-ano, sempre baseada no "Período Estatístico" que o usuário
-  // filtrar — funciona mesmo com o ano corrente ainda em andamento
-  // (não depende de esperar o ano fechar):
-  //
-  // 1) Taxa de Crescimento (tipo) = Qtd Total do período filtrado (ano
-  //    atual) ÷ Qtd Total do MESMO intervalo de dias no ano anterior − 1
-  //    (ex: 01/01-11/08/2026 vs. 01/01-11/08/2025).
-  // 2) Qtd projetada Q4 (sugerido) = Qtd Total (real+estimada) de
-  //    Out-Dez do ano anterior × (1 + Taxa de Crescimento).
-  // 3) Valor projetado Q4 (sugerido) = Qtd projetada × Preço médio real
-  //    do tipo no período filtrado (ou, se o tipo não vendeu nada no
-  //    período atual, o preço médio do próprio Q4 do ano anterior).
+  // ── Nova metodologia de projeção, universal por Quadrante (ago/2026) ──
+  // Duas coisas completamente desacopladas, por design (validado com o CEO):
+  // 1) O "Período Estatístico" (dataIni/dataFim) mede o RITMO ATUAL da
+  //    empresa: Qtd/Valor real, estimado (Diversos) e Média Mensal — e
+  //    também a Taxa de Crescimento, comparando esse período contra o
+  //    mesmo intervalo de dias um ano antes. Pode ser qualquer janela
+  //    (não precisa ser um trimestre inteiro, nem estar "fechada").
+  // 2) O "Quadrante" (Q1-Q4) + "Ano de Exercício" definem a ÂNCORA da
+  //    projeção: sempre o mesmo quadrante, no ano (Ano de Exercício − 1)
+  //    — independente de qual período estatístico foi filtrado.
+  // A projeção final = Âncora (Qx do ano anterior ao exercício) ×
+  // (1 + Taxa de Crescimento do Período Estatístico).
   // Fallback (tipo sem venda no mesmo intervalo do ano anterior): usa a
-  // Taxa de Crescimento geral da empresa. Sem limite de faixa — o
-  // número real sempre aparece, mesmo que pareça alto/baixo demais,
-  // porque não dá pra saber se um tipo é sazonalmente novo.
+  // Taxa de Crescimento geral da empresa. Sem limite de faixa.
   function anoAnterior(dataISO) {
     var d = new Date(dataISO + 'T00:00:00');
     d.setFullYear(d.getFullYear() - 1);
     return d.toISOString().slice(0, 10);
   }
-  function calcularCrescimentoEQ4Anterior(dataIni, dataFim, fCanal) {
+  function rangeQuadrante(ano, quad) {
+    if (quad === 'Q1') return { ini: ano + '-01-01', fim: ano + '-03-31' };
+    if (quad === 'Q2') return { ini: ano + '-04-01', fim: ano + '-06-30' };
+    if (quad === 'Q3') return { ini: ano + '-07-01', fim: ano + '-09-30' };
+    return { ini: ano + '-10-01', fim: ano + '-12-31' }; // Q4
+  }
+  function calcularCrescimentoEAncora(dataIni, dataFim, fCanal, quadrante, anoExercicio) {
     var dataIniAnt = anoAnterior(dataIni), dataFimAnt = anoAnterior(dataFim);
-    var anoRefQ4 = parseInt(dataFim.slice(0, 4), 10) - 1; // Q4 do ano anterior ao fim do período filtrado
-    var q4Ini = anoRefQ4 + '-10-01', q4Fim = anoRefQ4 + '-12-31';
+    var anoRefQuad = anoExercicio - 1; // âncora sempre no ano anterior ao Ano de Exercício
+    var rq = rangeQuadrante(anoRefQuad, quadrante);
 
     var resAtual = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: dataIni, dataFim: dataFim, canalId: fCanal || null });
     var resAnoAnt = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: dataIniAnt, dataFim: dataFimAnt, canalId: fCanal || null });
-    var resQ4Ant = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: q4Ini, dataFim: q4Fim, canalId: fCanal || null });
+    var resQuadAnt = cdaCalcularVendasPorTipoPeca({ compras: ST.compras, produtoById: produtoById, dataIni: rq.ini, dataFim: rq.fim, canalId: fCanal || null });
 
     var qtdAtualPorTipo = {}, precoMedioAtualPorTipo = {};
     resAtual.linhas.forEach(function (l) { qtdAtualPorTipo[l.tipo] = l.qtdTotal; precoMedioAtualPorTipo[l.tipo] = l.precoMedioReal; });
     var qtdAnoAntPorTipo = {};
     resAnoAnt.linhas.forEach(function (l) { qtdAnoAntPorTipo[l.tipo] = l.qtdTotal; });
-    var qtdQ4AntPorTipo = {}, precoMedioQ4AntPorTipo = {};
-    resQ4Ant.linhas.forEach(function (l) { qtdQ4AntPorTipo[l.tipo] = l.qtdTotal; precoMedioQ4AntPorTipo[l.tipo] = l.precoMedioReal; });
+    var qtdQuadAntPorTipo = {}, precoMedioQuadAntPorTipo = {};
+    resQuadAnt.linhas.forEach(function (l) { qtdQuadAntPorTipo[l.tipo] = l.qtdTotal; precoMedioQuadAntPorTipo[l.tipo] = l.precoMedioReal; });
 
     var taxaGeral = resAnoAnt.totais.qtdTotal > 0 ? (resAtual.totais.qtdTotal / resAnoAnt.totais.qtdTotal - 1) * 100 : 0;
     var precoMedioGeralAtual = resAtual.totais.qtdReal > 0 ? resAtual.totais.valorReal / resAtual.totais.qtdReal : 0;
 
     return {
-      anoRefQ4: anoRefQ4, taxaGeral: taxaGeral,
+      anoRefQuad: anoRefQuad, quadrante: quadrante, taxaGeral: taxaGeral,
       taxaPorTipo: function (tipo) {
         var atual = qtdAtualPorTipo[tipo] || 0, ant = qtdAnoAntPorTipo[tipo] || 0;
         return ant > 0 ? (atual / ant - 1) * 100 : null;
       },
-      qtdQ4Anterior: function (tipo) { return qtdQ4AntPorTipo[tipo] || 0; },
+      qtdAncora: function (tipo) { return qtdQuadAntPorTipo[tipo] || 0; },
       precoMedio: function (tipo) {
-        return precoMedioAtualPorTipo[tipo] || precoMedioQ4AntPorTipo[tipo] || precoMedioGeralAtual;
+        return precoMedioAtualPorTipo[tipo] || precoMedioQuadAntPorTipo[tipo] || precoMedioGeralAtual;
       }
     };
   }
@@ -183,6 +184,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
   selCanal.innerHTML += ST.canais.filter(function (c) { return String(c.id) !== CDA_CANAL_PRIVATE_LABEL_ID; })
     .slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
     .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+  var selQuad = host.querySelector('#cdapc-f-quad');
+  var inpAno = host.querySelector('#cdapc-f-ano');
 
   // ── Datas padrão: 1º de janeiro do ano corrente até a data mais recente disponível na base ──
   var datasDisponiveis = comprasVarejo.map(function (c) { return c.dataCompra; }).sort();
@@ -191,11 +194,13 @@ async function montarModuloPlanejamentoCompras(containerId) {
   var inpIni = host.querySelector('#cdapc-f-ini'), inpFim = host.querySelector('#cdapc-f-fim');
   inpIni.value = anoCorrente + '-01-01';
   inpFim.value = dataMaisRecente;
+  inpAno.value = new Date().getFullYear(); // Ano de Exercício padrão: ano corrente de verdade (hoje), não o da base de dados
 
   host.querySelector('#cdapc-nota').innerHTML =
     '📌 Base de cálculo: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
     'Último dado de venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>. ' +
-    'O % sugerido compara o Período Estatístico filtrado com o mesmo intervalo de dias no ano anterior, e aplica esse crescimento em cima do Q4 real do ano anterior — funciona mesmo com o ano corrente ainda em andamento.';
+    'O Período Estatístico mede o ritmo atual (Qtd/Valor/Média Mensal e a Taxa de Crescimento, comparando contra o mesmo intervalo de dias 1 ano antes). ' +
+    'O Quadrante + Ano de Exercício definem a âncora da projeção: sempre o mesmo quadrante, no ano (Ano de Exercício − 1) — independente do Período Estatístico filtrado.';
 
   function fmtDataBR(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
   function fmtMoeda(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -212,6 +217,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
   function calcularLinhas() {
     var dataIni = inpIni.value, dataFim = inpFim.value;
     var fCanal = selCanal.value;
+    var quadrante = selQuad.value || 'Q4';
+    var anoExercicio = parseInt(inpAno.value, 10) || new Date().getFullYear();
     if (!dataIni || !dataFim) return [];
     var nMeses = mesesEntre(dataIni, dataFim);
 
@@ -230,7 +237,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
       };
     });
 
-    var CRESC = calcularCrescimentoEQ4Anterior(dataIni, dataFim, fCanal);
+    var CRESC = calcularCrescimentoEAncora(dataIni, dataFim, fCanal, quadrante, anoExercicio);
 
     var linhas = Object.keys(porTipo).map(function (tipo) {
       var d = porTipo[tipo];
@@ -239,19 +246,19 @@ async function montarModuloPlanejamentoCompras(containerId) {
       var taxaTipo = CRESC.taxaPorTipo(tipo);
       var usouGeral = taxaTipo == null;
       var pctSug = usouGeral ? CRESC.taxaGeral : taxaTipo;
-      var qtdQ4Ant = CRESC.qtdQ4Anterior(tipo);
+      var qtdAncora = CRESC.qtdAncora(tipo);
       var precoMedio = CRESC.precoMedio(tipo);
-      var qtdProjSug = qtdQ4Ant * (1 + pctSug / 100);
+      var qtdProjSug = qtdAncora * (1 + pctSug / 100);
       var valorProjSug = qtdProjSug * precoMedio;
       var pctSim = ST.simulado[tipo];
       var temSim = pctSim !== undefined && pctSim !== null && pctSim !== '';
-      var qtdProjSim = temSim ? qtdQ4Ant * (1 + Number(pctSim) / 100) : null;
+      var qtdProjSim = temSim ? qtdAncora * (1 + Number(pctSim) / 100) : null;
       var valorProjSim = temSim ? qtdProjSim * precoMedio : null;
       return {
         tipo: tipo, qtd: d.qtd, valor: d.valor,
         qtdEstimadaDiversos: d.qtdEstimadaDiversos, valorEstimadoDiversos: d.valorEstimadoDiversos,
         qtdTotal: d.qtd + d.qtdEstimadaDiversos, valorTotal: d.valor + d.valorEstimadoDiversos,
-        mediaMensalQtd: mediaMensalQtd, qtdQ4Ant: qtdQ4Ant, anoRefQ4: CRESC.anoRefQ4,
+        mediaMensalQtd: mediaMensalQtd, qtdAncora: qtdAncora, anoRefQuad: CRESC.anoRefQuad, quadrante: CRESC.quadrante,
         pctSug: pctSug, usouGeral: usouGeral, qtdProjSug: qtdProjSug, valorProjSug: valorProjSug,
         pctSim: temSim ? Number(pctSim) : null, qtdProjSim: qtdProjSim, valorProjSim: valorProjSim
       };
@@ -269,8 +276,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
     host.querySelector('#cdapc-kpis').innerHTML =
       '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totQtdTotal) + '</div><div class="l">Quantidade Total (Real + Est)</div></div>' +
       '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValorTotal) + '</div><div class="l">Valor Total (Real + Est)</div></div>' +
-      '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totProjSug) + '</div><div class="l">Peças projetadas p/ Q4 (sugerido)</div></div>' +
-      '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValorProjSug) + '</div><div class="l">Valor projetado p/ Q4 (sugerido)</div></div>';
+      '<div class="cdapc-kpi"><div class="v">' + fmtQtd(totProjSug) + '</div><div class="l">Peças projetadas p/ Qx (sugerido)</div></div>' +
+      '<div class="cdapc-kpi"><div class="v">' + fmtMoeda(totValorProjSug) + '</div><div class="l">Valor projetado p/ Qx (sugerido)</div></div>';
   }
 
   function render() {
@@ -288,7 +295,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         '<td class="cdapc-num">' + fmtMoeda(l.valorEstimadoDiversos) + '</td>' +
         '<td class="cdapc-num"><b>' + fmtMoeda(l.valorTotal) + '</b></td>' +
         '<td class="cdapc-num">' + fmtQtd(l.mediaMensalQtd) + '</td>' +
-        '<td class="cdapc-num">' + fmtQtd(l.qtdQ4Ant) + '</td>' +
+        '<td class="cdapc-num">' + fmtQtd(l.qtdAncora) + '</td>' +
         '<td class="cdapc-num">' + l.pctSug.toFixed(1) + '%' + (l.usouGeral ? ' <span class="cdapc-pct-geral">(geral)</span>' : '') + '</td>' +
         '<td class="cdapc-num"><b>' + fmtQtd(l.qtdProjSug) + '</b></td>' +
         '<td class="cdapc-num"><b>' + fmtMoeda(l.valorProjSug) + '</b></td>' +
@@ -305,7 +312,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
     var totValorEstDiv = linhas.reduce(function (s, l) { return s + l.valorEstimadoDiversos; }, 0);
     var totValorTotal = linhas.reduce(function (s, l) { return s + l.valorTotal; }, 0);
     var totMedia = linhas.reduce(function (s, l) { return s + l.mediaMensalQtd; }, 0);
-    var totQ4Ant = linhas.reduce(function (s, l) { return s + l.qtdQ4Ant; }, 0);
+    var totQ4Ant = linhas.reduce(function (s, l) { return s + l.qtdAncora; }, 0);
     var totProjSug = linhas.reduce(function (s, l) { return s + l.qtdProjSug; }, 0);
     var totValorProjSug = linhas.reduce(function (s, l) { return s + l.valorProjSug; }, 0);
     var totProjSim = linhas.reduce(function (s, l) { return s + (l.qtdProjSim || 0); }, 0);
@@ -346,6 +353,8 @@ async function montarModuloPlanejamentoCompras(containerId) {
   inpIni.addEventListener('change', render);
   inpFim.addEventListener('change', render);
   selCanal.addEventListener('change', render);
+  selQuad.addEventListener('change', render);
+  inpAno.addEventListener('change', render);
 
   host.querySelector('#cdapc-btn-exp').addEventListener('click', function () {
     var linhas = ULTIMO_CALC.length ? ULTIMO_CALC : calcularLinhas();
@@ -355,7 +364,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
         qtd_total_real_mais_estimada: Number(l.qtdTotal.toFixed(1)),
         valor_vendido: l.valor, valor_estimado: Number(l.valorEstimadoDiversos.toFixed(2)),
         valor_total_real_mais_estimado: Number(l.valorTotal.toFixed(2)),
-        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), qtd_q4_ano_anterior: Number(l.qtdQ4Ant.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
+        media_mensal_qtd: Number(l.mediaMensalQtd.toFixed(1)), quadrante: l.quadrante, ano_ref_quadrante: l.anoRefQuad, qx_ano_anterior: Number(l.qtdAncora.toFixed(1)), pct_sugerido: Number(l.pctSug.toFixed(1)),
         qtd_projetada_q4_sugerido: Math.round(l.qtdProjSug), valor_projetado_q4_sugerido: Number(l.valorProjSug.toFixed(2)),
         pct_simulado: l.pctSim != null ? l.pctSim : '', qtd_projetada_q4_simulado: l.qtdProjSim != null ? Math.round(l.qtdProjSim) : '',
         valor_projetado_q4_simulado: l.valorProjSim != null ? Number(l.valorProjSim.toFixed(2)) : ''
@@ -364,7 +373,7 @@ async function montarModuloPlanejamentoCompras(containerId) {
     var ws = XLSX.utils.json_to_sheet(dados);
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Planejamento Compras');
-    XLSX.writeFile(wb, 'planejamento_compras_q4_' + (inpIni.value || '') + '_a_' + (inpFim.value || '') + '.xlsx');
+    XLSX.writeFile(wb, 'planejamento_compras_' + (selQuad.value || 'Q4') + '_' + (inpAno.value || '') + '.xlsx');
   });
 
   render();
