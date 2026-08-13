@@ -48,6 +48,7 @@ var CDA_TUTORIAL_ESTOQUE_CONTEUDO = [
   {
     id: 'formula-participacao', titulo: '% Participação Total Vendas (rateio por Tipo de Peça)',
     html: '<p>É o percentual usado pra decidir <b>como distribuir o Diversos entre os tipos de peça</b>, no relatório Vendas por Tipo de Peça. Responde: "de tudo que a empresa vende (sem contar Diversos), que fatia é T-shirt? E Cropped? E assim por diante."</p>' +
+      '<p class="cda-tut-nota">Filtros desse submódulo: <b>Período</b> (livre) e <b>Tipo de peça</b> (opcional — mostra só os tipos selecionados; não tem filtro de canal aqui, porque o % Participação sempre olha a empresa inteira — pra análise por canal, use o submódulo Vendas por Canal).</p>' +
       '<h4>Fórmula</h4>' +
       '<p><code>% Participação Total Vendas (tipo) = Valor real do tipo ÷ Valor real de TODOS os tipos identificados × 100</code></p>' +
       '<p>Exemplo real (ago/2026): T-shirt = R$ 954.097,22 ÷ R$ 2.224.175,97 = <b>42,90%</b>.</p>' +
@@ -79,9 +80,19 @@ var CDA_TUTORIAL_ESTOQUE_CONTEUDO = [
   },
   {
     id: 'vendas-por-canal', titulo: 'Vendas por Canal — o que muda em relação ao Tipo de Peça',
-    html: '<p>Diferente do tipo de peça, o <b>canal do Diversos é dado real</b> (ver seção "O que é Diversos"). Por isso, no relatório Vendas por Canal, a lógica é mais simples: não existe rateio de canal, só de quantidade (mesmo Passo 3 acima, mas usando o <b>preço médio da Collab inteira</b> em vez do preço médio global da empresa — pra ficar estatisticamente mais estável dentro daquela Collab específica).</p>' +
-      '<h4>"% Participação Total Vendas" nesse relatório (tabela de detalhamento por tipo)</h4>' +
-      '<p>Responde uma pergunta diferente da seção anterior: <b>"desse tipo de peça, que fatia do total vendido pela empresa inteira veio dessa Collab/Canal?"</b></p>' +
+    html: '<p>Diferente do tipo de peça, o <b>canal do Diversos é dado real</b> (ver seção "O que é Diversos"). Por isso, no relatório Vendas por Canal, a lógica é mais simples: não existe rateio de canal, só de quantidade — a única estimativa é converter o valor do Diversos daquele canal em peças, usando o <b>preço médio da Collab inteira</b> (em vez do preço médio global da empresa — pra ficar estatisticamente mais estável dentro daquela Collab específica).</p>' +
+      '<h4>Filtros</h4>' +
+      '<table class="cda-tut-tabela cda-tut-tabela-campos"><tr><th>Filtro</th><th>Pra que serve</th></tr>' +
+      '<tr><td><b>Collab/Artista</b></td><td>Obrigatório — escolhe de qual Collab (ex: Luedji Luna, Gilsons) você quer ver os canais.</td></tr>' +
+      '<tr><td><b>Período</b></td><td>Livre, como nos outros submódulos.</td></tr>' +
+      '<tr><td><b>Canal (opcional)</b></td><td>Drill-down num canal específico da Collab escolhida (ex: só "Shows Luedji Luna").</td></tr>' +
+      '</table>' +
+      '<h4>Tabela principal — por Canal</h4>' +
+      '<p>Uma linha por canal da Collab escolhida: <b>Qtd real, Valor real, % da Collab</b> (esse canal ÷ soma de todos os canais da Collab — informativo, não usado em nenhum cálculo), <b>Valor Diversos (real)</b> — a soma direta do Diversos daquele canal específico (dado real, sem rateio), <b>Qtd estim. (Diversos)</b> — só essa é estimativa: <code>Valor Diversos (real) ÷ Preço médio da Collab</code>, e por fim <b>Qtd total / Valor total</b>.</p>' +
+      '<h4>Tabela de baixo — Detalhamento por Tipo de Peça</h4>' +
+      '<p>Escopada pela mesma Collab (e Canal, se você fez o drill-down) — mesma estrutura e fórmulas do submódulo Vendas por Tipo de Peça, só que limitada aos canais selecionados.</p>' +
+      '<h4>"% Participação Total Vendas" nessa tabela de detalhamento</h4>' +
+      '<p>Aqui o nome da coluna é o mesmo do outro submódulo, mas <b>a pergunta que ela responde é diferente</b>: <b>"desse tipo de peça, que fatia do total vendido pela empresa inteira veio dessa Collab/Canal?"</b></p>' +
       '<p><code>% Participação Total Vendas (canal, tipo) = Valor total do tipo NESSE canal/collab (real + Diversos) ÷ Valor total do tipo na EMPRESA INTEIRA (real + Diversos) × 100</code></p>' +
       '<p>Exemplo real: T-shirt vendido pela Luedji Luna = R$ 427.638,36 (todos os canais dela). T-shirt vendido pela empresa inteira = R$ 1.206.040,21. 427.638,36 ÷ 1.206.040,21 = <b>35,46%</b> — ou seja, mais de 1/3 de todo T-shirt vendido pela Ciclo da Arte passa pela Luedji Luna.</p>' +
       '<p class="cda-tut-nota">Essa conta é <b>por valor (R$)</b>, não por quantidade de peças — decisão confirmada com o CEO em ago/2026, depois de comparar as duas versões (por quantidade dava 33,07%, por valor dá 35,46% — a diferença existe porque o preço médio de T-shirt vendido pela Luedji é mais alto que a média da empresa).</p>'
@@ -105,10 +116,10 @@ var CDA_TUTORIAL_ESTOQUE_CONTEUDO = [
       '<p>Exemplo: Período = 01/01 a 30/06/2026 (Ano de Exercício 2026) → compara contra 01/01 a 30/06/<b>2025</b>. T-shirt: 1.061,4 peças (2026) ÷ 631,8 peças (2025) − 1 = <b>68,0%</b>.</p>' +
       '<p class="cda-tut-nota">Tipo sem venda no mesmo intervalo do ano anterior → usa a Taxa de Crescimento <b>geral da empresa</b> (mesma fórmula, todos os tipos somados) — marcado "(geral)" na tela.</p>' +
       '<h4>Passo 3 — Projeção final</h4>' +
-      '<p><code>Qtd projetada Qx (sugerido) = Qx Ano Anterior × (1 + % Taxa Cresc. Ano Anterior ÷ 100)</code></p>' +
+      '<p><code>Qtd projetada Qx (sugerido) = Qx Ano Anterior × (1 + %usado ÷ 100)</code>, onde <b>%usado</b> é o valor do filtro "% Sugerido (simular)" se estiver preenchido (aplicado igual pra todos os tipos), ou a "% Taxa Cresc. Ano Anterior" calculada de cada tipo, se o filtro estiver vazio.</p>' +
       '<p><code>Valor projetado Qx (sugerido) = Qtd projetada × Preço médio real do tipo no Período Estatístico</code></p>' +
-      '<p>Exemplo: 643 × (1 + 68,0%) = <b>1.080,5 peças</b> projetadas pro Q4/2026.</p>' +
-      '<p class="cda-tut-nota">Sem limite de faixa — o número real sempre aparece, mesmo que pareça alto/baixo demais, porque não dá pra saber se um tipo é sazonalmente novo ou está passando por uma mudança real de patamar.</p>' +
+      '<p>Exemplo (sem o filtro preenchido): 643 × (1 + 68,0%) = <b>1.080,5 peças</b> projetadas pro Q4/2026.</p>' +
+      '<p class="cda-tut-nota">A coluna "% Taxa Cresc. Ano Anterior" sempre mostra o número real calculado, mesmo com o filtro "% Sugerido" preenchido — ela é referência histórica, nunca é sobrescrita. Sem limite de faixa — o número real sempre aparece, mesmo que pareça alto/baixo demais, porque não dá pra saber se um tipo é sazonalmente novo ou está passando por uma mudança real de patamar.</p>' +
       '<h4>Erros já cometidos e corrigidos nessa fórmula (pra não repetir)</h4>' +
       '<p>1) Uma versão inicial comparava o Período Estatístico contra "o resto do próprio ano" (jan-set vs. Q4) — foi trocada porque não usava o dado mais recente disponível.</p>' +
       '<p>2) Uma versão testou "Período Estatístico ÷ Âncora" como taxa — só dá um número coerente quando as duas janelas têm o mesmo tamanho/época por coincidência; foi descartada.</p>' +
