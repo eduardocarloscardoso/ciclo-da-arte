@@ -104,6 +104,9 @@ que vai ser descartada.
 | `cda_parametros_segmentacao.valor_gold` | Faixa intermediária entre Premium e VIP. No modo Automático é sempre a média exata dos outros dois (recalculado pela função `cda_executar_recalculo_valores`); no modo Manual é editável livremente pelo usuário (não travado à média, apesar do nome sugerir isso — decisão explícita do usuário). |
 | `cda_status_crm` | Tabela genérica de "rótulos com cor" reaproveitada para dois `tipo` diferentes: `'segmentacao'` (Lead/Ativo/Em Risco/Premium/Gold/VIP...) e `'pipeline_resultado'` (resultados de cada etapa do Pipeline). Cuidado ao filtrar — sempre incluir o `tipo` na query. |
 | Importação de compras cria produto automaticamente | Se o produto da planilha não bate com nenhum cadastro, `cda-modulo-compras.js` cria um registro em `produtos` na hora (classificando tipo de peça pelo nome via `cdaClassificarTipoPeca`), para não perder o vínculo `produto_id`. Pode gerar duplicatas de nome se a grafia variar entre importações — não há dedupe automático hoje. |
+| Importação de planilha (Financeiro) — colunas invertidas | Na planilha de origem (Bling/Loja Integrada), a coluna **"Vendedor"** é interpretada como o **Canal de Venda** de fato; a coluna **"Canal de Venda"** da planilha vira `origem_dados` (metadado de proveniência, não o canal real). "Vendedor" em branco cai no canal padrão "Vendas sem vendedor". Terminologia da planilha de origem não bate com a terminologia interna — fonte comum de confusão ao auditar uma importação. |
+| `prestacoes.saldo_anterior` | Propaga automaticamente do saldo da prestação anterior fechada do mesmo Collab (positivo = credor, negativo = devedor) — é um valor calculado/copiado, não editável às cegas; UI trava edição quando `status_prest === 'finalizado'`. |
+| `canais.sem_frete` | Flag por canal que remove o frete do cálculo de Líquido na Prestação de Contas daquele canal — não é global, é por canal individual. |
 
 ## 5. Decisões de negócio (o "porquê", não só o "como")
 
@@ -123,6 +126,27 @@ que vai ser descartada.
   significa que quem já foi adicionado antes precisa ser filtrado
   explicitamente para não duplicar (verificado por `cliente_id` já existente
   com aquela `campanha_id`).
+- **Prestação de Contas é agrupada por Collab/Artista, não por canal
+  individual** — se um artista vende por loja própria e por revenda, as duas
+  entram na mesma prestação (uma seção por canal dentro dela), porque o
+  acerto financeiro é feito com a pessoa, não com o canal isoladamente.
+- **Líquido = Bruto − Desconto + Frete**, com frete zerado quando o canal
+  tem a flag `sem_frete` — regra fixa usada em toda prestação, não
+  configurável por prestação individual (só por canal).
+- **Estoque/Vendas exclui Private Label e canais B2B da análise B2C** —
+  mesma lógica de exclusão do Comercial, aplicada de forma consistente em
+  todo relatório de vendas por tipo de peça/canal.
+
+## 7. Tutorial in-app é multi-módulo desde ago/2026
+
+`cda-modulo-tutorial.js` tem um único array `CDA_TUTORIAL_CONTEUDO`
+compartilhado entre Comercial e Financeiro — cada seção carrega uma tag
+`modulos: ['comercial', 'financeiro']` (ou só um dos dois) e a função
+`montarModuloTutorial(containerId, {modulo: '...'})` filtra o que aparece
+(nav, corpo, exportação em Word) por esse valor. Seções de cadastro
+compartilhado (Clientes, Compras, Produtos, Segmentação) aparecem nos dois
+módulos; o resto é específico. **Ao adicionar uma seção nova, sempre incluir
+a tag `modulos` — sem ela o filtro quebra (`.indexOf` em `undefined`).**
 
 ## 6. Índice de decisões por data (para achar contexto de uma mudança específica)
 
@@ -136,7 +160,8 @@ que vai ser descartada.
   Canal B2B direto do Pipeline; edição real de tarefas (não só criar);
   Tutorial adicionado a todos os módulos como último submódulo; correção do
   bug de nome de produto no Pipeline; correção do bug de coluna `situacao`
-  inexistente.
+  inexistente; Tutorial in-app tornado multi-módulo (Comercial + Financeiro
+  compartilhando o mesmo mecanismo, seções tageadas por `modulos`).
 
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
