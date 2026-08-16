@@ -692,46 +692,59 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   }
 
   var linhas = simulacoes.map(function (s) {
-    return '<tr style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' +
-      '<td>' + s.nome + '</td>' +
-      '<td>' + (s.periodo || '—') + '</td>' +
-      '<td>' + mktFmtMoeda(s.orcamento_total) + '</td>' +
-      '<td>' + (s.roas_esperado ? Number(s.roas_esperado).toFixed(2) + 'x' : '—') + '</td>' +
-      '<td>' + (s.receita_esperada ? mktFmtMoeda(s.receita_esperada) : '—') + '</td>' +
-      '<td>' + mktFmtData(s.criado_em) + '</td>' +
+    return '<tr>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + s.nome + '</td>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + (s.periodo || '—') + '</td>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + mktFmtMoeda(s.orcamento_total) + '</td>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + (s.roas_esperado ? Number(s.roas_esperado).toFixed(2) + 'x' : '—') + '</td>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + (s.receita_esperada ? mktFmtMoeda(s.receita_esperada) : '—') + '</td>' +
+      '<td style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' + mktFmtData(s.criado_em) + '</td>' +
+      (editavel ? '<td style="white-space:nowrap">' +
+        '<button class="btn" onclick="event.stopPropagation();mktRefazerSimulacao(\'' + containerId + '\',' + s.id + ')">Refazer</button> ' +
+        '<button class="btn" onclick="event.stopPropagation();mktConfirmarExcluirSimulacao(\'' + containerId + '\',' + s.id + ')">Excluir</button>' +
+      '</td>' : '') +
       '</tr>';
   }).join('');
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">🤖 Simulações IA</div><div class="sec-d">Alocação de orçamento entre canais, sugerida por IA com base no histórico real de performance (últimos 3 meses + acumulado)</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova-sim">+ Nova Simulação</button>' : '') + '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Período</th><th>Orçamento</th><th>ROAS Esperado</th><th>Receita Esperada</th><th>Criada em</th></tr></thead><tbody>' +
-      (linhas || '<tr><td colspan="6" class="tmu">Nenhuma simulação gerada ainda.</td></tr>') +
+    '<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Período</th><th>Orçamento</th><th>ROAS Esperado</th><th>Receita Esperada</th><th>Criada em</th>' +
+      (editavel ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      (linhas || '<tr><td colspan="7" class="tmu">Nenhuma simulação gerada ainda.</td></tr>') +
     '</tbody></table></div>';
 
   host._mktSimState = simulacoes;
   if (editavel) host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
 }
 
-function mktAbrirModalNovaSimulacao(containerId) {
+function mktAbrirModalNovaSimulacao(containerId, refazerDe) {
+  var s = refazerDe || null;
   openModal(
-    '<div class="modal-box"><h3>Nova Simulação de Alocação</h3>' +
-    '<p class="tmu" style="margin-bottom:12px">A IA vai analisar o histórico real de performance por canal (últimos 3 meses + acumulado) e sugerir como distribuir o orçamento informado.</p>' +
-    '<div><label>Nome da simulação</label><input type="text" id="sf-nome" placeholder="ex: Orçamento Setembro 2026" style="width:100%"></div>' +
+    '<div class="modal-box"><h3>' + (s ? 'Refazer Simulação' : 'Nova Simulação de Alocação') + '</h3>' +
+    '<p class="tmu" style="margin-bottom:12px">A IA vai analisar o histórico real de performance por canal (últimos 3 meses + acumulado) e sugerir como distribuir o orçamento informado.' +
+      (s ? ' Isso vai <b>substituir</b> a alocação e a análise atuais desta simulação — a IA roda de novo com base nos dados mais recentes.' : '') + '</p>' +
+    '<div><label>Nome da simulação</label><input type="text" id="sf-nome" value="' + (s ? s.nome.replace(/"/g, '&quot;') : '') + '" placeholder="ex: Orçamento Setembro 2026" style="width:100%"></div>' +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
-      '<div style="flex:1"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="sf-orcamento" style="width:100%"></div>' +
-      '<div style="flex:1"><label>Período</label><input type="text" id="sf-periodo" placeholder="ex: Setembro/2026" style="width:100%"></div>' +
+      '<div style="flex:1"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="sf-orcamento" value="' + (s ? s.orcamento_total : '') + '" style="width:100%"></div>' +
+      '<div style="flex:1"><label>Período</label><input type="text" id="sf-periodo" value="' + (s && s.periodo ? s.periodo.replace(/"/g, '&quot;') : '') + '" placeholder="ex: Setembro/2026" style="width:100%"></div>' +
     '</div>' +
-    '<div style="margin-top:10px"><label>Contexto adicional (opcional)</label><textarea id="sf-descricao" style="width:100%;min-height:60px" placeholder="ex: temos show da Luedji Luna dia 15, lançamento de coleção do Gilsons no fim do mês..."></textarea></div>' +
+    '<div style="margin-top:10px"><label>Contexto adicional (opcional)</label><textarea id="sf-descricao" style="width:100%;min-height:60px" placeholder="ex: temos show da Luedji Luna dia 15, lançamento de coleção do Gilsons no fim do mês...">' + (s && s.descricao ? s.descricao : '') + '</textarea></div>' +
     '<div id="sf-status" style="margin-top:12px;font-size:12px;color:var(--muted,#888)"></div>' +
     '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()" id="sf-btn-cancelar">Cancelar</button>' +
-      '<button class="btn rust" onclick="mktGerarSimulacao(\'' + containerId + '\')" id="sf-btn-gerar">Gerar com IA</button>' +
+      '<button class="btn rust" onclick="mktGerarSimulacao(\'' + containerId + '\'' + (s ? ',' + s.id : '') + ')" id="sf-btn-gerar">' + (s ? 'Refazer com IA' : 'Gerar com IA') + '</button>' +
     '</div></div>'
   );
 }
 
-async function mktGerarSimulacao(containerId) {
+function mktRefazerSimulacao(containerId, simId) {
+  var host = document.getElementById(containerId);
+  var s = (host._mktSimState || []).find(function (x) { return x.id === simId; });
+  if (s) mktAbrirModalNovaSimulacao(containerId, s);
+}
+
+async function mktGerarSimulacao(containerId, simId) {
   var nome = document.getElementById('sf-nome').value.trim();
   var orcamento = document.getElementById('sf-orcamento').value;
   var periodo = document.getElementById('sf-periodo').value.trim();
@@ -745,17 +758,19 @@ async function mktGerarSimulacao(containerId) {
   btnGerar.disabled = true; btnCancelar.disabled = true;
 
   try {
+    var payload = { nome: nome, orcamento_total: Number(orcamento), periodo: periodo, descricao: descricao };
+    if (simId) payload.id = simId;
     var resp = await fetch(SUPABASE_URL + '/functions/v1/simular-marketing', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: nome, orcamento_total: Number(orcamento), periodo: periodo, descricao: descricao })
+      body: JSON.stringify(payload)
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
     closeModal();
-    showToast('Simulação gerada com sucesso.');
+    showToast(simId ? 'Simulação refeita com sucesso.' : 'Simulação gerada com sucesso.');
     await montarModuloMktSimulacoes(containerId, { editavel: true });
-    mktVerSimulacaoObj(data.simulacao);
+    mktVerSimulacaoObj(containerId, data.simulacao);
   } catch (err) {
     console.error(err);
     statusEl.innerHTML = '<span style="color:var(--rust,#c0392b)">Erro: ' + (err.message || err) + '</span>';
@@ -763,13 +778,37 @@ async function mktGerarSimulacao(containerId) {
   }
 }
 
+function mktConfirmarExcluirSimulacao(containerId, simId) {
+  var host = document.getElementById(containerId);
+  var s = (host._mktSimState || []).find(function (x) { return x.id === simId; });
+  openModal(
+    '<div class="modal-box" style="max-width:380px"><h3 style="color:var(--rust,#c0392b)">Excluir simulação</h3>' +
+    '<p class="tmu" style="margin-top:8px">Tem certeza que deseja excluir <b>' + (s ? s.nome : 'esta simulação') + '</b>? Essa ação não pode ser desfeita.</p>' +
+    '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn rust" onclick="mktExcluirSimulacao(\'' + containerId + '\',' + simId + ')">Sim, excluir</button>' +
+    '</div></div>'
+  );
+}
+
+async function mktExcluirSimulacao(containerId, simId) {
+  try {
+    await sb.del('cda_marketing_simulacoes', simId);
+    closeModal();
+    showToast('Simulação excluída.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+  } catch (err) {
+    showToast('Erro ao excluir: ' + (err.message || err), 'error');
+  }
+}
+
 function mktVerSimulacao(containerId, simId) {
   var host = document.getElementById(containerId);
   var s = (host._mktSimState || []).find(function (x) { return x.id === simId; });
-  if (s) mktVerSimulacaoObj(s);
+  if (s) mktVerSimulacaoObj(containerId, s);
 }
 
-function mktVerSimulacaoObj(s) {
+function mktVerSimulacaoObj(containerId, s) {
   var alocacoes = s.alocacoes || [];
   var linhasAlocacao = alocacoes.map(function (a) {
     return '<tr><td>' + a.canal + '</td><td>' + (a.percentual || 0).toFixed(1) + '%</td><td>' + mktFmtMoeda(a.valor) + '</td><td class="tmu" style="font-size:11px">' + (a.justificativa || '') + '</td></tr>';
@@ -785,11 +824,14 @@ function mktVerSimulacaoObj(s) {
       (linhasAlocacao || '<tr><td colspan="4" class="tmu">Sem alocação registrada.</td></tr>') +
     '</tbody></table></div>' +
     '<div class="cc" style="margin-top:14px;white-space:pre-wrap;font-size:13px">' + (s.sugestao_ia || 'Sem análise registrada.') + '</div>' +
-    '<div style="margin-top:20px;display:flex;justify-content:flex-end">' +
-      '<button class="btn" onclick="closeModal()">Fechar</button>' +
+    '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal();mktConfirmarExcluirSimulacao(\'' + containerId + '\',' + s.id + ')">Excluir</button>' +
+      '<button class="btn" onclick="closeModal();mktRefazerSimulacao(\'' + containerId + '\',' + s.id + ')">Refazer</button>' +
+      '<button class="btn rust" onclick="closeModal()">Fechar</button>' +
     '</div></div>'
   );
 }
 
 // A entrada do submódulo Tutorial usa a função já existente montarModuloTutorial(containerId,{modulo:'marketing'})
 // definida em cda-modulo-tutorial.js — não precisa de código próprio aqui.
+
