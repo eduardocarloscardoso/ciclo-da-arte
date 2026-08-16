@@ -20,6 +20,7 @@
 <script src="cda-modulo-vendas-tipo-peca.js"></script>
 <script src="cda-modulo-vendas-por-canal.js"></script>
 <script src="cda-modulo-tutorial-estoque.js"></script>
+<script src="cda-modulo-marketing.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -361,6 +362,7 @@ async del(t,id){await axios.delete(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{head
 // ════════════════════════════════════════════════
 var PROJETOS={
   comercial:{icon:'🛍',label:'Comercial',desc:'CRM, clientes e vendas'},
+  mkt:{icon:'📣',label:'Marketing',desc:'Mídia paga, orçamento e calendário editorial'},
   financeiro:{icon:'💰',label:'Financeiro',desc:'Prestação de contas'},
   estoque:{icon:'📦',label:'Estoque',desc:'Planejamento de compras e estoque'},
   sac:{icon:'🎧',label:'SAC Cliente',desc:'Atendimento e suporte'},
@@ -375,6 +377,8 @@ var PM={dashboard:{icon:'📊',label:'Dashboard'},roadmap:{icon:'🗺',label:'Ro
 var CRM_PAGES={clientes:{icon:'👥',label:'Clientes'},compras:{icon:'🛒',label:'Histórico de Compras'},produtos:{icon:'🛍',label:'Produtos'},segmentacao:{icon:'🎯',label:'Segmentação de Clientes'}};
 // Submenu do módulo Estoque
 var ESTOQUE_PAGES={vendastipopeca:{icon:'🛍',label:'Vendas por Tipo de Peça'},vendascanal:{icon:'🏷',label:'Vendas por Canal'},planejcompras:{icon:'📈',label:'Planejamento de Compras'},tutorialestoque:{icon:'📘',label:'Tutorial'}};
+// Submenu do módulo Marketing (mídia paga + calendário editorial)
+var MKT_PAGES={campanhas:{icon:'📣',label:'Campanhas'},metaads:{icon:'🔗',label:'Integração Meta Ads'},orcamento:{icon:'💰',label:'Orçamento'},analytics:{icon:'📊',label:'Analytics'},calendariomkt:{icon:'📅',label:'Calendário Editorial'},simulacoes:{icon:'🤖',label:'Simulações IA'},tutorialmkt:{icon:'📘',label:'Tutorial'}};
 var acessoLabel={ceo:'CEO / Dono',gestor:'Gestora de Mkt',trafego:'Gestor de Tráfego',social:'Social Media',copy:'Copywriter',revendas:'Gestor de Revendas'};
 var COLORS=['red','gold','teal','purple','green','blue'];
 var cu=null,EQUIPE=[],ACOES=[],MODULOS=[],TAREFAS=[],expandedAcoes={};
@@ -581,6 +585,14 @@ function renderSidebarNav(){
       nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-estoque-'+id+'" onclick="navigateCRM(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
     });
   }
+  if(currentProject==='mkt'){
+    nav.innerHTML+='<div class="sb-section">Marketing</div>';
+    Object.keys(MKT_PAGES).forEach(function(id){
+      var p=MKT_PAGES[id];
+      var activeSub=(window._crmPage===id)?'active':'';
+      nav.innerHTML+='<div class="nav-item '+activeSub+'" id="nav-mkt-'+id+'" onclick="navigateMkt(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    });
+  }
 }
 async function openProject(key){
   currentProject=key;
@@ -617,6 +629,7 @@ async function openProject(key){
     return;
   }
   if(key==='estoque'){navigateCRM('vendastipopeca');return;}
+  if(key==='mkt'){navigateMkt('campanhas');return;}
   if(key==='sac'){el.innerHTML=roBanner+'<div class="ph"><h1>🎧 SAC Cliente</h1><p>Atendimento e suporte</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
   if(key==='calendario'){el.innerHTML=roBanner+'<div class="ph"><h1>📅 Calendário e Ações/Eventos</h1><p>Agenda consolidada</p></div><div class="rec-box"><div class="rec-title">🚧 Em construção</div><p>Módulo novo — aguardando definição de escopo.</p></div>';return;}
 }
@@ -640,6 +653,36 @@ function hubRestaurarBackupFinanceiro(el){
     try{ document.getElementById('financeiro-iframe').contentWindow.restaurarBackup(el); }
     catch(e){ alert('Erro ao restaurar — tenta de novo em alguns segundos.'); console.error(e); }
   });
+}
+async function navigateMkt(pageId){
+  window._crmPage=pageId;
+  renderSidebarNav();
+  document.getElementById('page-title').textContent='Marketing — '+(MKT_PAGES[pageId]?MKT_PAGES[pageId].label:pageId);
+  var el=document.getElementById('main-content');
+  var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
+  var podeEditar=!isReadOnly();
+  if(pageId==='campanhas'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-campanhas"></div></div>';
+    montarModuloMktCampanhas('container-mkt-campanhas',{editavel:podeEditar});
+  }else if(pageId==='metaads'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-metaads"></div></div>';
+    montarModuloMktMeta('container-mkt-metaads',{editavel:podeEditar});
+  }else if(pageId==='orcamento'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-orcamento"></div></div>';
+    montarModuloMktOrcamento('container-mkt-orcamento',{editavel:podeEditar});
+  }else if(pageId==='analytics'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-analytics"></div></div>';
+    montarModuloMktAnalytics('container-mkt-analytics');
+  }else if(pageId==='calendariomkt'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-calendario"></div></div>';
+    montarModuloMktCalendario('container-mkt-calendario',{editavel:podeEditar});
+  }else if(pageId==='simulacoes'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-simulacoes"></div></div>';
+    montarModuloMktSimulacoes('container-mkt-simulacoes');
+  }else if(pageId==='tutorialmkt'){
+    el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-tutorial"></div></div>';
+    montarModuloTutorial('container-mkt-tutorial',{modulo:'mkt'});
+  }
 }
 async function navigateCRM(pageId){
   if(!podeVerSubmodulo(currentProject,pageId)){
