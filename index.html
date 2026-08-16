@@ -678,7 +678,7 @@ async function navigateMkt(pageId){
     montarModuloMktCalendario('container-mkt-calendario',{editavel:podeEditar});
   }else if(pageId==='simulacoes'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-simulacoes"></div></div>';
-    montarModuloMktSimulacoes('container-mkt-simulacoes');
+    montarModuloMktSimulacoes('container-mkt-simulacoes',{editavel:podeEditar});
   }else if(pageId==='tutorialmkt'){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-mkt-tutorial"></div></div>';
     montarModuloTutorial('container-mkt-tutorial',{modulo:'mkt'});
