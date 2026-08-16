@@ -675,15 +675,120 @@ async function mktSalvarCalendario(containerId, itemId) {
 }
 
 // ────────────────────────────────────────────────────────────────
-// 6) SIMULAÇÕES IA (placeholder estrutural — sem lógica ativa)
+// 6) SIMULAÇÕES IA — aloca orçamento por canal via Anthropic API
 // ────────────────────────────────────────────────────────────────
-function montarModuloMktSimulacoes(containerId) {
+async function montarModuloMktSimulacoes(containerId, opts) {
+  var editavel = !opts || opts.editavel !== false;
   var host = document.getElementById(containerId);
   if (!host) return;
+  host.innerHTML = '<p class="tmu">Carregando simulações...</p>';
+
+  var simulacoes = [];
+  try {
+    simulacoes = await sb.get('cda_marketing_simulacoes', 'select=*&order=criado_em.desc');
+  } catch (err) {
+    host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar simulações: ' + (err.message || err) + '</p>';
+    return;
+  }
+
+  var linhas = simulacoes.map(function (s) {
+    return '<tr style="cursor:pointer" onclick="mktVerSimulacao(\'' + containerId + '\',' + s.id + ')">' +
+      '<td>' + s.nome + '</td>' +
+      '<td>' + (s.periodo || '—') + '</td>' +
+      '<td>' + mktFmtMoeda(s.orcamento_total) + '</td>' +
+      '<td>' + (s.roas_esperado ? Number(s.roas_esperado).toFixed(2) + 'x' : '—') + '</td>' +
+      '<td>' + (s.receita_esperada ? mktFmtMoeda(s.receita_esperada) : '—') + '</td>' +
+      '<td>' + mktFmtData(s.criado_em) + '</td>' +
+      '</tr>';
+  }).join('');
+
   host.innerHTML =
-    '<div class="row-bt"><div><div class="sec-t">🤖 Simulações IA</div><div class="sec-d">Alocação de orçamento sugerida por IA entre campanhas/canais</div></div></div>' +
-    '<div class="rec-box"><div class="rec-title">🚧 Em construção</div>' +
-    '<p class="tmu">A tabela de dados já existe (<code>cda_marketing_simulacoes</code>), mas a lógica de sugestão por IA não foi migrada do Manus — a versão anterior não funcionava de forma confiável. Este submódulo será reconstruído do zero, usando a API da Anthropic, em uma etapa futura.</p></div>';
+    '<div class="row-bt"><div><div class="sec-t">🤖 Simulações IA</div><div class="sec-d">Alocação de orçamento entre canais, sugerida por IA com base no histórico real de performance (últimos 3 meses + acumulado)</div></div>' +
+    (editavel ? '<button class="btn" id="mkt-btn-nova-sim">+ Nova Simulação</button>' : '') + '</div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Período</th><th>Orçamento</th><th>ROAS Esperado</th><th>Receita Esperada</th><th>Criada em</th></tr></thead><tbody>' +
+      (linhas || '<tr><td colspan="6" class="tmu">Nenhuma simulação gerada ainda.</td></tr>') +
+    '</tbody></table></div>';
+
+  host._mktSimState = simulacoes;
+  if (editavel) host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
+}
+
+function mktAbrirModalNovaSimulacao(containerId) {
+  openModal(
+    '<div class="modal-box"><h3>Nova Simulação de Alocação</h3>' +
+    '<p class="tmu" style="margin-bottom:12px">A IA vai analisar o histórico real de performance por canal (últimos 3 meses + acumulado) e sugerir como distribuir o orçamento informado.</p>' +
+    '<div><label>Nome da simulação</label><input type="text" id="sf-nome" placeholder="ex: Orçamento Setembro 2026" style="width:100%"></div>' +
+    '<div style="margin-top:10px;display:flex;gap:8px">' +
+      '<div style="flex:1"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="sf-orcamento" style="width:100%"></div>' +
+      '<div style="flex:1"><label>Período</label><input type="text" id="sf-periodo" placeholder="ex: Setembro/2026" style="width:100%"></div>' +
+    '</div>' +
+    '<div style="margin-top:10px"><label>Contexto adicional (opcional)</label><textarea id="sf-descricao" style="width:100%;min-height:60px" placeholder="ex: temos show da Luedji Luna dia 15, lançamento de coleção do Gilsons no fim do mês..."></textarea></div>' +
+    '<div id="sf-status" style="margin-top:12px;font-size:12px;color:var(--muted,#888)"></div>' +
+    '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal()" id="sf-btn-cancelar">Cancelar</button>' +
+      '<button class="btn rust" onclick="mktGerarSimulacao(\'' + containerId + '\')" id="sf-btn-gerar">Gerar com IA</button>' +
+    '</div></div>'
+  );
+}
+
+async function mktGerarSimulacao(containerId) {
+  var nome = document.getElementById('sf-nome').value.trim();
+  var orcamento = document.getElementById('sf-orcamento').value;
+  var periodo = document.getElementById('sf-periodo').value.trim();
+  var descricao = document.getElementById('sf-descricao').value.trim();
+  if (!nome || !orcamento) { showToast('Informe nome e orçamento.', 'error'); return; }
+
+  var statusEl = document.getElementById('sf-status');
+  var btnGerar = document.getElementById('sf-btn-gerar');
+  var btnCancelar = document.getElementById('sf-btn-cancelar');
+  statusEl.textContent = '⏳ Analisando histórico e consultando a IA — isso pode levar até 30 segundos...';
+  btnGerar.disabled = true; btnCancelar.disabled = true;
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/simular-marketing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: nome, orcamento_total: Number(orcamento), periodo: periodo, descricao: descricao })
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+    closeModal();
+    showToast('Simulação gerada com sucesso.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+    mktVerSimulacaoObj(data.simulacao);
+  } catch (err) {
+    console.error(err);
+    statusEl.innerHTML = '<span style="color:var(--rust,#c0392b)">Erro: ' + (err.message || err) + '</span>';
+    btnGerar.disabled = false; btnCancelar.disabled = false;
+  }
+}
+
+function mktVerSimulacao(containerId, simId) {
+  var host = document.getElementById(containerId);
+  var s = (host._mktSimState || []).find(function (x) { return x.id === simId; });
+  if (s) mktVerSimulacaoObj(s);
+}
+
+function mktVerSimulacaoObj(s) {
+  var alocacoes = s.alocacoes || [];
+  var linhasAlocacao = alocacoes.map(function (a) {
+    return '<tr><td>' + a.canal + '</td><td>' + (a.percentual || 0).toFixed(1) + '%</td><td>' + mktFmtMoeda(a.valor) + '</td><td class="tmu" style="font-size:11px">' + (a.justificativa || '') + '</td></tr>';
+  }).join('');
+
+  openModal(
+    '<div class="modal-box" style="width:640px">' +
+    '<h3>' + s.nome + '</h3>' +
+    '<p class="tmu" style="margin-bottom:4px">' + (s.periodo || '') + ' · Orçamento: ' + mktFmtMoeda(s.orcamento_total) +
+      (s.roas_esperado ? ' · ROAS esperado: ' + Number(s.roas_esperado).toFixed(2) + 'x' : '') + '</p>' +
+    (s.descricao ? '<p class="tmu" style="margin-bottom:12px;font-style:italic">"' + s.descricao + '"</p>' : '') +
+    '<div class="tbl-wrap" style="margin-top:12px"><table><thead><tr><th>Canal</th><th>%</th><th>Valor</th><th>Justificativa</th></tr></thead><tbody>' +
+      (linhasAlocacao || '<tr><td colspan="4" class="tmu">Sem alocação registrada.</td></tr>') +
+    '</tbody></table></div>' +
+    '<div class="cc" style="margin-top:14px;white-space:pre-wrap;font-size:13px">' + (s.sugestao_ia || 'Sem análise registrada.') + '</div>' +
+    '<div style="margin-top:20px;display:flex;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal()">Fechar</button>' +
+    '</div></div>'
+  );
 }
 
 // A entrada do submódulo Tutorial usa a função já existente montarModuloTutorial(containerId,{modulo:'marketing'})
