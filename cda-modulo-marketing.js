@@ -35,14 +35,16 @@ async function montarModuloMktCampanhas(containerId, opts) {
   if (!host) return;
   host.innerHTML = '<p class="tmu">Carregando campanhas...</p>';
 
-  var ST = { campanhas: [], canais: [], metricas: [] };
+  var ST = { campanhas: [], canais: [], metricas: [], ultimaSinc: null };
   try {
     var res = await Promise.all([
       sb.get('cda_marketing_campanhas', 'select=*&order=data_inicio.desc.nullslast'),
       mktCarregarCanais(),
-      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento,receita')
+      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento,receita'),
+      sb.get('cda_marketing_meta_config', 'select=ultima_sincronizacao&id=eq.1')
     ]);
     ST.campanhas = res[0]; ST.canais = res[1]; ST.metricas = res[2];
+    ST.ultimaSinc = res[3] && res[3][0] ? res[3][0].ultima_sincronizacao : null;
   } catch (err) {
     host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar campanhas: ' + (err.message || err) + '</p>';
     return;
@@ -56,6 +58,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
     var fInicioAte = host.querySelector('#mkt-f-inicio-ate') ? host.querySelector('#mkt-f-inicio-ate').value : '';
     var fGastoDe = host.querySelector('#mkt-f-gasto-de') ? host.querySelector('#mkt-f-gasto-de').value : '';
     var fGastoAte = host.querySelector('#mkt-f-gasto-ate') ? host.querySelector('#mkt-f-gasto-ate').value : '';
+    var usandoFiltroGasto = !!(fGastoDe || fGastoAte);
 
     var lista = ST.campanhas.filter(function (c) {
       if (fStatus && c.status !== fStatus) return false;
@@ -75,17 +78,40 @@ async function montarModuloMktCampanhas(containerId, opts) {
       porCampanha[m.campanha_id].investido += Number(m.investimento || 0);
       porCampanha[m.campanha_id].receita += Number(m.receita || 0);
     });
-    var usandoFiltroGasto = !!(fGastoDe || fGastoAte);
+
+    // Totalizador
+    var totStatusAtual = {};
+    var totAtivaPeriodo = 0, totSemGastoPeriodo = 0;
+    lista.forEach(function (c) {
+      totStatusAtual[c.status] = (totStatusAtual[c.status] || 0) + 1;
+      var real = porCampanha[c.id] || { investido: 0, receita: 0 };
+      if (real.investido > 0) totAtivaPeriodo++; else totSemGastoPeriodo++;
+    });
+    var kpiStatusHtml = Object.keys(totStatusAtual).map(function (k) {
+      return '<div class="pg-kpi"><div class="v">' + totStatusAtual[k] + '</div><div class="l">' + (MKT_STATUS[k] || k) + ' (hoje)</div></div>';
+    }).join('');
+    var kpiPeriodoHtml = usandoFiltroGasto
+      ? '<div class="pg-kpi"><div class="v">' + totAtivaPeriodo + '</div><div class="l">Com gasto no período</div></div>' +
+        '<div class="pg-kpi"><div class="v">' + totSemGastoPeriodo + '</div><div class="l">Sem gasto no período</div></div>'
+      : '';
+
+    host.querySelector('#mkt-kpis').innerHTML =
+      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (usandoFiltroGasto ? 2 : 0)) + ',1fr)">' +
+      kpiStatusHtml + kpiPeriodoHtml + '</div>';
 
     var linhas = lista.map(function (c) {
       var canal = canalPorId[c.canal_id];
       var real = porCampanha[c.id] || { investido: 0, receita: 0 };
       var roas = real.investido > 0 ? (real.receita / real.investido).toFixed(2) + 'x' : '—';
+      var ativaPeriodo = usandoFiltroGasto
+        ? (real.investido > 0 ? '<span class="badge badge-done">Sim</span>' : '<span class="badge badge-pending">Não</span>')
+        : '<span class="tmu">— defina período —</span>';
       return '<tr>' +
         '<td>' + c.nome + (c.categoria_campanha ? '<br><span class="tmu" style="font-size:10px">' + c.categoria_campanha + '</span>' : '') + '</td>' +
         '<td>' + (canal ? canal.nome : '<span class="tmu">— sem canal —</span>') + '</td>' +
         '<td>' + (MKT_OBJETIVOS[c.objetivo] || c.objetivo) + '</td>' +
         '<td><span class="badge badge-' + (MKT_STATUS_BADGE[c.status] || 'pending') + '">' + (MKT_STATUS[c.status] || c.status) + '</span></td>' +
+        '<td>' + ativaPeriodo + '</td>' +
         '<td>' + mktFmtData(c.data_inicio) + '</td>' +
         '<td>' + mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">config. no Meta</span></td>' +
         '<td>' + mktFmtMoeda(real.investido) + (usandoFiltroGasto ? '<br><span class="tmu" style="font-size:9px">no período</span>' : '<br><span class="tmu" style="font-size:9px">todo histórico</span>') + '</td>' +
@@ -95,12 +121,14 @@ async function montarModuloMktCampanhas(containerId, opts) {
         '</tr>';
     }).join('');
 
-    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="10" class="tmu">Nenhuma campanha encontrada.</td></tr>';
+    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="11" class="tmu">Nenhuma campanha encontrada.</td></tr>';
   }
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Campanhas de mídia paga (Meta Ads) — vinculadas aos Canais/Collabs existentes</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova">+ Nova Campanha</button>' : '') + '</div>' +
+    '<p class="tmu" style="margin-bottom:10px">🕒 "Status" reflete a última sincronização com o Meta: <b>' + (ST.ultimaSinc ? mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado') + '</b> — não muda com o filtro de período abaixo. Para saber se a campanha estava ativa NUM PERÍODO específico, use a coluna "Ativa no período" (calculada pelo gasto real registrado).</p>' +
+    '<div id="mkt-kpis" style="margin-bottom:14px"></div>' +
     '<div class="fb">' +
       '<input type="text" id="mkt-f-busca" placeholder="Buscar por nome...">' +
       '<select id="mkt-f-status"><option value="">Todos os status</option>' +
@@ -116,7 +144,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
       '<input type="date" id="mkt-f-gasto-ate" title="Gasto — até">' +
       '<button class="btn" id="mkt-f-limpar-periodo">Limpar período</button>' +
     '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status</th><th>Início</th><th>Orçamento</th><th>Investido</th><th>Receita</th><th>ROAS</th>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Orçamento</th><th>Investido</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
 
   ['mkt-f-busca'].forEach(function (id) { host.querySelector('#' + id).addEventListener('input', render); });
