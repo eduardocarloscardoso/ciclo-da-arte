@@ -179,15 +179,16 @@ async function montarModuloMktMeta(containerId, opts) {
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">🔗 Integração Meta Ads</div><div class="sec-d">Conexão com a API do Meta Ads via Supabase Edge Function — token nunca fica exposto no frontend</div></div></div>' +
+    (editavel ? '<button id="mkt-btn-sincronizar" style="width:100%;padding:16px;font-size:16px;font-weight:700;background:var(--rust,#c0392b);color:#fff;border:none;border-radius:10px;cursor:pointer;margin-bottom:16px;box-shadow:0 2px 6px rgba(0,0,0,.15)">🔄 Sincronizar agora</button>' : '') +
+    '<div id="mkt-sync-resultado"></div>' +
     '<div class="cc" style="max-width:560px">' +
       '<h3>Status da conexão ' + statusHtml + '</h3>' +
       '<div class="pg-linha"><span class="tmu">Ad Account ID</span><span>' + (cfg && cfg.ad_account_id ? cfg.ad_account_id : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Pixel ID</span><span>' + (cfg && cfg.pixel_id ? cfg.pixel_id : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Última sincronização</span><span>' + (cfg && cfg.ultima_sincronizacao ? mktFmtData(cfg.ultima_sincronizacao) : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Status técnico</span><span>' + (cfg && cfg.status_sincronizacao ? cfg.status_sincronizacao : '—') + '</span></div>' +
-      (editavel ? '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn rust" id="mkt-btn-sincronizar">🔄 Sincronizar agora</button><button class="btn" id="mkt-btn-reconectar">Reconectar Meta Ads</button></div>' : '') +
+      (editavel ? '<button class="btn" style="margin-top:14px" id="mkt-btn-reconectar">Reconectar Meta Ads</button>' : '') +
     '</div>' +
-    '<div id="mkt-sync-resultado" style="margin-top:14px"></div>' +
     '<div class="rec-box" style="margin-top:14px"><div class="rec-title">ℹ️ Como funciona</div>' +
     '<p class="tmu">"Sincronizar agora" atualiza status e métricas (últimos 30 dias) das campanhas que já existem no nosso sistema. Campanhas novas encontradas na conta do Meta que ainda não existem aqui NÃO são criadas automaticamente — aparecem listadas no resultado, para você revisar e decidir se quer trazer.</p></div>';
 
@@ -212,8 +213,8 @@ async function mktSincronizarMeta(containerId) {
   var host = document.getElementById(containerId);
   var resDiv = host.querySelector('#mkt-sync-resultado');
   var btn = host.querySelector('#mkt-btn-sincronizar');
-  btn.disabled = true; btn.textContent = '⏳ Sincronizando...';
-  resDiv.innerHTML = '<p class="tmu">Consultando a API do Meta Ads — isso pode levar alguns segundos...</p>';
+  btn.disabled = true; btn.textContent = '⏳ Sincronizando...'; btn.style.opacity = '0.7';
+  resDiv.innerHTML = '<div style="padding:14px;border-radius:10px;background:#fff8e6;border:2px solid #e0b84e;margin-bottom:16px;font-weight:600">⏳ Consultando a API do Meta Ads — isso pode levar alguns segundos...</div>';
 
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/sync-meta-ads', {
@@ -231,17 +232,20 @@ async function mktSincronizarMeta(containerId) {
     }
 
     resDiv.innerHTML =
-      '<div class="cc"><h3 style="color:var(--green,#3ec97a)">✅ Sincronização concluída</h3>' +
+      '<div style="padding:16px;border-radius:10px;background:#e9f9ef;border:2px solid var(--green,#3ec97a);margin-bottom:16px">' +
+      '<div style="font-size:16px;font-weight:700;color:#1f7a45;margin-bottom:10px">✅ Sincronização concluída com sucesso</div>' +
       '<div class="pg-linha"><span class="tmu">Campanhas encontradas no Meta</span><span>' + data.campanhas_no_meta + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Campanhas atualizadas</span><span>' + data.campanhas_atualizadas + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Métricas gravadas</span><span>' + data.metricas_gravadas + '</span></div>' +
       '</div>' + novasHtml;
     showToast('Sincronização concluída.');
-    await montarModuloMktMeta(containerId, { editavel: true });
+    btn.disabled = false; btn.textContent = '🔄 Sincronizar agora'; btn.style.opacity = '1';
   } catch (err) {
     console.error(err);
-    resDiv.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro na sincronização: ' + (err.message || err) + '</p>';
-    btn.disabled = false; btn.textContent = '🔄 Sincronizar agora';
+    resDiv.innerHTML = '<div style="padding:16px;border-radius:10px;background:#fdeaea;border:2px solid var(--rust,#c0392b);margin-bottom:16px">' +
+      '<div style="font-size:16px;font-weight:700;color:#a8281a">❌ Erro na sincronização</div>' +
+      '<p class="tmu" style="margin-top:6px">' + (err.message || err) + '</p></div>';
+    btn.disabled = false; btn.textContent = '🔄 Sincronizar agora'; btn.style.opacity = '1';
   }
 }
 
