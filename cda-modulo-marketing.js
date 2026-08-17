@@ -185,12 +185,14 @@ async function montarModuloMktMeta(containerId, opts) {
       '<div class="pg-linha"><span class="tmu">Pixel ID</span><span>' + (cfg && cfg.pixel_id ? cfg.pixel_id : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Última sincronização</span><span>' + (cfg && cfg.ultima_sincronizacao ? mktFmtData(cfg.ultima_sincronizacao) : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Status técnico</span><span>' + (cfg && cfg.status_sincronizacao ? cfg.status_sincronizacao : '—') + '</span></div>' +
-      (editavel ? '<button class="btn rust" style="margin-top:14px" id="mkt-btn-reconectar">Reconectar Meta Ads</button>' : '') +
+      (editavel ? '<div style="display:flex;gap:8px;margin-top:14px"><button class="btn rust" id="mkt-btn-sincronizar">🔄 Sincronizar agora</button><button class="btn" id="mkt-btn-reconectar">Reconectar Meta Ads</button></div>' : '') +
     '</div>' +
-    '<div class="rec-box" style="margin-top:14px"><div class="rec-title">🚧 Sincronização automática — em construção</div>' +
-    '<p class="tmu">A conexão real com a API do Meta Ads (via Edge Function dedicada) ainda precisa ser implementada nesta etapa. Por enquanto, use o campo de token abaixo apenas para registrar a configuração; a sincronização de métricas continuará manual até a Edge Function estar pronta.</p></div>';
+    '<div id="mkt-sync-resultado" style="margin-top:14px"></div>' +
+    '<div class="rec-box" style="margin-top:14px"><div class="rec-title">ℹ️ Como funciona</div>' +
+    '<p class="tmu">"Sincronizar agora" atualiza status e métricas (últimos 30 dias) das campanhas que já existem no nosso sistema. Campanhas novas encontradas na conta do Meta que ainda não existem aqui NÃO são criadas automaticamente — aparecem listadas no resultado, para você revisar e decidir se quer trazer.</p></div>';
 
   if (editavel) {
+    host.querySelector('#mkt-btn-sincronizar').addEventListener('click', function () { mktSincronizarMeta(containerId); });
     host.querySelector('#mkt-btn-reconectar').addEventListener('click', function () {
       openModal(
         '<div class="modal-box"><h3>Reconectar Meta Ads</h3>' +
@@ -203,6 +205,43 @@ async function montarModuloMktMeta(containerId, opts) {
         '</div></div>'
       );
     });
+  }
+}
+
+async function mktSincronizarMeta(containerId) {
+  var host = document.getElementById(containerId);
+  var resDiv = host.querySelector('#mkt-sync-resultado');
+  var btn = host.querySelector('#mkt-btn-sincronizar');
+  btn.disabled = true; btn.textContent = '⏳ Sincronizando...';
+  resDiv.innerHTML = '<p class="tmu">Consultando a API do Meta Ads — isso pode levar alguns segundos...</p>';
+
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/sync-meta-ads', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+
+    var novasHtml = '';
+    if (data.total_novas_encontradas > 0) {
+      novasHtml = '<div class="rec-box" style="margin-top:10px"><div class="rec-title">📋 ' + data.total_novas_encontradas + ' campanha(s) nova(s) encontrada(s) no Meta (não importadas)</div>' +
+        '<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Status</th></tr></thead><tbody>' +
+        data.novas_encontradas.map(function (n) { return '<tr><td>' + n.nome + '</td><td>' + n.status + '</td></tr>'; }).join('') +
+        '</tbody></table></div></div>';
+    }
+
+    resDiv.innerHTML =
+      '<div class="cc"><h3 style="color:var(--green,#3ec97a)">✅ Sincronização concluída</h3>' +
+      '<div class="pg-linha"><span class="tmu">Campanhas encontradas no Meta</span><span>' + data.campanhas_no_meta + '</span></div>' +
+      '<div class="pg-linha"><span class="tmu">Campanhas atualizadas</span><span>' + data.campanhas_atualizadas + '</span></div>' +
+      '<div class="pg-linha"><span class="tmu">Métricas gravadas</span><span>' + data.metricas_gravadas + '</span></div>' +
+      '</div>' + novasHtml;
+    showToast('Sincronização concluída.');
+    await montarModuloMktMeta(containerId, { editavel: true });
+  } catch (err) {
+    console.error(err);
+    resDiv.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro na sincronização: ' + (err.message || err) + '</p>';
+    btn.disabled = false; btn.textContent = '🔄 Sincronizar agora';
   }
 }
 
@@ -221,6 +260,7 @@ async function mktSalvarMetaConfig(containerId) {
     showToast('Erro ao salvar: ' + (err.message || err), 'error');
   }
 }
+
 
 // ────────────────────────────────────────────────────────────────
 // 3) ORÇAMENTO
