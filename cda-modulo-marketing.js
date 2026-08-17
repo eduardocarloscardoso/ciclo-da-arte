@@ -35,13 +35,14 @@ async function montarModuloMktCampanhas(containerId, opts) {
   if (!host) return;
   host.innerHTML = '<p class="tmu">Carregando campanhas...</p>';
 
-  var ST = { campanhas: [], canais: [] };
+  var ST = { campanhas: [], canais: [], metricas: [] };
   try {
     var res = await Promise.all([
       sb.get('cda_marketing_campanhas', 'select=*&order=data_inicio.desc.nullslast'),
-      mktCarregarCanais()
+      mktCarregarCanais(),
+      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento,receita')
     ]);
-    ST.campanhas = res[0]; ST.canais = res[1];
+    ST.campanhas = res[0]; ST.canais = res[1]; ST.metricas = res[2];
   } catch (err) {
     host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar campanhas: ' + (err.message || err) + '</p>';
     return;
@@ -51,27 +52,50 @@ async function montarModuloMktCampanhas(containerId, opts) {
   function render() {
     var fStatus = host.querySelector('#mkt-f-status') ? host.querySelector('#mkt-f-status').value : '';
     var fBusca = host.querySelector('#mkt-f-busca') ? host.querySelector('#mkt-f-busca').value.toLowerCase() : '';
+    var fInicioDe = host.querySelector('#mkt-f-inicio-de') ? host.querySelector('#mkt-f-inicio-de').value : '';
+    var fInicioAte = host.querySelector('#mkt-f-inicio-ate') ? host.querySelector('#mkt-f-inicio-ate').value : '';
+    var fGastoDe = host.querySelector('#mkt-f-gasto-de') ? host.querySelector('#mkt-f-gasto-de').value : '';
+    var fGastoAte = host.querySelector('#mkt-f-gasto-ate') ? host.querySelector('#mkt-f-gasto-ate').value : '';
+
     var lista = ST.campanhas.filter(function (c) {
       if (fStatus && c.status !== fStatus) return false;
       if (fBusca && c.nome.toLowerCase().indexOf(fBusca) === -1) return false;
+      if (fInicioDe && (!c.data_inicio || c.data_inicio.substring(0, 10) < fInicioDe)) return false;
+      if (fInicioAte && (!c.data_inicio || c.data_inicio.substring(0, 10) > fInicioAte)) return false;
       return true;
     });
 
+    // Investido/Receita reais por campanha, respeitando o filtro de período de gasto (se houver)
+    var porCampanha = {};
+    ST.metricas.forEach(function (m) {
+      var d = m.data.substring(0, 10);
+      if (fGastoDe && d < fGastoDe) return;
+      if (fGastoAte && d > fGastoAte) return;
+      if (!porCampanha[m.campanha_id]) porCampanha[m.campanha_id] = { investido: 0, receita: 0 };
+      porCampanha[m.campanha_id].investido += Number(m.investimento || 0);
+      porCampanha[m.campanha_id].receita += Number(m.receita || 0);
+    });
+    var usandoFiltroGasto = !!(fGastoDe || fGastoAte);
+
     var linhas = lista.map(function (c) {
       var canal = canalPorId[c.canal_id];
+      var real = porCampanha[c.id] || { investido: 0, receita: 0 };
+      var roas = real.investido > 0 ? (real.receita / real.investido).toFixed(2) + 'x' : '—';
       return '<tr>' +
         '<td>' + c.nome + (c.categoria_campanha ? '<br><span class="tmu" style="font-size:10px">' + c.categoria_campanha + '</span>' : '') + '</td>' +
         '<td>' + (canal ? canal.nome : '<span class="tmu">— sem canal —</span>') + '</td>' +
         '<td>' + (MKT_OBJETIVOS[c.objetivo] || c.objetivo) + '</td>' +
         '<td><span class="badge badge-' + (MKT_STATUS_BADGE[c.status] || 'pending') + '">' + (MKT_STATUS[c.status] || c.status) + '</span></td>' +
-        '<td>' + (MKT_PLATAFORMAS[c.plataforma] || c.plataforma) + '</td>' +
-        '<td>' + mktFmtMoeda(c.orcamento) + '</td>' +
         '<td>' + mktFmtData(c.data_inicio) + '</td>' +
+        '<td>' + mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">config. no Meta</span></td>' +
+        '<td>' + mktFmtMoeda(real.investido) + (usandoFiltroGasto ? '<br><span class="tmu" style="font-size:9px">no período</span>' : '<br><span class="tmu" style="font-size:9px">todo histórico</span>') + '</td>' +
+        '<td>' + mktFmtMoeda(real.receita) + '</td>' +
+        '<td>' + roas + '</td>' +
         (editavel ? '<td><button class="btn" onclick="mktAbrirModalCampanha(\'' + containerId + '\',' + c.id + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
 
-    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="8" class="tmu">Nenhuma campanha encontrada.</td></tr>';
+    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="10" class="tmu">Nenhuma campanha encontrada.</td></tr>';
   }
 
   host.innerHTML =
@@ -83,11 +107,26 @@ async function montarModuloMktCampanhas(containerId, opts) {
         Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
       '</select>' +
     '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status</th><th>Plataforma</th><th>Orçamento</th><th>Início</th>' +
+    '<div class="fb" style="margin-top:6px">' +
+      '<span class="tmu" style="align-self:center">Início da campanha:</span>' +
+      '<input type="date" id="mkt-f-inicio-de" title="Início — de">' +
+      '<input type="date" id="mkt-f-inicio-ate" title="Início — até">' +
+      '<span class="tmu" style="align-self:center;margin-left:10px">Gasto real em:</span>' +
+      '<input type="date" id="mkt-f-gasto-de" title="Gasto — de">' +
+      '<input type="date" id="mkt-f-gasto-ate" title="Gasto — até">' +
+      '<button class="btn" id="mkt-f-limpar-periodo">Limpar período</button>' +
+    '</div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status</th><th>Início</th><th>Orçamento</th><th>Investido</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
 
-  host.querySelector('#mkt-f-busca').addEventListener('input', render);
-  host.querySelector('#mkt-f-status').addEventListener('change', render);
+  ['mkt-f-busca'].forEach(function (id) { host.querySelector('#' + id).addEventListener('input', render); });
+  ['mkt-f-status', 'mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-gasto-de', 'mkt-f-gasto-ate'].forEach(function (id) {
+    host.querySelector('#' + id).addEventListener('change', render);
+  });
+  host.querySelector('#mkt-f-limpar-periodo').addEventListener('click', function () {
+    ['mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-gasto-de', 'mkt-f-gasto-ate'].forEach(function (id) { host.querySelector('#' + id).value = ''; });
+    render();
+  });
   if (editavel) host.querySelector('#mkt-btn-nova').addEventListener('click', function () { mktAbrirModalCampanha(containerId, null); });
 
   render();
