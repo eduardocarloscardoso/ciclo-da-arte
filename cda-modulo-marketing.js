@@ -441,10 +441,19 @@ async function montarModuloMktOrcamento(containerId, opts) {
   function investimentosDoOrcamento(orcId) {
     return ST.investimentos.filter(function (i) { return i.orcamento_id === orcId; }).reduce(function (s, i) { return s + Number(i.valor || 0); }, 0);
   }
-  // Previsto pela Meta = soma dos orçamentos diários de todas as campanhas × dias do mês (config real no Meta, não o que você digitou)
+  // Previsto pela Meta = soma das diárias × dias do mês, mas SÓ de campanhas que
+  // de fato tiveram gasto real naquele mês (evita inflar com campanhas antigas
+  // que ainda têm diária configurada no Meta, mas não estão rodando de verdade).
   function previstoMetaNoMes(mes, ano) {
     var dias = diasNoMes(ano, mes);
-    return ST.campanhas.filter(function (c) { return c.tipo_orcamento === 'diario' && c.orcamento; })
+    var idsComGasto = {};
+    ST.metricas.forEach(function (m) {
+      var d = new Date(m.data);
+      if ((d.getUTCMonth() + 1) === mes && d.getUTCFullYear() === ano && Number(m.investimento || 0) > 0) {
+        idsComGasto[m.campanha_id] = true;
+      }
+    });
+    return ST.campanhas.filter(function (c) { return c.tipo_orcamento === 'diario' && c.orcamento && idsComGasto[c.id]; })
       .reduce(function (s, c) { return s + Number(c.orcamento) * dias; }, 0);
   }
 
@@ -489,7 +498,7 @@ async function montarModuloMktOrcamento(containerId, opts) {
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">💰 Orçamento Mensal</div><div class="sec-d">Controle de verba de mídia paga — independente do Financeiro</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-novo-orc">+ Novo Orçamento</button>' : '') + '</div>' +
-    '<p class="tmu" style="margin-bottom:10px">ℹ️ "Orçado" é o valor que você informa manualmente aqui. "Orç. Previsto (Meta)" é calculado a partir da configuração real das campanhas diárias no Meta (diária × dias do mês) — os dois podem divergir, e isso é normal.</p>' +
+    '<p class="tmu" style="margin-bottom:10px">ℹ️ "Orçado" é o valor que você informa manualmente aqui. "Orç. Previsto (Meta)" é calculado a partir da diária configurada no Meta × dias do mês, considerando SÓ campanhas que tiveram gasto real naquele mês (campanhas antigas com diária configurada mas sem atividade não entram na conta).</p>' +
     '<div class="cc" style="margin-bottom:16px;padding:14px 16px"><div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Período — de</label><input type="month" id="mkt-orc-f-de"></div>' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">até</label><input type="month" id="mkt-orc-f-ate"></div>' +
