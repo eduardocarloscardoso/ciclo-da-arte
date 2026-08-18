@@ -488,11 +488,12 @@ async function montarModuloMktOrcamento(containerId, opts) {
           '<span class="tmu" style="font-size:10px">' + pct.toFixed(0) + '%</span>' +
         '</td>' +
         '<td>' + mktFmtMoeda(o.receita_realizada) + '</td>' +
+        '<td>' + (totalGasto > 0 ? (Number(o.receita_realizada || 0) / totalGasto).toFixed(2) + 'x' : '—') + '</td>' +
         (editavel ? '<td><button class="btn" onclick="mktAbrirModalOrcamento(\'' + containerId + '\',' + o.id + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
 
-    host.querySelector('#mkt-orc-tbody').innerHTML = linhas || '<tr><td colspan="8" class="tmu">Nenhum orçamento no período selecionado.</td></tr>';
+    host.querySelector('#mkt-orc-tbody').innerHTML = linhas || '<tr><td colspan="9" class="tmu">Nenhum orçamento no período selecionado.</td></tr>';
   }
 
   host.innerHTML =
@@ -504,7 +505,7 @@ async function montarModuloMktOrcamento(containerId, opts) {
       '<div><label class="tmu" style="display:block;margin-bottom:4px">até</label><input type="month" id="mkt-orc-f-ate"></div>' +
       '<button class="btn" id="mkt-orc-f-limpar" style="margin-bottom:2px">Limpar filtro</button>' +
     '</div></div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Mês/Ano</th><th>Orçado</th><th>Orç. Previsto (Meta)</th><th>Gasto Real</th><th>Saldo</th><th>% Usado</th><th>Receita Realizada</th>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Mês/Ano</th><th>Orçado</th><th>Orç. Previsto (Meta)</th><th>Gasto Real</th><th>Saldo</th><th>% Usado</th><th>Receita Realizada</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-orc-tbody"></tbody></table></div>';
 
   host._mktOrcState = ST;
