@@ -326,7 +326,7 @@ async function montarModuloMktMeta(containerId, opts) {
       '<div class="pg-linha"><span class="tmu">Pixel ID</span><span>' + (cfg && cfg.pixel_id ? cfg.pixel_id : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Última sincronização</span><span>' + (cfg && cfg.ultima_sincronizacao ? mktFmtData(cfg.ultima_sincronizacao) : '—') + '</span></div>' +
       '<div class="pg-linha"><span class="tmu">Status técnico</span><span>' + (cfg && cfg.status_sincronizacao ? cfg.status_sincronizacao : '—') + '</span></div>' +
-      (editavel ? '<button class="btn" style="margin-top:14px" id="mkt-btn-reconectar">Reconectar Meta Ads</button>' : '') +
+      (editavel ? '<button class="btn" style="margin-top:14px" id="mkt-btn-reconectar">Editar Conta de Anúncios</button>' : '') +
     '</div>' +
     '<div class="rec-box" style="margin-top:14px"><div class="rec-title">ℹ️ Como funciona</div>' +
     '<p class="tmu">"Sincronizar agora" atualiza status e métricas (últimos 30 dias) das campanhas que já existem no nosso sistema. Campanhas novas encontradas na conta do Meta que ainda não existem aqui NÃO são criadas automaticamente — aparecem listadas no resultado, para você revisar e decidir se quer trazer.</p></div>';
@@ -335,7 +335,7 @@ async function montarModuloMktMeta(containerId, opts) {
     host.querySelector('#mkt-btn-sincronizar').addEventListener('click', function () { mktSincronizarMeta(containerId); });
     host.querySelector('#mkt-btn-reconectar').addEventListener('click', function () {
       openModal(
-        '<div class="modal-box"><h3>Reconectar Meta Ads</h3>' +
+        '<div class="modal-box"><h3>Editar Conta de Anúncios</h3>' +
         '<p class="tmu" style="margin-bottom:12px">Informe o Ad Account ID e o Pixel ID. O token de acesso deve ser configurado depois, diretamente na Edge Function (nunca fica salvo em texto simples nesta tela).</p>' +
         '<div><label>Ad Account ID</label><input type="text" id="mf-adaccount" value="' + (cfg && cfg.ad_account_id ? cfg.ad_account_id : '') + '" style="width:100%"></div>' +
         '<div style="margin-top:10px"><label>Pixel ID</label><input type="text" id="mf-pixel" value="' + (cfg && cfg.pixel_id ? cfg.pixel_id : '') + '" style="width:100%"></div>' +
