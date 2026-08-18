@@ -52,6 +52,8 @@ async function montarModuloMktCampanhas(containerId, opts) {
   var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
 
   function diasNoMes(ano, mes) { return new Date(ano, mes, 0).getDate(); }
+  var hojeObj = new Date();
+  var mesAtualStr = hojeObj.getFullYear() + '-' + String(hojeObj.getMonth() + 1).padStart(2, '0');
 
   function render() {
     var fStatus = host.querySelector('#mkt-f-status') ? host.querySelector('#mkt-f-status').value : '';
@@ -59,8 +61,10 @@ async function montarModuloMktCampanhas(containerId, opts) {
     var fInicioDe = host.querySelector('#mkt-f-inicio-de') ? host.querySelector('#mkt-f-inicio-de').value : '';
     var fInicioAte = host.querySelector('#mkt-f-inicio-ate') ? host.querySelector('#mkt-f-inicio-ate').value : '';
     var fMesRef = host.querySelector('#mkt-f-mes-ref').value; // formato YYYY-MM
+    var fSomenteComGasto = host.querySelector('#mkt-f-somente-gasto') ? host.querySelector('#mkt-f-somente-gasto').checked : false;
+    var mesEhAtual = fMesRef === mesAtualStr;
 
-    var lista = ST.campanhas.filter(function (c) {
+    var listaBase = ST.campanhas.filter(function (c) {
       if (fStatus && c.status !== fStatus) return false;
       if (fBusca && c.nome.toLowerCase().indexOf(fBusca) === -1) return false;
       if (fInicioDe && (!c.data_inicio || c.data_inicio.substring(0, 10) < fInicioDe)) return false;
@@ -91,10 +95,12 @@ async function montarModuloMktCampanhas(containerId, opts) {
     });
     function porOk(id, obj) { return obj.hasOwnProperty(id); }
 
+    var lista = fSomenteComGasto ? listaBase.filter(function (c) { return (investidoMes[c.id] || 0) > 0; }) : listaBase;
+
     // Totalizador
     var totStatusAtual = {};
     var totAtivaPeriodo = 0, totSemGastoPeriodo = 0;
-    lista.forEach(function (c) {
+    listaBase.forEach(function (c) {
       totStatusAtual[c.status] = (totStatusAtual[c.status] || 0) + 1;
       var inv = investidoMes[c.id] || 0;
       if (inv > 0) totAtivaPeriodo++; else totSemGastoPeriodo++;
@@ -110,6 +116,10 @@ async function montarModuloMktCampanhas(containerId, opts) {
     host.querySelector('#mkt-kpis').innerHTML =
       '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (fMesRef ? 2 : 0)) + ',1fr)">' +
       kpiStatusHtml + kpiPeriodoHtml + '</div>';
+
+    var labelInvestido = fMesRef ? (mesEhAtual ? 'Gasto até hoje' : 'Investido no mês (fechado)') : 'Investido';
+    var thInvestido = host.querySelector('#mkt-th-investido');
+    if (thInvestido) thInvestido.textContent = labelInvestido;
 
     var totOrcMes = 0, totInvMes = 0, totRec = 0;
     var linhas = lista.map(function (c) {
@@ -168,7 +178,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
     var roasTotal = totInvMes > 0 ? (totRec / totInvMes).toFixed(2) + 'x' : '—';
     var linhaTotal = lista.length ? (
       '<tr style="font-weight:700;background:var(--bg2,#f5f0e6);border-top:2px solid var(--border2,#ccc)">' +
-      '<td colspan="8">TOTAL (' + lista.length + ' campanhas' + (fMesRef ? ' — ' + fMesRef : '') + ')</td>' +
+      '<td colspan="8">TOTAL (' + lista.length + ' de ' + listaBase.length + ' campanhas' + (fMesRef ? ' — ' + fMesRef : '') + ')</td>' +
       '<td>' + mktFmtMoeda(totOrcMes) + '</td>' +
       '<td>—</td>' +
       '<td>' + mktFmtMoeda(totInvMes) + '</td>' +
@@ -179,21 +189,33 @@ async function montarModuloMktCampanhas(containerId, opts) {
     ) : '';
 
     host.querySelector('#mkt-camp-tbody').innerHTML = (linhas || '<tr><td colspan="14" class="tmu">Nenhuma campanha encontrada.</td></tr>') + linhaTotal;
-  }
 
-  var hoje = new Date();
-  var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+    // Resumo textual — previsto vs gasto vs dias restantes
+    var resumoEl = host.querySelector('#mkt-resumo-previsto');
+    if (fMesRef && resumoEl) {
+      var diasRestantes = mesEhAtual ? (diasNoMes(ano, mes) - hojeObj.getDate()) : 0;
+      var textoResumo = mesEhAtual
+        ? '📊 <b>' + fMesRef + '</b> (mês em andamento, faltam ' + diasRestantes + ' dias): previsto até <b>' + mktFmtMoeda(totOrcMes) + '</b> (se as campanhas diárias rodarem o mês inteiro) · já gasto <b>' + mktFmtMoeda(totInvMes) + '</b> até hoje · saldo estimado <b>' + mktFmtMoeda(totOrcMes - totInvMes) + '</b>.'
+        : '📊 <b>' + fMesRef + '</b> (mês fechado): total investido <b>' + mktFmtMoeda(totInvMes) + '</b> de um orçamento previsto de <b>' + mktFmtMoeda(totOrcMes) + '</b>.';
+      resumoEl.innerHTML = textoResumo;
+      resumoEl.style.display = 'block';
+    } else if (resumoEl) {
+      resumoEl.style.display = 'none';
+    }
+  }
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Campanhas de mídia paga (Meta Ads) — vinculadas aos Canais/Collabs existentes</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova">+ Nova Campanha</button>' : '') + '</div>' +
     '<p class="tmu" style="margin-bottom:10px">🕒 "Status" reflete a última sincronização com o Meta: <b>' + (ST.ultimaSinc ? mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado') + '</b>. Para ver dados de um mês passado, NÃO filtre por status — use o mês de referência e veja a coluna "Ativa no período" (campanhas pausadas hoje podem ter gasto real em meses anteriores).</p>' +
+    '<div id="mkt-resumo-previsto" class="rec-box" style="margin-bottom:14px;display:none"></div>' +
     '<div id="mkt-kpis" style="margin-bottom:14px"></div>' +
     '<div class="fb">' +
       '<input type="text" id="mkt-f-busca" placeholder="Buscar por nome...">' +
       '<select id="mkt-f-status"><option value="">Todos os status</option>' +
         Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
       '</select>' +
+      '<label class="tmu" style="align-self:center;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="mkt-f-somente-gasto"> Só campanhas com gasto no mês</label>' +
     '</div>' +
     '<div class="fb" style="margin-top:6px">' +
       '<span class="tmu" style="align-self:center">Início da campanha:</span>' +
@@ -203,16 +225,17 @@ async function montarModuloMktCampanhas(containerId, opts) {
       '<input type="month" id="mkt-f-mes-ref" value="' + mesAtualStr + '">' +
       '<button class="btn" id="mkt-f-limpar-periodo">Limpar filtros</button>' +
     '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Fim</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th>Investido no mês</th><th>Receita</th><th>ROAS</th>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Fim</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th id="mkt-th-investido">Investido no mês</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
 
   ['mkt-f-busca'].forEach(function (id) { host.querySelector('#' + id).addEventListener('input', render); });
-  ['mkt-f-status', 'mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-mes-ref'].forEach(function (id) {
+  ['mkt-f-status', 'mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-mes-ref', 'mkt-f-somente-gasto'].forEach(function (id) {
     host.querySelector('#' + id).addEventListener('change', render);
   });
   host.querySelector('#mkt-f-limpar-periodo').addEventListener('click', function () {
     ['mkt-f-inicio-de', 'mkt-f-inicio-ate'].forEach(function (id) { host.querySelector('#' + id).value = ''; });
     host.querySelector('#mkt-f-mes-ref').value = mesAtualStr;
+    host.querySelector('#mkt-f-somente-gasto').checked = false;
     render();
   });
   if (editavel) host.querySelector('#mkt-btn-nova').addEventListener('click', function () { mktAbrirModalCampanha(containerId, null); });
