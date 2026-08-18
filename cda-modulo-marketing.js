@@ -421,7 +421,7 @@ async function montarModuloMktOrcamento(containerId, opts) {
     var res = await Promise.all([
       sb.get('cda_marketing_orcamentos', 'select=*&order=ano.desc,mes.desc'),
       sb.get('cda_marketing_investimentos', 'select=*'),
-      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento'),
+      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento,receita'),
       sb.get('cda_marketing_campanhas', 'select=id,orcamento,tipo_orcamento')
     ]);
     ST.orcamentos = res[0]; ST.investimentos = res[1]; ST.metricas = res[2]; ST.campanhas = res[3];
