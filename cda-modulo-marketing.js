@@ -416,18 +416,21 @@ async function montarModuloMktOrcamento(containerId, opts) {
   if (!host) return;
   host.innerHTML = '<p class="tmu">Carregando orçamentos...</p>';
 
-  var ST = { orcamentos: [], investimentos: [], metricas: [] };
+  var ST = { orcamentos: [], investimentos: [], metricas: [], campanhas: [] };
   try {
     var res = await Promise.all([
       sb.get('cda_marketing_orcamentos', 'select=*&order=ano.desc,mes.desc'),
       sb.get('cda_marketing_investimentos', 'select=*'),
-      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento')
+      sb.get('cda_marketing_metricas', 'select=campanha_id,data,investimento'),
+      sb.get('cda_marketing_campanhas', 'select=id,orcamento,tipo_orcamento')
     ]);
-    ST.orcamentos = res[0]; ST.investimentos = res[1]; ST.metricas = res[2];
+    ST.orcamentos = res[0]; ST.investimentos = res[1]; ST.metricas = res[2]; ST.campanhas = res[3];
   } catch (err) {
     host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar orçamentos: ' + (err.message || err) + '</p>';
     return;
   }
+
+  function diasNoMes(ano, mes) { return new Date(ano, mes, 0).getDate(); }
 
   function gastoMetaNoMes(mes, ano) {
     return ST.metricas.filter(function (m) {
@@ -438,35 +441,73 @@ async function montarModuloMktOrcamento(containerId, opts) {
   function investimentosDoOrcamento(orcId) {
     return ST.investimentos.filter(function (i) { return i.orcamento_id === orcId; }).reduce(function (s, i) { return s + Number(i.valor || 0); }, 0);
   }
+  // Previsto pela Meta = soma dos orçamentos diários de todas as campanhas × dias do mês (config real no Meta, não o que você digitou)
+  function previstoMetaNoMes(mes, ano) {
+    var dias = diasNoMes(ano, mes);
+    return ST.campanhas.filter(function (c) { return c.tipo_orcamento === 'diario' && c.orcamento; })
+      .reduce(function (s, c) { return s + Number(c.orcamento) * dias; }, 0);
+  }
 
-  var linhas = ST.orcamentos.map(function (o) {
-    var gastoMeta = gastoMetaNoMes(o.mes, o.ano);
-    var outrosGastos = investimentosDoOrcamento(o.id);
-    var totalGasto = gastoMeta + outrosGastos;
-    var totalOrcado = Number(o.orcamento_total || 0) + Number(o.orcamento_outros || 0);
-    var pct = totalOrcado > 0 ? Math.min(100, (totalGasto / totalOrcado) * 100) : 0;
-    var acimaThreshold = pct >= Number(o.threshold_alerta || 80);
-    return '<tr>' +
-      '<td>' + MKT_MESES[o.mes - 1] + '/' + o.ano + '</td>' +
-      '<td>' + mktFmtMoeda(totalOrcado) + '</td>' +
-      '<td>' + mktFmtMoeda(totalGasto) + '</td>' +
-      '<td style="min-width:140px">' +
-        '<div class="pg-barra-track" style="height:14px"><div class="pg-barra-fill" style="width:' + pct.toFixed(0) + '%;background:' + (acimaThreshold ? 'var(--rust,#c0392b)' : 'var(--green,#3ec97a)') + '"></div></div>' +
-        '<span class="tmu" style="font-size:10px">' + pct.toFixed(0) + '%</span>' +
-      '</td>' +
-      '<td>' + mktFmtMoeda(o.receita_realizada) + '</td>' +
-      (editavel ? '<td><button class="btn" onclick="mktAbrirModalOrcamento(\'' + containerId + '\',' + o.id + ')">Editar</button></td>' : '') +
-      '</tr>';
-  }).join('');
+  function render() {
+    var fAnoDe = host.querySelector('#mkt-orc-f-de').value; // YYYY-MM
+    var fAnoAte = host.querySelector('#mkt-orc-f-ate').value; // YYYY-MM
+
+    var lista = ST.orcamentos.filter(function (o) {
+      var chave = o.ano + '-' + String(o.mes).padStart(2, '0');
+      if (fAnoDe && chave < fAnoDe) return false;
+      if (fAnoAte && chave > fAnoAte) return false;
+      return true;
+    });
+
+    var linhas = lista.map(function (o) {
+      var gastoMeta = gastoMetaNoMes(o.mes, o.ano);
+      var outrosGastos = investimentosDoOrcamento(o.id);
+      var totalGasto = gastoMeta + outrosGastos;
+      var totalOrcado = Number(o.orcamento_total || 0) + Number(o.orcamento_outros || 0);
+      var previstoMeta = previstoMetaNoMes(o.mes, o.ano);
+      var saldo = totalOrcado - totalGasto;
+      var pct = totalOrcado > 0 ? Math.min(100, (totalGasto / totalOrcado) * 100) : 0;
+      var acimaThreshold = pct >= Number(o.threshold_alerta || 80);
+      return '<tr>' +
+        '<td>' + MKT_MESES[o.mes - 1] + '/' + o.ano + '</td>' +
+        '<td>' + mktFmtMoeda(totalOrcado) + '<br><span class="tmu" style="font-size:9px">informado por você</span></td>' +
+        '<td>' + mktFmtMoeda(previstoMeta) + '<br><span class="tmu" style="font-size:9px">config. real no Meta</span></td>' +
+        '<td>' + mktFmtMoeda(totalGasto) + '</td>' +
+        '<td style="' + (saldo < 0 ? 'color:var(--rust,#c0392b);font-weight:600' : '') + '">' + mktFmtMoeda(saldo) + '</td>' +
+        '<td style="min-width:140px">' +
+          '<div class="pg-barra-track" style="height:14px"><div class="pg-barra-fill" style="width:' + pct.toFixed(0) + '%;background:' + (acimaThreshold ? 'var(--rust,#c0392b)' : 'var(--green,#3ec97a)') + '"></div></div>' +
+          '<span class="tmu" style="font-size:10px">' + pct.toFixed(0) + '%</span>' +
+        '</td>' +
+        '<td>' + mktFmtMoeda(o.receita_realizada) + '</td>' +
+        (editavel ? '<td><button class="btn" onclick="mktAbrirModalOrcamento(\'' + containerId + '\',' + o.id + ')">Editar</button></td>' : '') +
+        '</tr>';
+    }).join('');
+
+    host.querySelector('#mkt-orc-tbody').innerHTML = linhas || '<tr><td colspan="8" class="tmu">Nenhum orçamento no período selecionado.</td></tr>';
+  }
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">💰 Orçamento Mensal</div><div class="sec-d">Controle de verba de mídia paga — independente do Financeiro</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-novo-orc">+ Novo Orçamento</button>' : '') + '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Mês/Ano</th><th>Orçado</th><th>Gasto</th><th>% Usado</th><th>Receita Realizada</th>' +
-      (editavel ? '<th></th>' : '') + '</tr></thead><tbody>' + (linhas || '<tr><td colspan="6" class="tmu">Nenhum orçamento cadastrado.</td></tr>') + '</tbody></table></div>';
+    '<p class="tmu" style="margin-bottom:10px">ℹ️ "Orçado" é o valor que você informa manualmente aqui. "Orç. Previsto (Meta)" é calculado a partir da configuração real das campanhas diárias no Meta (diária × dias do mês) — os dois podem divergir, e isso é normal.</p>' +
+    '<div class="cc" style="margin-bottom:16px;padding:14px 16px"><div style="display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap">' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">Período — de</label><input type="month" id="mkt-orc-f-de"></div>' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">até</label><input type="month" id="mkt-orc-f-ate"></div>' +
+      '<button class="btn" id="mkt-orc-f-limpar" style="margin-bottom:2px">Limpar filtro</button>' +
+    '</div></div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Mês/Ano</th><th>Orçado</th><th>Orç. Previsto (Meta)</th><th>Gasto Real</th><th>Saldo</th><th>% Usado</th><th>Receita Realizada</th>' +
+      (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-orc-tbody"></tbody></table></div>';
 
   host._mktOrcState = ST;
+  ['mkt-orc-f-de', 'mkt-orc-f-ate'].forEach(function (id) { host.querySelector('#' + id).addEventListener('change', render); });
+  host.querySelector('#mkt-orc-f-limpar').addEventListener('click', function () {
+    host.querySelector('#mkt-orc-f-de').value = '';
+    host.querySelector('#mkt-orc-f-ate').value = '';
+    render();
+  });
   if (editavel) host.querySelector('#mkt-btn-novo-orc').addEventListener('click', function () { mktAbrirModalOrcamento(containerId, null); });
+
+  render();
 }
 
 function mktAbrirModalOrcamento(containerId, orcId) {
