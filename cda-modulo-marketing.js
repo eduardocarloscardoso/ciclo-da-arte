@@ -680,7 +680,7 @@ async function montarModuloMktAnalytics(containerId) {
     var roasGeral = totalSpend > 0 ? (totalRevenue / totalSpend) : 0;
     var cacGeral = totalConv > 0 ? (totalSpend / totalConv) : 0;
 
-    // Evolução temporal (histórico completo, dá contexto independente do mês selecionado)
+    // Evolução temporal — últimos 12 meses (foco no que importa agora, rótulos legíveis)
     var porMes = {};
     ST.metricas.forEach(function (m) {
       var chave = m.data.substring(0, 7);
@@ -688,7 +688,7 @@ async function montarModuloMktAnalytics(containerId) {
       porMes[chave].spend += Number(m.investimento || 0);
       porMes[chave].revenue += Number(m.receita || 0);
     });
-    var mesesOrdenados = Object.keys(porMes).sort();
+    var mesesOrdenados = Object.keys(porMes).sort().slice(-12);
     var pontosEvolucao = mesesOrdenados.map(function (k) {
       var partes = k.split('-');
       return { label: MKT_MESES[Number(partes[1]) - 1] + '/' + partes[0].substring(2), spend: porMes[k].spend, revenue: porMes[k].revenue };
@@ -778,7 +778,7 @@ async function montarModuloMktAnalytics(containerId) {
 
       alertasHtml +
 
-      '<div class="an-bloco"><h3>Evolução Mensal — Investido vs Receita (histórico completo)</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
+      '<div class="an-bloco"><h3>Evolução Mensal — Investido vs Receita (últimos 12 meses)</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
 
       '<div class="an-bloco"><h3>Canais — ' + fMesRef + '</h3>' + cardsGrid(top5Canais) + '</div>' +
       '<div class="an-bloco"><h3>Campanhas — ' + fMesRef + '</h3>' + cardsGrid(top5Campanhas) + '</div>' +
