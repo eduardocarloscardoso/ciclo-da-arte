@@ -646,6 +646,21 @@ async function montarModuloMktAnalytics(containerId) {
   }
 
   host.innerHTML =
+    '<style>' +
+      '.an-kpi-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;}' +
+      '.an-kpi{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:14px;text-align:center;}' +
+      '.an-kpi .v{font-family:"DM Serif Display",serif;font-size:22px;line-height:1.1;word-break:break-word;}' +
+      '.an-kpi .l{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted,#888);margin-top:6px;}' +
+      '.an-bloco{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:16px;margin-bottom:14px;}' +
+      '.an-bloco h3{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:12px;}' +
+      '.an-2col{display:grid;grid-template-columns:1fr 1fr;gap:14px;}' +
+      '.an-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;}' +
+      '.an-card{background:var(--paper,#fff);border:1px solid var(--border2,#e0dbd0);padding:10px;font-size:11px;}' +
+      '.an-card .nome{font-weight:700;margin-bottom:4px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}' +
+      '.an-card .valor{color:var(--muted,#888);}' +
+      '.an-card .roas{float:right;font-weight:700;}' +
+      '@media (max-width:700px){.an-2col{grid-template-columns:1fr;}.an-kpi-strip{grid-template-columns:repeat(2,1fr);}}' +
+    '</style>' +
     '<div class="row-bt"><div><div class="sec-t">📊 Analytics / Dashboard</div><div class="sec-d">Visão executiva de mídia paga — somente leitura</div></div></div>' +
     '<div class="cc" style="margin-bottom:16px;padding:14px 16px"><div style="display:flex;gap:16px;align-items:flex-end">' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">📅 Mês de referência</label><input type="month" id="an-f-mes-ref" value="' + mesAtualStr + '"></div>' +
@@ -655,6 +670,7 @@ async function montarModuloMktAnalytics(containerId) {
   function render() {
     var fMesRef = host.querySelector('#an-f-mes-ref').value;
     var mesAnt = mesAnterior(fMesRef);
+    var mesEhAtual = fMesRef === mesAtualStr;
 
     var metricasMes = ST.metricas.filter(function (m) { return m.data.substring(0, 7) === fMesRef; });
     var metricasMesAnt = ST.metricas.filter(function (m) { return m.data.substring(0, 7) === mesAnt; });
@@ -687,7 +703,7 @@ async function montarModuloMktAnalytics(containerId) {
     });
     var rankingCampanhas = Object.keys(porCampanha).map(function (id) {
       var c = campPorId[id]; var a = porCampanha[id];
-      return { nome: c ? c.nome : ('#' + id), spend: a.spend, revenue: a.revenue, roas: a.spend > 0 ? a.revenue / a.spend : 0 };
+      return { nome: c ? c.nome : ('#' + id), objetivo: c ? c.objetivo : null, spend: a.spend, revenue: a.revenue, roas: a.spend > 0 ? a.revenue / a.spend : 0 };
     }).sort(function (a, b) { return b.spend - a.spend; });
     var top5Campanhas = rankingCampanhas.slice(0, 5);
 
@@ -712,20 +728,27 @@ async function montarModuloMktAnalytics(containerId) {
     }).sort(function (a, b) { return b.spend - a.spend; });
     var top5Canais = rankingCanais.slice(0, 5);
 
-    // Alertas: campanhas com ROAS < 1x e canais com queda >30% vs mês anterior
-    var alertasRoasBaixo = rankingCampanhas.filter(function (r) { return r.spend > 0 && r.roas < 1; });
-    var alertasQuedaCanal = [];
-    Object.keys(canalMesAnt).forEach(function (k) {
-      var antSpend = canalMesAnt[k].spend;
-      var atualSpend = canalMes[k] ? canalMes[k].spend : 0;
-      if (antSpend > 0) {
-        var variacao = (atualSpend - antSpend) / antSpend;
-        if (variacao <= -0.3) {
-          var nome = k === 'sem-canal' ? 'Sem canal' : (canalPorId[k] ? canalPorId[k].nome : ('#' + k));
-          alertasQuedaCanal.push({ nome: nome, variacao: variacao, antSpend: antSpend, atualSpend: atualSpend });
-        }
-      }
+    // Alertas: só campanhas de VENDAS/RETARGETING com ROAS < 1x (ROAS não faz
+    // sentido pra campanha de engajamento/mensagens, que não visa receita direta).
+    // Queda de canal só é comparada em meses FECHADOS — no mês corrente, o mês
+    // ainda não terminou e a comparação seria injusta (mês inteiro vs parcial).
+    var alertasRoasBaixo = rankingCampanhas.filter(function (r) {
+      return r.spend > 0 && r.roas < 1 && (r.objetivo === 'vendas' || r.objetivo === 'retargeting');
     });
+    var alertasQuedaCanal = [];
+    if (!mesEhAtual) {
+      Object.keys(canalMesAnt).forEach(function (k) {
+        var antSpend = canalMesAnt[k].spend;
+        var atualSpend = canalMes[k] ? canalMes[k].spend : 0;
+        if (antSpend > 0) {
+          var variacao = (atualSpend - antSpend) / antSpend;
+          if (variacao <= -0.3) {
+            var nome = k === 'sem-canal' ? 'Sem canal' : (canalPorId[k] ? canalPorId[k].nome : ('#' + k));
+            alertasQuedaCanal.push({ nome: nome, variacao: variacao, antSpend: antSpend, atualSpend: atualSpend });
+          }
+        }
+      });
+    }
 
     var alertasHtml = '';
     if (alertasRoasBaixo.length || alertasQuedaCanal.length) {
@@ -737,30 +760,28 @@ async function montarModuloMktAnalytics(containerId) {
       alertasHtml = '<div class="rec-box" style="margin-bottom:16px"><div class="rec-title">✅ Sem pontos de atenção em ' + fMesRef + '</div></div>';
     }
 
+    function cardsGrid(itens, tipo) {
+      if (!itens.length) return '<p class="tmu">Sem dados no mês.</p>';
+      return '<div class="an-card-grid">' + itens.map(function (r) {
+        return '<div class="an-card"><span class="nome" title="' + r.nome + '">' + r.nome + '</span>' +
+          '<span class="valor">' + mktFmtMoeda(r.spend) + '</span><span class="roas">' + r.roas.toFixed(1) + 'x</span></div>';
+      }).join('') + '</div>';
+    }
+
     var out =
-      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(4,1fr)">' +
-        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalSpend) + '</div><div class="l">Investido — ' + fMesRef + '</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalRevenue) + '</div><div class="l">Receita — ' + fMesRef + '</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + roasGeral.toFixed(2) + 'x</div><div class="l">ROAS</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(cacGeral) + '</div><div class="l">CAC</div></div>' +
+      '<div class="an-kpi-strip">' +
+        '<div class="an-kpi"><div class="v">' + mktFmtMoeda(totalSpend) + '</div><div class="l">Investido — ' + fMesRef + '</div></div>' +
+        '<div class="an-kpi"><div class="v">' + mktFmtMoeda(totalRevenue) + '</div><div class="l">Receita — ' + fMesRef + '</div></div>' +
+        '<div class="an-kpi"><div class="v">' + roasGeral.toFixed(2) + 'x</div><div class="l">ROAS</div></div>' +
+        '<div class="an-kpi"><div class="v">' + mktFmtMoeda(cacGeral) + '</div><div class="l">CAC</div></div>' +
       '</div>' +
 
       alertasHtml +
 
-      '<div class="pg-bloco"><h3>Evolução Mensal — Investido vs Receita (histórico completo)</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
+      '<div class="an-bloco"><h3>Evolução Mensal — Investido vs Receita (histórico completo)</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
 
-      '<div class="pg-2col">' +
-        '<div class="pg-bloco"><h3>Top 5 Canais — ' + fMesRef + '</h3>' +
-          (top5Canais.length ? top5Canais.map(function (r) {
-            return '<div class="pg-linha"><span>' + r.nome + '</span><span>' + mktFmtMoeda(r.spend) + ' · ROAS ' + r.roas.toFixed(1) + 'x</span></div>';
-          }).join('') : '<p class="tmu">Sem dados no mês.</p>') +
-        '</div>' +
-        '<div class="pg-bloco"><h3>Top 5 Campanhas — ' + fMesRef + '</h3>' +
-          (top5Campanhas.length ? top5Campanhas.map(function (r) {
-            return '<div class="pg-linha"><span title="' + r.nome + '">' + (r.nome.length > 30 ? r.nome.substring(0, 30) + '…' : r.nome) + '</span><span>' + mktFmtMoeda(r.spend) + ' · ROAS ' + r.roas.toFixed(1) + 'x</span></div>';
-          }).join('') : '<p class="tmu">Sem dados no mês.</p>') +
-        '</div>' +
-      '</div>' +
+      '<div class="an-bloco"><h3>Canais — ' + fMesRef + '</h3>' + cardsGrid(top5Canais) + '</div>' +
+      '<div class="an-bloco"><h3>Campanhas — ' + fMesRef + '</h3>' + cardsGrid(top5Campanhas) + '</div>' +
       '<p class="tmu" style="margin-top:10px">Quer ver todas as campanhas e canais em detalhe? Acesse o submódulo <b>Campanhas</b>.</p>';
 
     host.querySelector('#an-conteudo').innerHTML = out;
