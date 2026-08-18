@@ -51,14 +51,14 @@ async function montarModuloMktCampanhas(containerId, opts) {
   }
   var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
 
+  function diasNoMes(ano, mes) { return new Date(ano, mes, 0).getDate(); }
+
   function render() {
     var fStatus = host.querySelector('#mkt-f-status') ? host.querySelector('#mkt-f-status').value : '';
     var fBusca = host.querySelector('#mkt-f-busca') ? host.querySelector('#mkt-f-busca').value.toLowerCase() : '';
     var fInicioDe = host.querySelector('#mkt-f-inicio-de') ? host.querySelector('#mkt-f-inicio-de').value : '';
     var fInicioAte = host.querySelector('#mkt-f-inicio-ate') ? host.querySelector('#mkt-f-inicio-ate').value : '';
-    var fGastoDe = host.querySelector('#mkt-f-gasto-de') ? host.querySelector('#mkt-f-gasto-de').value : '';
-    var fGastoAte = host.querySelector('#mkt-f-gasto-ate') ? host.querySelector('#mkt-f-gasto-ate').value : '';
-    var usandoFiltroGasto = !!(fGastoDe || fGastoAte);
+    var fMesRef = host.querySelector('#mkt-f-mes-ref').value; // formato YYYY-MM
 
     var lista = ST.campanhas.filter(function (c) {
       if (fStatus && c.status !== fStatus) return false;
@@ -68,44 +68,79 @@ async function montarModuloMktCampanhas(containerId, opts) {
       return true;
     });
 
-    // Investido/Receita reais por campanha, respeitando o filtro de período de gasto (se houver)
-    var porCampanha = {};
+    var ano = fMesRef ? Number(fMesRef.split('-')[0]) : null;
+    var mes = fMesRef ? Number(fMesRef.split('-')[1]) : null;
+    var inicioMes = fMesRef ? fMesRef + '-01' : null;
+    var fimMes = fMesRef ? fMesRef + '-' + String(diasNoMes(ano, mes)).padStart(2, '0') : null;
+
+    // Investido no MÊS de referência (não acumulado) + acumulado ATÉ o fim do mês (para saldo vitalício)
+    var investidoMes = {}, investidoAcumulado = {}, receitaMes = {};
     ST.metricas.forEach(function (m) {
       var d = m.data.substring(0, 10);
-      if (fGastoDe && d < fGastoDe) return;
-      if (fGastoAte && d > fGastoAte) return;
-      if (!porCampanha[m.campanha_id]) porCampanha[m.campanha_id] = { investido: 0, receita: 0 };
-      porCampanha[m.campanha_id].investido += Number(m.investimento || 0);
-      porCampanha[m.campanha_id].receita += Number(m.receita || 0);
+      if (!porOk(m.campanha_id, investidoMes)) investidoMes[m.campanha_id] = 0;
+      if (!porOk(m.campanha_id, investidoAcumulado)) investidoAcumulado[m.campanha_id] = 0;
+      if (!porOk(m.campanha_id, receitaMes)) receitaMes[m.campanha_id] = 0;
+      if (fMesRef) {
+        if (d >= inicioMes && d <= fimMes) { investidoMes[m.campanha_id] += Number(m.investimento || 0); receitaMes[m.campanha_id] += Number(m.receita || 0); }
+        if (d <= fimMes) investidoAcumulado[m.campanha_id] += Number(m.investimento || 0);
+      } else {
+        investidoMes[m.campanha_id] += Number(m.investimento || 0);
+        receitaMes[m.campanha_id] += Number(m.receita || 0);
+        investidoAcumulado[m.campanha_id] += Number(m.investimento || 0);
+      }
     });
+    function porOk(id, obj) { return obj.hasOwnProperty(id); }
 
     // Totalizador
     var totStatusAtual = {};
     var totAtivaPeriodo = 0, totSemGastoPeriodo = 0;
     lista.forEach(function (c) {
       totStatusAtual[c.status] = (totStatusAtual[c.status] || 0) + 1;
-      var real = porCampanha[c.id] || { investido: 0, receita: 0 };
-      if (real.investido > 0) totAtivaPeriodo++; else totSemGastoPeriodo++;
+      var inv = investidoMes[c.id] || 0;
+      if (inv > 0) totAtivaPeriodo++; else totSemGastoPeriodo++;
     });
     var kpiStatusHtml = Object.keys(totStatusAtual).map(function (k) {
       return '<div class="pg-kpi"><div class="v">' + totStatusAtual[k] + '</div><div class="l">' + (MKT_STATUS[k] || k) + ' (hoje)</div></div>';
     }).join('');
-    var kpiPeriodoHtml = usandoFiltroGasto
-      ? '<div class="pg-kpi"><div class="v">' + totAtivaPeriodo + '</div><div class="l">Com gasto no período</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + totSemGastoPeriodo + '</div><div class="l">Sem gasto no período</div></div>'
+    var kpiPeriodoHtml = fMesRef
+      ? '<div class="pg-kpi"><div class="v">' + totAtivaPeriodo + '</div><div class="l">Com gasto em ' + fMesRef + '</div></div>' +
+        '<div class="pg-kpi"><div class="v">' + totSemGastoPeriodo + '</div><div class="l">Sem gasto em ' + fMesRef + '</div></div>'
       : '';
 
     host.querySelector('#mkt-kpis').innerHTML =
-      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (usandoFiltroGasto ? 2 : 0)) + ',1fr)">' +
+      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (fMesRef ? 2 : 0)) + ',1fr)">' +
       kpiStatusHtml + kpiPeriodoHtml + '</div>';
 
     var linhas = lista.map(function (c) {
       var canal = canalPorId[c.canal_id];
-      var real = porCampanha[c.id] || { investido: 0, receita: 0 };
-      var roas = real.investido > 0 ? (real.receita / real.investido).toFixed(2) + 'x' : '—';
-      var ativaPeriodo = usandoFiltroGasto
-        ? (real.investido > 0 ? '<span class="badge badge-done">Sim</span>' : '<span class="badge badge-pending">Não</span>')
-        : '<span class="tmu">— defina período —</span>';
+      var invMes = investidoMes[c.id] || 0;
+      var invAcum = investidoAcumulado[c.id] || 0;
+      var rec = receitaMes[c.id] || 0;
+      var roas = invMes > 0 ? (rec / invMes).toFixed(2) + 'x' : '—';
+      var ativaPeriodo = fMesRef
+        ? (invMes > 0 ? '<span class="badge badge-done">Sim</span>' : '<span class="badge badge-pending">Não</span>')
+        : '<span class="tmu">— selecione mês —</span>';
+
+      // Orçamento: 3 colunas conforme tipo_orcamento
+      var orcDiario = '—', orcMesTotal = '—', saldo = '—';
+      if (c.tipo_orcamento === 'diario' && c.orcamento) {
+        orcDiario = mktFmtMoeda(c.orcamento);
+        if (fMesRef) {
+          var orcMesCalc = Number(c.orcamento) * diasNoMes(ano, mes);
+          orcMesTotal = mktFmtMoeda(orcMesCalc) + '<br><span class="tmu" style="font-size:9px">diária × ' + diasNoMes(ano, mes) + ' dias</span>';
+          saldo = mktFmtMoeda(orcMesCalc - invMes);
+        } else {
+          orcMesTotal = '<span class="tmu">selecione o mês</span>';
+        }
+      } else if (c.tipo_orcamento === 'total' && c.orcamento) {
+        orcDiario = '<span class="tmu">— (vitalício)</span>';
+        orcMesTotal = mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">total da campanha</span>';
+        if (fMesRef) saldo = mktFmtMoeda(Number(c.orcamento) - invAcum) + '<br><span class="tmu" style="font-size:9px">acumulado até ' + fMesRef + '</span>';
+        else saldo = '<span class="tmu">selecione o mês</span>';
+      } else if (c.orcamento) {
+        orcMesTotal = mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">tipo desconhecido</span>';
+      }
+
       return '<tr>' +
         '<td>' + c.nome + (c.categoria_campanha ? '<br><span class="tmu" style="font-size:10px">' + c.categoria_campanha + '</span>' : '') + '</td>' +
         '<td>' + (canal ? canal.nome : '<span class="tmu">— sem canal —</span>') + '</td>' +
@@ -113,21 +148,26 @@ async function montarModuloMktCampanhas(containerId, opts) {
         '<td><span class="badge badge-' + (MKT_STATUS_BADGE[c.status] || 'pending') + '">' + (MKT_STATUS[c.status] || c.status) + '</span></td>' +
         '<td>' + ativaPeriodo + '</td>' +
         '<td>' + mktFmtData(c.data_inicio) + '</td>' +
-        '<td>' + mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">config. no Meta</span></td>' +
-        '<td>' + mktFmtMoeda(real.investido) + (usandoFiltroGasto ? '<br><span class="tmu" style="font-size:9px">no período</span>' : '<br><span class="tmu" style="font-size:9px">todo histórico</span>') + '</td>' +
-        '<td>' + mktFmtMoeda(real.receita) + '</td>' +
+        '<td>' + orcDiario + '</td>' +
+        '<td>' + orcMesTotal + '</td>' +
+        '<td>' + saldo + '</td>' +
+        '<td>' + mktFmtMoeda(invMes) + '</td>' +
+        '<td>' + mktFmtMoeda(rec) + '</td>' +
         '<td>' + roas + '</td>' +
         (editavel ? '<td><button class="btn" onclick="mktAbrirModalCampanha(\'' + containerId + '\',' + c.id + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
 
-    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="11" class="tmu">Nenhuma campanha encontrada.</td></tr>';
+    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="13" class="tmu">Nenhuma campanha encontrada.</td></tr>';
   }
+
+  var hoje = new Date();
+  var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Campanhas de mídia paga (Meta Ads) — vinculadas aos Canais/Collabs existentes</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova">+ Nova Campanha</button>' : '') + '</div>' +
-    '<p class="tmu" style="margin-bottom:10px">🕒 "Status" reflete a última sincronização com o Meta: <b>' + (ST.ultimaSinc ? mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado') + '</b> — não muda com o filtro de período abaixo. Para saber se a campanha estava ativa NUM PERÍODO específico, use a coluna "Ativa no período" (calculada pelo gasto real registrado).</p>' +
+    '<p class="tmu" style="margin-bottom:10px">🕒 "Status" reflete a última sincronização com o Meta: <b>' + (ST.ultimaSinc ? mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado') + '</b>. Para ver dados de um mês passado, NÃO filtre por status — use o mês de referência e veja a coluna "Ativa no período" (campanhas pausadas hoje podem ter gasto real em meses anteriores).</p>' +
     '<div id="mkt-kpis" style="margin-bottom:14px"></div>' +
     '<div class="fb">' +
       '<input type="text" id="mkt-f-busca" placeholder="Buscar por nome...">' +
@@ -139,20 +179,20 @@ async function montarModuloMktCampanhas(containerId, opts) {
       '<span class="tmu" style="align-self:center">Início da campanha:</span>' +
       '<input type="date" id="mkt-f-inicio-de" title="Início — de">' +
       '<input type="date" id="mkt-f-inicio-ate" title="Início — até">' +
-      '<span class="tmu" style="align-self:center;margin-left:10px">Gasto real em:</span>' +
-      '<input type="date" id="mkt-f-gasto-de" title="Gasto — de">' +
-      '<input type="date" id="mkt-f-gasto-ate" title="Gasto — até">' +
-      '<button class="btn" id="mkt-f-limpar-periodo">Limpar período</button>' +
+      '<span class="tmu" style="align-self:center;margin-left:10px;font-weight:600">📅 Mês de referência:</span>' +
+      '<input type="month" id="mkt-f-mes-ref" value="' + mesAtualStr + '">' +
+      '<button class="btn" id="mkt-f-limpar-periodo">Limpar filtros</button>' +
     '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Orçamento</th><th>Investido</th><th>Receita</th><th>ROAS</th>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th>Investido no mês</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
 
   ['mkt-f-busca'].forEach(function (id) { host.querySelector('#' + id).addEventListener('input', render); });
-  ['mkt-f-status', 'mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-gasto-de', 'mkt-f-gasto-ate'].forEach(function (id) {
+  ['mkt-f-status', 'mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-mes-ref'].forEach(function (id) {
     host.querySelector('#' + id).addEventListener('change', render);
   });
   host.querySelector('#mkt-f-limpar-periodo').addEventListener('click', function () {
-    ['mkt-f-inicio-de', 'mkt-f-inicio-ate', 'mkt-f-gasto-de', 'mkt-f-gasto-ate'].forEach(function (id) { host.querySelector('#' + id).value = ''; });
+    ['mkt-f-inicio-de', 'mkt-f-inicio-ate'].forEach(function (id) { host.querySelector('#' + id).value = ''; });
+    host.querySelector('#mkt-f-mes-ref').value = mesAtualStr;
     render();
   });
   if (editavel) host.querySelector('#mkt-btn-nova').addEventListener('click', function () { mktAbrirModalCampanha(containerId, null); });
@@ -181,7 +221,13 @@ function mktAbrirModalCampanha(containerId, campanhaId) {
     '</div>' +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       '<div style="flex:1"><label>Plataforma</label><select id="mf-plataforma" style="width:100%">' + Object.keys(MKT_PLATAFORMAS).map(function (k) { return '<option value="' + k + '"' + (c ? (c.plataforma === k ? ' selected' : '') : (k === 'ambas' ? ' selected' : '')) + '>' + MKT_PLATAFORMAS[k] + '</option>'; }).join('') + '</select></div>' +
-      '<div style="flex:1"><label>Orçamento (R$)</label><input type="number" step="0.01" id="mf-orcamento" value="' + (c ? c.orcamento || '' : '') + '" style="width:100%"></div>' +
+      '<div style="flex:1"><label>Tipo de orçamento</label><select id="mf-tipo-orc" style="width:100%">' +
+        '<option value="">— não definido —</option>' +
+        '<option value="diario"' + (c && c.tipo_orcamento === 'diario' ? ' selected' : '') + '>Diário</option>' +
+        '<option value="total"' + (c && c.tipo_orcamento === 'total' ? ' selected' : '') + '>Total/Vitalício</option>' +
+      '</select></div>' +
+    '</div>' +
+    '<div style="margin-top:10px"><label id="mf-orcamento-label">Orçamento (R$)</label><input type="number" step="0.01" id="mf-orcamento" value="' + (c ? c.orcamento || '' : '') + '" style="width:100%"></div>' +
     '</div>' +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
       '<div style="flex:1"><label>Data início</label><input type="date" id="mf-inicio" value="' + (c && c.data_inicio ? c.data_inicio.substring(0, 10) : '') + '" style="width:100%"></div>' +
@@ -204,6 +250,7 @@ async function mktSalvarCampanha(containerId, campanhaId) {
     status: document.getElementById('mf-status').value,
     plataforma: document.getElementById('mf-plataforma').value,
     orcamento: document.getElementById('mf-orcamento').value || null,
+    tipo_orcamento: document.getElementById('mf-tipo-orc').value || null,
     data_inicio: document.getElementById('mf-inicio').value || null,
     data_fim: document.getElementById('mf-fim').value || null,
     categoria_campanha: document.getElementById('mf-categoria').value.trim() || null,
