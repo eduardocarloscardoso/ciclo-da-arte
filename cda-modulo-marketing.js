@@ -625,7 +625,7 @@ async function montarModuloMktAnalytics(containerId) {
   var ST = { campanhas: [], metricas: [], canais: [] };
   try {
     var res = await Promise.all([
-      sb.get('cda_marketing_campanhas', 'select=id,nome,canal_id,status,objetivo,plataforma'),
+      sb.get('cda_marketing_campanhas', 'select=id,nome,canal_id,status,objetivo'),
       sb.get('cda_marketing_metricas', 'select=*'),
       mktCarregarCanais()
     ]);
@@ -637,63 +637,37 @@ async function montarModuloMktAnalytics(containerId) {
   var campPorId = {}; ST.campanhas.forEach(function (c) { campPorId[c.id] = c; });
   var canalPorId = {}; ST.canais.forEach(function (c) { canalPorId[c.id] = c; });
 
+  var hoje = new Date();
+  var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+  function mesAnterior(chave) {
+    var partes = chave.split('-'); var a = Number(partes[0]), m = Number(partes[1]) - 1;
+    if (m === 0) { m = 12; a--; }
+    return a + '-' + String(m).padStart(2, '0');
+  }
+
   host.innerHTML =
-    '<div class="row-bt"><div><div class="sec-t">📊 Analytics / Dashboard</div><div class="sec-d">Consolidado de campanhas de mídia paga — somente leitura</div></div></div>' +
-    '<div class="fb">' +
-      '<input type="date" id="an-f-de" title="Data início">' +
-      '<input type="date" id="an-f-ate" title="Data fim">' +
-      '<select id="an-f-canal"><option value="">Todos os canais</option>' +
-        ST.canais.map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('') +
-      '</select>' +
-      '<select id="an-f-status"><option value="">Todos os status</option>' +
-        Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
-      '</select>' +
-      '<select id="an-f-objetivo"><option value="">Todos os objetivos</option>' +
-        Object.keys(MKT_OBJETIVOS).map(function (k) { return '<option value="' + k + '">' + MKT_OBJETIVOS[k] + '</option>'; }).join('') +
-      '</select>' +
-      '<button class="btn" id="an-f-limpar">Limpar filtros</button>' +
-    '</div>' +
-    '<div id="an-conteudo"><p class="tmu">Aplicando filtros...</p></div>';
+    '<div class="row-bt"><div><div class="sec-t">📊 Analytics / Dashboard</div><div class="sec-d">Visão executiva de mídia paga — somente leitura</div></div></div>' +
+    '<div class="cc" style="margin-bottom:16px;padding:14px 16px"><div style="display:flex;gap:16px;align-items:flex-end">' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">📅 Mês de referência</label><input type="month" id="an-f-mes-ref" value="' + mesAtualStr + '"></div>' +
+    '</div></div>' +
+    '<div id="an-conteudo"></div>';
 
   function render() {
-    var fDe = host.querySelector('#an-f-de').value;
-    var fAte = host.querySelector('#an-f-ate').value;
-    var fCanal = host.querySelector('#an-f-canal').value;
-    var fStatus = host.querySelector('#an-f-status').value;
-    var fObjetivo = host.querySelector('#an-f-objetivo').value;
+    var fMesRef = host.querySelector('#an-f-mes-ref').value;
+    var mesAnt = mesAnterior(fMesRef);
 
-    var campanhasFiltradas = ST.campanhas.filter(function (c) {
-      if (fCanal && String(c.canal_id) !== fCanal) return false;
-      if (fStatus && c.status !== fStatus) return false;
-      if (fObjetivo && c.objetivo !== fObjetivo) return false;
-      return true;
-    });
-    var idsPermitidos = {}; campanhasFiltradas.forEach(function (c) { idsPermitidos[c.id] = true; });
+    var metricasMes = ST.metricas.filter(function (m) { return m.data.substring(0, 7) === fMesRef; });
+    var metricasMesAnt = ST.metricas.filter(function (m) { return m.data.substring(0, 7) === mesAnt; });
 
-    var metricasFiltradas = ST.metricas.filter(function (m) {
-      if (!idsPermitidos[m.campanha_id]) return false;
-      var d = m.data.substring(0, 10);
-      if (fDe && d < fDe) return false;
-      if (fAte && d > fAte) return false;
-      return true;
-    });
-
-    var totalSpend = 0, totalRevenue = 0, totalConv = 0, totalImpressoes = 0, totalCliques = 0;
-    metricasFiltradas.forEach(function (m) {
-      totalSpend += Number(m.investimento || 0);
-      totalRevenue += Number(m.receita || 0);
-      totalConv += Number(m.conversoes || 0);
-      totalImpressoes += Number(m.impressoes || 0);
-      totalCliques += Number(m.cliques || 0);
-    });
+    var totalSpend = 0, totalRevenue = 0, totalConv = 0;
+    metricasMes.forEach(function (m) { totalSpend += Number(m.investimento || 0); totalRevenue += Number(m.receita || 0); totalConv += Number(m.conversoes || 0); });
     var roasGeral = totalSpend > 0 ? (totalRevenue / totalSpend) : 0;
     var cacGeral = totalConv > 0 ? (totalSpend / totalConv) : 0;
-    var ctrGeral = totalImpressoes > 0 ? (totalCliques / totalImpressoes) * 100 : 0;
 
-    // Evolução mensal
+    // Evolução temporal (histórico completo, dá contexto independente do mês selecionado)
     var porMes = {};
-    metricasFiltradas.forEach(function (m) {
-      var chave = m.data.substring(0, 7); // YYYY-MM
+    ST.metricas.forEach(function (m) {
+      var chave = m.data.substring(0, 7);
       if (!porMes[chave]) porMes[chave] = { spend: 0, revenue: 0 };
       porMes[chave].spend += Number(m.investimento || 0);
       porMes[chave].revenue += Number(m.receita || 0);
@@ -704,114 +678,95 @@ async function montarModuloMktAnalytics(containerId) {
       return { label: MKT_MESES[Number(partes[1]) - 1] + '/' + partes[0].substring(2), spend: porMes[k].spend, revenue: porMes[k].revenue };
     });
 
-    // Ranking de campanhas (completo, não só top 10)
+    // Agregação por campanha (mês selecionado)
     var porCampanha = {};
-    metricasFiltradas.forEach(function (m) {
-      if (!porCampanha[m.campanha_id]) porCampanha[m.campanha_id] = { spend: 0, revenue: 0, conv: 0, impressoes: 0, cliques: 0 };
-      var a = porCampanha[m.campanha_id];
-      a.spend += Number(m.investimento || 0); a.revenue += Number(m.receita || 0); a.conv += Number(m.conversoes || 0);
-      a.impressoes += Number(m.impressoes || 0); a.cliques += Number(m.cliques || 0);
+    metricasMes.forEach(function (m) {
+      if (!porCampanha[m.campanha_id]) porCampanha[m.campanha_id] = { spend: 0, revenue: 0 };
+      porCampanha[m.campanha_id].spend += Number(m.investimento || 0);
+      porCampanha[m.campanha_id].revenue += Number(m.receita || 0);
     });
     var rankingCampanhas = Object.keys(porCampanha).map(function (id) {
-      var c = campPorId[id];
-      var a = porCampanha[id];
-      return {
-        nome: c ? c.nome : ('#' + id), status: c ? c.status : '', canal: c && canalPorId[c.canal_id] ? canalPorId[c.canal_id].nome : '—',
-        spend: a.spend, revenue: a.revenue, roas: a.spend > 0 ? a.revenue / a.spend : 0,
-        cac: a.conv > 0 ? a.spend / a.conv : 0, ctr: a.impressoes > 0 ? (a.cliques / a.impressoes) * 100 : 0, conv: a.conv
-      };
+      var c = campPorId[id]; var a = porCampanha[id];
+      return { nome: c ? c.nome : ('#' + id), spend: a.spend, revenue: a.revenue, roas: a.spend > 0 ? a.revenue / a.spend : 0 };
     }).sort(function (a, b) { return b.spend - a.spend; });
-    var maxSpendCampanha = Math.max.apply(null, rankingCampanhas.map(function (r) { return r.spend; }).concat([1]));
+    var top5Campanhas = rankingCampanhas.slice(0, 5);
 
-    // Comparação entre canais
-    var porCanal = {};
-    metricasFiltradas.forEach(function (m) {
-      var camp = campPorId[m.campanha_id];
-      var canalId = camp ? camp.canal_id : null;
-      var key = canalId || 'sem-canal';
-      if (!porCanal[key]) porCanal[key] = { spend: 0, revenue: 0, campanhas: {} };
-      porCanal[key].spend += Number(m.investimento || 0);
-      porCanal[key].revenue += Number(m.receita || 0);
-      porCanal[key].campanhas[m.campanha_id] = true;
-    });
-    var rankingCanais = Object.keys(porCanal).map(function (k) {
+    // Agregação por canal (mês selecionado) + mês anterior, pra detectar quedas
+    function agregarPorCanal(lista) {
+      var acc = {};
+      lista.forEach(function (m) {
+        var camp = campPorId[m.campanha_id];
+        var key = camp ? (camp.canal_id || 'sem-canal') : 'sem-canal';
+        if (!acc[key]) acc[key] = { spend: 0, revenue: 0 };
+        acc[key].spend += Number(m.investimento || 0);
+        acc[key].revenue += Number(m.receita || 0);
+      });
+      return acc;
+    }
+    var canalMes = agregarPorCanal(metricasMes);
+    var canalMesAnt = agregarPorCanal(metricasMesAnt);
+    var rankingCanais = Object.keys(canalMes).map(function (k) {
       var nome = k === 'sem-canal' ? 'Sem canal' : (canalPorId[k] ? canalPorId[k].nome : ('#' + k));
-      var agg = porCanal[k];
-      return { nome: nome, spend: agg.spend, revenue: agg.revenue, roas: agg.spend > 0 ? agg.revenue / agg.spend : 0, nCampanhas: Object.keys(agg.campanhas).length };
+      var a = canalMes[k];
+      return { nome: nome, spend: a.spend, revenue: a.revenue, roas: a.spend > 0 ? a.revenue / a.spend : 0 };
     }).sort(function (a, b) { return b.spend - a.spend; });
-    var maxSpendCanal = Math.max.apply(null, rankingCanais.map(function (r) { return r.spend; }).concat([1]));
+    var top5Canais = rankingCanais.slice(0, 5);
 
-    // ROI por objetivo
-    var porObjetivo = {};
-    metricasFiltradas.forEach(function (m) {
-      var camp = campPorId[m.campanha_id];
-      var obj = camp ? camp.objetivo : 'outro';
-      if (!porObjetivo[obj]) porObjetivo[obj] = { spend: 0, revenue: 0, conv: 0 };
-      porObjetivo[obj].spend += Number(m.investimento || 0);
-      porObjetivo[obj].revenue += Number(m.receita || 0);
-      porObjetivo[obj].conv += Number(m.conversoes || 0);
+    // Alertas: campanhas com ROAS < 1x e canais com queda >30% vs mês anterior
+    var alertasRoasBaixo = rankingCampanhas.filter(function (r) { return r.spend > 0 && r.roas < 1; });
+    var alertasQuedaCanal = [];
+    Object.keys(canalMesAnt).forEach(function (k) {
+      var antSpend = canalMesAnt[k].spend;
+      var atualSpend = canalMes[k] ? canalMes[k].spend : 0;
+      if (antSpend > 0) {
+        var variacao = (atualSpend - antSpend) / antSpend;
+        if (variacao <= -0.3) {
+          var nome = k === 'sem-canal' ? 'Sem canal' : (canalPorId[k] ? canalPorId[k].nome : ('#' + k));
+          alertasQuedaCanal.push({ nome: nome, variacao: variacao, antSpend: antSpend, atualSpend: atualSpend });
+        }
+      }
     });
-    var rankingObjetivos = Object.keys(porObjetivo).map(function (k) {
-      var agg = porObjetivo[k];
-      return { nome: MKT_OBJETIVOS[k] || k, spend: agg.spend, revenue: agg.revenue, roas: agg.spend > 0 ? agg.revenue / agg.spend : 0, conv: agg.conv };
-    }).sort(function (a, b) { return b.spend - a.spend; });
-    var maxSpendObjetivo = Math.max.apply(null, rankingObjetivos.map(function (r) { return r.spend; }).concat([1]));
+
+    var alertasHtml = '';
+    if (alertasRoasBaixo.length || alertasQuedaCanal.length) {
+      alertasHtml = '<div class="rec-box" style="margin-bottom:16px"><div class="rec-title">⚠️ Pontos de atenção — ' + fMesRef + '</div><ul style="margin:6px 0 0 18px;padding:0">' +
+        alertasRoasBaixo.map(function (r) { return '<li>' + r.nome + ' — ROAS ' + r.roas.toFixed(2) + 'x (investindo mais do que retorna)</li>'; }).join('') +
+        alertasQuedaCanal.map(function (a) { return '<li>Canal ' + a.nome + ' caiu ' + Math.abs(a.variacao * 100).toFixed(0) + '% de investimento vs mês anterior (' + mktFmtMoeda(a.antSpend) + ' → ' + mktFmtMoeda(a.atualSpend) + ')</li>'; }).join('') +
+        '</ul></div>';
+    } else {
+      alertasHtml = '<div class="rec-box" style="margin-bottom:16px"><div class="rec-title">✅ Sem pontos de atenção em ' + fMesRef + '</div></div>';
+    }
 
     var out =
-      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(5,1fr)">' +
-        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalSpend) + '</div><div class="l">Investido</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalRevenue) + '</div><div class="l">Receita</div></div>' +
+      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(4,1fr)">' +
+        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalSpend) + '</div><div class="l">Investido — ' + fMesRef + '</div></div>' +
+        '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(totalRevenue) + '</div><div class="l">Receita — ' + fMesRef + '</div></div>' +
         '<div class="pg-kpi"><div class="v">' + roasGeral.toFixed(2) + 'x</div><div class="l">ROAS</div></div>' +
         '<div class="pg-kpi"><div class="v">' + mktFmtMoeda(cacGeral) + '</div><div class="l">CAC</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + ctrGeral.toFixed(2) + '%</div><div class="l">CTR</div></div>' +
       '</div>' +
 
-      '<div class="pg-bloco"><h3>Evolução Mensal — Investido vs Receita</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
+      alertasHtml +
+
+      '<div class="pg-bloco"><h3>Evolução Mensal — Investido vs Receita (histórico completo)</h3>' + mktSvgLineChart(pontosEvolucao) + '</div>' +
 
       '<div class="pg-2col">' +
-        '<div class="pg-bloco"><h3>Comparação entre Canais</h3>' +
-          rankingCanais.map(function (r) {
-            return '<div class="pg-barra-row"><span class="pg-barra-label" title="' + r.nome + '">' + r.nome.substring(0, 22) + '</span>' +
-              '<div class="pg-barra-track"><div class="pg-barra-fill" style="width:' + ((r.spend / maxSpendCanal) * 100).toFixed(0) + '%"></div></div>' +
-              '<span class="pg-barra-num">' + r.roas.toFixed(1) + 'x</span></div>';
-          }).join('') + (rankingCanais.length ? '' : '<p class="tmu">Sem dados.</p>') +
+        '<div class="pg-bloco"><h3>Top 5 Canais — ' + fMesRef + '</h3>' +
+          (top5Canais.length ? top5Canais.map(function (r) {
+            return '<div class="pg-linha"><span>' + r.nome + '</span><span>' + mktFmtMoeda(r.spend) + ' · ROAS ' + r.roas.toFixed(1) + 'x</span></div>';
+          }).join('') : '<p class="tmu">Sem dados no mês.</p>') +
         '</div>' +
-        '<div class="pg-bloco"><h3>ROI por Objetivo</h3>' +
-          rankingObjetivos.map(function (r) {
-            return '<div class="pg-barra-row"><span class="pg-barra-label" title="' + r.nome + '">' + r.nome + '</span>' +
-              '<div class="pg-barra-track"><div class="pg-barra-fill" style="width:' + ((r.spend / maxSpendObjetivo) * 100).toFixed(0) + '%"></div></div>' +
-              '<span class="pg-barra-num">' + r.roas.toFixed(1) + 'x</span></div>';
-          }).join('') + (rankingObjetivos.length ? '' : '<p class="tmu">Sem dados.</p>') +
+        '<div class="pg-bloco"><h3>Top 5 Campanhas — ' + fMesRef + '</h3>' +
+          (top5Campanhas.length ? top5Campanhas.map(function (r) {
+            return '<div class="pg-linha"><span title="' + r.nome + '">' + (r.nome.length > 30 ? r.nome.substring(0, 30) + '…' : r.nome) + '</span><span>' + mktFmtMoeda(r.spend) + ' · ROAS ' + r.roas.toFixed(1) + 'x</span></div>';
+          }).join('') : '<p class="tmu">Sem dados no mês.</p>') +
         '</div>' +
       '</div>' +
-
-      '<div class="pg-bloco"><h3>Detalhamento por Canal</h3><div class="tbl-wrap"><table><thead><tr><th>Canal</th><th># Campanhas</th><th>Investido</th><th>Receita</th><th>ROAS</th></tr></thead><tbody>' +
-        rankingCanais.map(function (r) { return '<tr><td>' + r.nome + '</td><td>' + r.nCampanhas + '</td><td>' + mktFmtMoeda(r.spend) + '</td><td>' + mktFmtMoeda(r.revenue) + '</td><td>' + r.roas.toFixed(2) + 'x</td></tr>'; }).join('') +
-        (rankingCanais.length ? '' : '<tr><td colspan="5" class="tmu">Sem dados.</td></tr>') +
-      '</tbody></table></div></div>' +
-
-      '<div class="pg-bloco"><h3>Ranking Completo de Campanhas (' + rankingCampanhas.length + ')</h3><div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Status</th><th>Investido</th><th>Receita</th><th>ROAS</th><th>CAC</th><th>CTR</th><th>Conversões</th></tr></thead><tbody>' +
-        rankingCampanhas.map(function (r) {
-          return '<tr><td>' + r.nome + '</td><td>' + r.canal + '</td><td><span class="badge badge-' + (MKT_STATUS_BADGE[r.status] || 'pending') + '">' + (MKT_STATUS[r.status] || r.status) + '</span></td>' +
-            '<td>' + mktFmtMoeda(r.spend) + '</td><td>' + mktFmtMoeda(r.revenue) + '</td><td>' + r.roas.toFixed(2) + 'x</td><td>' + mktFmtMoeda(r.cac) + '</td><td>' + r.ctr.toFixed(2) + '%</td><td>' + mktFmtNum(r.conv) + '</td></tr>';
-        }).join('') +
-        (rankingCampanhas.length ? '' : '<tr><td colspan="9" class="tmu">Nenhuma campanha no filtro selecionado.</td></tr>') +
-      '</tbody></table></div></div>';
+      '<p class="tmu" style="margin-top:10px">Quer ver todas as campanhas e canais em detalhe? Acesse o submódulo <b>Campanhas</b>.</p>';
 
     host.querySelector('#an-conteudo').innerHTML = out;
   }
 
-  ['an-f-de', 'an-f-ate', 'an-f-canal', 'an-f-status', 'an-f-objetivo'].forEach(function (id) {
-    host.querySelector('#' + id).addEventListener('change', render);
-  });
-  host.querySelector('#an-f-limpar').addEventListener('click', function () {
-    host.querySelector('#an-f-de').value = '';
-    host.querySelector('#an-f-ate').value = '';
-    host.querySelector('#an-f-canal').value = '';
-    host.querySelector('#an-f-status').value = '';
-    host.querySelector('#an-f-objetivo').value = '';
-    render();
-  });
+  host.querySelector('#an-f-mes-ref').addEventListener('change', render);
   render();
 }
 
