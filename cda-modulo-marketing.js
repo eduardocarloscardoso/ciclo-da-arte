@@ -438,6 +438,14 @@ async function montarModuloMktOrcamento(containerId, opts) {
       return (d.getUTCMonth() + 1) === mes && d.getUTCFullYear() === ano;
     }).reduce(function (s, m) { return s + Number(m.investimento || 0); }, 0);
   }
+  // Receita real sincronizada do Meta para o mês — mesma lógica do gasto, evita
+  // depender de digitação manual (que ficava zerada em meses recém-criados).
+  function receitaMetaNoMes(mes, ano) {
+    return ST.metricas.filter(function (m) {
+      var d = new Date(m.data);
+      return (d.getUTCMonth() + 1) === mes && d.getUTCFullYear() === ano;
+    }).reduce(function (s, m) { return s + Number(m.receita || 0); }, 0);
+  }
   function investimentosDoOrcamento(orcId) {
     return ST.investimentos.filter(function (i) { return i.orcamento_id === orcId; }).reduce(function (s, i) { return s + Number(i.valor || 0); }, 0);
   }
@@ -474,6 +482,8 @@ async function montarModuloMktOrcamento(containerId, opts) {
       var totalGasto = gastoMeta + outrosGastos;
       var totalOrcado = Number(o.orcamento_total || 0) + Number(o.orcamento_outros || 0);
       var previstoMeta = previstoMetaNoMes(o.mes, o.ano);
+      var receitaMeta = receitaMetaNoMes(o.mes, o.ano);
+      var receitaFinal = receitaMeta > 0 ? receitaMeta : Number(o.receita_realizada || 0);
       var saldo = totalOrcado - totalGasto;
       var pct = totalOrcado > 0 ? Math.min(100, (totalGasto / totalOrcado) * 100) : 0;
       var acimaThreshold = pct >= Number(o.threshold_alerta || 80);
@@ -487,8 +497,8 @@ async function montarModuloMktOrcamento(containerId, opts) {
           '<div class="pg-barra-track" style="height:14px"><div class="pg-barra-fill" style="width:' + pct.toFixed(0) + '%;background:' + (acimaThreshold ? 'var(--rust,#c0392b)' : 'var(--green,#3ec97a)') + '"></div></div>' +
           '<span class="tmu" style="font-size:10px">' + pct.toFixed(0) + '%</span>' +
         '</td>' +
-        '<td>' + mktFmtMoeda(o.receita_realizada) + '</td>' +
-        '<td>' + (totalGasto > 0 ? (Number(o.receita_realizada || 0) / totalGasto).toFixed(2) + 'x' : '—') + '</td>' +
+        '<td>' + mktFmtMoeda(receitaFinal) + '<br><span class="tmu" style="font-size:9px">' + (receitaMeta > 0 ? 'sincronizada do Meta' : 'informada manualmente') + '</span></td>' +
+        '<td>' + (totalGasto > 0 ? (receitaFinal / totalGasto).toFixed(2) + 'x' : '—') + '</td>' +
         (editavel ? '<td><button class="btn" onclick="mktAbrirModalOrcamento(\'' + containerId + '\',' + o.id + ')">Editar</button></td>' : '') +
         '</tr>';
     }).join('');
@@ -534,7 +544,7 @@ function mktAbrirModalOrcamento(containerId, orcId) {
     '</div>' +
     '<div style="margin-top:10px"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="of-total" value="' + (o ? o.orcamento_total : '') + '" style="width:100%"></div>' +
     '<div style="margin-top:10px"><label>Orçamento outros (R$, opcional)</label><input type="number" step="0.01" id="of-outros" value="' + (o && o.orcamento_outros ? o.orcamento_outros : '') + '" style="width:100%"></div>' +
-    '<div style="margin-top:10px"><label>Receita realizada (R$)</label><input type="number" step="0.01" id="of-receita" value="' + (o ? o.receita_realizada || 0 : 0) + '" style="width:100%"></div>' +
+    '<div style="margin-top:10px"><label>Receita realizada (R$) — só usada se não houver sincronização do Meta</label><input type="number" step="0.01" id="of-receita" value="' + (o ? o.receita_realizada || 0 : 0) + '" style="width:100%"></div>' +
     '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()">Cancelar</button>' +
       '<button class="btn rust" onclick="mktSalvarOrcamento(\'' + containerId + '\',' + (o ? o.id : 'null') + ')">Salvar</button>' +
