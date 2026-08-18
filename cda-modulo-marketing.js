@@ -111,6 +111,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
       '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (fMesRef ? 2 : 0)) + ',1fr)">' +
       kpiStatusHtml + kpiPeriodoHtml + '</div>';
 
+    var totOrcMes = 0, totInvMes = 0, totRec = 0;
     var linhas = lista.map(function (c) {
       var canal = canalPorId[c.canal_id];
       var invMes = investidoMes[c.id] || 0;
@@ -122,11 +123,12 @@ async function montarModuloMktCampanhas(containerId, opts) {
         : '<span class="tmu">— selecione mês —</span>';
 
       // Orçamento: 3 colunas conforme tipo_orcamento
-      var orcDiario = '—', orcMesTotal = '—', saldo = '—';
+      var orcDiario = '—', orcMesTotal = '—', saldo = '—', orcMesNum = null;
       if (c.tipo_orcamento === 'diario' && c.orcamento) {
         orcDiario = mktFmtMoeda(c.orcamento);
         if (fMesRef) {
           var orcMesCalc = Number(c.orcamento) * diasNoMes(ano, mes);
+          orcMesNum = orcMesCalc;
           orcMesTotal = mktFmtMoeda(orcMesCalc) + '<br><span class="tmu" style="font-size:9px">diária × ' + diasNoMes(ano, mes) + ' dias</span>';
           saldo = mktFmtMoeda(orcMesCalc - invMes);
         } else {
@@ -141,6 +143,10 @@ async function montarModuloMktCampanhas(containerId, opts) {
         orcMesTotal = mktFmtMoeda(c.orcamento) + '<br><span class="tmu" style="font-size:9px">tipo desconhecido</span>';
       }
 
+      totOrcMes += orcMesNum || 0;
+      totInvMes += invMes;
+      totRec += rec;
+
       return '<tr>' +
         '<td>' + c.nome + (c.categoria_campanha ? '<br><span class="tmu" style="font-size:10px">' + c.categoria_campanha + '</span>' : '') + '</td>' +
         '<td>' + (canal ? canal.nome : '<span class="tmu">— sem canal —</span>') + '</td>' +
@@ -148,6 +154,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
         '<td><span class="badge badge-' + (MKT_STATUS_BADGE[c.status] || 'pending') + '">' + (MKT_STATUS[c.status] || c.status) + '</span></td>' +
         '<td>' + ativaPeriodo + '</td>' +
         '<td>' + mktFmtData(c.data_inicio) + '</td>' +
+        '<td>' + mktFmtData(c.data_fim) + '</td>' +
         '<td>' + orcDiario + '</td>' +
         '<td>' + orcMesTotal + '</td>' +
         '<td>' + saldo + '</td>' +
@@ -158,7 +165,20 @@ async function montarModuloMktCampanhas(containerId, opts) {
         '</tr>';
     }).join('');
 
-    host.querySelector('#mkt-camp-tbody').innerHTML = linhas || '<tr><td colspan="13" class="tmu">Nenhuma campanha encontrada.</td></tr>';
+    var roasTotal = totInvMes > 0 ? (totRec / totInvMes).toFixed(2) + 'x' : '—';
+    var linhaTotal = lista.length ? (
+      '<tr style="font-weight:700;background:var(--bg2,#f5f0e6);border-top:2px solid var(--border2,#ccc)">' +
+      '<td colspan="8">TOTAL (' + lista.length + ' campanhas' + (fMesRef ? ' — ' + fMesRef : '') + ')</td>' +
+      '<td>' + mktFmtMoeda(totOrcMes) + '</td>' +
+      '<td>—</td>' +
+      '<td>' + mktFmtMoeda(totInvMes) + '</td>' +
+      '<td>' + mktFmtMoeda(totRec) + '</td>' +
+      '<td>' + roasTotal + '</td>' +
+      (editavel ? '<td></td>' : '') +
+      '</tr>'
+    ) : '';
+
+    host.querySelector('#mkt-camp-tbody').innerHTML = (linhas || '<tr><td colspan="14" class="tmu">Nenhuma campanha encontrada.</td></tr>') + linhaTotal;
   }
 
   var hoje = new Date();
@@ -183,7 +203,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
       '<input type="month" id="mkt-f-mes-ref" value="' + mesAtualStr + '">' +
       '<button class="btn" id="mkt-f-limpar-periodo">Limpar filtros</button>' +
     '</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th>Investido no mês</th><th>Receita</th><th>ROAS</th>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Fim</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th>Investido no mês</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
 
   ['mkt-f-busca'].forEach(function (id) { host.querySelector('#' + id).addEventListener('input', render); });
