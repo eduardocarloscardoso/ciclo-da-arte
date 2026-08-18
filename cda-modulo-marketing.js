@@ -97,26 +97,6 @@ async function montarModuloMktCampanhas(containerId, opts) {
 
     var lista = fSomenteComGasto ? listaBase.filter(function (c) { return (investidoMes[c.id] || 0) > 0; }) : listaBase;
 
-    // Totalizador
-    var totStatusAtual = {};
-    var totAtivaPeriodo = 0, totSemGastoPeriodo = 0;
-    listaBase.forEach(function (c) {
-      totStatusAtual[c.status] = (totStatusAtual[c.status] || 0) + 1;
-      var inv = investidoMes[c.id] || 0;
-      if (inv > 0) totAtivaPeriodo++; else totSemGastoPeriodo++;
-    });
-    var kpiStatusHtml = Object.keys(totStatusAtual).map(function (k) {
-      return '<div class="pg-kpi"><div class="v">' + totStatusAtual[k] + '</div><div class="l">' + (MKT_STATUS[k] || k) + ' (hoje)</div></div>';
-    }).join('');
-    var kpiPeriodoHtml = fMesRef
-      ? '<div class="pg-kpi"><div class="v">' + totAtivaPeriodo + '</div><div class="l">Com gasto em ' + fMesRef + '</div></div>' +
-        '<div class="pg-kpi"><div class="v">' + totSemGastoPeriodo + '</div><div class="l">Sem gasto em ' + fMesRef + '</div></div>'
-      : '';
-
-    host.querySelector('#mkt-kpis').innerHTML =
-      '<div class="pg-kpi-strip" style="grid-template-columns:repeat(' + (Object.keys(totStatusAtual).length + (fMesRef ? 2 : 0)) + ',1fr)">' +
-      kpiStatusHtml + kpiPeriodoHtml + '</div>';
-
     var labelInvestido = fMesRef ? (mesEhAtual ? 'Gasto até hoje' : 'Investido no mês (fechado)') : 'Investido';
     var thInvestido = host.querySelector('#mkt-th-investido');
     if (thInvestido) thInvestido.textContent = labelInvestido;
@@ -209,21 +189,23 @@ async function montarModuloMktCampanhas(containerId, opts) {
     (editavel ? '<button class="btn" id="mkt-btn-nova">+ Nova Campanha</button>' : '') + '</div>' +
     '<p class="tmu" style="margin-bottom:10px">🕒 "Status" reflete a última sincronização com o Meta: <b>' + (ST.ultimaSinc ? mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'nunca sincronizado') + '</b>. Para ver dados de um mês passado, NÃO filtre por status — use o mês de referência e veja a coluna "Ativa no período" (campanhas pausadas hoje podem ter gasto real em meses anteriores).</p>' +
     '<div id="mkt-resumo-previsto" class="rec-box" style="margin-bottom:14px;display:none"></div>' +
-    '<div id="mkt-kpis" style="margin-bottom:14px"></div>' +
-    '<div class="fb">' +
-      '<input type="text" id="mkt-f-busca" placeholder="Buscar por nome...">' +
-      '<select id="mkt-f-status"><option value="">Todos os status</option>' +
-        Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
-      '</select>' +
-      '<label class="tmu" style="align-self:center;display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="mkt-f-somente-gasto"> Só campanhas com gasto no mês</label>' +
-    '</div>' +
-    '<div class="fb" style="margin-top:6px">' +
-      '<span class="tmu" style="align-self:center">Início da campanha:</span>' +
-      '<input type="date" id="mkt-f-inicio-de" title="Início — de">' +
-      '<input type="date" id="mkt-f-inicio-ate" title="Início — até">' +
-      '<span class="tmu" style="align-self:center;margin-left:10px;font-weight:600">📅 Mês de referência:</span>' +
-      '<input type="month" id="mkt-f-mes-ref" value="' + mesAtualStr + '">' +
-      '<button class="btn" id="mkt-f-limpar-periodo">Limpar filtros</button>' +
+    '<div class="cc" style="margin-bottom:16px;padding:14px 16px">' +
+      '<div style="display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end">' +
+        '<div><label class="tmu" style="display:block;margin-bottom:4px">📅 Mês de referência</label><input type="month" id="mkt-f-mes-ref" value="' + mesAtualStr + '"></div>' +
+        '<div><label class="tmu" style="display:block;margin-bottom:4px">Buscar por nome</label><input type="text" id="mkt-f-busca" placeholder="Nome da campanha..."></div>' +
+        '<div><label class="tmu" style="display:block;margin-bottom:4px">Status atual</label><select id="mkt-f-status"><option value="">Todos</option>' +
+          Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
+        '</select></div>' +
+        '<label class="tmu" style="display:flex;align-items:center;gap:5px;cursor:pointer;padding-bottom:8px"><input type="checkbox" id="mkt-f-somente-gasto" checked> Só com gasto no mês</label>' +
+        '<button class="btn" id="mkt-f-limpar-periodo" style="margin-bottom:2px">Limpar filtros</button>' +
+      '</div>' +
+      '<details style="margin-top:10px"><summary class="tmu" style="cursor:pointer">Filtro avançado: início da campanha</summary>' +
+        '<div style="display:flex;gap:10px;margin-top:8px;align-items:center">' +
+          '<input type="date" id="mkt-f-inicio-de" title="Início — de">' +
+          '<span class="tmu">até</span>' +
+          '<input type="date" id="mkt-f-inicio-ate" title="Início — até">' +
+        '</div>' +
+      '</details>' +
     '</div>' +
     '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Canal</th><th>Objetivo</th><th>Status (hoje)</th><th>Ativa no período</th><th>Início</th><th>Fim</th><th>Orç. Diário</th><th>Orç. do Mês/Total</th><th>Saldo</th><th id="mkt-th-investido">Investido no mês</th><th>Receita</th><th>ROAS</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody id="mkt-camp-tbody"></tbody></table></div>';
@@ -235,7 +217,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
   host.querySelector('#mkt-f-limpar-periodo').addEventListener('click', function () {
     ['mkt-f-inicio-de', 'mkt-f-inicio-ate'].forEach(function (id) { host.querySelector('#' + id).value = ''; });
     host.querySelector('#mkt-f-mes-ref').value = mesAtualStr;
-    host.querySelector('#mkt-f-somente-gasto').checked = false;
+    host.querySelector('#mkt-f-somente-gasto').checked = true;
     render();
   });
   if (editavel) host.querySelector('#mkt-btn-nova').addEventListener('click', function () { mktAbrirModalCampanha(containerId, null); });
