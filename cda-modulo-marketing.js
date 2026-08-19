@@ -1004,7 +1004,7 @@ async function mktAbrirDiagnostico(containerId, diagId) {
 
 function mktRenderDiagnosticoModal(containerId, d) {
   var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
-    return '<tr' + (l.sinal_fadiga ? ' style="background:#e4eef8"' : '') + '>' +
+    return '<tr' + (l.sinal_fadiga ? ' style="background:rgba(74,158,255,.15)"' : '') + '>' +
       '<td>' + l.campanha + '</td>' +
       '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
       '<td>' + l.frequencia + ' <span class="tmu">(mercado: ' + l.frequencia_benchmark + ')</span></td>' +
@@ -1021,7 +1021,7 @@ function mktRenderDiagnosticoModal(containerId, d) {
 
   var conversaHtml = respostas.map(function (t) {
     var isIa = t.autor === 'ia';
-    return '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isIa ? '#e4eef8' : '#dcebfa') + ';border-left:3px solid #2a6fb0">' +
+    return '<div style="margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,' + (isIa ? '.10' : '.18') + ');border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">' + (isIa ? '🤖 IA' : '👤 Você') + '</div>' +
       '<div style="white-space:pre-wrap;font-size:13px">' + t.texto + '</div></div>';
   }).join('');
@@ -1033,7 +1033,7 @@ function mktRenderDiagnosticoModal(containerId, d) {
     '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Sinal</th></tr></thead><tbody>' +
       (linhasTabela || '<tr><td colspan="7" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
-    (analiseInicial ? '<div style="margin-top:16px;padding:10px 12px;border-radius:8px;background:#e4eef8;border-left:3px solid #2a6fb0">' +
+    (analiseInicial ? '<div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 Análise da IA</div>' +
       '<div style="white-space:pre-wrap;font-size:13px">' + analiseInicial.texto + '</div></div>' : '') +
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:10px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
