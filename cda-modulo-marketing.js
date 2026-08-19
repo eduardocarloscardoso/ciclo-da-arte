@@ -996,10 +996,22 @@ async function mktGerarDiagnostico(containerId) {
 }
 
 async function mktAbrirDiagnostico(containerId, diagId) {
-  var rows = await sb.get('cda_marketing_diagnosticos', 'select=*&id=eq.' + diagId);
-  var d = rows[0];
-  if (!d) return;
-  mktRenderDiagnosticoModal(containerId, d, 'todos');
+  var rows = await sb.get('cda_marketing_diagnosticos', 'select=id,tipo,mes_referencia&id=eq.' + diagId);
+  var base = rows[0];
+  if (!base) return;
+  showToast('Carregando diagnóstico (20-45s)...');
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'iniciar', tipo: base.tipo, mes_referencia: base.mes_referencia, status_filtro: 'todos' })
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido (HTTP ' + resp.status + ')');
+    mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
+  } catch (err) {
+    console.error('mktAbrirDiagnostico falhou:', err);
+    showToast('Erro ao carregar diagnóstico: ' + (err.message || err), 'error');
+  }
 }
 
 // Infere, a partir do nome da campanha + objetivo cadastrado, uma descrição
