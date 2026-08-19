@@ -1036,7 +1036,11 @@ function mktTooltipCampanha(l) {
     '\nROAS no mês: ' + roas;
 }
 
-function mktRenderDiagnosticoModal(containerId, d) {
+// filtroAtual: 'todos' | 'ativa' | 'pausada' — controla o valor selecionado no
+// seletor de status DENTRO do diagnóstico. Trocar esse seletor reprocessa o
+// diagnóstico (tabela + Análise da IA + Ações Finais) com o novo filtro.
+function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
+  filtroAtual = filtroAtual || 'todos';
   var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
     return '<tr>' +
       '<td title="' + mktTooltipCampanha(l).replace(/"/g, '&quot;') + '" style="cursor:help;text-decoration:underline dotted">' + l.campanha + '</td>' +
@@ -1063,10 +1067,21 @@ function mktRenderDiagnosticoModal(containerId, d) {
       '<div style="white-space:pre-wrap;font-size:13px">' + t.texto + '</div></div>';
   }).join('');
 
+  var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' };
+
   openModal(
     '<div class="modal-box" style="width:860px;max-height:85vh;overflow-y:auto">' +
-    '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">' + d.titulo + '</h3>' +
-      '<button class="btn" onclick="mktAbrirGlossarioFadiga()" style="font-size:11px">📖 Glossário</button></div>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
+      '<h3 style="margin:0">' + d.titulo + '</h3>' +
+      '<div style="display:flex;gap:8px;align-items:center">' +
+        '<label class="tmu" style="font-size:11px">Status:</label>' +
+        '<select id="diag-modal-status-filtro">' +
+          Object.keys(opcoesFiltro).map(function (k) { return '<option value="' + k + '"' + (k === filtroAtual ? ' selected' : '') + '>' + opcoesFiltro[k] + '</option>'; }).join('') +
+        '</select>' +
+        '<button class="btn" onclick="mktAbrirGlossarioFadiga(\'' + containerId + '\',' + d.id + ')" style="font-size:11px">📖 Glossário</button>' +
+      '</div>' +
+    '</div>' +
+    '<div id="diag-modal-status-msg" style="margin-top:8px"></div>' +
     '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
       (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
@@ -1082,9 +1097,34 @@ function mktRenderDiagnosticoModal(containerId, d) {
     '</div>' +
     '</div>'
   );
+
+  var selectEl = document.getElementById('diag-modal-status-filtro');
+  if (selectEl) {
+    selectEl.addEventListener('change', function () {
+      mktAplicarFiltroDiagnostico(containerId, d, this.value);
+    });
+  }
 }
 
-function mktAbrirGlossarioFadiga() {
+// Reprocessa o diagnóstico (tabela + Análise da IA + Ações Finais) com o
+// status escolhido dentro do modal, sem precisar voltar para a tela principal.
+async function mktAplicarFiltroDiagnostico(containerId, d, novoFiltro) {
+  var msgEl = document.getElementById('diag-modal-status-msg');
+  if (msgEl) msgEl.innerHTML = '<p class="tmu">⏳ Reprocessando com o filtro "' + novoFiltro + '"...</p>';
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'iniciar', tipo: d.tipo, mes_referencia: d.mes_referencia, status_filtro: novoFiltro })
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+    mktRenderDiagnosticoModal(containerId, data.diagnostico, novoFiltro);
+  } catch (err) {
+    if (msgEl) msgEl.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao reprocessar: ' + (err.message || err) + '</p>';
+  }
+}
+
+function mktAbrirGlossarioFadiga(containerId, diagId) {
   openModal(
     '<div class="modal-box" style="width:520px">' +
     '<h3>📖 Glossário — Fadiga de Criativo</h3>' +
@@ -1100,7 +1140,7 @@ function mktAbrirGlossarioFadiga() {
       '<p><b>ROAS</b> — Receita Realizada ÷ Gasto Real, do mês. "—" quando não houve investimento no mês.</p>' +
       '<p><b>Sinal</b> — resultado final: ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
     '</div>' +
-    '<div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn rust" onclick="closeModal()">Entendi</button></div>' +
+    '<div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn rust" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + diagId + ')">Voltar ao diagnóstico</button></div>' +
     '</div>'
   );
 }
