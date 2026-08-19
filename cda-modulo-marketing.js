@@ -1087,7 +1087,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '<h3 style="margin:0">' + d.titulo + '</h3>' +
       '<div style="display:flex;gap:8px;align-items:center">' +
         '<label class="tmu" style="font-size:11px">Status:</label>' +
-        '<select id="diag-modal-status-filtro">' +
+        '<select id="diag-modal-status-filtro" onchange="mktAplicarFiltroDiagnostico(\'' + containerId + '\',\'' + d.tipo + '\',\'' + d.mes_referencia + '\',this.value)">' +
           Object.keys(opcoesFiltro).map(function (k) { return '<option value="' + k + '"' + (k === filtroAtual ? ' selected' : '') + '>' + opcoesFiltro[k] + '</option>'; }).join('') +
         '</select>' +
         '<button class="btn" onclick="mktAbrirGlossarioFadiga(\'' + containerId + '\',' + d.id + ')" style="font-size:11px">📖 Glossário</button>' +
@@ -1109,18 +1109,14 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
     '</div>' +
     '</div>'
   );
-
-  var selectEl = document.getElementById('diag-modal-status-filtro');
-  if (selectEl) {
-    selectEl.addEventListener('change', function () {
-      mktAplicarFiltroDiagnostico(containerId, d, this.value);
-    });
-  }
 }
 
 // Reprocessa o diagnóstico (tabela + Análise da IA + Ações Finais) com o
 // status escolhido dentro do modal, sem precisar voltar para a tela principal.
-async function mktAplicarFiltroDiagnostico(containerId, d, novoFiltro) {
+// Recebe só valores primitivos (containerId, tipo, mesReferencia) — mesmo
+// padrão usado em todos os outros botões onclick do sistema, sem depender
+// de addEventListener/closures sobre o objeto de diagnóstico inteiro.
+async function mktAplicarFiltroDiagnostico(containerId, tipo, mesReferencia, novoFiltro) {
   var msgEl = document.getElementById('diag-modal-status-msg');
   var selectEl = document.getElementById('diag-modal-status-filtro');
   if (selectEl) selectEl.disabled = true;
@@ -1128,7 +1124,7 @@ async function mktAplicarFiltroDiagnostico(containerId, d, novoFiltro) {
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: d.tipo, mes_referencia: d.mes_referencia, status_filtro: novoFiltro })
+      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mesReferencia, status_filtro: novoFiltro })
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido (HTTP ' + resp.status + ')');
