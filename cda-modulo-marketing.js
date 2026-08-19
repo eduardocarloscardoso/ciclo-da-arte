@@ -1030,7 +1030,13 @@ function mktInferirPublicoAlvo(nome) {
 function mktTooltipCampanha(l) {
   var objetivoDesc = l.objetivo ? (MKT_OBJETIVO_DESCRITIVO[l.objetivo] || l.objetivo) : 'não disponível — gere o diagnóstico novamente';
   var publico = mktInferirPublicoAlvo(l.campanha);
-  return 'Campanha: ' + l.campanha + '\nObjetivo: ' + objetivoDesc + '\nPúblico-alvo (inferido pelo nome): ' + publico;
+  var canal = l.canal || 'não vinculado a nenhum canal';
+  var roas = (l.roas_mes !== undefined && l.roas_mes !== null) ? l.roas_mes.toFixed(2) + 'x' : 'não disponível';
+  return 'Campanha: ' + l.campanha +
+    '\nCanal: ' + canal +
+    '\nObjetivo: ' + objetivoDesc +
+    '\nPúblico-alvo (inferido pelo nome): ' + publico +
+    '\nROAS no mês: ' + roas;
 }
 
 function mktRenderDiagnosticoModal(containerId, d) {
