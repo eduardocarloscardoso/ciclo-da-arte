@@ -1004,7 +1004,7 @@ async function mktAbrirDiagnostico(containerId, diagId) {
 
 function mktRenderDiagnosticoModal(containerId, d) {
   var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
-    return '<tr' + (l.sinal_fadiga ? ' style="background:#fdeaea"' : '') + '>' +
+    return '<tr' + (l.sinal_fadiga ? ' style="background:#e4eef8"' : '') + '>' +
       '<td>' + l.campanha + '</td>' +
       '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
       '<td>' + l.frequencia + ' <span class="tmu">(mercado: ' + l.frequencia_benchmark + ')</span></td>' +
@@ -1021,7 +1021,7 @@ function mktRenderDiagnosticoModal(containerId, d) {
 
   var conversaHtml = respostas.map(function (t) {
     var isIa = t.autor === 'ia';
-    return '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isIa ? '#f0ede4' : '#e9f2fb') + ';border-left:3px solid ' + (isIa ? 'var(--rust,#c0392b)' : '#3b7dd8') + '">' +
+    return '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isIa ? '#e4eef8' : '#dcebfa') + ';border-left:3px solid #2a6fb0">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">' + (isIa ? '🤖 IA' : '👤 Você') + '</div>' +
       '<div style="white-space:pre-wrap;font-size:13px">' + t.texto + '</div></div>';
   }).join('');
@@ -1033,16 +1033,16 @@ function mktRenderDiagnosticoModal(containerId, d) {
     '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Sinal</th></tr></thead><tbody>' +
       (linhasTabela || '<tr><td colspan="7" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
-    (analiseInicial ? '<div style="margin-top:16px;padding:10px 12px;border-radius:8px;background:#f0ede4;border-left:3px solid var(--rust,#c0392b)">' +
+    (analiseInicial ? '<div style="margin-top:16px;padding:10px 12px;border-radius:8px;background:#e4eef8;border-left:3px solid #2a6fb0">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 Análise da IA</div>' +
       '<div style="white-space:pre-wrap;font-size:13px">' + analiseInicial.texto + '</div></div>' : '') +
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:10px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
+    (respostas.length ? '<div style="margin-top:16px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + conversaHtml + '</div>' : '') +
     '<div style="margin-top:14px"><label>Sua réplica (realimenta a IA)</label><textarea id="diag-resposta" style="width:100%;min-height:70px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
     '<div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()">Fechar</button>' +
       '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ')">Enviar réplica</button>' +
     '</div>' +
-    (respostas.length ? '<div style="margin-top:20px;border-top:1px solid var(--border2,#e0dbd0);padding-top:14px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + conversaHtml + '</div>' : '') +
     '</div>'
   );
 }
