@@ -999,7 +999,15 @@ async function mktAbrirDiagnostico(containerId, diagId) {
   var rows = await sb.get('cda_marketing_diagnosticos', 'select=id,tipo,mes_referencia&id=eq.' + diagId);
   var base = rows[0];
   if (!base) return;
-  showToast('Carregando diagnóstico (20-45s)...');
+  // Modal de carregamento PERSISTENTE (não um toast que some sozinho) — a
+  // chamada real leva de 20 a 45s, e sem isso a tela parece travada.
+  openModal(
+    '<div class="modal-box" style="width:420px;text-align:center;padding:40px 24px">' +
+    '<div style="font-size:32px;margin-bottom:14px">⏳</div>' +
+    '<h3 style="margin:0 0 8px">Carregando diagnóstico...</h3>' +
+    '<p class="tmu">A IA está reprocessando a análise — isso leva de 20 a 45 segundos. Não feche esta janela.</p>' +
+    '</div>'
+  );
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1010,7 +1018,14 @@ async function mktAbrirDiagnostico(containerId, diagId) {
     mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
   } catch (err) {
     console.error('mktAbrirDiagnostico falhou:', err);
-    showToast('Erro ao carregar diagnóstico: ' + (err.message || err), 'error');
+    openModal(
+      '<div class="modal-box" style="width:420px;text-align:center;padding:32px 24px">' +
+      '<div style="font-size:32px;margin-bottom:14px">❌</div>' +
+      '<h3 style="margin:0 0 8px">Erro ao carregar</h3>' +
+      '<p style="font-size:13px">' + (err.message || err) + '</p>' +
+      '<button class="btn rust" style="margin-top:16px" onclick="closeModal()">Fechar</button>' +
+      '</div>'
+    );
   }
 }
 
