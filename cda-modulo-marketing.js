@@ -948,8 +948,6 @@ async function montarModuloMktSimulacoes(containerId, opts) {
         '<select id="diag-tipo"><option value="fadiga_criativo">🎨 Fadiga de Criativo</option></select></div>' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
         '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
-      '<div><label class="tmu" style="display:block;margin-bottom:4px">Status das campanhas</label>' +
-        '<select id="diag-status-filtro"><option value="todos">Todos</option><option value="ativa">Só Ativas</option><option value="pausada">Só Pausadas</option></select></div>' +
       '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
     '</div></div>' : '') +
     '<div id="diag-status"></div>' +
@@ -976,7 +974,6 @@ async function mktGerarDiagnostico(containerId) {
   var host = document.getElementById(containerId);
   var tipo = host.querySelector('#diag-tipo').value;
   var mes = host.querySelector('#diag-mes').value;
-  var statusFiltro = host.querySelector('#diag-status-filtro').value;
   var btn = host.querySelector('#diag-btn-novo');
   var statusEl = host.querySelector('#diag-status');
   btn.disabled = true; btn.textContent = '⏳ Analisando...';
@@ -984,14 +981,14 @@ async function mktGerarDiagnostico(containerId) {
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: statusFiltro })
+      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: 'todos' })
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
     statusEl.innerHTML = '';
     showToast('Diagnóstico gerado.');
     await montarModuloMktSimulacoes(containerId, { editavel: true });
-    mktAbrirDiagnostico(containerId, data.diagnostico.id);
+    mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
   } catch (err) {
     statusEl.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro: ' + (err.message || err) + '</p>';
     btn.disabled = false; btn.textContent = 'Gerar novo diagnóstico';
@@ -1002,7 +999,7 @@ async function mktAbrirDiagnostico(containerId, diagId) {
   var rows = await sb.get('cda_marketing_diagnosticos', 'select=*&id=eq.' + diagId);
   var d = rows[0];
   if (!d) return;
-  mktRenderDiagnosticoModal(containerId, d);
+  mktRenderDiagnosticoModal(containerId, d, 'todos');
 }
 
 // Infere, a partir do nome da campanha + objetivo cadastrado, uma descrição
