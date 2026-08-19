@@ -903,11 +903,15 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   if (!host) return;
   host.innerHTML = '<p class="tmu">Carregando simulações...</p>';
 
-  var simulacoes = [];
+  var simulacoes = [], diagnosticos = [];
   try {
-    simulacoes = await sb.get('cda_marketing_simulacoes', 'select=*&order=criado_em.desc');
+    var res = await Promise.all([
+      sb.get('cda_marketing_simulacoes', 'select=*&order=criado_em.desc'),
+      sb.get('cda_marketing_diagnosticos', 'select=id,tipo,titulo,status,criado_em,atualizado_em&order=criado_em.desc')
+    ]);
+    simulacoes = res[0]; diagnosticos = res[1];
   } catch (err) {
-    host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar simulações: ' + (err.message || err) + '</p>';
+    host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar: ' + (err.message || err) + '</p>';
     return;
   }
 
@@ -926,8 +930,32 @@ async function montarModuloMktSimulacoes(containerId, opts) {
       '</tr>';
   }).join('');
 
+  var linhasDiag = diagnosticos.map(function (d) {
+    return '<tr style="cursor:pointer" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + d.id + ')">' +
+      '<td>' + d.titulo + '</td>' +
+      '<td><span class="badge badge-' + (d.status === 'concluido' ? 'done' : 'pending') + '">' + (d.status === 'concluido' ? 'Concluído' : 'Aberto') + '</span></td>' +
+      '<td>' + mktFmtData(d.atualizado_em) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  var hoje = new Date();
+  var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+
   host.innerHTML =
-    '<div class="row-bt"><div><div class="sec-t">🤖 Simulações IA</div><div class="sec-d">Alocação de orçamento entre canais, sugerida por IA com base no histórico real de performance (últimos 3 meses + acumulado)</div></div>' +
+    '<div class="row-bt"><div><div class="sec-t">🔬 Diagnósticos</div><div class="sec-d">Análises nomeadas comparando benchmark de mercado com nosso resultado real — com loop de conversa até fechar num plano de ação</div></div></div>' +
+    (editavel ? '<div class="cc" style="margin-bottom:14px;padding:14px 16px"><div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">Tipo de diagnóstico</label>' +
+        '<select id="diag-tipo"><option value="fadiga_criativo">🎨 Fadiga de Criativo</option></select></div>' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
+        '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
+      '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
+    '</div></div>' : '') +
+    '<div id="diag-status"></div>' +
+    '<div class="tbl-wrap" style="margin-bottom:24px"><table><thead><tr><th>Diagnóstico</th><th>Status</th><th>Última atualização</th></tr></thead><tbody>' +
+      (linhasDiag || '<tr><td colspan="3" class="tmu">Nenhum diagnóstico gerado ainda.</td></tr>') +
+    '</tbody></table></div>' +
+
+    '<div class="row-bt"><div><div class="sec-t">🤖 Simulações de Orçamento</div><div class="sec-d">Alocação de orçamento entre canais, sugerida por IA com base no histórico real de performance (últimos 3 meses + acumulado)</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova-sim">+ Nova Simulação</button>' : '') + '</div>' +
     '<div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>Período</th><th>Orçamento</th><th>ROAS Esperado</th><th>Receita Esperada</th><th>Criada em</th>' +
       (editavel ? '<th></th>' : '') + '</tr></thead><tbody>' +
@@ -935,7 +963,103 @@ async function montarModuloMktSimulacoes(containerId, opts) {
     '</tbody></table></div>';
 
   host._mktSimState = simulacoes;
-  if (editavel) host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
+  host._mktDiagState = diagnosticos;
+  if (editavel) {
+    host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
+    host.querySelector('#diag-btn-novo').addEventListener('click', function () { mktGerarDiagnostico(containerId); });
+  }
+}
+
+async function mktGerarDiagnostico(containerId) {
+  var host = document.getElementById(containerId);
+  var tipo = host.querySelector('#diag-tipo').value;
+  var mes = host.querySelector('#diag-mes').value;
+  var btn = host.querySelector('#diag-btn-novo');
+  var statusEl = host.querySelector('#diag-status');
+  btn.disabled = true; btn.textContent = '⏳ Analisando...';
+  statusEl.innerHTML = '<p class="tmu">Comparando com benchmark de mercado e analisando histórico — pode levar até 40 segundos...</p>';
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes })
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+    statusEl.innerHTML = '';
+    showToast('Diagnóstico gerado.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+    mktAbrirDiagnostico(containerId, data.diagnostico.id);
+  } catch (err) {
+    statusEl.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro: ' + (err.message || err) + '</p>';
+    btn.disabled = false; btn.textContent = 'Gerar novo diagnóstico';
+  }
+}
+
+async function mktAbrirDiagnostico(containerId, diagId) {
+  var rows = await sb.get('cda_marketing_diagnosticos', 'select=*&id=eq.' + diagId);
+  var d = rows[0];
+  if (!d) return;
+  mktRenderDiagnosticoModal(containerId, d);
+}
+
+function mktRenderDiagnosticoModal(containerId, d) {
+  var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
+    return '<tr' + (l.sinal_fadiga ? ' style="background:#fdeaea"' : '') + '>' +
+      '<td>' + l.campanha + '</td>' +
+      '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
+      '<td>' + l.frequencia + ' <span class="tmu">(mercado: ' + l.frequencia_benchmark + ')</span></td>' +
+      '<td>' + l.ctr_atual + '% <span class="tmu">(mercado: ' + l.ctr_benchmark + ')</span></td>' +
+      '<td>' + l.ctr_pico_mes_inicial + '%</td>' +
+      '<td>' + (l.variacao_ctr_pct > 0 ? '+' : '') + l.variacao_ctr_pct + '%</td>' +
+      '<td>' + (l.sinal_fadiga ? '⚠️ Fadiga' : '✅ OK') + '</td>' +
+      '</tr>';
+  }).join('');
+
+  var threadHtml = (d.thread || []).map(function (t) {
+    var isIa = t.autor === 'ia';
+    return '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isIa ? '#f0ede4' : '#e9f2fb') + ';border-left:3px solid ' + (isIa ? 'var(--rust,#c0392b)' : '#3b7dd8') + '">' +
+      '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">' + (isIa ? '🤖 IA' : '👤 Você') + '</div>' +
+      '<div style="white-space:pre-wrap;font-size:13px">' + t.texto + '</div></div>';
+  }).join('');
+
+  openModal(
+    '<div class="modal-box" style="width:720px;max-height:85vh;overflow-y:auto">' +
+    '<h3>' + d.titulo + '</h3>' +
+    '<span class="badge badge-' + (d.status === 'concluido' ? 'done' : 'pending') + '">' + (d.status === 'concluido' ? 'Concluído' : 'Em aberto') + '</span>' +
+    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Sinal</th></tr></thead><tbody>' +
+      (linhasTabela || '<tr><td colspan="7" class="tmu">Sem dados.</td></tr>') +
+    '</tbody></table></div>' +
+    '<div style="margin-top:16px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + threadHtml + '</div>' +
+    (d.acoes_finais ? '<div class="rec-box" style="margin-top:10px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
+    '<div style="margin-top:14px"><label>Sua réplica (realimenta a IA)</label><textarea id="diag-resposta" style="width:100%;min-height:70px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
+    '<div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal()">Fechar</button>' +
+      '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ')">Enviar réplica</button>' +
+    '</div></div>'
+  );
+}
+
+async function mktContinuarDiagnostico(containerId, diagId) {
+  var textarea = document.getElementById('diag-resposta');
+  var resposta = textarea.value.trim();
+  if (!resposta) { showToast('Escreva sua réplica antes de enviar.', 'error'); return; }
+  var btn = event.target;
+  btn.disabled = true; btn.textContent = 'Enviando...';
+  try {
+    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ acao: 'continuar', id: diagId, resposta_usuario: resposta })
+    });
+    var data = await resp.json();
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+    closeModal();
+    showToast('Réplica enviada, IA respondeu.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+    mktRenderDiagnosticoModal(containerId, data.diagnostico);
+  } catch (err) {
+    showToast('Erro: ' + (err.message || err), 'error');
+    btn.disabled = false; btn.textContent = 'Enviar réplica';
+  }
 }
 
 function mktAbrirModalNovaSimulacao(containerId, refazerDe) {
