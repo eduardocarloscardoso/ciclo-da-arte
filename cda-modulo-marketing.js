@@ -1158,10 +1158,9 @@ async function mktContinuarDiagnostico(containerId, diagId) {
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
-    closeModal();
     showToast('Réplica enviada, IA respondeu.');
     await montarModuloMktSimulacoes(containerId, { editavel: true });
-    mktRenderDiagnosticoModal(containerId, data.diagnostico);
+    mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
   } catch (err) {
     showToast('Erro: ' + (err.message || err), 'error');
     btn.disabled = false; btn.textContent = 'Enviar réplica';
