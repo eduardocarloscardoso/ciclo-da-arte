@@ -1015,7 +1015,11 @@ function mktRenderDiagnosticoModal(containerId, d) {
       '</tr>';
   }).join('');
 
-  var threadHtml = (d.thread || []).map(function (t) {
+  var thread = d.thread || [];
+  var analiseInicial = thread.length ? thread[0] : null;
+  var respostas = thread.slice(1); // só réplicas em diante viram "Conversa"
+
+  var conversaHtml = respostas.map(function (t) {
     var isIa = t.autor === 'ia';
     return '<div style="margin-bottom:12px;padding:10px 12px;border-radius:8px;background:' + (isIa ? '#f0ede4' : '#e9f2fb') + ';border-left:3px solid ' + (isIa ? 'var(--rust,#c0392b)' : '#3b7dd8') + '">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">' + (isIa ? '🤖 IA' : '👤 Você') + '</div>' +
@@ -1024,18 +1028,40 @@ function mktRenderDiagnosticoModal(containerId, d) {
 
   openModal(
     '<div class="modal-box" style="width:720px;max-height:85vh;overflow-y:auto">' +
-    '<h3>' + d.titulo + '</h3>' +
-    '<span class="badge badge-' + (d.status === 'concluido' ? 'done' : 'pending') + '">' + (d.status === 'concluido' ? 'Concluído' : 'Em aberto') + '</span>' +
+    '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">' + d.titulo + '</h3>' +
+      '<button class="btn" onclick="mktAbrirGlossarioFadiga()" style="font-size:11px">📖 Glossário</button></div>' +
     '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Sinal</th></tr></thead><tbody>' +
       (linhasTabela || '<tr><td colspan="7" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
-    '<div style="margin-top:16px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + threadHtml + '</div>' +
+    (analiseInicial ? '<div style="margin-top:16px;padding:10px 12px;border-radius:8px;background:#f0ede4;border-left:3px solid var(--rust,#c0392b)">' +
+      '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 Análise da IA</div>' +
+      '<div style="white-space:pre-wrap;font-size:13px">' + analiseInicial.texto + '</div></div>' : '') +
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:10px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
     '<div style="margin-top:14px"><label>Sua réplica (realimenta a IA)</label><textarea id="diag-resposta" style="width:100%;min-height:70px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
-    '<div style="margin-top:14px;display:flex;gap:10px;justify-content:flex-end">' +
+    '<div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()">Fechar</button>' +
       '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ')">Enviar réplica</button>' +
-    '</div></div>'
+    '</div>' +
+    (respostas.length ? '<div style="margin-top:20px;border-top:1px solid var(--border2,#e0dbd0);padding-top:14px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + conversaHtml + '</div>' : '') +
+    '</div>'
+  );
+}
+
+function mktAbrirGlossarioFadiga() {
+  openModal(
+    '<div class="modal-box" style="width:520px">' +
+    '<h3>📖 Glossário — Fadiga de Criativo</h3>' +
+    '<div style="margin-top:12px;font-size:13px;line-height:1.6">' +
+      '<p><b>Campanha</b> — nome da campanha analisada, conforme cadastrada no sistema.</p>' +
+      '<p><b>Status</b> — se a campanha está Ativa ou Pausada HOJE, na última sincronização com o Meta (não reflete o status durante o mês analisado).</p>' +
+      '<p><b>Frequência</b> — quantas vezes, em média, a mesma pessoa viu o anúncio no mês (Impressões ÷ Alcance). Acima de 3,5 é sinal de saturação de audiência — a pessoa já viu o anúncio demais.</p>' +
+      '<p><b>CTR atual</b> — taxa de cliques do mês analisado (Cliques ÷ Impressões). Comparado ao benchmark saudável de moda (1,8% a 2,9%).</p>' +
+      '<p><b>CTR pico</b> — CTR do primeiro mês em que a campanha teve dado registrado, usado como referência do "melhor momento" do criativo (não temos dado diário, então usamos o primeiro mês como proxy).</p>' +
+      '<p><b>Variação</b> — quanto o CTR atual subiu ou caiu em relação ao pico, em %. Queda de 25% ou mais é sinal de fadiga.</p>' +
+      '<p><b>Sinal</b> — resultado final: ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
+    '</div>' +
+    '<div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn rust" onclick="closeModal()">Entendi</button></div>' +
+    '</div>'
   );
 }
 
