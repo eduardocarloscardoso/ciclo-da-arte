@@ -1048,6 +1048,9 @@ function mktRenderDiagnosticoModal(containerId, d) {
       '<td>' + l.ctr_atual + '% <span class="tmu">(mercado: ' + l.ctr_benchmark + ')</span></td>' +
       '<td>' + l.ctr_pico_mes_inicial + '%</td>' +
       '<td>' + (l.variacao_ctr_pct > 0 ? '+' : '') + l.variacao_ctr_pct + '%</td>' +
+      '<td>' + mktFmtMoeda(l.gasto_real) + '</td>' +
+      '<td>' + mktFmtMoeda(l.receita_real) + '</td>' +
+      '<td>' + (l.roas_mes !== undefined && l.roas_mes !== null ? l.roas_mes.toFixed(2) + 'x' : '—') + '</td>' +
       '<td>' + (l.sinal_fadiga ? '⚠️ Fadiga' : '✅ OK') + '</td>' +
       '</tr>';
   }).join('');
@@ -1064,11 +1067,11 @@ function mktRenderDiagnosticoModal(containerId, d) {
   }).join('');
 
   openModal(
-    '<div class="modal-box" style="width:720px;max-height:85vh;overflow-y:auto">' +
+    '<div class="modal-box" style="width:860px;max-height:85vh;overflow-y:auto">' +
     '<div style="display:flex;justify-content:space-between;align-items:center"><h3 style="margin:0">' + d.titulo + '</h3>' +
       '<button class="btn" onclick="mktAbrirGlossarioFadiga()" style="font-size:11px">📖 Glossário</button></div>' +
-    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Sinal</th></tr></thead><tbody>' +
-      (linhasTabela || '<tr><td colspan="7" class="tmu">Sem dados.</td></tr>') +
+    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
+      (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
     (analiseInicial ? '<div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 Análise da IA</div>' +
@@ -1095,6 +1098,9 @@ function mktAbrirGlossarioFadiga() {
       '<p><b>CTR atual</b> — taxa de cliques do mês analisado (Cliques ÷ Impressões). Comparado ao benchmark saudável de moda (1,8% a 2,9%).</p>' +
       '<p><b>CTR pico</b> — CTR do primeiro mês em que a campanha teve dado registrado, usado como referência do "melhor momento" do criativo (não temos dado diário, então usamos o primeiro mês como proxy).</p>' +
       '<p><b>Variação</b> — quanto o CTR atual subiu ou caiu em relação ao pico, em %. Queda de 25% ou mais é sinal de fadiga.</p>' +
+      '<p><b>Gasto Real</b> — valor investido nessa campanha, só no mês de referência selecionado.</p>' +
+      '<p><b>Receita Realizada</b> — receita atribuída a essa campanha, no mesmo mês.</p>' +
+      '<p><b>ROAS</b> — Receita Realizada ÷ Gasto Real, do mês. "—" quando não houve investimento no mês.</p>' +
       '<p><b>Sinal</b> — resultado final: ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
     '</div>' +
     '<div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn rust" onclick="closeModal()">Entendi</button></div>' +
