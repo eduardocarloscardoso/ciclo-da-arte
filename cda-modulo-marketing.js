@@ -1110,17 +1110,22 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 // status escolhido dentro do modal, sem precisar voltar para a tela principal.
 async function mktAplicarFiltroDiagnostico(containerId, d, novoFiltro) {
   var msgEl = document.getElementById('diag-modal-status-msg');
-  if (msgEl) msgEl.innerHTML = '<p class="tmu">⏳ Reprocessando com o filtro "' + novoFiltro + '"...</p>';
+  var selectEl = document.getElementById('diag-modal-status-filtro');
+  if (selectEl) selectEl.disabled = true;
+  if (msgEl) msgEl.innerHTML = '<p class="tmu">⏳ Reprocessando com o filtro "' + novoFiltro + '" — a IA está analisando de novo, isso leva de 20 a 45 segundos...</p>';
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'iniciar', tipo: d.tipo, mes_referencia: d.mes_referencia, status_filtro: novoFiltro })
     });
     var data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
+    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido (HTTP ' + resp.status + ')');
+    if (!data.diagnostico) throw new Error('Resposta da IA veio sem o diagnóstico atualizado.');
     mktRenderDiagnosticoModal(containerId, data.diagnostico, novoFiltro);
   } catch (err) {
-    if (msgEl) msgEl.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao reprocessar: ' + (err.message || err) + '</p>';
+    console.error('mktAplicarFiltroDiagnostico falhou:', err);
+    if (msgEl) msgEl.innerHTML = '<p style="color:var(--rust,#c0392b)">❌ Erro ao reprocessar: ' + (err.message || err) + ' — veja o console (F12) para detalhes técnicos.</p>';
+    if (selectEl) selectEl.disabled = false;
   }
 }
 
