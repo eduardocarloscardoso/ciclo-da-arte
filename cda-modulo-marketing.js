@@ -1005,10 +1005,38 @@ async function mktAbrirDiagnostico(containerId, diagId) {
   mktRenderDiagnosticoModal(containerId, d);
 }
 
+// Infere, a partir do nome da campanha + objetivo cadastrado, uma descrição
+// legível de objetivo e público-alvo. É uma inferência por convenção de nome
+// (RMKT, FRIO, TOPO, LKL, ABO/CBO etc.) — não vem de dados reais de segmentação
+// do Meta, que não são expostos pela API de insights que usamos.
+var MKT_OBJETIVO_DESCRITIVO = {
+  vendas: 'Geração de vendas diretas (conversão no site/checkout)',
+  trafego: 'Tráfego — leva visitantes para o site ou landing page',
+  engajamento: 'Engajamento — curtidas, comentários, compartilhamentos, visualização de vídeo',
+  leads: 'Captação de leads/contatos',
+  awareness: 'Reconhecimento de marca — alcance e frequência',
+  retargeting: 'Retargeting — reimpacta quem já demonstrou interesse'
+};
+function mktInferirPublicoAlvo(nome) {
+  var n = nome.toUpperCase();
+  if (/RMKT|REMARKETING/.test(n)) return 'Remarketing — pessoas que já visitaram o site, engajaram ou abandonaram carrinho';
+  if (/LKL|LOOKALIKE/.test(n)) return 'Lookalike — público semelhante a clientes/compradores existentes';
+  if (/FRIO/.test(n)) return 'Público frio — ainda não conhece a marca (topo de funil)';
+  if (/TOPO/.test(n)) return 'Topo de funil — primeiro contato com a marca';
+  if (/INTEGRAD/.test(n)) return 'Públicos combinados — mescla várias fontes de remarketing';
+  if (/AMPLO/.test(n)) return 'Público amplo — segmentação aberta, otimização automática da Meta';
+  return 'Não identificado pelo nome — verifique a configuração real no Gerenciador de Anúncios';
+}
+function mktTooltipCampanha(l) {
+  var objetivoDesc = l.objetivo ? (MKT_OBJETIVO_DESCRITIVO[l.objetivo] || l.objetivo) : 'não disponível — gere o diagnóstico novamente';
+  var publico = mktInferirPublicoAlvo(l.campanha);
+  return 'Campanha: ' + l.campanha + '\nObjetivo: ' + objetivoDesc + '\nPúblico-alvo (inferido pelo nome): ' + publico;
+}
+
 function mktRenderDiagnosticoModal(containerId, d) {
   var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
     return '<tr>' +
-      '<td>' + l.campanha + '</td>' +
+      '<td title="' + mktTooltipCampanha(l).replace(/"/g, '&quot;') + '" style="cursor:help;text-decoration:underline dotted">' + l.campanha + '</td>' +
       '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
       '<td>' + l.frequencia + ' <span class="tmu">(mercado: ' + l.frequencia_benchmark + ')</span></td>' +
       '<td>' + l.ctr_atual + '% <span class="tmu">(mercado: ' + l.ctr_benchmark + ')</span></td>' +
