@@ -996,37 +996,14 @@ async function mktGerarDiagnostico(containerId) {
 }
 
 async function mktAbrirDiagnostico(containerId, diagId) {
-  var rows = await sb.get('cda_marketing_diagnosticos', 'select=id,tipo,mes_referencia&id=eq.' + diagId);
-  var base = rows[0];
-  if (!base) return;
-  // Modal de carregamento PERSISTENTE (não um toast que some sozinho) — a
-  // chamada real leva de 20 a 45s, e sem isso a tela parece travada.
-  openModal(
-    '<div class="modal-box" style="width:420px;text-align:center;padding:40px 24px">' +
-    '<div style="font-size:32px;margin-bottom:14px">⏳</div>' +
-    '<h3 style="margin:0 0 8px">Carregando diagnóstico...</h3>' +
-    '<p class="tmu">A IA está reprocessando a análise — isso leva de 20 a 45 segundos. Não feche esta janela.</p>' +
-    '</div>'
-  );
-  try {
-    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: base.tipo, mes_referencia: base.mes_referencia, status_filtro: 'todos' })
-    });
-    var data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido (HTTP ' + resp.status + ')');
-    mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
-  } catch (err) {
-    console.error('mktAbrirDiagnostico falhou:', err);
-    openModal(
-      '<div class="modal-box" style="width:420px;text-align:center;padding:32px 24px">' +
-      '<div style="font-size:32px;margin-bottom:14px">❌</div>' +
-      '<h3 style="margin:0 0 8px">Erro ao carregar</h3>' +
-      '<p style="font-size:13px">' + (err.message || err) + '</p>' +
-      '<button class="btn rust" style="margin-top:16px" onclick="closeModal()">Fechar</button>' +
-      '</div>'
-    );
-  }
+  // Abre RÁPIDO, sem chamar a IA — os dados salvos já refletem o último
+  // filtro aplicado (filtro_aplicado). Só reprocessa quando o usuário
+  // realmente troca o filtro, clica em Enviar Perguntas/Respostas, ou
+  // gera um novo diagnóstico.
+  var rows = await sb.get('cda_marketing_diagnosticos', 'select=*&id=eq.' + diagId);
+  var d = rows[0];
+  if (!d) return;
+  mktRenderDiagnosticoModal(containerId, d, d.filtro_aplicado || 'todos');
 }
 
 // Infere, a partir do nome da campanha + objetivo cadastrado, uma descrição
@@ -1066,6 +1043,12 @@ function mktTooltipCampanha(l) {
 // filtroAtual: 'todos' | 'ativa' | 'pausada' — controla o valor selecionado no
 // seletor de status DENTRO do diagnóstico. Trocar esse seletor reprocessa o
 // diagnóstico (tabela + Análise da IA + Ações Finais) com o novo filtro.
+//
+// Estrutura do thread: thread[0] = Análise da IA inicial (sempre exibida à
+// parte). A partir daí, o histórico alterna usuário/IA e é dividido em duas
+// visões: "Perguntas IA" (o que a IA perguntou, com a resposta do usuário
+// logo em seguida, se já houver) e "Perguntas Usuários" (o que o usuário
+// perguntou/comentou, com a resposta da IA logo em seguida).
 function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
   filtroAtual = filtroAtual || 'todos';
   var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
@@ -1085,14 +1068,33 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
   var thread = d.thread || [];
   var analiseInicial = thread.length ? thread[0] : null;
-  var respostas = thread.slice(1); // só réplicas em diante viram "Conversa"
+  var resto = thread.slice(1); // tudo depois da análise inicial (usuário/IA alternando)
 
-  var conversaHtml = respostas.map(function (t) {
-    var isIa = t.autor === 'ia';
-    return '<div style="margin-bottom:12px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,' + (isIa ? '.10' : '.18') + ');border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-      '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">' + (isIa ? '🤖 IA' : '👤 Você') + '</div>' +
-      '<div style="white-space:pre-wrap;font-size:13px">' + t.texto + '</div></div>';
-  }).join('');
+  // Perguntas IA: cada turno da IA (índice par dentro de "resto"), com a
+  // resposta do usuário sendo o próximo turno, se já existir.
+  var perguntasIaHtml = '';
+  var perguntasUsuarioHtml = '';
+  for (var i = 0; i < resto.length; i++) {
+    var t = resto[i];
+    var proximo = resto[i + 1];
+    if (t.autor === 'ia') {
+      var respostaUsuario = (proximo && proximo.autor === 'usuario') ? proximo.texto : null;
+      perguntasIaHtml += '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
+        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 PERGUNTA IA</div>' +
+        '<div style="white-space:pre-wrap;font-size:13px;margin-bottom:8px">' + t.texto + '</div>' +
+        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px;margin-top:10px">👤 RESPOSTA USUÁRIO</div>' +
+        '<div style="white-space:pre-wrap;font-size:13px;' + (respostaUsuario ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (respostaUsuario || '— aguardando sua resposta —') + '</div>' +
+        '</div>';
+    } else {
+      var respostaIa = (proximo && proximo.autor === 'ia') ? proximo.texto : null;
+      perguntasUsuarioHtml += '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
+        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">👤 PERGUNTA USUÁRIO</div>' +
+        '<div style="white-space:pre-wrap;font-size:13px;margin-bottom:8px">' + t.texto + '</div>' +
+        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px;margin-top:10px">🤖 RESPOSTA IA</div>' +
+        '<div style="white-space:pre-wrap;font-size:13px;' + (respostaIa ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (respostaIa || '— aguardando resposta da IA —') + '</div>' +
+        '</div>';
+    }
+  }
 
   var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' };
 
@@ -1109,18 +1111,27 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '</div>' +
     '</div>' +
     '<div id="diag-modal-status-msg" style="margin-top:8px"></div>' +
-    '<div class="tbl-wrap" style="margin-top:14px"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
+
+    '<div class="tmu" style="font-weight:700;margin-top:16px;margin-bottom:8px">📊 Histórico das Campanhas</div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
       (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados.</td></tr>') +
     '</tbody></table></div>' +
-    (analiseInicial ? '<div style="margin-top:16px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-      '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 Análise da IA</div>' +
+
+    (analiseInicial ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">🤖 Análise da IA</div>' +
+      '<div style="padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       '<div style="white-space:pre-wrap;font-size:13px">' + analiseInicial.texto + '</div></div>' : '') +
-    (d.acoes_finais ? '<div class="rec-box" style="margin-top:10px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
-    (respostas.length ? '<div style="margin-top:16px"><div class="tmu" style="font-weight:700;margin-bottom:8px">💬 Conversa</div>' + conversaHtml + '</div>' : '') +
-    '<div style="margin-top:14px"><label>Sua réplica (realimenta a IA)</label><textarea id="diag-resposta" style="width:100%;min-height:70px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
-    '<div style="margin-top:10px;display:flex;gap:10px;justify-content:flex-end">' +
+
+    (perguntasIaHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">❓ Perguntas IA</div>' + perguntasIaHtml : '') +
+
+    (perguntasUsuarioHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">💬 Perguntas Usuários</div>' + perguntasUsuarioHtml : '') +
+
+    '<div style="margin-top:20px"><label style="font-weight:700">Novas Perguntas Usuários</label><textarea id="diag-resposta" style="width:100%;min-height:70px;margin-top:6px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
+
+    (d.acoes_finais ? '<div class="rec-box" style="margin-top:20px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
+
+    '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()">Fechar</button>' +
-      '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ')">Enviar réplica</button>' +
+      '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ',\'' + filtroAtual + '\')">Enviar Perguntas/Respostas</button>' +
     '</div>' +
     '</div>'
   );
@@ -1128,9 +1139,6 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
 // Reprocessa o diagnóstico (tabela + Análise da IA + Ações Finais) com o
 // status escolhido dentro do modal, sem precisar voltar para a tela principal.
-// Recebe só valores primitivos (containerId, tipo, mesReferencia) — mesmo
-// padrão usado em todos os outros botões onclick do sistema, sem depender
-// de addEventListener/closures sobre o objeto de diagnóstico inteiro.
 async function mktAplicarFiltroDiagnostico(containerId, tipo, mesReferencia, novoFiltro) {
   var msgEl = document.getElementById('diag-modal-status-msg');
   var selectEl = document.getElementById('diag-modal-status-filtro');
@@ -1157,26 +1165,29 @@ function mktAbrirGlossarioFadiga(containerId, diagId) {
     '<div class="modal-box" style="width:520px">' +
     '<h3>📖 Glossário — Fadiga de Criativo</h3>' +
     '<div style="margin-top:12px;font-size:13px;line-height:1.6">' +
+      '<p><b>Histórico das Campanhas</b> — tabela com os números reais do mês analisado, comparados ao benchmark de mercado.</p>' +
       '<p><b>Campanha</b> — nome da campanha analisada, conforme cadastrada no sistema.</p>' +
       '<p><b>Status</b> — se a campanha está Ativa ou Pausada HOJE, na última sincronização com o Meta (não reflete o status durante o mês analisado).</p>' +
-      '<p><b>Frequência</b> — quantas vezes, em média, a mesma pessoa viu o anúncio no mês (Impressões ÷ Alcance). Acima de 3,5 é sinal de saturação de audiência — a pessoa já viu o anúncio demais.</p>' +
-      '<p><b>CTR atual</b> — taxa de cliques do mês analisado (Cliques ÷ Impressões). Comparado ao benchmark saudável de moda (1,8% a 2,9%).</p>' +
-      '<p><b>CTR pico</b> — CTR do primeiro mês em que a campanha teve dado registrado, usado como referência do "melhor momento" do criativo (não temos dado diário, então usamos o primeiro mês como proxy).</p>' +
+      '<p><b>Frequência</b> — quantas vezes, em média, a mesma pessoa viu o anúncio no mês (Impressões ÷ Alcance). Acima de 3,5 é sinal de saturação de audiência.</p>' +
+      '<p><b>CTR atual</b> — taxa de cliques do mês analisado. Comparado ao benchmark saudável de moda (1,8% a 2,9%).</p>' +
+      '<p><b>CTR pico</b> — CTR do primeiro mês em que a campanha teve dado registrado, usado como referência do "melhor momento" do criativo.</p>' +
       '<p><b>Variação</b> — quanto o CTR atual subiu ou caiu em relação ao pico, em %. Queda de 25% ou mais é sinal de fadiga.</p>' +
-      '<p><b>Gasto Real</b> — valor investido nessa campanha, só no mês de referência selecionado.</p>' +
-      '<p><b>Receita Realizada</b> — receita atribuída a essa campanha, no mesmo mês.</p>' +
-      '<p><b>ROAS</b> — Receita Realizada ÷ Gasto Real, do mês. "—" quando não houve investimento no mês.</p>' +
-      '<p><b>Sinal</b> — resultado final: ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
+      '<p><b>Gasto Real / Receita Realizada / ROAS</b> — números reais do mês de referência.</p>' +
+      '<p><b>Sinal</b> — ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
+      '<p><b>Análise da IA</b> — o diagnóstico inicial, gerado a partir da tabela acima. Sempre reflete a geração mais recente.</p>' +
+      '<p><b>Perguntas IA</b> — perguntas que a IA fez para aprofundar a análise, com a sua resposta logo abaixo (se já respondida).</p>' +
+      '<p><b>Perguntas Usuários</b> — o que você perguntou ou comentou, com a resposta da IA logo abaixo.</p>' +
+      '<p><b>Ações Finais</b> — o plano de ação consolidado, atualizado conforme o histórico de perguntas e respostas evolui.</p>' +
     '</div>' +
     '<div style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn rust" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + diagId + ')">Voltar ao diagnóstico</button></div>' +
     '</div>'
   );
 }
 
-async function mktContinuarDiagnostico(containerId, diagId) {
+async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
   var textarea = document.getElementById('diag-resposta');
   var resposta = textarea.value.trim();
-  if (!resposta) { showToast('Escreva sua réplica antes de enviar.', 'error'); return; }
+  if (!resposta) { showToast('Escreva algo em "Novas Perguntas Usuários" antes de enviar.', 'error'); return; }
   var btn = event.target;
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
@@ -1186,12 +1197,12 @@ async function mktContinuarDiagnostico(containerId, diagId) {
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
-    showToast('Réplica enviada, IA respondeu.');
+    showToast('Enviado, IA respondeu.');
     await montarModuloMktSimulacoes(containerId, { editavel: true });
-    mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
+    mktRenderDiagnosticoModal(containerId, data.diagnostico, filtroAtual || 'todos');
   } catch (err) {
     showToast('Erro: ' + (err.message || err), 'error');
-    btn.disabled = false; btn.textContent = 'Enviar réplica';
+    btn.disabled = false; btn.textContent = 'Enviar Perguntas/Respostas';
   }
 }
 
