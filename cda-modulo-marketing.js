@@ -1261,7 +1261,7 @@ async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'continuar', id: diagId, respostas_usuario: respostasUsuario, nova_pergunta: novaPergunta || null })
+      body: JSON.stringify({ acao: 'continuar', id: diagId, respostas_usuario: respostasUsuario, nova_pergunta: novaPergunta || null, usuario_nome: (typeof cu !== 'undefined' && cu && cu.name) ? cu.name : 'Usuário' })
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
