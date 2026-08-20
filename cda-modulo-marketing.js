@@ -949,6 +949,7 @@ async function montarModuloMktSimulacoes(containerId, opts) {
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
         '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
       '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
+      '<button class="btn" id="diag-btn-deletar" style="border-color:var(--rust,#c0392b);color:var(--rust,#c0392b)">🗑️ Deletar diagnóstico atual</button>' +
     '</div></div>' : '') +
     '<div id="diag-status"></div>' +
     '<div class="tbl-wrap" style="margin-bottom:24px"><table><thead><tr><th>Diagnóstico</th><th>Status</th><th>Última atualização</th></tr></thead><tbody>' +
@@ -967,6 +968,22 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   if (editavel) {
     host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
     host.querySelector('#diag-btn-novo').addEventListener('click', function () { mktGerarDiagnostico(containerId); });
+    host.querySelector('#diag-btn-deletar').addEventListener('click', function () { mktDeletarDiagnostico(containerId); });
+  }
+}
+
+async function mktDeletarDiagnostico(containerId) {
+  var host = document.getElementById(containerId);
+  var tipo = host.querySelector('#diag-tipo').value;
+  var existente = (host._mktDiagState || []).find(function (d) { return d.tipo === tipo; });
+  if (!existente) { showToast('Nenhum diagnóstico desse tipo para deletar.', 'error'); return; }
+  if (!confirm('Tem certeza que quer apagar o diagnóstico "' + existente.titulo + '"? Todo o histórico de perguntas e respostas será perdido. Essa ação não pode ser desfeita.')) return;
+  try {
+    await sb.del('cda_marketing_diagnosticos', existente.id);
+    showToast('Diagnóstico apagado.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+  } catch (err) {
+    showToast('Erro ao apagar: ' + (err.message || err), 'error');
   }
 }
 
