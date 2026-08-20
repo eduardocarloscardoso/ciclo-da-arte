@@ -939,34 +939,24 @@ async function montarModuloMktSimulacoes(containerId, opts) {
       '</tr>';
   }).join('');
 
-  var linhasTipos = tiposDiagnostico.map(function (t) {
-    return '<tr>' +
-      '<td style="white-space:nowrap;font-weight:600">' + t.nome + '</td>' +
-      '<td style="font-size:12px">' + t.objetivo_diagnostico.replace(/\n/g, '<br>') + '</td>' +
-      (editavel ? '<td style="white-space:nowrap"><button class="btn" onclick="mktEditarTipoDiagnostico(\'' + containerId + '\',' + t.id + ')">Editar</button></td>' : '') +
-      '</tr>';
-  }).join('');
-
   var hoje = new Date();
   var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
+  var primeiroTipo = tiposDiagnostico[0];
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">🔬 Diagnósticos</div><div class="sec-d">Análises nomeadas comparando benchmark de mercado com nosso resultado real — com loop de conversa até fechar num plano de ação</div></div></div>' +
 
-    '<div class="tmu" style="font-weight:700;margin-bottom:8px">📋 Tipos de Diagnóstico</div>' +
-    '<div class="tbl-wrap" style="margin-bottom:16px"><table><thead><tr><th>Tipo</th><th>Objetivo do Diagnóstico</th>' +
-      (editavel ? '<th></th>' : '') + '</tr></thead><tbody>' +
-      (linhasTipos || '<tr><td colspan="3" class="tmu">Nenhum tipo cadastrado.</td></tr>') +
-    '</tbody></table></div>' +
-
     (editavel ? '<div class="cc" style="margin-bottom:14px;padding:14px 16px"><div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Tipo de diagnóstico</label>' +
-        '<select id="diag-tipo">' + tiposDiagnostico.map(function (t) { return '<option value="' + t.chave + '">' + t.nome + '</option>'; }).join('') + '</select></div>' +
+        '<select id="diag-tipo" onchange="mktMostrarObjetivoTipo(\'' + containerId + '\')">' + tiposDiagnostico.map(function (t) { return '<option value="' + t.chave + '">' + t.nome + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
         '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
       '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
       '<button class="btn" id="diag-btn-deletar" style="border-color:var(--rust,#c0392b);color:var(--rust,#c0392b)">🗑️ Deletar diagnóstico atual</button>' +
     '</div></div>' : '') +
+
+    '<div id="diag-tipo-objetivo-box" style="margin-bottom:16px"></div>' +
+
     '<div id="diag-status"></div>' +
     '<div class="tbl-wrap" style="margin-bottom:24px"><table><thead><tr><th>Diagnóstico</th><th>Status</th><th>Última atualização</th></tr></thead><tbody>' +
       (linhasDiag || '<tr><td colspan="3" class="tmu">Nenhum diagnóstico gerado ainda.</td></tr>') +
@@ -987,9 +977,29 @@ async function montarModuloMktSimulacoes(containerId, opts) {
     host.querySelector('#diag-btn-novo').addEventListener('click', function () { mktGerarDiagnostico(containerId); });
     host.querySelector('#diag-btn-deletar').addEventListener('click', function () { mktDeletarDiagnostico(containerId); });
   }
+  mktMostrarObjetivoTipo(containerId);
 }
 
-function mktEditarTipoDiagnostico(containerId, tipoId) {
+// Mostra a caixa com o Objetivo do Diagnóstico só do tipo SELECIONADO no
+// filtro — não a lista inteira. Atualiza sozinha quando o filtro muda.
+function mktMostrarObjetivoTipo(containerId) {
+  var host = document.getElementById(containerId);
+  var selectEl = host.querySelector('#diag-tipo');
+  var box = host.querySelector('#diag-tipo-objetivo-box');
+  if (!selectEl || !box) return;
+  var chave = selectEl.value;
+  var t = (host._mktTiposDiagState || []).find(function (x) { return x.chave === chave; });
+  if (!t) { box.innerHTML = ''; return; }
+  box.innerHTML = '<div class="cc" style="padding:14px 16px">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px">' +
+      '<div class="tmu" style="font-weight:700">🎯 Objetivo deste Diagnóstico — ' + t.nome + '</div>' +
+      '<button class="btn" onclick="mktEditarTipoDiagnostico(\'' + containerId + '\',' + t.id + ')" style="font-size:11px">Editar</button>' +
+    '</div>' +
+    '<p style="font-size:13px;margin-top:8px;margin-bottom:0">' + t.objetivo_diagnostico.replace(/\n/g, '<br>') + '</p>' +
+    '</div>';
+}
+
+
   var host = document.getElementById(containerId);
   var t = (host._mktTiposDiagState || []).find(function (x) { return x.id === tipoId; });
   if (!t) return;
