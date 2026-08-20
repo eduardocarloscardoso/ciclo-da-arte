@@ -994,10 +994,10 @@ async function mktGerarDiagnostico(containerId) {
   var btn = host.querySelector('#diag-btn-novo');
   var statusEl = host.querySelector('#diag-status');
   btn.disabled = true; btn.textContent = '⏳ Analisando...';
-  statusEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está analisando o histórico completo e cruzando com benchmark de mercado.</b><br><span class="tmu">Isso leva de 20 a 45 segundos. Não feche esta tela.</span></div>';
+  statusEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está analisando o histórico completo e cruzando com benchmark de mercado.</b><br><span class="tmu">Isso pode levar até 60 segundos. Não feche esta tela.</span></div>';
   var avisoLongo = setTimeout(function () {
     if (statusEl) statusEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — ainda processando...</b><br><span class="tmu">Está demorando um pouco mais que o normal, mas continua rodando. Por favor não feche esta tela.</span></div>';
-  }, 15000);
+  }, 20000);
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1257,7 +1257,7 @@ async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
   var btn = event.target;
   btn.disabled = true; btn.textContent = 'Enviando...';
   var msgEl = document.getElementById('diag-modal-status-msg');
-  if (msgEl) msgEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está processando sua(s) resposta(s)/pergunta(s).</b><br><span class="tmu">Isso leva de 20 a 45 segundos.</span></div>';
+  if (msgEl) msgEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está processando sua(s) resposta(s)/pergunta(s).</b><br><span class="tmu">Isso pode levar até 60 segundos.</span></div>';
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
