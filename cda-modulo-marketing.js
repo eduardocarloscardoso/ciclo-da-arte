@@ -999,7 +999,7 @@ function mktMostrarObjetivoTipo(containerId) {
     '</div>';
 }
 
-
+function mktEditarTipoDiagnostico(containerId, tipoId) {
   var host = document.getElementById(containerId);
   var t = (host._mktTiposDiagState || []).find(function (x) { return x.id === tipoId; });
   if (!t) return;
