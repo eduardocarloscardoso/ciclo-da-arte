@@ -1139,7 +1139,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
     return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       (p.campanha ? '<div class="tmu" style="font-size:10px;margin-bottom:6px">Sobre: <b>' + p.campanha + '</b></div>' : '') +
       '<div style="font-size:13px;margin-bottom:8px">' + p.texto + '</div>' +
-      '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA USUÁRIO</label>' +
+      '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA USUÁRIO' + (p.respondido_por ? ' — ' + p.respondido_por : '') + '</label>' +
       '<textarea data-pergunta-ia-id="' + p.id + '" style="width:100%;min-height:44px;max-height:44px" placeholder="Responda aqui...">' + (p.resposta_usuario || '') + '</textarea>' +
       '</div>';
   }
@@ -1158,7 +1158,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
   var perguntasUsuario = d.perguntas_usuario || [];
   var perguntasUsuarioHtml = perguntasUsuario.map(function (p, idx) {
     return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-      '<div style="font-size:13px;margin-bottom:8px"><b>' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
+      '<div style="font-size:13px;margin-bottom:8px">' + (p.perguntado_por ? '<b>' + p.perguntado_por + '</b> — ' : '') + '<b>Pergunta ' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
       '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA IA</label>' +
       '<div style="white-space:pre-wrap;font-size:13px;' + (p.resposta_ia ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (p.resposta_ia || '— aguardando resposta da IA —') + '</div>' +
       '</div>';
