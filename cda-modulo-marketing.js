@@ -903,13 +903,14 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   if (!host) return;
   host.innerHTML = '<p class="tmu">Carregando simulações...</p>';
 
-  var simulacoes = [], diagnosticos = [];
+  var simulacoes = [], diagnosticos = [], tiposDiagnostico = [];
   try {
     var res = await Promise.all([
       sb.get('cda_marketing_simulacoes', 'select=*&order=criado_em.desc'),
-      sb.get('cda_marketing_diagnosticos', 'select=id,tipo,titulo,status,criado_em,atualizado_em&order=criado_em.desc')
+      sb.get('cda_marketing_diagnosticos', 'select=id,tipo,titulo,status,criado_em,atualizado_em&order=criado_em.desc'),
+      sb.get('cda_marketing_tipos_diagnostico', 'select=*&ativo=eq.true&order=id')
     ]);
-    simulacoes = res[0]; diagnosticos = res[1];
+    simulacoes = res[0]; diagnosticos = res[1]; tiposDiagnostico = res[2];
   } catch (err) {
     host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar: ' + (err.message || err) + '</p>';
     return;
@@ -938,14 +939,29 @@ async function montarModuloMktSimulacoes(containerId, opts) {
       '</tr>';
   }).join('');
 
+  var linhasTipos = tiposDiagnostico.map(function (t) {
+    return '<tr>' +
+      '<td style="white-space:nowrap;font-weight:600">' + t.nome + '</td>' +
+      '<td style="font-size:12px">' + t.objetivo_diagnostico.replace(/\n/g, '<br>') + '</td>' +
+      (editavel ? '<td style="white-space:nowrap"><button class="btn" onclick="mktEditarTipoDiagnostico(\'' + containerId + '\',' + t.id + ')">Editar</button></td>' : '') +
+      '</tr>';
+  }).join('');
+
   var hoje = new Date();
   var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">🔬 Diagnósticos</div><div class="sec-d">Análises nomeadas comparando benchmark de mercado com nosso resultado real — com loop de conversa até fechar num plano de ação</div></div></div>' +
+
+    '<div class="tmu" style="font-weight:700;margin-bottom:8px">📋 Tipos de Diagnóstico</div>' +
+    '<div class="tbl-wrap" style="margin-bottom:16px"><table><thead><tr><th>Tipo</th><th>Objetivo do Diagnóstico</th>' +
+      (editavel ? '<th></th>' : '') + '</tr></thead><tbody>' +
+      (linhasTipos || '<tr><td colspan="3" class="tmu">Nenhum tipo cadastrado.</td></tr>') +
+    '</tbody></table></div>' +
+
     (editavel ? '<div class="cc" style="margin-bottom:14px;padding:14px 16px"><div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Tipo de diagnóstico</label>' +
-        '<select id="diag-tipo"><option value="fadiga_criativo">🎨 Fadiga de Criativo</option></select></div>' +
+        '<select id="diag-tipo">' + tiposDiagnostico.map(function (t) { return '<option value="' + t.chave + '">' + t.nome + '</option>'; }).join('') + '</select></div>' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
         '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
       '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
@@ -965,6 +981,7 @@ async function montarModuloMktSimulacoes(containerId, opts) {
 
   host._mktSimState = simulacoes;
   host._mktDiagState = diagnosticos;
+  host._mktTiposDiagState = tiposDiagnostico;
   if (editavel) {
     host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
     host.querySelector('#diag-btn-novo').addEventListener('click', function () { mktGerarDiagnostico(containerId); });
