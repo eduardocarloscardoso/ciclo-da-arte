@@ -989,6 +989,37 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   }
 }
 
+function mktEditarTipoDiagnostico(containerId, tipoId) {
+  var host = document.getElementById(containerId);
+  var t = (host._mktTiposDiagState || []).find(function (x) { return x.id === tipoId; });
+  if (!t) return;
+  openModal(
+    '<div class="modal-box" style="width:600px">' +
+    '<h3>Editar Tipo de Diagnóstico</h3>' +
+    '<div style="margin-top:14px"><label>Nome (com emoji, ex: 🎨 Fadiga de Criativo)</label><input type="text" id="tipo-nome" value="' + t.nome.replace(/"/g, '&quot;') + '" style="width:100%"></div>' +
+    '<div style="margin-top:14px"><label>Objetivo do Diagnóstico — o raciocínio estratégico por trás do tipo</label><textarea id="tipo-objetivo" style="width:100%;min-height:180px">' + t.objetivo_diagnostico + '</textarea></div>' +
+    '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">' +
+      '<button class="btn" onclick="closeModal()">Cancelar</button>' +
+      '<button class="btn rust" onclick="mktSalvarTipoDiagnostico(\'' + containerId + '\',' + t.id + ')">Salvar</button>' +
+    '</div>' +
+    '</div>'
+  );
+}
+
+async function mktSalvarTipoDiagnostico(containerId, tipoId) {
+  var nome = document.getElementById('tipo-nome').value.trim();
+  var objetivo = document.getElementById('tipo-objetivo').value.trim();
+  if (!nome || !objetivo) { showToast('Preencha nome e objetivo.', 'error'); return; }
+  try {
+    await sb.patch('cda_marketing_tipos_diagnostico', tipoId, { nome: nome, objetivo_diagnostico: objetivo, atualizado_em: new Date().toISOString() });
+    closeModal();
+    showToast('Tipo de diagnóstico atualizado.');
+    await montarModuloMktSimulacoes(containerId, { editavel: true });
+  } catch (err) {
+    showToast('Erro ao salvar: ' + (err.message || err), 'error');
+  }
+}
+
 async function mktDeletarDiagnostico(containerId) {
   var host = document.getElementById(containerId);
   var tipo = host.querySelector('#diag-tipo').value;
