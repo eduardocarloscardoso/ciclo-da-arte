@@ -1148,6 +1148,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 // Reprocessa o diagnóstico (tabela + Análise da IA + Ações Finais) com o
 // status escolhido dentro do modal, sem precisar voltar para a tela principal.
 async function mktAplicarFiltroDiagnostico(containerId, tipo, mesReferencia, novoFiltro) {
+  console.log('mktAplicarFiltroDiagnostico chamado com:', { containerId: containerId, tipo: tipo, mesReferencia: mesReferencia, novoFiltro: novoFiltro });
   var msgEl = document.getElementById('diag-modal-status-msg');
   var selectEl = document.getElementById('diag-modal-status-filtro');
   if (selectEl) selectEl.disabled = true;
