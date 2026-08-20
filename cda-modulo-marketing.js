@@ -1068,33 +1068,24 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
   var thread = d.thread || [];
   var analiseInicial = thread.length ? thread[0] : null;
-  var resto = thread.slice(1); // tudo depois da análise inicial (usuário/IA alternando)
+  var perguntasIa = d.perguntas_ia || [];
+  var perguntasUsuario = d.perguntas_usuario || [];
 
-  // Perguntas IA: cada turno da IA (índice par dentro de "resto"), com a
-  // resposta do usuário sendo o próximo turno, se já existir.
-  var perguntasIaHtml = '';
-  var perguntasUsuarioHtml = '';
-  for (var i = 0; i < resto.length; i++) {
-    var t = resto[i];
-    var proximo = resto[i + 1];
-    if (t.autor === 'ia') {
-      var respostaUsuario = (proximo && proximo.autor === 'usuario') ? proximo.texto : null;
-      perguntasIaHtml += '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">🤖 PERGUNTA IA</div>' +
-        '<div style="white-space:pre-wrap;font-size:13px;margin-bottom:8px">' + t.texto + '</div>' +
-        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px;margin-top:10px">👤 RESPOSTA USUÁRIO</div>' +
-        '<div style="white-space:pre-wrap;font-size:13px;' + (respostaUsuario ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (respostaUsuario || '— aguardando sua resposta —') + '</div>' +
-        '</div>';
-    } else {
-      var respostaIa = (proximo && proximo.autor === 'ia') ? proximo.texto : null;
-      perguntasUsuarioHtml += '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px">👤 PERGUNTA USUÁRIO</div>' +
-        '<div style="white-space:pre-wrap;font-size:13px;margin-bottom:8px">' + t.texto + '</div>' +
-        '<div class="tmu" style="font-size:10px;font-weight:700;margin-bottom:4px;margin-top:10px">🤖 RESPOSTA IA</div>' +
-        '<div style="white-space:pre-wrap;font-size:13px;' + (respostaIa ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (respostaIa || '— aguardando resposta da IA —') + '</div>' +
-        '</div>';
-    }
-  }
+  var perguntasIaHtml = perguntasIa.map(function (p, idx) {
+    return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
+      '<div style="font-size:13px;margin-bottom:8px"><b>' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
+      '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA USUÁRIO</label>' +
+      '<textarea data-pergunta-ia-id="' + p.id + '" style="width:100%;min-height:44px;max-height:44px" placeholder="Responda aqui...">' + (p.resposta_usuario || '') + '</textarea>' +
+      '</div>';
+  }).join('');
+
+  var perguntasUsuarioHtml = perguntasUsuario.map(function (p, idx) {
+    return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
+      '<div style="font-size:13px;margin-bottom:8px"><b>' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
+      '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA IA</label>' +
+      '<div style="white-space:pre-wrap;font-size:13px;' + (p.resposta_ia ? '' : 'color:var(--muted,#888);font-style:italic') + '">' + (p.resposta_ia || '— aguardando resposta da IA —') + '</div>' +
+      '</div>';
+  }).join('');
 
   var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' };
 
