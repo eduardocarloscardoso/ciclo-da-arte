@@ -994,12 +994,16 @@ async function mktGerarDiagnostico(containerId) {
   var btn = host.querySelector('#diag-btn-novo');
   var statusEl = host.querySelector('#diag-status');
   btn.disabled = true; btn.textContent = '⏳ Analisando...';
-  statusEl.innerHTML = '<p class="tmu">Comparando com benchmark de mercado e analisando histórico — pode levar até 40 segundos...</p>';
+  statusEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está analisando o histórico completo e cruzando com benchmark de mercado.</b><br><span class="tmu">Isso leva de 20 a 45 segundos. Não feche esta tela.</span></div>';
+  var avisoLongo = setTimeout(function () {
+    if (statusEl) statusEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — ainda processando...</b><br><span class="tmu">Está demorando um pouco mais que o normal, mas continua rodando. Por favor não feche esta tela.</span></div>';
+  }, 15000);
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: 'todos' })
     });
+    clearTimeout(avisoLongo);
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
     statusEl.innerHTML = '';
@@ -1007,20 +1011,20 @@ async function mktGerarDiagnostico(containerId) {
     await montarModuloMktSimulacoes(containerId, { editavel: true });
     mktRenderDiagnosticoModal(containerId, data.diagnostico, 'todos');
   } catch (err) {
+    clearTimeout(avisoLongo);
     statusEl.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro: ' + (err.message || err) + '</p>';
     btn.disabled = false; btn.textContent = 'Gerar novo diagnóstico';
   }
 }
 
 async function mktAbrirDiagnostico(containerId, diagId) {
-  // Abre RÁPIDO, sem chamar a IA — os dados salvos já refletem o último
-  // filtro aplicado (filtro_aplicado). Só reprocessa quando o usuário
-  // realmente troca o filtro, clica em Enviar Perguntas/Respostas, ou
-  // gera um novo diagnóstico.
+  // Abre RÁPIDO, sem chamar a IA — sempre com "todos" os status. A base é
+  // sempre gerada com todos os status, e o filtro dentro do modal agora é
+  // instantâneo (não chama a IA de novo), então não há custo em abrir assim.
   var rows = await sb.get('cda_marketing_diagnosticos', 'select=*&id=eq.' + diagId);
   var d = rows[0];
   if (!d) return;
-  mktRenderDiagnosticoModal(containerId, d, d.filtro_aplicado || 'todos');
+  mktRenderDiagnosticoModal(containerId, d, 'todos');
 }
 
 // Infere, a partir do nome da campanha + objetivo cadastrado, uma descrição
