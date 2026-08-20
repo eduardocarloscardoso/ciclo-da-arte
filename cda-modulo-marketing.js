@@ -1096,7 +1096,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
     }
   }
 
-  var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' };
+  var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' }; // TESTE
 
   openModal(
     '<div class="modal-box" style="width:860px;max-height:85vh;overflow-y:auto">' +
