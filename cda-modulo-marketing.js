@@ -1039,6 +1039,8 @@ async function mktGerarDiagnostico(containerId) {
   var host = document.getElementById(containerId);
   var tipo = host.querySelector('#diag-tipo').value;
   var mes = host.querySelector('#diag-mes').value;
+  var tipoInfo = (host._mktTiposDiagState || []).find(function (t) { return t.chave === tipo; });
+  var nomeTipo = tipoInfo ? tipoInfo.nome : tipo;
   var btn = host.querySelector('#diag-btn-novo');
   var statusEl = host.querySelector('#diag-status');
   btn.disabled = true; btn.textContent = '⏳ Analisando...';
@@ -1049,7 +1051,7 @@ async function mktGerarDiagnostico(containerId) {
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: 'todos' })
+      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: 'todos', nome_tipo: nomeTipo })
     });
     clearTimeout(avisoLongo);
     var data = await resp.json();
