@@ -1168,24 +1168,23 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '<h3 style="margin:0">' + d.titulo + '</h3>' +
       '<div style="display:flex;gap:8px;align-items:center">' +
         '<label class="tmu" style="font-size:11px">Status:</label>' +
-        '<select id="diag-modal-status-filtro" onchange="mktAplicarFiltroDiagnostico(\'' + containerId + '\',\'' + d.tipo + '\',\'' + d.mes_referencia + '\',this.value)">' +
+        '<select id="diag-modal-status-filtro" onchange="mktMudarFiltroDiagnostico(\'' + containerId + '\',this.value)">' +
           Object.keys(opcoesFiltro).map(function (k) { return '<option value="' + k + '"' + (k === filtroAtual ? ' selected' : '') + '>' + opcoesFiltro[k] + '</option>'; }).join('') +
         '</select>' +
         '<button class="btn" onclick="mktAbrirGlossarioFadiga(\'' + containerId + '\',' + d.id + ')" style="font-size:11px">📖 Glossário</button>' +
       '</div>' +
     '</div>' +
-    '<div id="diag-modal-status-msg" style="margin-top:8px"></div>' +
+
+    (d.resumo ? '<div class="rec-box" style="margin-top:12px"><p style="font-size:13px;margin:0">' + d.resumo + '</p></div>' : '') +
 
     '<div class="tmu" style="font-weight:700;margin-top:16px;margin-bottom:8px">📊 Histórico das Campanhas</div>' +
     '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
-      (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados.</td></tr>') +
+      (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados para esse filtro.</td></tr>') +
     '</tbody></table></div>' +
 
-    (analiseInicial ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">🤖 Análise da IA</div>' +
-      '<div style="padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-      '<div style="white-space:pre-wrap;font-size:13px">' + analiseInicial.texto + '</div></div>' : '') +
+    (analiseHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:4px">🤖 Análise da IA por Campanha</div>' + analiseHtml : '') +
 
-    (perguntasIaHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">❓ Perguntas IA</div>' + perguntasIaHtml : '') +
+    (perguntasIaHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:4px">❓ Perguntas IA</div>' + perguntasIaHtml : '') +
 
     (perguntasUsuarioHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">💬 Perguntas Usuários</div>' + perguntasUsuarioHtml : '') +
 
@@ -1193,6 +1192,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:20px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
 
+    '<div id="diag-modal-status-msg" style="margin-top:10px"></div>' +
     '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()">Fechar</button>' +
       '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ',\'' + filtroAtual + '\')">Enviar Perguntas/Respostas</button>' +
@@ -1201,28 +1201,12 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
   );
 }
 
-// Reprocessa o diagnóstico (tabela + Análise da IA + Ações Finais) com o
-// status escolhido dentro do modal, sem precisar voltar para a tela principal.
-async function mktAplicarFiltroDiagnostico(containerId, tipo, mesReferencia, novoFiltro) {
-  console.log('mktAplicarFiltroDiagnostico chamado com:', { containerId: containerId, tipo: tipo, mesReferencia: mesReferencia, novoFiltro: novoFiltro });
-  var msgEl = document.getElementById('diag-modal-status-msg');
-  var selectEl = document.getElementById('diag-modal-status-filtro');
-  if (selectEl) selectEl.disabled = true;
-  if (msgEl) msgEl.innerHTML = '<p class="tmu">⏳ Reprocessando com o filtro "' + novoFiltro + '" — a IA está analisando de novo, isso leva de 20 a 45 segundos...</p>';
-  try {
-    var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mesReferencia, status_filtro: novoFiltro })
-    });
-    var data = await resp.json();
-    if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido (HTTP ' + resp.status + ')');
-    if (!data.diagnostico) throw new Error('Resposta da IA veio sem o diagnóstico atualizado.');
-    mktRenderDiagnosticoModal(containerId, data.diagnostico, novoFiltro);
-  } catch (err) {
-    console.error('mktAplicarFiltroDiagnostico falhou:', err);
-    if (msgEl) msgEl.innerHTML = '<p style="color:var(--rust,#c0392b)">❌ Erro ao reprocessar: ' + (err.message || err) + ' — veja o console (F12) para detalhes técnicos.</p>';
-    if (selectEl) selectEl.disabled = false;
-  }
+// Troca o filtro DENTRO do modal — instantâneo, sem chamar a IA de novo.
+// O diagnóstico já foi gerado com "todos" por baixo; o filtro só decide
+// o que mostrar (tabela, Análise por campanha, Perguntas IA por campanha).
+function mktMudarFiltroDiagnostico(containerId, novoFiltro) {
+  if (!MKT_DIAG_ATUAL) return;
+  mktRenderDiagnosticoModal(containerId, MKT_DIAG_ATUAL, novoFiltro);
 }
 
 function mktAbrirGlossarioFadiga(containerId, diagId) {
