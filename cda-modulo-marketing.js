@@ -1116,7 +1116,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
     (perguntasUsuarioHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:8px">💬 Perguntas Usuários</div>' + perguntasUsuarioHtml : '') +
 
-    '<div style="margin-top:20px"><label style="font-weight:700">Novas Perguntas Usuários</label><textarea id="diag-resposta" style="width:100%;min-height:70px;margin-top:6px" placeholder="Ex: concordo com a troca de criativo, mas prefiro manter o orçamento atual..."></textarea></div>' +
+    '<div style="margin-top:20px"><label style="font-weight:700">Novas Perguntas Usuários</label><textarea id="diag-nova-pergunta" style="width:100%;min-height:60px;margin-top:6px" placeholder="Escreva uma nova pergunta ou comentário para a IA (opcional)..."></textarea></div>' +
 
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:20px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
 
