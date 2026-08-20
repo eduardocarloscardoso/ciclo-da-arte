@@ -1256,6 +1256,8 @@ async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
 
   var btn = event.target;
   btn.disabled = true; btn.textContent = 'Enviando...';
+  var msgEl = document.getElementById('diag-modal-status-msg');
+  if (msgEl) msgEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está processando sua(s) resposta(s)/pergunta(s).</b><br><span class="tmu">Isso leva de 20 a 45 segundos.</span></div>';
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
