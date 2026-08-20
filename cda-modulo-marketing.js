@@ -1175,16 +1175,29 @@ function mktAbrirGlossarioFadiga(containerId, diagId) {
   );
 }
 
+// Coleta TODAS as respostas preenchidas (uma por caixa "RESPOSTA USUÁRIO") mais a
+// pergunta nova (se houver), e manda tudo numa única chamada à IA — um botão só.
 async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
-  var textarea = document.getElementById('diag-resposta');
-  var resposta = textarea.value.trim();
-  if (!resposta) { showToast('Escreva algo em "Novas Perguntas Usuários" antes de enviar.', 'error'); return; }
+  var textareas = document.querySelectorAll('[data-pergunta-ia-id]');
+  var respostasUsuario = [];
+  textareas.forEach(function (ta) {
+    var v = ta.value.trim();
+    if (v) respostasUsuario.push({ id: Number(ta.getAttribute('data-pergunta-ia-id')), resposta: v });
+  });
+  var novaPerguntaEl = document.getElementById('diag-nova-pergunta');
+  var novaPergunta = novaPerguntaEl ? novaPerguntaEl.value.trim() : '';
+
+  if (!respostasUsuario.length && !novaPergunta) {
+    showToast('Preencha ao menos uma resposta ou escreva uma nova pergunta.', 'error');
+    return;
+  }
+
   var btn = event.target;
   btn.disabled = true; btn.textContent = 'Enviando...';
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'continuar', id: diagId, resposta_usuario: resposta })
+      body: JSON.stringify({ acao: 'continuar', id: diagId, respostas_usuario: respostasUsuario, nova_pergunta: novaPergunta || null })
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
