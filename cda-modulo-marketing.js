@@ -1066,9 +1066,31 @@ function mktTooltipCampanha(l) {
 // visões: "Perguntas IA" (o que a IA perguntou, com a resposta do usuário
 // logo em seguida, se já houver) e "Perguntas Usuários" (o que o usuário
 // perguntou/comentou, com a resposta da IA logo em seguida).
+// Guarda o diagnóstico carregado na memória, para o filtro de status dentro
+// do modal ser INSTANTÂNEO (sem chamar a IA de novo) — já que o diagnóstico
+// sempre é gerado com "todos" por baixo, o filtro só decide o que mostrar.
+var MKT_DIAG_ATUAL = null;
+
+var MKT_ACAO_INFO = {
+  manter: { label: '✅ Manter Ativa', cor: '#3ec97a' },
+  revisar: { label: '⚠️ Revisar Campanha', cor: '#e6a23c' },
+  pausar: { label: '⏸️ Pausar Campanha', cor: '#c0392b' },
+  reativar: { label: '▶️ Reativar Campanha', cor: '#4a9eff' },
+  escalar: { label: '📈 Escalar Orçamento', cor: '#c9943a' }
+};
+
+// filtroAtual: 'todos' | 'ativa' | 'pausada' — controla o que é EXIBIDO
+// (tabela, Análise por campanha, Perguntas IA por campanha). Trocar o filtro
+// é instantâneo: não chama a IA de novo, só filtra o que já está carregado.
+// Perguntas Usuários e perguntas gerais (sem campanha vinculada) sempre
+// aparecem por completo, independente do filtro.
 function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
   filtroAtual = filtroAtual || 'todos';
-  var linhasTabela = (d.tabela_comparativa || []).map(function (l) {
+  MKT_DIAG_ATUAL = d;
+
+  var tabela = d.tabela_comparativa || [];
+  var tabelaFiltrada = filtroAtual === 'todos' ? tabela : tabela.filter(function (l) { return l.status === filtroAtual; });
+  var linhasTabela = tabelaFiltrada.map(function (l) {
     return '<tr>' +
       '<td title="' + mktTooltipCampanha(l).replace(/"/g, '&quot;') + '" style="cursor:help;text-decoration:underline dotted">' + l.campanha + '</td>' +
       '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
@@ -1083,19 +1105,53 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '</tr>';
   }).join('');
 
-  var thread = d.thread || [];
-  var analiseInicial = thread.length ? thread[0] : null;
-  var perguntasIa = d.perguntas_ia || [];
-  var perguntasUsuario = d.perguntas_usuario || [];
+  function cardCampanha(c) {
+    var info = MKT_ACAO_INFO[c.acao_sugerida] || MKT_ACAO_INFO.revisar;
+    return '<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25)">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">' +
+        '<b style="font-size:13px">' + c.campanha + '</b>' +
+        '<span style="font-size:10px;font-weight:700;color:#1a1a1a;background:' + info.cor + ';padding:2px 8px;border-radius:10px;white-space:nowrap">' + info.label + '</span>' +
+      '</div>' +
+      '<div style="font-size:12px;margin-top:6px">' + c.analise + '</div>' +
+      '</div>';
+  }
+  function grupoStatus(titulo, lista) {
+    if (!lista.length) return '';
+    return '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">' + titulo + '</div>' + lista.map(cardCampanha).join('');
+  }
 
-  var perguntasIaHtml = perguntasIa.map(function (p, idx) {
+  var campanhasAnalise = d.campanhas_analise || [];
+  var ativasAn = campanhasAnalise.filter(function (c) { return c.status === 'ativa'; });
+  var pausadasAn = campanhasAnalise.filter(function (c) { return c.status === 'pausada'; });
+  var analiseHtml = '';
+  if (filtroAtual === 'todos' || filtroAtual === 'ativa') analiseHtml += grupoStatus('🟢 Ativa', ativasAn);
+  if (filtroAtual === 'todos' || filtroAtual === 'pausada') analiseHtml += grupoStatus('⏸️ Pausada', pausadasAn);
+
+  var statusPorCampanha = {};
+  campanhasAnalise.forEach(function (c) { statusPorCampanha[c.campanha] = c.status; });
+
+  var perguntasIa = d.perguntas_ia || [];
+  function cardPergunta(p) {
     return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.10);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
-      '<div style="font-size:13px;margin-bottom:8px"><b>' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
+      (p.campanha ? '<div class="tmu" style="font-size:10px;margin-bottom:6px">Sobre: <b>' + p.campanha + '</b></div>' : '') +
+      '<div style="font-size:13px;margin-bottom:8px">' + p.texto + '</div>' +
       '<label style="color:var(--gold2,#f0c060);font-size:10px;font-weight:700;display:block;margin-bottom:4px">RESPOSTA USUÁRIO</label>' +
       '<textarea data-pergunta-ia-id="' + p.id + '" style="width:100%;min-height:44px;max-height:44px" placeholder="Responda aqui...">' + (p.resposta_usuario || '') + '</textarea>' +
       '</div>';
-  }).join('');
+  }
+  var perguntasAtivas = perguntasIa.filter(function (p) { return p.campanha && statusPorCampanha[p.campanha] === 'ativa'; });
+  var perguntasPausadas = perguntasIa.filter(function (p) { return p.campanha && statusPorCampanha[p.campanha] === 'pausada'; });
+  var perguntasGerais = perguntasIa.filter(function (p) { return !p.campanha; });
+  var perguntasIaHtml = '';
+  if (filtroAtual === 'todos' || filtroAtual === 'ativa') {
+    if (perguntasAtivas.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">🟢 Ativa</div>' + perguntasAtivas.map(cardPergunta).join('');
+  }
+  if (filtroAtual === 'todos' || filtroAtual === 'pausada') {
+    if (perguntasPausadas.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">⏸️ Pausada</div>' + perguntasPausadas.map(cardPergunta).join('');
+  }
+  if (perguntasGerais.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">🔎 Perguntas Gerais</div>' + perguntasGerais.map(cardPergunta).join('');
 
+  var perguntasUsuario = d.perguntas_usuario || [];
   var perguntasUsuarioHtml = perguntasUsuario.map(function (p, idx) {
     return '<div style="margin-bottom:14px;padding:12px 14px;border-radius:10px;background:rgba(74,158,255,.18);border:1px solid rgba(74,158,255,.3);border-left:3px solid var(--blue,#4a9eff)">' +
       '<div style="font-size:13px;margin-bottom:8px"><b>' + (idx + 1) + '.</b> ' + p.texto + '</div>' +
