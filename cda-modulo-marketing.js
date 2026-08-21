@@ -907,7 +907,7 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   try {
     var res = await Promise.all([
       sb.get('cda_marketing_simulacoes', 'select=*&order=criado_em.desc'),
-      sb.get('cda_marketing_diagnosticos', 'select=id,tipo,titulo,status,criado_em,atualizado_em&order=criado_em.desc'),
+      sb.get('cda_marketing_diagnosticos', 'select=id,tipo,titulo,status,periodo_solicitado,mes_referencia,criado_em,atualizado_em&order=criado_em.desc'),
       sb.get('cda_marketing_tipos_diagnostico', 'select=*&ativo=eq.true&order=id')
     ]);
     simulacoes = res[0]; diagnosticos = res[1]; tiposDiagnostico = res[2];
@@ -915,6 +915,9 @@ async function montarModuloMktSimulacoes(containerId, opts) {
     host.innerHTML = '<p style="color:var(--rust,#c0392b)">Erro ao carregar: ' + (err.message || err) + '</p>';
     return;
   }
+
+  MKT_TIPOS_CACHE = {};
+  tiposDiagnostico.forEach(function (t) { MKT_TIPOS_CACHE[t.chave] = t; });
 
   var linhas = simulacoes.map(function (s) {
     return '<tr>' +
@@ -931,17 +934,8 @@ async function montarModuloMktSimulacoes(containerId, opts) {
       '</tr>';
   }).join('');
 
-  var linhasDiag = diagnosticos.map(function (d) {
-    return '<tr style="cursor:pointer" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + d.id + ')">' +
-      '<td>' + d.titulo + '</td>' +
-      '<td><span class="badge badge-' + (d.status === 'concluido' ? 'done' : 'pending') + '">' + (d.status === 'concluido' ? 'Concluído' : 'Aberto') + '</span></td>' +
-      '<td>' + mktFmtData(d.atualizado_em) + '</td>' +
-      '</tr>';
-  }).join('');
-
   var hoje = new Date();
   var mesAtualStr = hoje.getFullYear() + '-' + String(hoje.getMonth() + 1).padStart(2, '0');
-  var primeiroTipo = tiposDiagnostico[0];
 
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">🔬 Diagnósticos</div><div class="sec-d">Análises nomeadas comparando benchmark de mercado com nosso resultado real — com loop de conversa até fechar num plano de ação</div></div></div>' +
@@ -949,18 +943,15 @@ async function montarModuloMktSimulacoes(containerId, opts) {
     (editavel ? '<div class="cc" style="margin-bottom:14px;padding:14px 16px"><div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">' +
       '<div><label class="tmu" style="display:block;margin-bottom:4px">Tipo de diagnóstico</label>' +
         '<select id="diag-tipo" onchange="mktMostrarObjetivoTipo(\'' + containerId + '\')">' + tiposDiagnostico.map(function (t) { return '<option value="' + t.chave + '">' + t.nome + '</option>'; }).join('') + '</select></div>' +
-      '<div><label class="tmu" style="display:block;margin-bottom:4px">Mês de referência</label>' +
-        '<input type="month" id="diag-mes" value="' + mesAtualStr + '"></div>' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">Período — de</label><input type="month" id="diag-periodo-de" value="' + mesAtualStr + '"></div>' +
+      '<div><label class="tmu" style="display:block;margin-bottom:4px">até</label><input type="month" id="diag-periodo-ate" value="' + mesAtualStr + '"></div>' +
       '<button class="btn rust" id="diag-btn-novo">Gerar novo diagnóstico</button>' +
-      '<button class="btn" id="diag-btn-deletar" style="border-color:var(--rust,#c0392b);color:var(--rust,#c0392b)">🗑️ Deletar diagnóstico atual</button>' +
     '</div></div>' : '') +
 
     '<div id="diag-tipo-objetivo-box" style="margin-bottom:16px"></div>' +
 
     '<div id="diag-status"></div>' +
-    '<div class="tbl-wrap" style="margin-bottom:24px"><table><thead><tr><th>Diagnóstico</th><th>Status</th><th>Última atualização</th></tr></thead><tbody>' +
-      (linhasDiag || '<tr><td colspan="3" class="tmu">Nenhum diagnóstico gerado ainda.</td></tr>') +
-    '</tbody></table></div>' +
+    '<div id="diag-lista-periodos" style="margin-bottom:24px"></div>' +
 
     '<div class="row-bt"><div><div class="sec-t">🤖 Simulações de Orçamento</div><div class="sec-d">Alocação de orçamento entre canais, sugerida por IA com base no histórico real de performance (últimos 3 meses + acumulado)</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova-sim">+ Nova Simulação</button>' : '') + '</div>' +
@@ -975,13 +966,18 @@ async function montarModuloMktSimulacoes(containerId, opts) {
   if (editavel) {
     host.querySelector('#mkt-btn-nova-sim').addEventListener('click', function () { mktAbrirModalNovaSimulacao(containerId); });
     host.querySelector('#diag-btn-novo').addEventListener('click', function () { mktGerarDiagnostico(containerId); });
-    host.querySelector('#diag-btn-deletar').addEventListener('click', function () { mktDeletarDiagnostico(containerId); });
   }
   mktMostrarObjetivoTipo(containerId);
 }
 
+// Cache dos tipos de diagnóstico carregados (chave -> registro completo, com
+// colunas_tabela/campo_filtro/opcoes_filtro/rotulo_item/rotulo_tabela), usado
+// pelo modal genérico para saber como renderizar cada tipo sem código fixo.
+var MKT_TIPOS_CACHE = {};
+
 // Mostra a caixa com o Objetivo do Diagnóstico só do tipo SELECIONADO no
-// filtro — não a lista inteira. Atualiza sozinha quando o filtro muda.
+// filtro — não a lista inteira. Atualiza sozinha quando o filtro muda, e
+// também recarrega a lista de períodos já gerados para esse tipo.
 function mktMostrarObjetivoTipo(containerId) {
   var host = document.getElementById(containerId);
   var selectEl = host.querySelector('#diag-tipo');
@@ -997,6 +993,42 @@ function mktMostrarObjetivoTipo(containerId) {
     '</div>' +
     '<p style="font-size:13px;margin-top:8px;margin-bottom:0">' + t.objetivo_diagnostico.replace(/\n/g, '<br>') + '</p>' +
     '</div>';
+  mktRenderListaPeriodos(containerId);
+}
+
+// Lista, sob o tipo selecionado no dropdown, todos os diagnósticos já
+// gerados — um registro por período distinto (identidade = tipo + período).
+// O campo de período no topo é sempre para gerar o PRÓXIMO diagnóstico,
+// independente desta lista estar vazia ou não — por isso fica fixo ali,
+// nunca escondido.
+function mktRenderListaPeriodos(containerId) {
+  var host = document.getElementById(containerId);
+  var selectEl = host.querySelector('#diag-tipo');
+  var listaEl = host.querySelector('#diag-lista-periodos');
+  if (!selectEl || !listaEl) return;
+  var chave = selectEl.value;
+  var t = MKT_TIPOS_CACHE[chave];
+  var doTipo = (host._mktDiagState || []).filter(function (d) { return d.tipo === chave; });
+  doTipo.sort(function (a, b) {
+    var ai = a.periodo_solicitado ? a.periodo_solicitado.inicio : (a.mes_referencia || '');
+    var bi = b.periodo_solicitado ? b.periodo_solicitado.inicio : (b.mes_referencia || '');
+    return bi.localeCompare(ai);
+  });
+
+  var linhasHtml = doTipo.map(function (d) {
+    var rotulo = d.periodo_solicitado ? d.periodo_solicitado.rotulo : (d.mes_referencia || '—');
+    return '<tr>' +
+      '<td style="cursor:pointer" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + d.id + ')">' + rotulo + '</td>' +
+      '<td style="cursor:pointer" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + d.id + ')"><span class="badge badge-' + (d.status === 'concluido' ? 'done' : 'pending') + '">' + (d.status === 'concluido' ? 'Concluído' : 'Aberto') + '</span></td>' +
+      '<td style="cursor:pointer" onclick="mktAbrirDiagnostico(\'' + containerId + '\',' + d.id + ')">' + mktFmtData(d.atualizado_em) + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn" onclick="event.stopPropagation();mktDeletarDiagnostico(\'' + containerId + '\',' + d.id + ')" style="border-color:var(--rust,#c0392b);color:var(--rust,#c0392b);font-size:11px">🗑️</button></td>' +
+      '</tr>';
+  }).join('');
+
+  listaEl.innerHTML = '<div class="tmu" style="font-weight:700;margin-bottom:8px">📋 Períodos já gerados' + (t ? ' — ' + t.nome : '') + '</div>' +
+    '<div class="tbl-wrap"><table><thead><tr><th>Período</th><th>Status</th><th>Última atualização</th><th></th></tr></thead><tbody>' +
+    (linhasHtml || '<tr><td colspan="4" class="tmu">Nenhum diagnóstico gerado ainda para este tipo.</td></tr>') +
+    '</tbody></table></div>';
 }
 
 function mktEditarTipoDiagnostico(containerId, tipoId) {
@@ -1030,14 +1062,15 @@ async function mktSalvarTipoDiagnostico(containerId, tipoId) {
   }
 }
 
-async function mktDeletarDiagnostico(containerId) {
+// Apaga um diagnóstico ESPECÍFICO (por id) — não mais "o do tipo atual",
+// já que agora um tipo pode ter vários registros (um por período).
+async function mktDeletarDiagnostico(containerId, diagId) {
   var host = document.getElementById(containerId);
-  var tipo = host.querySelector('#diag-tipo').value;
-  var existente = (host._mktDiagState || []).find(function (d) { return d.tipo === tipo; });
-  if (!existente) { showToast('Nenhum diagnóstico desse tipo para deletar.', 'error'); return; }
+  var existente = (host._mktDiagState || []).find(function (d) { return d.id === diagId; });
+  if (!existente) { showToast('Diagnóstico não encontrado.', 'error'); return; }
   if (!confirm('Tem certeza que quer apagar o diagnóstico "' + existente.titulo + '"? Todo o histórico de perguntas e respostas será perdido. Essa ação não pode ser desfeita.')) return;
   try {
-    await sb.del('cda_marketing_diagnosticos', existente.id);
+    await sb.del('cda_marketing_diagnosticos', diagId);
     showToast('Diagnóstico apagado.');
     await montarModuloMktSimulacoes(containerId, { editavel: true });
   } catch (err) {
@@ -1048,7 +1081,10 @@ async function mktDeletarDiagnostico(containerId) {
 async function mktGerarDiagnostico(containerId) {
   var host = document.getElementById(containerId);
   var tipo = host.querySelector('#diag-tipo').value;
-  var mes = host.querySelector('#diag-mes').value;
+  var de = host.querySelector('#diag-periodo-de').value;
+  var ate = host.querySelector('#diag-periodo-ate').value;
+  if (!de || !ate) { showToast('Preencha o período (de/até).', 'error'); return; }
+  if (de > ate) { showToast('O início do período não pode ser depois do fim.', 'error'); return; }
   var tipoInfo = (host._mktTiposDiagState || []).find(function (t) { return t.chave === tipo; });
   var nomeTipo = tipoInfo ? tipoInfo.nome : tipo;
   var btn = host.querySelector('#diag-btn-novo');
@@ -1061,7 +1097,7 @@ async function mktGerarDiagnostico(containerId) {
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, mes_referencia: mes, status_filtro: 'todos', nome_tipo: nomeTipo })
+      body: JSON.stringify({ acao: 'iniciar', tipo: tipo, periodo_solicitado: { inicio: de, fim: ate }, status_filtro: 'todos', nome_tipo: nomeTipo })
     });
     clearTimeout(avisoLongo);
     var data = await resp.json();
@@ -1100,7 +1136,7 @@ var MKT_OBJETIVO_DESCRITIVO = {
   retargeting: 'Retargeting — reimpacta quem já demonstrou interesse'
 };
 function mktInferirPublicoAlvo(nome) {
-  var n = nome.toUpperCase();
+  var n = (nome || '').toUpperCase();
   if (/RMKT|REMARKETING/.test(n)) return 'Remarketing — pessoas que já visitaram o site, engajaram ou abandonaram carrinho';
   if (/LKL|LOOKALIKE/.test(n)) return 'Lookalike — público semelhante a clientes/compradores existentes';
   if (/FRIO/.test(n)) return 'Público frio — ainda não conhece a marca (topo de funil)';
@@ -1109,67 +1145,66 @@ function mktInferirPublicoAlvo(nome) {
   if (/AMPLO/.test(n)) return 'Público amplo — segmentação aberta, otimização automática da Meta';
   return 'Não identificado pelo nome — verifique a configuração real no Gerenciador de Anúncios';
 }
-function mktTooltipCampanha(l) {
-  var objetivoDesc = l.objetivo ? (MKT_OBJETIVO_DESCRITIVO[l.objetivo] || l.objetivo) : 'não disponível — gere o diagnóstico novamente';
-  var publico = mktInferirPublicoAlvo(l.campanha);
-  var canal = l.canal || 'não vinculado a nenhum canal';
-  var roas = (l.roas_mes !== undefined && l.roas_mes !== null) ? l.roas_mes.toFixed(2) + 'x' : 'não disponível';
-  return 'Campanha: ' + l.campanha +
-    '\nCanal: ' + canal +
-    '\nObjetivo: ' + objetivoDesc +
-    '\nPúblico-alvo (inferido pelo nome): ' + publico +
-    '\nROAS no mês: ' + roas;
+// Tooltip genérico da primeira coluna da tabela — funciona tanto para
+// campanhas (Fadiga de Criativo) quanto para canais (Calendário Anual),
+// mostrando só os campos que fazem sentido para cada linha.
+function mktTooltipItem(l, rotuloItem) {
+  var nome = l.campanha || l.canal || l.item || '';
+  var partes = [(rotuloItem || 'Item') + ': ' + nome];
+  if (l.canal && l.canal !== nome) partes.push('Canal: ' + l.canal);
+  if (l.objetivo) partes.push('Objetivo: ' + (MKT_OBJETIVO_DESCRITIVO[l.objetivo] || l.objetivo));
+  if (l.objetivo) partes.push('Público-alvo (inferido pelo nome): ' + mktInferirPublicoAlvo(nome));
+  if (l.roas_mes !== undefined && l.roas_mes !== null) partes.push('ROAS: ' + l.roas_mes.toFixed(2) + 'x');
+  return partes.join('\n');
 }
 
-// filtroAtual: 'todos' | 'ativa' | 'pausada' — controla o valor selecionado no
-// seletor de status DENTRO do diagnóstico. Trocar esse seletor reprocessa o
-// diagnóstico (tabela + Análise da IA + Ações Finais) com o novo filtro.
+// filtroAtual: chave de opcoes_filtro do tipo (ex: 'todos'|'ativa'|'pausada'
+// para Fadiga de Criativo, 'todos'|'preparacao'|'pico' para Calendário
+// Anual) — controla o que é EXIBIDO (tabela, Análise por item, Perguntas IA
+// por item). Trocar o filtro é instantâneo: não chama a IA de novo, só
+// filtra o que já está carregado. Perguntas Usuários e perguntas gerais
+// (sem item vinculado) sempre aparecem por completo, independente do filtro.
 //
-// Estrutura do thread: thread[0] = Análise da IA inicial (sempre exibida à
-// parte). A partir daí, o histórico alterna usuário/IA e é dividido em duas
-// visões: "Perguntas IA" (o que a IA perguntou, com a resposta do usuário
-// logo em seguida, se já houver) e "Perguntas Usuários" (o que o usuário
-// perguntou/comentou, com a resposta da IA logo em seguida).
-// Guarda o diagnóstico carregado na memória, para o filtro de status dentro
-// do modal ser INSTANTÂNEO (sem chamar a IA de novo) — já que o diagnóstico
-// sempre é gerado com "todos" por baixo, o filtro só decide o que mostrar.
+// Guarda o diagnóstico carregado na memória, para o filtro dentro do modal
+// ser INSTANTÂNEO (sem chamar a IA de novo).
 var MKT_DIAG_ATUAL = null;
 
 var MKT_ACAO_INFO = {
-  manter: { label: '✅ Manter Ativa', cor: '#3ec97a' },
-  revisar: { label: '⚠️ Revisar Campanha', cor: '#e6a23c' },
+  manter: { label: '✅ Manter Ritmo', cor: '#3ec97a' },
+  revisar: { label: '⚠️ Revisar Alocação', cor: '#e6a23c' },
   pausar: { label: '⏸️ Pausar Campanha', cor: '#c0392b' },
   reativar: { label: '▶️ Reativar Campanha', cor: '#4a9eff' },
-  escalar: { label: '📈 Escalar Orçamento', cor: '#c9943a' }
+  escalar: { label: '📈 Escalar Agora', cor: '#c9943a' },
+  proteger_orcamento: { label: '🔒 Proteger Orçamento', cor: '#8e6fce' },
+  aguardar_agenda: { label: '⏳ Aguardar Agenda', cor: '#7a8a99' }
 };
 
-// filtroAtual: 'todos' | 'ativa' | 'pausada' — controla o que é EXIBIDO
-// (tabela, Análise por campanha, Perguntas IA por campanha). Trocar o filtro
-// é instantâneo: não chama a IA de novo, só filtra o que já está carregado.
-// Perguntas Usuários e perguntas gerais (sem campanha vinculada) sempre
-// aparecem por completo, independente do filtro.
+// Modal do diagnóstico — GENÉRICO por tipo: colunas da tabela, rótulo do
+// item (Campanha/Canal), e as opções de filtro/agrupamento vêm de
+// MKT_TIPOS_CACHE[d.tipo] (colunas_tabela, campo_filtro, opcoes_filtro,
+// rotulo_item, rotulo_tabela), configurados em cda_marketing_tipos_diagnostico.
+// Isso permite que um novo tipo de diagnóstico, com uma forma de dado
+// totalmente diferente, reaproveite este mesmo modal sem alterar código.
 function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
   filtroAtual = filtroAtual || 'todos';
   MKT_DIAG_ATUAL = d;
+  var t = MKT_TIPOS_CACHE[d.tipo] || {};
+  var colunas = t.colunas_tabela || [{ chave: 'campanha', titulo: 'Item' }];
+  var opcoesFiltro = t.opcoes_filtro || { todos: 'Todos' };
+  var rotuloItem = t.rotulo_item || 'Item';
+  var rotuloTabela = t.rotulo_tabela || 'Histórico';
 
   var tabela = d.tabela_comparativa || [];
-  var tabelaFiltrada = filtroAtual === 'todos' ? tabela : tabela.filter(function (l) { return l.status === filtroAtual; });
+  var tabelaFiltrada = filtroAtual === 'todos' ? tabela : tabela.filter(function (l) { return l.filtro_valor === filtroAtual; });
   var linhasTabela = tabelaFiltrada.map(function (l) {
-    return '<tr>' +
-      '<td title="' + mktTooltipCampanha(l).replace(/"/g, '&quot;') + '" style="cursor:help;text-decoration:underline dotted">' + l.campanha + '</td>' +
-      '<td>' + (l.status === 'ativa' ? '<span class="badge badge-done">Ativa</span>' : '<span class="badge badge-pending">Pausada</span>') + '</td>' +
-      '<td>' + l.frequencia + ' <span class="tmu">(mercado: ' + l.frequencia_benchmark + ')</span></td>' +
-      '<td>' + l.ctr_atual + '% <span class="tmu">(mercado: ' + l.ctr_benchmark + ')</span></td>' +
-      '<td>' + l.ctr_pico_mes_inicial + '%</td>' +
-      '<td>' + (l.variacao_ctr_pct > 0 ? '+' : '') + l.variacao_ctr_pct + '%</td>' +
-      '<td>' + mktFmtMoeda(l.gasto_real) + '</td>' +
-      '<td>' + mktFmtMoeda(l.receita_real) + '</td>' +
-      '<td>' + (l.roas_mes !== undefined && l.roas_mes !== null ? l.roas_mes.toFixed(2) + 'x' : '—') + '</td>' +
-      '<td>' + (l.sinal_fadiga ? '⚠️ Fadiga' : '✅ OK') + '</td>' +
-      '</tr>';
+    return '<tr>' + colunas.map(function (c, idx) {
+      var v = (l[c.chave] !== undefined && l[c.chave] !== null && l[c.chave] !== '') ? l[c.chave] : '—';
+      if (idx === 0) return '<td title="' + mktTooltipItem(l, rotuloItem).replace(/"/g, '&quot;') + '" style="cursor:help;text-decoration:underline dotted">' + v + '</td>';
+      return '<td>' + v + '</td>';
+    }).join('') + '</tr>';
   }).join('');
 
-  function cardCampanha(c) {
+  function cardItem(c) {
     var info = MKT_ACAO_INFO[c.acao_sugerida] || MKT_ACAO_INFO.revisar;
     return '<div style="margin-bottom:10px;padding:10px 12px;border-radius:8px;background:rgba(74,158,255,.08);border:1px solid rgba(74,158,255,.25)">' +
       '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">' +
@@ -1179,20 +1214,24 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '<div style="font-size:12px;margin-top:6px">' + c.analise + '</div>' +
       '</div>';
   }
-  function grupoStatus(titulo, lista) {
+  function grupoFiltro(titulo, lista) {
     if (!lista.length) return '';
-    return '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">' + titulo + '</div>' + lista.map(cardCampanha).join('');
+    return '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">' + titulo + '</div>' + lista.map(cardItem).join('');
   }
 
   var campanhasAnalise = d.campanhas_analise || [];
-  var ativasAn = campanhasAnalise.filter(function (c) { return c.status === 'ativa'; });
-  var pausadasAn = campanhasAnalise.filter(function (c) { return c.status === 'pausada'; });
   var analiseHtml = '';
-  if (filtroAtual === 'todos' || filtroAtual === 'ativa') analiseHtml += grupoStatus('🟢 Ativa', ativasAn);
-  if (filtroAtual === 'todos' || filtroAtual === 'pausada') analiseHtml += grupoStatus('⏸️ Pausada', pausadasAn);
+  Object.keys(opcoesFiltro).forEach(function (chaveOpcao) {
+    if (chaveOpcao === 'todos') return;
+    if (filtroAtual !== 'todos' && filtroAtual !== chaveOpcao) return;
+    var lista = campanhasAnalise.filter(function (c) { return c.filtro_valor === chaveOpcao; });
+    analiseHtml += grupoFiltro(opcoesFiltro[chaveOpcao], lista);
+  });
+  var semGrupo = campanhasAnalise.filter(function (c) { return !c.filtro_valor || !opcoesFiltro[c.filtro_valor]; });
+  if (semGrupo.length && filtroAtual === 'todos') analiseHtml += grupoFiltro('📋 ' + rotuloItem, semGrupo);
 
-  var statusPorCampanha = {};
-  campanhasAnalise.forEach(function (c) { statusPorCampanha[c.campanha] = c.status; });
+  var statusPorItem = {};
+  campanhasAnalise.forEach(function (c) { statusPorItem[c.campanha] = c.filtro_valor; });
 
   var perguntasIa = d.perguntas_ia || [];
   function cardPergunta(p) {
@@ -1203,16 +1242,14 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '<textarea data-pergunta-ia-id="' + p.id + '" style="width:100%;min-height:44px;max-height:44px" placeholder="Responda aqui...">' + (p.resposta_usuario || '') + '</textarea>' +
       '</div>';
   }
-  var perguntasAtivas = perguntasIa.filter(function (p) { return p.campanha && statusPorCampanha[p.campanha] === 'ativa'; });
-  var perguntasPausadas = perguntasIa.filter(function (p) { return p.campanha && statusPorCampanha[p.campanha] === 'pausada'; });
-  var perguntasGerais = perguntasIa.filter(function (p) { return !p.campanha; });
   var perguntasIaHtml = '';
-  if (filtroAtual === 'todos' || filtroAtual === 'ativa') {
-    if (perguntasAtivas.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">🟢 Ativa</div>' + perguntasAtivas.map(cardPergunta).join('');
-  }
-  if (filtroAtual === 'todos' || filtroAtual === 'pausada') {
-    if (perguntasPausadas.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">⏸️ Pausada</div>' + perguntasPausadas.map(cardPergunta).join('');
-  }
+  Object.keys(opcoesFiltro).forEach(function (chaveOpcao) {
+    if (chaveOpcao === 'todos') return;
+    if (filtroAtual !== 'todos' && filtroAtual !== chaveOpcao) return;
+    var lista = perguntasIa.filter(function (p) { return p.campanha && statusPorItem[p.campanha] === chaveOpcao; });
+    if (lista.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">' + opcoesFiltro[chaveOpcao] + '</div>' + lista.map(cardPergunta).join('');
+  });
+  var perguntasGerais = perguntasIa.filter(function (p) { return !p.campanha; });
   if (perguntasGerais.length) perguntasIaHtml += '<div class="tmu" style="font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px">🔎 Perguntas Gerais</div>' + perguntasGerais.map(cardPergunta).join('');
 
   var perguntasUsuario = d.perguntas_usuario || [];
@@ -1224,14 +1261,12 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
       '</div>';
   }).join('');
 
-  var opcoesFiltro = { todos: 'Todos', ativa: 'Só Ativas', pausada: 'Só Pausadas' };
-
   openModal(
     '<div class="modal-box" style="width:860px;max-height:85vh;overflow-y:auto">' +
     '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">' +
       '<h3 style="margin:0">' + d.titulo + '</h3>' +
       '<div style="display:flex;gap:8px;align-items:center">' +
-        '<label class="tmu" style="font-size:11px">Status:</label>' +
+        '<label class="tmu" style="font-size:11px">Filtro:</label>' +
         '<select id="diag-modal-status-filtro" onchange="mktMudarFiltroDiagnostico(\'' + containerId + '\',this.value)">' +
           Object.keys(opcoesFiltro).map(function (k) { return '<option value="' + k + '"' + (k === filtroAtual ? ' selected' : '') + '>' + opcoesFiltro[k] + '</option>'; }).join('') +
         '</select>' +
@@ -1241,12 +1276,12 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
     (d.resumo ? '<div class="rec-box" style="margin-top:12px"><p style="font-size:13px;margin:0">' + d.resumo + '</p></div>' : '') +
 
-    '<div class="tmu" style="font-weight:700;margin-top:16px;margin-bottom:8px">📊 Histórico das Campanhas</div>' +
-    '<div class="tbl-wrap"><table><thead><tr><th>Campanha</th><th>Status</th><th>Frequência</th><th>CTR atual</th><th>CTR pico</th><th>Variação</th><th>Gasto Real</th><th>Receita Realizada</th><th>ROAS</th><th>Sinal</th></tr></thead><tbody>' +
-      (linhasTabela || '<tr><td colspan="10" class="tmu">Sem dados para esse filtro.</td></tr>') +
+    '<div class="tmu" style="font-weight:700;margin-top:16px;margin-bottom:8px">📊 ' + rotuloTabela + '</div>' +
+    '<div class="tbl-wrap"><table><thead><tr>' + colunas.map(function (c) { return '<th>' + c.titulo + '</th>'; }).join('') + '</tr></thead><tbody>' +
+      (linhasTabela || '<tr><td colspan="' + colunas.length + '" class="tmu">Sem dados para esse filtro.</td></tr>') +
     '</tbody></table></div>' +
 
-    (analiseHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:4px">🤖 Análise da IA por Campanha</div>' + analiseHtml : '') +
+    (analiseHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:4px">🤖 Análise da IA por ' + rotuloItem + '</div>' + analiseHtml : '') +
 
     (perguntasIaHtml ? '<div class="tmu" style="font-weight:700;margin-top:20px;margin-bottom:4px">❓ Perguntas IA</div>' + perguntasIaHtml : '') +
 
@@ -1257,8 +1292,9 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
     (d.acoes_finais ? '<div class="rec-box" style="margin-top:20px"><div class="rec-title">✅ Ações Finais</div><p style="white-space:pre-wrap;font-size:13px">' + d.acoes_finais + '</p></div>' : '') +
 
     '<div id="diag-modal-status-msg" style="margin-top:10px"></div>' +
-    '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end">' +
+    '<div style="margin-top:16px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">' +
       '<button class="btn" onclick="closeModal()">Fechar</button>' +
+      (d.periodo_solicitado ? '<button class="btn" onclick="mktGerarSimulacaoDeDiagnostico(\'' + containerId + '\',' + d.id + ')">📊 Gerar Simulação — ' + d.periodo_solicitado.rotulo + '</button>' : '') +
       '<button class="btn rust" onclick="mktContinuarDiagnostico(\'' + containerId + '\',' + d.id + ',\'' + filtroAtual + '\')">Enviar Perguntas/Respostas</button>' +
     '</div>' +
     '</div>'
@@ -1267,7 +1303,7 @@ function mktRenderDiagnosticoModal(containerId, d, filtroAtual) {
 
 // Troca o filtro DENTRO do modal — instantâneo, sem chamar a IA de novo.
 // O diagnóstico já foi gerado com "todos" por baixo; o filtro só decide
-// o que mostrar (tabela, Análise por campanha, Perguntas IA por campanha).
+// o que mostrar (tabela, Análise por item, Perguntas IA por item).
 function mktMudarFiltroDiagnostico(containerId, novoFiltro) {
   if (!MKT_DIAG_ATUAL) return;
   mktRenderDiagnosticoModal(containerId, MKT_DIAG_ATUAL, novoFiltro);
@@ -1276,17 +1312,11 @@ function mktMudarFiltroDiagnostico(containerId, novoFiltro) {
 function mktAbrirGlossarioFadiga(containerId, diagId) {
   openModal(
     '<div class="modal-box" style="width:520px">' +
-    '<h3>📖 Glossário — Fadiga de Criativo</h3>' +
+    '<h3>📖 Glossário</h3>' +
     '<div style="margin-top:12px;font-size:13px;line-height:1.6">' +
-      '<p><b>Histórico das Campanhas</b> — tabela com os números reais do mês analisado, comparados ao benchmark de mercado.</p>' +
-      '<p><b>Campanha</b> — nome da campanha analisada, conforme cadastrada no sistema.</p>' +
-      '<p><b>Status</b> — se a campanha está Ativa ou Pausada HOJE, na última sincronização com o Meta (não reflete o status durante o mês analisado).</p>' +
-      '<p><b>Frequência</b> — quantas vezes, em média, a mesma pessoa viu o anúncio no mês (Impressões ÷ Alcance). Acima de 3,5 é sinal de saturação de audiência.</p>' +
-      '<p><b>CTR atual</b> — taxa de cliques do mês analisado. Comparado ao benchmark saudável de moda (1,8% a 2,9%).</p>' +
-      '<p><b>CTR pico</b> — CTR do primeiro mês em que a campanha teve dado registrado, usado como referência do "melhor momento" do criativo.</p>' +
-      '<p><b>Variação</b> — quanto o CTR atual subiu ou caiu em relação ao pico, em %. Queda de 25% ou mais é sinal de fadiga.</p>' +
-      '<p><b>Gasto Real / Receita Realizada / ROAS</b> — números reais do mês de referência.</p>' +
-      '<p><b>Sinal</b> — ⚠️ Fadiga se Frequência > 3,5 OU Variação ≤ -25%; ✅ OK caso contrário.</p>' +
+      '<p><b>Histórico</b> — tabela com os números reais do período analisado, comparados ao benchmark de mercado (ou ano anterior, quando aplicável).</p>' +
+      '<p><b>Filtro</b> — agrupa os itens conforme o critério do tipo de diagnóstico (status de campanha, fase do período, etc.).</p>' +
+      '<p><b>Sinal / Variação</b> — quando presentes: indicam desgaste de criativo (Fadiga) ou variação de receita ano-a-ano (Calendário Anual).</p>' +
       '<p><b>Análise da IA</b> — o diagnóstico inicial, gerado a partir da tabela acima. Sempre reflete a geração mais recente.</p>' +
       '<p><b>Perguntas IA</b> — perguntas que a IA fez para aprofundar a análise, com a sua resposta logo abaixo (se já respondida).</p>' +
       '<p><b>Perguntas Usuários</b> — o que você perguntou ou comentou, com a resposta da IA logo abaixo.</p>' +
@@ -1336,20 +1366,21 @@ async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
 
 function mktAbrirModalNovaSimulacao(containerId, refazerDe) {
   var s = refazerDe || null;
+  var temId = !!(s && s.id);
   openModal(
-    '<div class="modal-box"><h3>' + (s ? 'Refazer Simulação' : 'Nova Simulação de Alocação') + '</h3>' +
+    '<div class="modal-box"><h3>' + (temId ? 'Refazer Simulação' : 'Nova Simulação de Alocação') + '</h3>' +
     '<p class="tmu" style="margin-bottom:12px">A IA vai analisar o histórico real de performance por canal (últimos 3 meses + acumulado) e sugerir como distribuir o orçamento informado.' +
-      (s ? ' Isso vai <b>substituir</b> a alocação e a análise atuais desta simulação — a IA roda de novo com base nos dados mais recentes.' : '') + '</p>' +
-    '<div><label>Nome da simulação</label><input type="text" id="sf-nome" value="' + (s ? s.nome.replace(/"/g, '&quot;') : '') + '" placeholder="ex: Orçamento Setembro 2026" style="width:100%"></div>' +
+      (temId ? ' Isso vai <b>substituir</b> a alocação e a análise atuais desta simulação — a IA roda de novo com base nos dados mais recentes.' : '') + '</p>' +
+    '<div><label>Nome da simulação</label><input type="text" id="sf-nome" value="' + (s && s.nome ? s.nome.replace(/"/g, '&quot;') : '') + '" placeholder="ex: Orçamento Setembro 2026" style="width:100%"></div>' +
     '<div style="margin-top:10px;display:flex;gap:8px">' +
-      '<div style="flex:1"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="sf-orcamento" value="' + (s ? s.orcamento_total : '') + '" style="width:100%"></div>' +
+      '<div style="flex:1"><label>Orçamento total (R$)</label><input type="number" step="0.01" id="sf-orcamento" value="' + (s && s.orcamento_total != null ? s.orcamento_total : '') + '" style="width:100%"></div>' +
       '<div style="flex:1"><label>Período</label><input type="text" id="sf-periodo" value="' + (s && s.periodo ? s.periodo.replace(/"/g, '&quot;') : '') + '" placeholder="ex: Setembro/2026" style="width:100%"></div>' +
     '</div>' +
     '<div style="margin-top:10px"><label>Contexto adicional (opcional)</label><textarea id="sf-descricao" style="width:100%;min-height:60px" placeholder="ex: temos show da Luedji Luna dia 15, lançamento de coleção do Gilsons no fim do mês...">' + (s && s.descricao ? s.descricao : '') + '</textarea></div>' +
     '<div id="sf-status" style="margin-top:12px;font-size:12px;color:var(--muted,#888)"></div>' +
     '<div style="margin-top:20px;display:flex;gap:10px;justify-content:flex-end">' +
       '<button class="btn" onclick="closeModal()" id="sf-btn-cancelar">Cancelar</button>' +
-      '<button class="btn rust" onclick="mktGerarSimulacao(\'' + containerId + '\'' + (s ? ',' + s.id : '') + ')" id="sf-btn-gerar">' + (s ? 'Refazer com IA' : 'Gerar com IA') + '</button>' +
+      '<button class="btn rust" onclick="mktGerarSimulacao(\'' + containerId + '\'' + (temId ? ',' + s.id : '') + ')" id="sf-btn-gerar">' + (temId ? 'Refazer com IA' : 'Gerar com IA') + '</button>' +
     '</div></div>'
   );
 }
@@ -1358,6 +1389,24 @@ function mktRefazerSimulacao(containerId, simId) {
   var host = document.getElementById(containerId);
   var s = (host._mktSimState || []).find(function (x) { return x.id === simId; });
   if (s) mktAbrirModalNovaSimulacao(containerId, s);
+}
+
+// Pré-preenche o modal de Nova Simulação com nome/período do diagnóstico e um
+// resumo das ações sugeridas por item como "contexto adicional" — a IA de
+// simulação (simular-marketing) usa esse texto livre para embasar a alocação.
+// O usuário sempre revisa e ajusta antes de confirmar (nenhum valor em R$ é
+// decidido automaticamente pelo diagnóstico).
+function mktGerarSimulacaoDeDiagnostico(containerId, diagId) {
+  var d = MKT_DIAG_ATUAL;
+  if (!d || d.id !== diagId) return;
+  var rotulo = d.periodo_solicitado ? d.periodo_solicitado.rotulo : (d.mes_referencia || '');
+  var contexto = 'Baseado no diagnóstico "' + d.titulo + '":\n' + (d.acoes_finais || '') + '\n\nSugestões por item:\n' +
+    (d.campanhas_analise || []).map(function (c) {
+      var info = MKT_ACAO_INFO[c.acao_sugerida];
+      return '- ' + c.campanha + ': ' + (info ? info.label : c.acao_sugerida) + ' — ' + c.analise;
+    }).join('\n');
+  closeModal();
+  mktAbrirModalNovaSimulacao(containerId, { nome: d.titulo, periodo: rotulo, descricao: contexto, orcamento_total: null });
 }
 
 async function mktGerarSimulacao(containerId, simId) {
@@ -1450,4 +1499,3 @@ function mktVerSimulacaoObj(containerId, s) {
 
 // A entrada do submódulo Tutorial usa a função já existente montarModuloTutorial(containerId,{modulo:'marketing'})
 // definida em cda-modulo-tutorial.js — não precisa de código próprio aqui.
-
