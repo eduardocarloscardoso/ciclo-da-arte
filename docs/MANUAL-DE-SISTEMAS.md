@@ -161,7 +161,35 @@ a tag `modulos` — sem ela o filtro quebra (`.indexOf` em `undefined`).**
   Tutorial adicionado a todos os módulos como último submódulo; correção do
   bug de nome de produto no Pipeline; correção do bug de coluna `situacao`
   inexistente; Tutorial in-app tornado multi-módulo (Comercial + Financeiro
-  compartilhando o mesmo mecanismo, seções tageadas por `modulos`).
+  compartilhando o mesmo mecanismo, seções tageadas por `modulos`); Prestação
+  por Período (consolidação multi-mês) adicionada em `financeiro.html`; duas
+  Edge Functions de leitura/patch do GitHub criadas para permitir que sessões
+  futuras leiam e editem o repositório sem depender do usuário informar nomes
+  de arquivo (`github-listar-arquivos`, `patch-github`).
+
+## 8. Prestação por Período (consolidação multi-mês) — ago/2026
+
+Funções em `financeiro.html`: `abrirModalPeriodo()` → `gerarPrestacaoPeriodo(cvId,
+mesIni, mesFim)` → `renderizarPeriodoPDF(d)`. Botão "📅 Prestação por Período"
+na tela de Prestações (`rPrestList`).
+
+- **Não persiste nada no banco** — é 100% derivado das prestações mensais já
+  gravadas em `prestacoes`, filtradas por `cv_id` (= parceiro_id/Collab).
+- **Nunca confia cegamente no `saldo_anterior` gravado** — esse campo só é
+  recalculado quando alguém abre a tela daquele mês (`verPrest`), então meses
+  importados/nunca abertos podem estar com o valor desatualizado. A função
+  recalcula a cadeia inteira (todos os meses do collab, não só o período
+  pedido) replicando a fórmula de `calcSaldoAnterior`: `saldoMensal = com +
+  saldoAnterior`, encadeando mês a mês e zerando sempre que um mês tiver
+  pagamento registrado (`dt_pgto` + `vl_pgto` != 0).
+- **Comissão Mensal Final Devida = saldoMensal + outros_descontos** — mas
+  `outros_descontos` NÃO entra na cadeia que propaga para o mês seguinte
+  (só afeta o total daquele mês específico).
+- **Saldo Final do Período** = a Comissão Mensal Final Devida do último mês
+  do período (0 se esse último mês já tiver sido pago).
+- Tabela "Resumo por Canal" agrupa por Mês Referência + Canal (uma linha por
+  seção de cada mês), com totalizador geral no fim — mesmo padrão pedido para
+  virar futuramente coluna padrão na prestação mensal (ainda não feito).
 
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
