@@ -202,8 +202,9 @@ async function montarModuloPlanejamentoCompras(containerId) {
   host.querySelector('#cdapc-nota').innerHTML =
     '📌 Base de cálculo: apenas vendas a <b>varejo</b> — o canal <b>Private Label</b> (atacado) é sempre excluído. ' +
     'Último dado de venda disponível no sistema: <b>' + fmtDataBR(dataMaisRecente) + '</b>. ' +
-    'O Período Estatístico mede o ritmo atual (Qtd/Valor/Média Mensal) e deve sempre estar dentro do Ano de Exercício informado — a Taxa de Crescimento compara esse período contra o mesmo intervalo de mês/dia, fixado no ano (Ano de Exercício − 1). ' +
-    'O Quadrante + Ano de Exercício definem a âncora da projeção: sempre o mesmo quadrante, no ano (Ano de Exercício − 1) — independente do Período Estatístico filtrado. ' +
+    'O Período Estatístico mede o ritmo atual (Qtd/Valor/Média Mensal) e deve sempre estar dentro do Ano de Exercício informado. ' +
+    '<b>Fórmula do "% Taxa Cresc. Ano Anterior"</b>: [Qtd Total do Período Estatístico (no Ano de Exercício) ÷ Qtd Total do MESMO intervalo de mês/dia, fixado no ano (Ano de Exercício − 1)] − 1 — nunca "1 ano antes do período" cru, sempre baseado no Ano de Exercício, pra não dar errado se o período filtrado cair num ano diferente do exercício. Tipo sem venda no mesmo intervalo do ano anterior usa a taxa geral da empresa (marcado "(geral)" na tela). ' +
+    'O Quadrante + Ano de Exercício definem a âncora da projeção ("Qx Ano Anterior"): sempre o mesmo quadrante, no ano (Ano de Exercício − 1) — independente do Período Estatístico filtrado. ' +
     'O filtro <b>"% Sugerido (simular)"</b> é opcional: vazio, cada tipo usa sua própria Taxa de Crescimento calculada; preenchido, esse % substitui a taxa de <b>todos</b> os tipos na projeção (útil pra simular um cenário só). A coluna "% Taxa Cresc. Ano Anterior" sempre mostra o número real calculado, mesmo simulando.';
 
   function fmtDataBR(iso) { if (!iso) return '—'; var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0]; }
