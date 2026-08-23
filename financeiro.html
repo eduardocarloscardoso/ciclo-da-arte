@@ -1214,7 +1214,85 @@ function calcSaldoAnterior(cvId, cvNome, mes){
   return c.com+(pAnt.saldo_anterior||0);
 }
 
+// ════════════════════════════════════════════════
+// PRESTAÇÃO POR PERÍODO (consolidação de múltiplos meses)
+// ════════════════════════════════════════════════
+function abrirModalPeriodo(){
+  const cvs=getCVS();
+  const prs=DB.g('prestacoes');
+  const cvIds=[...new Set(prs.map(p=>p.cv_id).filter(Boolean))];
+  const opts=cvIds.map(id=>{const cv=cvs.find(x=>x.id==id);return cv?`<option value="${id}">${cv.nome}</option>`:'';}).filter(Boolean).join('');
+  const html=`<div id="modal-periodo-overlay" style="position:fixed;inset:0;background:rgba(13,13,13,.55);z-index:9999;display:flex;align-items:center;justify-content:center">
+    <div style="background:#fff;border-radius:8px;padding:24px;width:360px;max-width:90vw;font-family:inherit">
+      <h3 style="margin:0 0 16px;font-family:'DM Serif Display',serif;color:#1a1410">Prestação por Período</h3>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8a8a8a">Collab / Artista</label>
+      <select id="pp-cv" style="width:100%;padding:8px;margin:4px 0 12px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box"><option value="">Selecione...</option>${opts}</select>
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8a8a8a">Mês Início</label>
+      <input type="month" id="pp-ini" style="width:100%;padding:8px;margin:4px 0 12px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box">
+      <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#8a8a8a">Mês Fim</label>
+      <input type="month" id="pp-fim" style="width:100%;padding:8px;margin:4px 0 16px;border:1px solid #ccc;border-radius:4px;box-sizing:border-box">
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn sm" onclick="document.getElementById('modal-periodo-overlay').remove()">Cancelar</button>
+        <button class="btn sm rust" onclick="confirmarGerarPeriodo()">Gerar</button>
+      </div>
+    </div>
+  </div>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function confirmarGerarPeriodo(){
+  const cvId=document.getElementById('pp-cv').value;
+  const mIni=document.getElementById('pp-ini').value;
+  const mFim=document.getElementById('pp-fim').value;
+  if(!cvId||!mIni||!mFim){toast('Selecione o collab e o período completo.','err');return;}
+  if(mIni>mFim){toast('Mês início deve ser antes do mês fim.','err');return;}
+  document.getElementById('modal-periodo-overlay').remove();
+  gerarPrestacaoPeriodo(cvId,mIni,mFim);
+}
+
+function gerarPrestacaoPeriodo(cvId,mesIni,mesFim){
+  const cvs=getCVS();
+  const cv=cvs.find(x=>x.id==cvId);
+  const cvNome=cv?cv.nome:'';
+  const todas=DB.g('prestacoes').filter(p=>String(p.cv_id)===String(cvId)||p.collab_nome===cvNome).sort((a,b)=>a.mes<b.mes?-1:1);
+  let saldoParaProximo=0;
+  let saldoAberturaPeriodo=null;
+  const linhas=[];
+  todas.forEach(p=>{
+    const c=calcP(p);
+    let saldoAnt;
+    if(p.saldo_editado||(p.saldo_anterior||0)!==0){saldoAnt=p.saldo_anterior||0;}
+    else{saldoAnt=saldoParaProximo;}
+    const saldoMensal=Math.round((c.com+saldoAnt)*100)/100;
+    const outrosDesc=p.outros_descontos||0;
+    const comissaoFinal=Math.round((saldoMensal+outrosDesc)*100)/100;
+    const pago=(p.dt_pgto||'')!==''&&(p.vl_pgto||0)!==0;
+    saldoParaProximo=pago?0:saldoMensal;
+    if(p.mes>=mesIni&&p.mes<=mesFim){
+      if(saldoAberturaPeriodo===null)saldoAberturaPeriodo=saldoAnt;
+      linhas.push({p,c,saldoAnt,saldoMensal,outrosDesc,comissaoFinal,pago});
+    }
+  });
+  if(!linhas.length){toast('Nenhuma prestação encontrada para este collab no período informado.','err');return;}
+  if(saldoAberturaPeriodo===null)saldoAberturaPeriodo=0;
+  let totPecas=0,totVendaBruta=0,totDesconto=0,totComDevida=0,totImposto=0,totFrete=0,totBaseComissao=0;
+  const canaisLinhas=[];
+  linhas.forEach(l=>{
+    totPecas+=l.c.qtde; totDesconto+=l.c.descTotal; totComDevida+=l.c.com; totImposto+=l.c.imp; totFrete+=l.c.frete; totBaseComissao+=l.c.liq;
+    totVendaBruta+=(l.c.subtotal+l.c.frete);
+    l.c.secoes.forEach(s=>{canaisLinhas.push({mes:l.p.mes,canal:s.canal,pecas:s.qtde,vendaBruta:s.subtotal+s.frete,frete:s.frete,imposto:s.imp,baseComissao:s.liq,comissao:s.com});});
+  });
+  const ultima=linhas[linhas.length-1];
+  const saldoFinalPeriodo=ultima.pago?0:ultima.comissaoFinal;
+  const totComissaoFinalPeriodo=linhas.reduce((s,l)=>s+l.comissaoFinal,0);
+  const totPago=linhas.reduce((s,l)=>s+(l.p.vl_pgto||0),0);
+  const statusGeral=linhas.some(l=>(l.p.status_prest||'em_aberto')!=='finalizado')?'Parcial / Em Aberto':'Finalizado';
+  const obsConsolidada=linhas.filter(l=>l.p.obs_mes).map(l=>'['+mesLabel(l.p.mes)+'] '+l.p.obs_mes).join('\n\n')+'\n\n[Consolidação '+mesLabel(mesIni)+' a '+mesLabel(mesFim)+'] Gerado em '+new Date().toLocaleDateString('pt-BR')+'.';
+  renderizarPeriodoPDF({cvNome,mesIni,mesFim,linhas,canaisLinhas,totPecas,totVendaBruta,totDesconto,totComDevida,totImposto,totFrete,totBaseComissao,saldoAberturaPeriodo,saldoFinalPeriodo,totComissaoFinalPeriodo,totPago,statusGeral,obsConsolidada});
+}
+
 function verPrest(id){
+
   var p=DB.g('prestacoes').find(x=>x.id==id);if(!p)return;
   // Sanitizar null → 0 no saldo_anterior
   if(p.saldo_anterior===null||p.saldo_anterior===undefined||isNaN(p.saldo_anterior)){
