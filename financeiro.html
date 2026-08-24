@@ -752,7 +752,10 @@ function avisarErroSync(tabela, error, acao){
   acao = acao || 'salvar';
   console.error('Erro ao '+acao+' '+tabela+':', error);
   var msg = (error && error.message) ? error.message : 'erro desconhecido';
-  toast('⚠ Falha ao '+acao+' "'+tabela+'" no banco — a alteração pode NÃO ter sido gravada! ('+msg+')', 'err');
+  var detalhe = (error && error.code) ? (' [código: '+error.code+']') : '';
+  var textoCompleto = '⚠ Falha ao '+acao+' "'+tabela+'" no banco — a alteração pode NÃO ter sido gravada!\n\nMensagem: '+msg+detalhe+'\n\n(Copie este texto para reportar o erro)';
+  toast('⚠ Falha ao '+acao+' "'+tabela+'" no banco! Veja a caixa de alerta.', 'err');
+  alert(textoCompleto);
 }
 
 const DB={
