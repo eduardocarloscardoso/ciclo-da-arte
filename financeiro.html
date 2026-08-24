@@ -1332,7 +1332,74 @@ function renderizarPeriodoPDF(d){
   else{toast('Habilite pop-ups para gerar a prestação por período.','err');}
 }
 
+function confirmarGerarAnalitico(){
+  const cvId=document.getElementById('pp-cv').value;
+  const mIni=document.getElementById('pp-ini').value;
+  const mFim=document.getElementById('pp-fim').value;
+  if(!cvId||!mIni||!mFim){toast('Selecione o collab e o período completo.','err');return;}
+  if(mIni>mFim){toast('Mês início deve ser antes do mês fim.','err');return;}
+  document.getElementById('modal-periodo-overlay').remove();
+  gerarAnaliticoPeriodo(cvId,mIni,mFim);
+}
+
+function gerarAnaliticoPeriodo(cvId,mesIni,mesFim){
+  const cvs=getCVS();
+  const cv=cvs.find(x=>x.id==cvId);
+  const cvNome=cv?cv.nome:'';
+  const todas=DB.g('prestacoes').filter(p=>String(p.cv_id)===String(cvId)||p.collab_nome===cvNome).sort((a,b)=>a.mes<b.mes?-1:1);
+  let saldoParaProximo=0;
+  let saldoAberturaPeriodo=null;
+  const linhas=[];
+  todas.forEach(p=>{
+    const c=calcP(p);
+    let saldoAnt;
+    if(p.saldo_editado||(p.saldo_anterior||0)!==0){saldoAnt=p.saldo_anterior||0;}
+    else{saldoAnt=saldoParaProximo;}
+    const saldoMensal=Math.round((c.com+saldoAnt)*100)/100;
+    const outrosDesc=p.outros_descontos||0;
+    const pago=(p.dt_pgto||'')!==''&&(p.vl_pgto||0)!==0;
+    saldoParaProximo=pago?0:saldoMensal;
+    if(p.mes>=mesIni&&p.mes<=mesFim){
+      if(saldoAberturaPeriodo===null)saldoAberturaPeriodo=saldoAnt;
+      linhas.push({p,c,saldoAnt,saldoMensal,outrosDesc,pago});
+    }
+  });
+  if(!linhas.length){toast('Nenhuma prestação encontrada para este collab no período informado.','err');return;}
+  if(saldoAberturaPeriodo===null)saldoAberturaPeriodo=0;
+
+  let todosItens=[];
+  linhas.forEach(function(l){todosItens=todosItens.concat(l.p.itens||[]);});
+  const byP={};todosItens.forEach(function(i){if(!byP[i.produto])byP[i.produto]={q:0,t:0};byP[i.produto].q+=i.qtde;byP[i.produto].t+=i.tvenda;});
+  const pArr=Object.entries(byP).sort(function(a,b){return b[1].t-a[1].t;});
+  const mxP=(pArr[0]&&pArr[0][1].t)||1;
+  const bySz={};todosItens.forEach(function(i){const s=(i.var||'').split('·')[0].trim();if(s)bySz[s]=(bySz[s]||0)+i.qtde;});
+  const szA=Object.entries(bySz).sort(function(a,b){return b[1]-a[1];});const mxS=(szA[0]&&szA[0][1])||1;
+  const byCor={};todosItens.forEach(function(i){const pts=(i.var||'').split('·');const cor=pts[pts.length-1]&&pts[pts.length-1].trim();if(cor)byCor[cor]=(byCor[cor]||0)+i.qtde;});
+  const corA=Object.entries(byCor).sort(function(a,b){return b[1]-a[1];});const mxCor=(corA[0]&&corA[0][1])||1;
+
+  let totPecas=0,totVendaBruta=0,totFrete=0,totImposto=0,totOp=0,totCs=0,totBaseComissao=0,totComDevida=0,totOutrosDesc=0;
+  const canaisMap={};
+  linhas.forEach(function(l){
+    totPecas+=l.c.qtde; totFrete+=l.c.frete; totImposto+=l.c.imp; totOp+=l.c.op; totCs+=l.c.cs;
+    totBaseComissao+=l.c.liq; totComDevida+=l.c.com; totOutrosDesc+=l.outrosDesc;
+    totVendaBruta+=l.c.secoes.reduce(function(s,sec){return s+sec.base;},0);
+    l.c.secoes.forEach(function(sec){
+      if(!canaisMap[sec.canal])canaisMap[sec.canal]={qtde:0,base:0,frete:0,imp:0,op:0,cs:0,liq:0,com:0};
+      const cm=canaisMap[sec.canal];
+      cm.qtde+=sec.qtde; cm.base+=sec.base; cm.frete+=sec.freteCalc; cm.imp+=sec.imp; cm.op+=sec.op; cm.cs+=sec.cs; cm.liq+=sec.liq; cm.com+=sec.com;
+    });
+  });
+  const canaisArr=Object.entries(canaisMap);
+  const totDeducoes=Math.round((totFrete+totImposto+totOp+totCs)*100)/100;
+  const saldoComissaoPeriodo=Math.round((saldoAberturaPeriodo+totComDevida)*100)/100;
+  const comissaoFinalPeriodo=Math.round((saldoComissaoPeriodo+totOutrosDesc)*100)/100;
+  const statusGeral=linhas.some(function(l){return (l.p.status_prest||'em_aberto')!=='finalizado';})?'Parcial / Em Aberto':'Finalizado';
+
+  renderizarAnaliticoPDF({cvNome:cvNome,mesIni:mesIni,mesFim:mesFim,linhas:linhas,pArr:pArr,mxP:mxP,szA:szA,mxS:mxS,corA:corA,mxCor:mxCor,canaisArr:canaisArr,totPecas:totPecas,totVendaBruta:totVendaBruta,totFrete:totFrete,totImposto:totImposto,totOp:totOp,totCs:totCs,totBaseComissao:totBaseComissao,totComDevida:totComDevida,totOutrosDesc:totOutrosDesc,totDeducoes:totDeducoes,saldoAberturaPeriodo:saldoAberturaPeriodo,saldoComissaoPeriodo:saldoComissaoPeriodo,comissaoFinalPeriodo:comissaoFinalPeriodo,statusGeral:statusGeral});
+}
+
 function verPrest(id){
+
 
 
   var p=DB.g('prestacoes').find(x=>x.id==id);if(!p)return;
