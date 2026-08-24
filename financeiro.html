@@ -1410,10 +1410,10 @@ function gerarAnaliticoPeriodo(cvId,mesIni,mesFim){
 }
 
 function renderizarAnaliticoPDF(d){
-  function barra(rows,mx){
+  function barra(rows,mx,dinheiro){
     return rows.map(function(r){
       const nome=r[0], val=(typeof r[1]==='object')?r[1].q:r[1];
-      const label=(typeof r[1]==='object')?(r[1].q+'pç · '+R(r[1].t)):(val+' pç');
+      const label=(typeof r[1]==='object')?(r[1].q+'pç · '+R(r[1].t)):(dinheiro?R(val):(val+' pç'));
       return '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px"><span>'+nome+'</span><span>'+label+'</span></div><div style="background:#eee;border-radius:3px;height:8px;overflow:hidden"><div style="height:100%;background:#c9a227;width:'+(val/mx*100).toFixed(1)+'%"></div></div></div>';
     }).join('');
   }
@@ -1472,7 +1472,7 @@ function _montarAnaliticoHtml(x){
     +'<div style="text-align:right"><span style="font-size:11px;font-weight:700;padding:4px 10px;border-radius:12px;background:'+(d.statusGeral==='Finalizado'?'#eafaf0':'#fff7ee')+'">'+d.statusGeral+'</span></div></div>'
     +'<div class="kpi-g">'+x.kpiHtml+'</div>'
     +'<h2>Composição Financeira do Período</h2>'
-    +'<div style="border:1px solid #ddd;border-radius:6px;padding:14px">'+x.barra(x.finRows,x.mxFin)+'</div>'
+    +'<div style="border:1px solid #ddd;border-radius:6px;padding:14px">'+x.barra(x.finRows,x.mxFin,true)+'</div>'
     +'<h2>Resumo por Canal de Venda (Período Inteiro)</h2>'
     +'<table><thead><tr><th>Canal</th><th style="text-align:center">Peças</th><th style="text-align:right">Venda Bruta</th><th style="text-align:right">Frete</th><th style="text-align:right">Imposto</th><th style="text-align:right">Desc. Oper.</th><th style="text-align:right">Desc. Royalties</th><th style="text-align:right">Base Comissão</th><th style="text-align:right">Comissão</th></tr></thead><tbody>'
     +x.canalHtml
