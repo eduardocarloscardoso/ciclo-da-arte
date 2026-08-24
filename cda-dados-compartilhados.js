@@ -475,8 +475,11 @@ async function cdaSalvarCompra(o) {
   return CDA_COMPRA_MAP.fromRow(data);
 }
 async function cdaExcluirCompra(id) {
-  const { error } = await cdaClient.from('compras').delete().eq('id', id);
+  const { data, error } = await cdaClient.from('compras').delete().eq('id', id).select();
   if (error) throw error;
+  if (!data || data.length === 0) {
+    throw new Error('Nenhum registro foi excluído no banco (0 linhas afetadas) — provável bloqueio de permissão. O item continua no histórico.');
+  }
 }
 
 // ── PIPELINE B2C (leads_b2c) ─────────────────────────────────────────
