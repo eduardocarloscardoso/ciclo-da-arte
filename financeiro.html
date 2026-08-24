@@ -712,7 +712,7 @@ function sbDiffSync(key,newArr){
     const toInsert=newArr.filter(r=>!prevKeys.has(keyOf(r))).map(r=>({cliente_id:r.cliente_id,canal_id:r.canal_id}));
     const toDelete=prev.filter(r=>!newKeys.has(keyOf(r)));
     SB_PREV_ROWS.cliente_canais=JSON.parse(JSON.stringify(newArr));
-    if(toInsert.length)sbClient.from('cliente_canal').upsert(toInsert,{onConflict:'cliente_id,canal_id'}).then(({error})=>{if(error)console.error('Erro ao salvar cliente_canais:',error);});
+    if(toInsert.length)sbClient.from('cliente_canal').upsert(toInsert,{onConflict:'cliente_id,canal_id'}).then(({error})=>{if(error)avisarErroSync('cliente_canais',error);});
     toDelete.forEach(r=>{
       sbClient.from('cliente_canal').delete().eq('cliente_id',r.cliente_id).eq('canal_id',r.canal_id).then(({error})=>{if(error)console.error('Erro ao remover cliente_canais:',error);});
     });
@@ -721,7 +721,7 @@ function sbDiffSync(key,newArr){
   const cfg=SB_TABLE_MAP[key];
   if(!cfg)return; // chave sem tabela associada (ex.: seeded/seed_version) — só fica em memória
   if(cfg.single){
-    sbClient.from(cfg.table).upsert(cfg.toRow(newArr)).then(({error})=>{if(error)console.error('Erro ao salvar '+key+':',error);});
+    sbClient.from(cfg.table).upsert(cfg.toRow(newArr)).then(({error})=>{if(error)avisarErroSync(key,error);});
     return;
   }
   if(cfg.isStringArray){
@@ -729,8 +729,8 @@ function sbDiffSync(key,newArr){
     const added=newArr.filter(x=>!prev.includes(x));
     const removed=prev.filter(x=>!newArr.includes(x));
     SB_PREV_ROWS[key]=newArr.slice();
-    if(added.length)sbClient.from(cfg.table).insert(added.map(nome=>({nome}))).then(({error})=>{if(error)console.error('Erro ao salvar '+key+':',error);});
-    if(removed.length)sbClient.from(cfg.table).delete().in('nome',removed).then(({error})=>{if(error)console.error('Erro ao remover '+key+':',error);});
+    if(added.length)sbClient.from(cfg.table).insert(added.map(nome=>({nome}))).then(({error})=>{if(error)avisarErroSync(key,error);});
+    if(removed.length)sbClient.from(cfg.table).delete().in('nome',removed).then(({error})=>{if(error)avisarErroSync(key,error,'remover');});
     return;
   }
   const pk=cfg.pk;
@@ -744,8 +744,15 @@ function sbDiffSync(key,newArr){
   });
   const toDelete=prev.filter(x=>newByPk[x[pk]]===undefined).map(x=>x[pk]);
   SB_PREV_ROWS[key]=JSON.parse(JSON.stringify(newArr));
-  if(toUpsert.length)sbClient.from(cfg.table).upsert(toUpsert).then(({error})=>{if(error)console.error('Erro ao salvar '+key+':',error);});
-  if(toDelete.length)sbClient.from(cfg.table).delete().in(pk,toDelete).then(({error})=>{if(error)console.error('Erro ao remover '+key+':',error);});
+  if(toUpsert.length)sbClient.from(cfg.table).upsert(toUpsert).then(({error})=>{if(error)avisarErroSync(key,error);else toast('Salvo no banco ✔','ok');});
+  if(toDelete.length)sbClient.from(cfg.table).delete().in(pk,toDelete).then(({error})=>{if(error)avisarErroSync(key,error,'remover');});
+}
+
+function avisarErroSync(tabela, error, acao){
+  acao = acao || 'salvar';
+  console.error('Erro ao '+acao+' '+tabela+':', error);
+  var msg = (error && error.message) ? error.message : 'erro desconhecido';
+  toast('⚠ Falha ao '+acao+' "'+tabela+'" no banco — a alteração pode NÃO ter sido gravada! ('+msg+')', 'err');
 }
 
 const DB={
