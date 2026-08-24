@@ -1322,7 +1322,6 @@ function renderizarPeriodoPDF(d){
     +linhasHtml
     +'<tr class="tot-row"><td colspan="2">TOTAL PERÍODO</td><td style="text-align:right">'+d.totPecas+'</td><td style="text-align:right">'+R(d.totVendaBruta)+'</td><td style="text-align:right">'+R(d.totFrete)+'</td><td style="text-align:right">'+R(d.totImposto)+'</td><td style="text-align:right">'+R(d.totBaseComissao)+'</td><td style="text-align:right">'+R(d.totComDevida)+'</td><td></td><td></td></tr></tbody></table>'
     +'<h2>Saldo do Período</h2>'
-    +'<table><tbody><tr><td style="padding:6px 8px;font-size:12px">Saldo Anterior à Abertura do Período</td><td style="padding:6px 8px;font-size:12px;text-align:right;font-weight:700">'+R(d.saldoAberturaPeriodo)+'</td></tr></tbody></table>'
     +'<div class="final"><div>SALDO FINAL DO PERÍODO</div><div class="v">'+R(d.saldoFinalPeriodo)+'</div></div>'
     +'<h2>Observações do Período</h2>'
     +'<div class="obs">'+d.obsConsolidada.replace(/</g,'&lt;')+'</div>'
