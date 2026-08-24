@@ -1476,9 +1476,9 @@ function _montarAnaliticoHtml(x){
     +'<div><h2>Distribuição por Tamanho</h2>'+x.barra(d.szA,d.mxS)+'</div>'
     +'<div><h2>Distribuição por Cor</h2>'+x.barra(d.corA,d.mxCor)+'</div>'
     +'</div>'
-    +'<h2>Pagamentos do Período (Mês a Mês)</h2>'
-    +'<table><thead><tr><th>Mês Ref.</th><th>Status</th><th>Nº NF</th><th>Data Pgto.</th><th style="text-align:right">Valor Pago</th></tr></thead><tbody>'
-    +x.pagtosHtml
+    +'<h2>Observações do Mês (Mês Referência × Observação)</h2>'
+    +'<table><thead><tr><th style="width:110px">Mês Ref.</th><th>Observação</th></tr></thead><tbody>'
+    +d.linhas.map(function(l){return '<tr><td style="padding:8px 10px;font-size:11px;font-weight:700;vertical-align:top;white-space:nowrap">'+mesLabel(l.p.mes)+'</td><td style="padding:8px 10px;font-size:11px;white-space:pre-wrap">'+((l.p.obs_mes||'—').replace(/</g,'&lt;'))+'</td></tr>';}).join('')
     +'</tbody></table>'
     +'<div class="no-print" style="margin-top:24px;text-align:center"><button onclick="window.print()" style="padding:10px 24px;background:#c94a2b;color:#fff;border:none;border-radius:6px;font-weight:700;cursor:pointer">🖨 Imprimir / Salvar PDF</button></div>'
     +'</body></html>';
