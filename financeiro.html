@@ -1938,17 +1938,33 @@ function toNum(v){
 
 function parseRows(rows){
   const hdr=(rows[0]||[]).map(h=>String(h||'').toLowerCase().trim());
+  // Detectar formato Bling "Vendas por Pedido" (cabeçalho nomeado: Canal de Venda,
+  // Produto, Qtd, Valor Unit., Desconto, Frete — formato oficial atual de importação).
+  // Quando "Canal de Venda" vem vazio na planilha (comum nesse relatório do Bling),
+  // usa a coluna "Vendedor" como respaldo para identificar o canal.
+  const iCanalNamed=hdr.findIndex(h=>h==='canal de venda');
+  const iProdNamed=hdr.findIndex(h=>h==='produto');
+  const iQtdNamed=hdr.findIndex(h=>h==='qtd'||h==='qtde');
+  const isBlingPedido=iCanalNamed>=0&&iProdNamed>=0&&iQtdNamed>=0;
   // Detectar formato Bling com col A=Vendedor, col B=VENDEDOR, col C=Produto
-  const isBlingV2=hdr.length>=3&&hdr[0]==='vendedor'&&hdr[1]==='vendedor'&&hdr[2]==='produto';
+  const isBlingV2=!isBlingPedido&&hdr.length>=3&&hdr[0]==='vendedor'&&hdr[1]==='vendedor'&&hdr[2]==='produto';
   // Detectar formato Bling padrão (col A=canal, col B=produto)
-  const isBling=!isBlingV2&&hdr.some(h=>h.includes('qtde faturada')||h.includes('valor faturado')||h.includes('c\u00f3digo')||h.includes('localiza'));
+  const isBling=!isBlingPedido&&!isBlingV2&&hdr.some(h=>h.includes('qtde faturada')||h.includes('valor faturado')||h.includes('c\u00f3digo')||h.includes('localiza'));
   // Índices dinâmicos pelo header
   const _iQtde=hdr.findIndex(h=>h==='qtde'||(h.includes('qtde')&&!h.includes('faturada')));
   const _iPreco=hdr.findIndex(h=>h.includes('pre\u00e7o m\u00e9dio')||h.includes('preco medio'));
   const _iFrete=hdr.findIndex(h=>h.trim()==='frete');
   const _iDesc=hdr.findIndex(h=>h.trim()==='desconto'||(h.includes('desconto')&&!h.includes('casa')));
   let iCanal,iProd,iQtde,iPreco,iFrete,iDesconto;
-  if(isBlingV2){
+  if(isBlingPedido){
+    const iVendedorNamed=hdr.findIndex(h=>h==='vendedor');
+    const temCanalPreenchido=rows.slice(1).some(r=>String((r[iCanalNamed]!=null?r[iCanalNamed]:'')).trim().length>2);
+    iCanal=(temCanalPreenchido||iVendedorNamed<0)?iCanalNamed:iVendedorNamed;
+    iProd=iProdNamed;iQtde=iQtdNamed;
+    iPreco=hdr.findIndex(h=>h.includes('valor unit'));
+    iFrete=hdr.findIndex(h=>h.trim()==='frete');
+    iDesconto=hdr.findIndex(h=>h.trim()==='desconto');
+  } else if(isBlingV2){
     // Formato: Vendedor|VENDEDOR|Produto|Código|Localização|Qtde|Qtde fat|Preço Médio|Valor|Valor fat|Frete|Desconto|Outras|Total
     iCanal=1;iProd=2;iQtde=5;iPreco=7;iFrete=10;iDesconto=11;
   } else if(isBling){
