@@ -1398,7 +1398,46 @@ function gerarAnaliticoPeriodo(cvId,mesIni,mesFim){
   renderizarAnaliticoPDF({cvNome:cvNome,mesIni:mesIni,mesFim:mesFim,linhas:linhas,pArr:pArr,mxP:mxP,szA:szA,mxS:mxS,corA:corA,mxCor:mxCor,canaisArr:canaisArr,totPecas:totPecas,totVendaBruta:totVendaBruta,totFrete:totFrete,totImposto:totImposto,totOp:totOp,totCs:totCs,totBaseComissao:totBaseComissao,totComDevida:totComDevida,totOutrosDesc:totOutrosDesc,totDeducoes:totDeducoes,saldoAberturaPeriodo:saldoAberturaPeriodo,saldoComissaoPeriodo:saldoComissaoPeriodo,comissaoFinalPeriodo:comissaoFinalPeriodo,statusGeral:statusGeral});
 }
 
+function renderizarAnaliticoPDF(d){
+  function barra(rows,mx){
+    return rows.map(function(r){
+      const nome=r[0], val=(typeof r[1]==='object')?r[1].q:r[1];
+      const label=(typeof r[1]==='object')?(r[1].q+'pç · '+R(r[1].t)):(val+' pç');
+      return '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:10px;margin-bottom:2px"><span>'+nome+'</span><span>'+label+'</span></div><div style="background:#eee;border-radius:3px;height:8px;overflow:hidden"><div style="height:100%;background:#c9a227;width:'+(val/mx*100).toFixed(1)+'%"></div></div></div>';
+    }).join('');
+  }
+  const finRows=[['Frete',d.totFrete],['Imposto',d.totImposto],['Desc. Operacional',d.totOp],['Desc. Royalties',d.totCs],['Base Comissão',d.totBaseComissao]];
+  const mxFin=Math.max.apply(null,finRows.map(function(r){return r[1];}).concat([1]));
+  const kpiHtml=''
+    +'<div class="kpi"><div class="l">Peças Vendidas</div><div class="v">'+d.totPecas+'</div><div class="s">unidades</div></div>'
+    +'<div class="kpi" style="border-color:#c9a227"><div class="l">Total Venda Bruta</div><div class="v">'+R(d.totVendaBruta)+'</div><div class="s">(Qtde × Preço − Desc.) + Frete</div></div>'
+    +'<div class="kpi" style="border-color:#8b6fb3"><div class="l">Total Deduções</div><div class="v">'+R(d.totDeducoes)+'</div><div class="s">frete + imposto + descontos</div></div>'
+    +'<div class="kpi"><div class="l">Base Comissão</div><div class="v">'+R(d.totBaseComissao)+'</div><div class="s">Total Venda Bruta − Total Deduções</div></div>'
+    +'<div class="kpi" style="border-color:#4a7c59"><div class="l">Comissão Devida (Período)</div><div class="v">'+R(d.totComDevida)+'</div><div class="s">soma dos meses do período</div></div>'
+    +'<div class="kpi" style="border-color:#c9a227"><div class="l">Saldo Comissão Período Anterior</div><div class="v" style="color:'+(d.saldoAberturaPeriodo<0?'#c94a2b':(d.saldoAberturaPeriodo>0?'#4a7c59':'#1a1410'))+'">'+R(d.saldoAberturaPeriodo)+'</div><div class="s">'+(d.saldoAberturaPeriodo<0?'devedor':(d.saldoAberturaPeriodo>0?'credor':'neutro'))+'</div></div>'
+    +'<div class="kpi" style="border-color:#c94a2b"><div class="l">Saldo Comissão do Período</div><div class="v" style="color:'+(d.saldoComissaoPeriodo>=0?'#4a7c59':'#c94a2b')+';font-weight:900">'+R(d.saldoComissaoPeriodo)+'</div><div class="s">Comissão Devida + Saldo Anterior</div></div>'
+    +'<div class="kpi" style="border-color:#c9a227"><div class="l">Outros Descontos / Acréscimos (Período)</div><div class="v" style="color:'+(d.totOutrosDesc<0?'#c94a2b':(d.totOutrosDesc>0?'#4a7c59':'#1a1410'))+'">'+R(d.totOutrosDesc)+'</div><div class="s">soma dos meses do período</div></div>'
+    +'<div class="kpi final-kpi"><div class="l" style="color:#faf6ef">Comissão Final Devida (Período)</div><div class="v" style="color:'+(d.comissaoFinalPeriodo>=0?'#7ec8a0':'#e08a6a')+';font-weight:900">'+R(d.comissaoFinalPeriodo)+'</div><div class="s" style="color:#aaa">Saldo do Período + Outros Descontos</div></div>';
+
+  const pagtosHtml=d.linhas.map(function(l){
+    return '<tr><td style="padding:6px 8px;font-size:11px">'+mesLabel(l.p.mes)+'</td><td style="padding:6px 8px;font-size:11px">'+(l.p.status_prest||'em_aberto')+'</td><td style="padding:6px 8px;font-size:11px">'+(l.p.nf_collab||'—')+'</td><td style="padding:6px 8px;font-size:11px">'+(l.p.dt_pgto||'—')+'</td><td style="padding:6px 8px;font-size:11px;text-align:right">'+R(l.p.vl_pgto||0)+'</td></tr>';
+  }).join('');
+
+  const canalHtml=d.canaisArr.map(function(e){
+    const nome=e[0], cm=e[1];
+    return '<tr><td style="padding:7px 10px;font-weight:600;border-bottom:1px solid #e0d8cc">'+nome+'</td><td style="padding:7px 6px;text-align:center;border-bottom:1px solid #e0d8cc">'+cm.qtde+'</td><td style="padding:7px 6px;text-align:right;border-bottom:1px solid #e0d8cc">'+N(cm.base)+'</td><td style="padding:7px 6px;text-align:right;color:#c94a2b;border-bottom:1px solid #e0d8cc">'+(cm.frete>0?'−'+N(cm.frete):'—')+'</td><td style="padding:7px 6px;text-align:right;color:#c94a2b;border-bottom:1px solid #e0d8cc">'+(cm.imp>0?'−'+N(cm.imp):'—')+'</td><td style="padding:7px 6px;text-align:right;color:#c94a2b;border-bottom:1px solid #e0d8cc">'+(cm.op>0?'−'+N(cm.op):'—')+'</td><td style="padding:7px 6px;text-align:right;color:#c94a2b;border-bottom:1px solid #e0d8cc">'+(cm.cs>0?'−'+N(cm.cs):'—')+'</td><td style="padding:7px 6px;text-align:right;font-weight:700;border-bottom:1px solid #e0d8cc">'+N(cm.liq)+'</td><td style="padding:7px 6px;text-align:right;color:#4a7c59;font-weight:700;border-bottom:1px solid #e0d8cc">'+N(cm.com)+'</td></tr>';
+  }).join('');
+
+  const itensHtml=d.pArr.map(function(e){
+    const nome=e[0], v=e[1];
+    return '<tr><td style="padding:6px 10px;font-size:11px">'+nome+'</td><td style="padding:6px 10px;font-size:11px;text-align:center">'+v.q+'</td><td style="padding:6px 10px;font-size:11px;text-align:right">'+R(v.t)+'</td><td style="padding:6px 10px;font-size:11px;text-align:right;color:#8a8a8a">'+(v.t/d.totVendaBruta*100).toFixed(1)+'%</td></tr>';
+  }).join('');
+
+  _montarAnaliticoHtml({d:d,kpiHtml:kpiHtml,finRows:finRows,mxFin:mxFin,barra:barra,pagtosHtml:pagtosHtml,canalHtml:canalHtml,itensHtml:itensHtml});
+}
+
 function verPrest(id){
+
 
 
 
