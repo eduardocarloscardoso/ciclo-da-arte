@@ -1985,6 +1985,13 @@ function parseRows(rows){
   } else {
     iCanal=0;iProd=1;iQtde=2;iPreco=3;iFrete=7;iDesconto=5;
   }
+  // Colunas extras (opcionais) usadas para sincronizar o Histórico de Compras
+  // com a mesma planilha da Prestação de Contas — só existem no formato
+  // "Bling Vendas por Pedido", mas a busca por nome funciona em qualquer formato.
+  const iPedidoNamed=hdr.findIndex(h=>h==='nº pedido'||h==='n° pedido'||h==='numero do pedido'||h==='número do pedido');
+  const iClienteNamed=hdr.findIndex(h=>h==='cliente');
+  const iDataNamed=hdr.findIndex(h=>h==='data da venda'||h==='data');
+  const iSituacaoNamed=hdr.findIndex(h=>h==='situação'||h==='situacao');
   const secoes={};
   let canalAtual=null;
   const dataRows=rows.slice(1);
