@@ -2028,7 +2028,16 @@ function parseRows(rows){
     const valorCalc=Math.round(qtde*preco*100)/100;
     const valor=valorCalc>0?valorCalc:toNum(row[8])||toNum(row[6])||0;
     const precoFinal=valor>0&&qtde>0?Math.round(valor/qtde*100)/100:preco;
-    secoes[canalAtual].push({produto:base,var:varStr,qtde,preco:precoFinal,total:valor,desc,tvenda:valor,frete});
+    const numeroPedido=iPedidoNamed>=0?String(row[iPedidoNamed]||'').trim():'';
+    const clienteNome=iClienteNamed>=0?String(row[iClienteNamed]||'').trim():'';
+    const situacaoVal=iSituacaoNamed>=0?String(row[iSituacaoNamed]||'').trim():'';
+    let dataCompraISO='';
+    if(iDataNamed>=0){
+      const dRaw=String(row[iDataNamed]||'').trim();
+      const dm=dRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if(dm)dataCompraISO=dm[3]+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0');
+    }
+    secoes[canalAtual].push({produto:base,var:varStr,qtde,preco:precoFinal,total:valor,desc,tvenda:valor,frete,numero_pedido:numeroPedido,cliente:clienteNome,data_compra:dataCompraISO,situacao:situacaoVal});
   });
   return secoes;
 }
