@@ -184,6 +184,15 @@ async function montarModuloMktCampanhas(containerId, opts) {
     }
   }
 
+  var diasDesdeSinc = ST.ultimaSinc ? Math.floor((new Date() - new Date(ST.ultimaSinc)) / 86400000) : null;
+  var corSinc = (diasDesdeSinc === null || diasDesdeSinc > 2) ? '#c0392b' : '#3ec97a';
+  var textoSinc = ST.ultimaSinc
+    ? '🔄 Sistema atualizado até: ' + mktFmtData(ST.ultimaSinc) + ' às ' + new Date(ST.ultimaSinc).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : '🔄 Sistema nunca sincronizado com o Meta';
+  var tituloSinc = (diasDesdeSinc !== null && diasDesdeSinc > 2)
+    ? 'Última sincronização há ' + diasDesdeSinc + ' dias — os valores de Gasto e Receita podem estar defasados. Rode a sincronização em Integração Meta Ads.'
+    : 'Última sincronização manual com o Meta Ads.';
+
   host.innerHTML =
     '<div class="row-bt"><div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Campanhas de mídia paga (Meta Ads) — vinculadas aos Canais/Collabs existentes</div></div>' +
     (editavel ? '<button class="btn" id="mkt-btn-nova">+ Nova Campanha</button>' : '') + '</div>' +
@@ -197,6 +206,7 @@ async function montarModuloMktCampanhas(containerId, opts) {
           Object.keys(MKT_STATUS).map(function (k) { return '<option value="' + k + '">' + MKT_STATUS[k] + '</option>'; }).join('') +
         '</select></div>' +
         '<label class="tmu" style="display:flex;align-items:center;gap:5px;cursor:pointer;padding-bottom:8px"><input type="checkbox" id="mkt-f-somente-gasto" checked> Só com gasto no mês</label>' +
+        '<span class="tmu" title="' + tituloSinc + '" style="padding-bottom:8px;color:' + corSinc + ';font-weight:600">' + textoSinc + '</span>' +
         '<button class="btn" id="mkt-f-limpar-periodo" style="margin-bottom:2px">Limpar filtros</button>' +
       '</div>' +
       '<details style="margin-top:10px"><summary class="tmu" style="cursor:pointer">Filtro avançado: início da campanha</summary>' +
