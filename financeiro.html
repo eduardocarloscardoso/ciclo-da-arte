@@ -2130,6 +2130,71 @@ function doFile(f){
 }
 
 
+async function sincronizarHistoricoComprasDaImportacao(resumo){
+  try{
+    toast('Sincronizando Histórico de Compras...','ok');
+    const clientesAtuais=await cdaCarregarClientes();
+    const cacheClientes={};
+    clientesAtuais.forEach(function(c){
+      var k=(c.nome||'').trim().toLowerCase();
+      if(k)cacheClientes[k]=c.id;
+    });
+    async function resolverClienteId(nome){
+      var nomeLimpo=(nome||'').trim();
+      if(!nomeLimpo)return null;
+      var k=nomeLimpo.toLowerCase();
+      if(cacheClientes[k])return cacheClientes[k];
+      var novo=await cdaSalvarCliente({nome:nomeLimpo+' - DADOS CADASTRAIS INCOMPLETOS'});
+      cacheClientes[k]=novo.id;
+      return novo.id;
+    }
+    let totalGravados=0,totalErros=0;
+    for(const grupo of resumo){
+      for(const sec of grupo.secoes){
+        for(const item of sec.itens){
+          if(!item.numero_pedido&&!item.cliente){continue;}
+          try{
+            var clienteId=await resolverClienteId(item.cliente);
+            var salvo=await cdaSalvarCompra({
+              clienteId:clienteId,
+              canalId:sec.canal_id,
+              produto:item.produto,
+              variacao:item.var,
+              quantidade:item.qtde,
+              valorUnitario:item.preco,
+              valorBruto:item.tvenda,
+              valorTotal:item.tvenda,
+              desconto:item.desc,
+              frete:item.frete,
+              outrasDespesas:0,
+              situacao:item.situacao||'Atendido',
+              dataCompra:item.data_compra||grupo.mes+'-01',
+              origem:'importado',
+              obs:'Sincronizado automaticamente da importação da Prestação de Contas',
+              numeroPedido:item.numero_pedido
+            });
+            if(salvo&&salvo.id){
+              try{await cdaClient.from('compras').update({prestacao_id:grupo.prestacaoId}).eq('id',salvo.id);}catch(e2){console.error('Erro ao vincular prestacao_id:',e2);}
+            }
+            totalGravados++;
+          }catch(errItem){
+            console.error('Erro ao sincronizar item de compra:',errItem,item);
+            totalErros++;
+          }
+        }
+      }
+    }
+    if(totalErros===0){
+      toast('✔ Histórico de Compras sincronizado: '+totalGravados+' itens gravados.','ok');
+    }else{
+      alert('Histórico de Compras: '+totalGravados+' itens gravados, '+totalErros+' falharam. Veja o console para detalhes.');
+    }
+  }catch(err){
+    console.error(err);
+    alert('Erro ao sincronizar Histórico de Compras — veja o console.');
+  }
+}
+
 function doImport(){
   const mes=document.getElementById('up-mes').value;
   if(!mes){toast('Selecione o mês de referência');return;}
