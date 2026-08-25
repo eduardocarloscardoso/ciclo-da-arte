@@ -2175,6 +2175,7 @@ function doImport(){
   });
 
   let totalPrest=0,totalItens=0;
+  const resumoParaCompras=[];
   Object.entries(porCV).forEach(([cvKey,grupo])=>{
     const cvId=grupo.cvId;
     const cv=cvId?cvs.find(x=>x.id==cvId):null;
@@ -2288,11 +2289,15 @@ function doImport(){
       });
       prs.push(prestacao);
     }
+    resumoParaCompras.push({prestacaoId:prestacao.id,mes:mes,secoes:secoesResolvidas});
     totalPrest++;
     totalItens+=prestacao.itens.length;
   });
 
   DB.s('prestacoes',prs);
+  if(resumoParaCompras.length&&confirm('Deseja também salvar estes itens no Histórico de Compras?')){
+    sincronizarHistoricoComprasDaImportacao(resumoParaCompras);
+  }
   upData=null;upParsed=null;
   const fi3=document.getElementById('fi');if(fi3)fi3.value='';
   document.getElementById('up-prev').style.display='none';
