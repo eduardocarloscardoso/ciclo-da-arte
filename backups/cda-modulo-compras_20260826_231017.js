@@ -39,10 +39,12 @@ async function montarModuloCompras(containerId, opts) {
     '<div class="row-bt">' +
       '<div><div class="sec-t">Histórico de Compras</div><div class="sec-d">Todas as compras registradas, ligadas a Clientes, Produtos e Canais</div></div>' +
       '<div style="display:flex;gap:7px;">' +
+        (editavel ? '<button class="btn" id="cdac-btn-imp">⬆ Importar XLSX</button>' : '') +
         (editavel ? '<button class="btn" id="cdac-btn-exp">⬇ Exportar XLSX</button>' : '') +
         (editavel ? '<button class="btn rust" id="cdac-btn-novo">＋ Nova Compra</button>' : '') +
       '</div>' +
     '</div>' +
+    (editavel ? '<input type="file" id="cdac-file" accept=".xlsx,.xls" style="display:none">' : '') +
     '<div class="fb">' +
       '<select id="cdac-f-canal"><option value="">Todos os canais</option></select>' +
       '<select id="cdac-f-collab"><option value="">Todos os Collabs/Artistas</option></select>' +
@@ -246,9 +248,99 @@ async function montarModuloCompras(containerId, opts) {
   });
 
   // ── CRUD (só quando editavel:true) ──
-  // Importação de compras foi centralizada em Financeiro > Importar
-  // Planilha Bling (ago/2026) — este módulo mantém só edição manual/export.
   if (editavel) {
+    // ── Importar XLSX ──
+    // Aceita o mesmo layout gerado pela Exportação. Casa cada linha por
+    // 'id' (se vier preenchido e já existir → atualiza; senão → cria).
+    // cliente_id/canal_id/produto_id são a fonte de verdade dos vínculos;
+    // se vierem vazios, tenta resolver pelo nome (cliente_nome/canal_nome/
+    // produto_nome) como fallback — útil para planilhas montadas à mão.
+    host.querySelector('#cdac-btn-imp').addEventListener('click', function () { host.querySelector('#cdac-file').click(); });
+    host.querySelector('#cdac-file').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var rd = new FileReader();
+      rd.onload = async function (ev) {
+        try {
+          var wb = XLSX.read(ev.target.result, { type: 'array' });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+          if (!rows.length) { alert('Nenhum dado encontrado na planilha.'); return; }
+          var cv = function (v) { var s = String(v == null ? '' : v).trim(); return (s === 'nan' || s === 'NaN' || s === '<NA>') ? '' : s.replace(/\.0$/, ''); };
+          var num = function (v) { var s = cv(v); if (s === '') return null; var n = parseFloat(String(s).replace(',', '.')); return isNaN(n) ? null : n; };
+          var clientePorNome = {}; ST.clientes.forEach(function (c) { if (c.nome) clientePorNome[c.nome.trim().toLowerCase()] = c.id; });
+          var canalPorNome = {}; ST.canais.forEach(function (c) { if (c.nome) canalPorNome[c.nome.trim().toLowerCase()] = c.id; });
+          var produtoPorNome = {}; ST.produtos.forEach(function (p) { if (p.nome) produtoPorNome[p.nome.trim().toLowerCase()] = p.id; });
+
+          var added = 0, updated = 0, erros = 0, semVinculo = 0, produtosCriados = 0;
+          for (var i = 0; i < rows.length; i++) {
+            var row = rows[i];
+            var idRaw = cv(row['id'] || row['ID']);
+            var existente = idRaw ? ST.compras.find(function (x) { return String(x.id) === idRaw; }) : null;
+
+            var clienteId = cv(row['cliente_id']) || clientePorNome[cv(row['cliente_nome']).toLowerCase()] || '';
+            var canalId = cv(row['canal_id']) || canalPorNome[cv(row['canal_nome']).toLowerCase()] || '';
+            var nomeProdutoRow = cv(row['produto_nome']);
+            var produtoId = cv(row['produto_id']) || produtoPorNome[nomeProdutoRow.toLowerCase()] || '';
+
+            // Produto ainda não existe no catálogo: cria automaticamente,
+            // já classificando o tipo de peça pelo nome (mesma lógica usada
+            // na classificação em massa do catálogo).
+            if (!produtoId && nomeProdutoRow) {
+              try {
+                var canalObjImp = canalId ? canalById[canalId] : null;
+                var tipoAuto = typeof cdaClassificarTipoPeca === 'function' ? cdaClassificarTipoPeca(nomeProdutoRow) : null;
+                var novoProdObj = {
+                  id: '', nome: nomeProdutoRow, tipo: tipoAuto,
+                  canalId: canalId || null, parceiroId: canalObjImp ? canalObjImp.parceiroId : null,
+                  status: 'Ativo'
+                };
+                var salvoProd = await cdaSalvarProduto(novoProdObj);
+                ST.produtos.push(salvoProd);
+                produtoById[salvoProd.id] = salvoProd;
+                produtoPorNome[nomeProdutoRow.toLowerCase()] = salvoProd.id;
+                produtoId = salvoProd.id;
+                produtosCriados++;
+              } catch (eProd) { console.error('Erro ao criar produto automaticamente durante import de compras:', eProd); }
+            }
+
+            var dataCompra = cv(row['data_compra']);
+
+            if (!clienteId || !canalId || !produtoId || !dataCompra) { semVinculo++; continue; }
+
+            var prod = produtoById[produtoId];
+            var o = {
+              id: existente ? existente.id : (idRaw || ''),
+              clienteId: clienteId, canalId: canalId, produtoId: produtoId,
+              produto: prod ? prod.nome : cv(row['produto_nome']),
+              quantidade: parseInt(cv(row['quantidade']), 10) || 1,
+              valorUnitario: num(row['valor_unitario']), valorBruto: num(row['valor_bruto']),
+              valorTotal: num(row['valor_total']), desconto: num(row['desconto']),
+              frete: num(row['frete']), outrasDespesas: num(row['outras_despesas']),
+              situacao: cv(row['situacao']) || null, dataCompra: dataCompra,
+              numeroPedido: cv(row['numero_pedido']), origem: cv(row['origem']) || 'manual',
+              obs: cv(row['obs'])
+            };
+            try {
+              var salvo = await cdaSalvarCompra(o);
+              if (existente) { var idx = ST.compras.findIndex(function (x) { return String(x.id) === String(existente.id); }); ST.compras[idx] = salvo; updated++; }
+              else { ST.compras.push(salvo); added++; }
+            } catch (e2) { erros++; console.error(e2); }
+          }
+          host.querySelector('#cdac-file').value = '';
+          rerenderFromStart();
+          alert('Importação concluída: ' + added + ' adicionadas, ' + updated + ' atualizadas' +
+            (produtosCriados ? ', ' + produtosCriados + ' produto(s) novo(s) criado(s) no catálogo com tipo de peça classificado automaticamente' : '') +
+            (semVinculo ? ', ' + semVinculo + ' ignoradas (sem cliente/canal/produto/data)' : '') +
+            (erros ? ', ' + erros + ' com erro' : '') + '.');
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao importar: ' + err.message);
+        }
+      };
+      rd.readAsArrayBuffer(file);
+    });
+
     var modal = host.querySelector('#cdac-modal');
     function abrirModal(id) {
       ST.editId = id || null;

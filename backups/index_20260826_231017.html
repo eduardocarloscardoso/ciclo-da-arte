@@ -571,7 +571,7 @@ function renderSidebarNav(){
       if(podeVerSubmodulo('financeiro','cvpage'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cvpage'?'active':'')+'" id="nav-crm-cvpage" onclick="navigateCRM(\'cvpage\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">👤</span>Collabs / Vendedores</div>';
       if(podeVerSubmodulo('financeiro','cfgfin'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cfgfin'?'active':'')+'" id="nav-crm-cfgfin" onclick="navigateCRM(\'cfgfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⚙</span>Tipos e Coleções</div>';
       if(podeVerSubmodulo('financeiro','prest'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='prest'?'active':'')+'" id="nav-crm-prest" onclick="navigateCRM(\'prest\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📄</span>Prestação de Contas</div>';
-      if(podeVerSubmodulo('financeiro','upload'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='upload'?'active':'')+'" id="nav-crm-upload" onclick="navigateCRM(\'upload\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⬆</span>Importar Planilha Bling</div>';
+      if(podeVerSubmodulo('financeiro','upload'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='upload'?'active':'')+'" id="nav-crm-upload" onclick="navigateCRM(\'upload\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">⬆</span>Importar Planilha</div>';
       if(podeVerSubmodulo('financeiro','cardapios'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='cardapios'?'active':'')+'" id="nav-crm-cardapios" onclick="navigateCRM(\'cardapios\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📋</span>Cardápios</div>';
       if(podeVerSubmodulo('financeiro','tutorialfin'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tutorialfin'?'active':'')+'" id="nav-crm-tutorialfin" onclick="navigateCRM(\'tutorialfin\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📘</span>Tutorial</div>';
     }
@@ -691,7 +691,7 @@ async function navigateCRM(pageId){
   }
   window._crmPage=pageId;
   renderSidebarNav();
-  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',tutorialfin:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha Bling',cardapios:'Cardápios',planejcompras:'Planejamento de Compras'};
+  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',tutorialfin:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha',cardapios:'Cardápios',planejcompras:'Planejamento de Compras'};
   document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(ESTOQUE_PAGES[pageId]?ESTOQUE_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId));
   var el=document.getElementById('main-content');
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');

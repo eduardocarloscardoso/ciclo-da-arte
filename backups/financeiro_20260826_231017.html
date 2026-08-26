@@ -310,7 +310,7 @@ tr:hover td{background:#faf7f0;}
     <div class="sb-item on" onclick="go(&#39;dash&#39;)"><em>◉</em> Dashboard</div>
     <div class="sb-sec">Financeiro</div>
     <div class="sb-item" onclick="go(&#39;prest&#39;)"><em>📋</em> Prestações de Contas</div>
-    <div class="sb-item" onclick="go(&#39;upload&#39;)"><em>⬆</em> Importar Planilha Bling</div>
+    <div class="sb-item" onclick="go(&#39;upload&#39;)"><em>⬆</em> Importar Planilha</div>
     <div class="sb-item" onclick="go(&#39;cardapios&#39;)"><em>📄</em> Cardápios</div>
     <div class="sb-sec">Cadastros</div>
     <div class="sb-item" onclick="go(&#39;cvpage&#39;)"><em>🎨</em> Collabs / Vendedores</div>
@@ -384,7 +384,7 @@ tr:hover td{background:#faf7f0;}
 
     <!-- UPLOAD -->
     <div class="pg" id="pg-upload">
-      <div class="sec-t">Importar Planilha Bling</div>
+      <div class="sec-t">Importar Planilha</div>
       <div class="sec-d">Envie a planilha mensal de prestação de contas</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
         <div class="fgr"><label>Mês de Referência *</label><input type="month" id="up-mes" value="2026-03"></div>
@@ -1018,7 +1018,7 @@ function calcP(p){
 // ════════════════════════════════════════════════
 // NAVIGATION
 // ════════════════════════════════════════════════
-const TITLES={dash:'Dashboard',prest:'Prestações de Contas',upload:'Importar Planilha Bling',clientes:'Clientes',compras:'Histórico de Compras',produtos:'Produtos',collabs:'Canais de Venda',cvpage:'Collabs / Vendedores',cfg:'Tipos e Coleções',cardapios:'Cardápios'};
+const TITLES={dash:'Dashboard',prest:'Prestações de Contas',upload:'Importar Planilha',clientes:'Clientes',compras:'Histórico de Compras',produtos:'Produtos',collabs:'Canais de Venda',cvpage:'Collabs / Vendedores',cfg:'Tipos e Coleções',cardapios:'Cardápios'};
 function go(p){
   document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
   document.querySelectorAll('.sb-item').forEach(x=>x.classList.remove('on'));
@@ -1956,16 +1956,10 @@ function parseRows(rows){
   const iProdNamed=hdr.findIndex(h=>h==='produto');
   const iQtdNamed=hdr.findIndex(h=>h==='qtd'||h==='qtde');
   const isBlingPedido=iCanalNamed>=0&&iProdNamed>=0&&iQtdNamed>=0;
-  // Detectar formato Bling "Vendas com Cadastro Completo do Cliente" (planilha
-  // trazida a partir de julho/2026) — identificado pela presença de
-  // "nome - contato" + "cpf/cnpj" no header, exclusivos desse formato.
-  const iNomeContatoNamed=hdr.findIndex(h=>h==='nome - contato');
-  const iCpfCnpjNamed=hdr.findIndex(h=>h==='cpf/cnpj');
-  const isBlingCompleto=!isBlingPedido&&iNomeContatoNamed>=0&&iCpfCnpjNamed>=0;
   // Detectar formato Bling com col A=Vendedor, col B=VENDEDOR, col C=Produto
-  const isBlingV2=!isBlingPedido&&!isBlingCompleto&&hdr.length>=3&&hdr[0]==='vendedor'&&hdr[1]==='vendedor'&&hdr[2]==='produto';
+  const isBlingV2=!isBlingPedido&&hdr.length>=3&&hdr[0]==='vendedor'&&hdr[1]==='vendedor'&&hdr[2]==='produto';
   // Detectar formato Bling padrão (col A=canal, col B=produto)
-  const isBling=!isBlingPedido&&!isBlingCompleto&&!isBlingV2&&hdr.some(h=>h.includes('qtde faturada')||h.includes('valor faturado')||h.includes('c\u00f3digo')||h.includes('localiza'));
+  const isBling=!isBlingPedido&&!isBlingV2&&hdr.some(h=>h.includes('qtde faturada')||h.includes('valor faturado')||h.includes('c\u00f3digo')||h.includes('localiza'));
   // Índices dinâmicos pelo header
   const _iQtde=hdr.findIndex(h=>h==='qtde'||(h.includes('qtde')&&!h.includes('faturada')));
   const _iPreco=hdr.findIndex(h=>h.includes('pre\u00e7o m\u00e9dio')||h.includes('preco medio'));
@@ -1980,16 +1974,6 @@ function parseRows(rows){
     iPreco=hdr.findIndex(h=>h.includes('valor unit'));
     iFrete=hdr.findIndex(h=>h.trim()==='frete');
     iDesconto=hdr.findIndex(h=>h.trim()==='desconto');
-  } else if(isBlingCompleto){
-    // Formato: Data|Número do pedido|Nome(canal)|Situação|Primeira compra|
-    // Quantidade|Preço unitário|Desconto proporcional total|Frete proporcional|
-    // Valor total|Descrição(produto)|Nome - Contato|Nome fantasia|...(cadastro)
-    iCanal=hdr.indexOf('nome');
-    iProd=hdr.indexOf('descri\u00e7\u00e3o');
-    iQtde=hdr.indexOf('quantidade');
-    iPreco=hdr.indexOf('pre\u00e7o unit\u00e1rio');
-    iFrete=hdr.indexOf('frete proporcional');
-    iDesconto=hdr.indexOf('desconto proporcional total');
   } else if(isBlingV2){
     // Formato: Vendedor|VENDEDOR|Produto|Código|Localização|Qtde|Qtde fat|Preço Médio|Valor|Valor fat|Frete|Desconto|Outras|Total
     iCanal=1;iProd=2;iQtde=5;iPreco=7;iFrete=10;iDesconto=11;
@@ -2008,25 +1992,6 @@ function parseRows(rows){
   const iClienteNamed=hdr.findIndex(h=>h==='cliente');
   const iDataNamed=hdr.findIndex(h=>h==='data da venda'||h==='data');
   const iSituacaoNamed=hdr.findIndex(h=>h==='situação'||h==='situacao');
-  // Colunas de cadastro do cliente — só existem no formato "Vendas com
-  // Cadastro Completo" (isBlingCompleto). "Situação - Produto" é só
-  // informativa por decisão do CEO (não grava status do produto por ora).
-  const iEmailNamed=hdr.findIndex(h=>h==='email');
-  const iTipoPessoaNamed=hdr.findIndex(h=>h==='tipo da pessoa');
-  const iSexoNamed=hdr.findIndex(h=>h==='sexo');
-  const iNascNamed=hdr.findIndex(h=>h==='data de nascimento');
-  const iCelularNamed=hdr.findIndex(h=>h==='celular');
-  const iFoneNamed=hdr.findIndex(h=>h==='fone');
-  const iEnderecoNamed=hdr.findIndex(h=>h==='endere\u00e7o');
-  const iNumeroEndNamed=hdr.findIndex(h=>h==='n\u00famero');
-  const iComplementoNamed=hdr.findIndex(h=>h==='complemento');
-  const iBairroNamed=hdr.findIndex(h=>h==='bairro');
-  const iCidadeNamed=hdr.findIndex(h=>h==='cidade');
-  const iUfNamed=hdr.findIndex(h=>h==='uf');
-  const iCepNamed=hdr.findIndex(h=>h==='cep');
-  const iRgNamed=hdr.findIndex(h=>h==='rg');
-  const iIeNamed=hdr.findIndex(h=>h==='inscri\u00e7\u00e3o estadual');
-  const iNomeFantasiaNamed=hdr.findIndex(h=>h==='nome fantasia');
   const secoes={};
   let canalAtual=null;
   const dataRows=rows.slice(1);
@@ -2038,13 +2003,6 @@ function parseRows(rows){
     const colProd=String(row[iProd]||'').replace(/\u00a0/g,' ').replace(/[\s]+$/,'').replace(/^[\s]+/,'');
     if(!colCanal&&!colProd)return;
     if(/^totais?$/i.test(colA)||/^totais?$/i.test(colCanal))return;
-
-    // Formato "Vendas com Cadastro Completo": só sobe pro sistema pedidos
-    // com status "Atendido" — Cancelado/Em aberto/Em digitação são ignorados.
-    if(isBlingCompleto){
-      const statusPedido=iSituacaoNamed>=0?String(row[iSituacaoNamed]||'').trim().toLowerCase():'';
-      if(statusPedido!=='atendido')return;
-    }
 
     // Definir canal atual
     if(colCanal&&colCanal.length>2&&colCanal!=='nan'){
@@ -2071,7 +2029,7 @@ function parseRows(rows){
     const valor=valorCalc>0?valorCalc:toNum(row[8])||toNum(row[6])||0;
     const precoFinal=valor>0&&qtde>0?Math.round(valor/qtde*100)/100:preco;
     const numeroPedido=iPedidoNamed>=0?String(row[iPedidoNamed]||'').trim():'';
-    const clienteNome=isBlingCompleto?String(row[iNomeContatoNamed]||'').trim():(iClienteNamed>=0?String(row[iClienteNamed]||'').trim():'');
+    const clienteNome=iClienteNamed>=0?String(row[iClienteNamed]||'').trim():'';
     const situacaoVal=iSituacaoNamed>=0?String(row[iSituacaoNamed]||'').trim():'';
     let dataCompraISO='';
     if(iDataNamed>=0){
@@ -2079,40 +2037,7 @@ function parseRows(rows){
       const dm=dRaw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
       if(dm)dataCompraISO=dm[3]+'-'+dm[2].padStart(2,'0')+'-'+dm[1].padStart(2,'0');
     }
-    // Cadastro completo do cliente (só no formato "Vendas com Cadastro
-    // Completo") — nome/razão social conforme decisão do CEO (ago/2026):
-    // "nome" sempre = Nome-Contato; "razao-social" = Nome-Contato só se PJ;
-    // "nome_fantasia" = Nome fantasia. Estado Civil/Profissão/Naturalidade/
-    // Website são desprezados (sem coluna correspondente no cadastro).
-    let dadosCliente=null;
-    if(isBlingCompleto&&clienteNome){
-      const tipoPessoaRaw=iTipoPessoaNamed>=0?String(row[iTipoPessoaNamed]||'').trim():'';
-      const ehJuridica=/jur\u00eddica/i.test(tipoPessoaRaw);
-      const cpfCnpjVal=String(row[iCpfCnpjNamed]||'').trim();
-      dadosCliente={
-        nome:clienteNome,
-        'razao-social':ehJuridica?clienteNome:'',
-        nome_fantasia:iNomeFantasiaNamed>=0?String(row[iNomeFantasiaNamed]||'').trim():'',
-        email:iEmailNamed>=0?String(row[iEmailNamed]||'').trim():'',
-        cpf:ehJuridica?'':cpfCnpjVal,
-        cnpj:ehJuridica?cpfCnpjVal:'',
-        tipo:ehJuridica?'juridica':(tipoPessoaRaw?'fisica':''),
-        sexo:iSexoNamed>=0?String(row[iSexoNamed]||'').trim():'',
-        'data-nascimento':(iNascNamed>=0?String(row[iNascNamed]||'').trim():'').replace(/^0[0\/]*$/,''),
-        'telefone-celular':iCelularNamed>=0?String(row[iCelularNamed]||'').trim():'',
-        telefone:iFoneNamed>=0?String(row[iFoneNamed]||'').trim():'',
-        endereco:iEnderecoNamed>=0?String(row[iEnderecoNamed]||'').trim():'',
-        numero:iNumeroEndNamed>=0?String(row[iNumeroEndNamed]||'').trim():'',
-        complemento:iComplementoNamed>=0?String(row[iComplementoNamed]||'').trim():'',
-        bairro:iBairroNamed>=0?String(row[iBairroNamed]||'').trim():'',
-        cidade:iCidadeNamed>=0?String(row[iCidadeNamed]||'').trim():'',
-        estado:iUfNamed>=0?String(row[iUfNamed]||'').trim().toUpperCase():'',
-        cep:(iCepNamed>=0?String(row[iCepNamed]||'').trim():'').replace(/^0[0\-]*$/,''),
-        rg:iRgNamed>=0?String(row[iRgNamed]||'').trim():'',
-        ie:iIeNamed>=0?String(row[iIeNamed]||'').trim():''
-      };
-    }
-    secoes[canalAtual].push({produto:base,var:varStr,qtde,preco:precoFinal,total:valor,desc,tvenda:valor,frete,numero_pedido:numeroPedido,cliente:clienteNome,clienteDados:dadosCliente,data_compra:dataCompraISO,situacao:situacaoVal});
+    secoes[canalAtual].push({produto:base,var:varStr,qtde,preco:precoFinal,total:valor,desc,tvenda:valor,frete,numero_pedido:numeroPedido,cliente:clienteNome,data_compra:dataCompraISO,situacao:situacaoVal});
   });
   return secoes;
 }
@@ -2209,44 +2134,19 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
   try{
     toast('Sincronizando Histórico de Compras...','ok');
     const clientesAtuais=await cdaCarregarClientes();
-    const cacheClientesPorNome={};
-    const cacheClientesPorCpf={};
+    const cacheClientes={};
     clientesAtuais.forEach(function(c){
       var k=(c.nome||'').trim().toLowerCase();
-      if(k&&!cacheClientesPorNome[k])cacheClientesPorNome[k]=c;
-      var kcpf=String(c.cpf||c.cnpj||'').replace(/\D/g,'');
-      if(kcpf)cacheClientesPorCpf[kcpf]=c;
+      if(k)cacheClientes[k]=c.id;
     });
-    const jaResolvidoNestaImportacao={};
-    // Resolve o cliente do item: quando a planilha traz cadastro completo
-    // (dados.cpf/cnpj), casa primeiro por CPF/CNPJ — mais confiável que nome
-    // digitado — com fallback por nome; formato antigo (sem CPF) continua
-    // casando só por nome, como sempre funcionou.
-    async function resolverClienteId(item){
-      var nomeLimpo=(item.cliente||'').trim();
+    async function resolverClienteId(nome){
+      var nomeLimpo=(nome||'').trim();
       if(!nomeLimpo)return null;
-      var dados=item.clienteDados;
-      var cpfLimpo=dados&&(dados.cpf||dados.cnpj)?String(dados.cpf||dados.cnpj).replace(/\D/g,''):'';
-      var chaveRun=cpfLimpo||nomeLimpo.toLowerCase();
-      if(jaResolvidoNestaImportacao[chaveRun])return jaResolvidoNestaImportacao[chaveRun];
-      var existente=cpfLimpo?cacheClientesPorCpf[cpfLimpo]:null;
-      if(!existente)existente=cacheClientesPorNome[nomeLimpo.toLowerCase()];
-      var idResolvido;
-      if(dados){
-        var payload=Object.assign({},dados,{id:existente?existente.id:''});
-        var salvo=await cdaSalvarCliente(payload);
-        if(cpfLimpo)cacheClientesPorCpf[cpfLimpo]=salvo;
-        cacheClientesPorNome[nomeLimpo.toLowerCase()]=salvo;
-        idResolvido=salvo.id;
-      }else if(existente){
-        idResolvido=existente.id;
-      }else{
-        var novo=await cdaSalvarCliente({nome:nomeLimpo+' - DADOS CADASTRAIS INCOMPLETOS'});
-        cacheClientesPorNome[nomeLimpo.toLowerCase()]=novo;
-        idResolvido=novo.id;
-      }
-      jaResolvidoNestaImportacao[chaveRun]=idResolvido;
-      return idResolvido;
+      var k=nomeLimpo.toLowerCase();
+      if(cacheClientes[k])return cacheClientes[k];
+      var novo=await cdaSalvarCliente({nome:nomeLimpo+' - DADOS CADASTRAIS INCOMPLETOS'});
+      cacheClientes[k]=novo.id;
+      return novo.id;
     }
     let totalGravados=0,totalErros=0;
     for(const grupo of resumo){
@@ -2254,7 +2154,7 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
         for(const item of sec.itens){
           if(!item.numero_pedido&&!item.cliente){continue;}
           try{
-            var clienteId=await resolverClienteId(item);
+            var clienteId=await resolverClienteId(item.cliente);
             var salvo=await cdaSalvarCompra({
               clienteId:clienteId,
               canalId:sec.canal_id,

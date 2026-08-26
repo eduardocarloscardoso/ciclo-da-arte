@@ -27,7 +27,7 @@ async function montarModuloProdutos(containerId, opts) {
   host.innerHTML =
     '<div class="row-bt">' +
       '<div><div class="sec-t">Produtos</div><div class="sec-d">Catálogo com tipo de peça, coleção, canal e status</div></div>' +
-      (editavel ? '<div style="display:flex;gap:7px;"><button class="btn rust" id="cdap-btn-novo">＋ Novo Produto</button></div>' : '') +
+      (editavel ? '<div style="display:flex;gap:7px;"><button class="btn" id="cdap-btn-imp">⬆ Importar XLSX</button><button class="btn rust" id="cdap-btn-novo">＋ Novo Produto</button></div><input type="file" id="cdap-file" accept=".xlsx,.xls" style="display:none">' : '') +
     '</div>' +
     '<div class="fb">' +
       '<input type="text" id="cdap-f-nome" placeholder="Buscar produto...">' +
@@ -260,8 +260,52 @@ async function montarModuloProdutos(containerId, opts) {
     host.querySelector('#cdap-modal-x').addEventListener('click', fecharModal);
     host.querySelector('#cdap-m-salvar').addEventListener('click', salvar);
 
-    // Importação de produtos foi centralizada em Financeiro > Importar
-    // Planilha Bling (ago/2026) — este módulo mantém só CRUD manual.
+    host.querySelector('#cdap-btn-imp').addEventListener('click', function () { host.querySelector('#cdap-file').click(); });
+    host.querySelector('#cdap-file').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      if (!file) return;
+      var rd = new FileReader();
+      rd.onload = async function (ev) {
+        try {
+          var wb = XLSX.read(ev.target.result, { type: 'array' });
+          var ws = wb.Sheets[wb.SheetNames[0]];
+          var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+          var hdr = rows[0].map(function (h) { return String(h).toLowerCase().trim(); });
+          var ni = hdr.findIndex(function (h) { return h.indexOf('produto') !== -1 || h.indexOf('nome') !== -1; });
+          var ci = hdr.findIndex(function (h) { return h.indexOf('canal') !== -1 || h.indexOf('collab') !== -1; });
+          var ti = hdr.findIndex(function (h) { return h.indexOf('tipo') !== -1; });
+          var li = hdr.findIndex(function (h) { return h.indexOf('cole') !== -1; });
+          var added = 0, erros = 0, autoClassificados = 0;
+          for (var i = 1; i < rows.length; i++) {
+            var row = rows[i];
+            var nome = String(row[ni < 0 ? 0 : ni] || '').trim();
+            if (!nome) continue;
+            var nomeCanal = String(row[ci] || '').trim();
+            var canalMatch = ST.canais.find(function (c) { return c.nome.toLowerCase() === nomeCanal.toLowerCase(); });
+            var tipoPlanilha = ti >= 0 ? String(row[ti] || '').trim() : '';
+            var tipoFinal = tipoPlanilha || (typeof cdaClassificarTipoPeca === 'function' ? cdaClassificarTipoPeca(nome) : null);
+            if (!tipoPlanilha && tipoFinal) autoClassificados++;
+            var o = {
+              id: '', nome: nome, tipo: tipoFinal, colecao: li >= 0 ? String(row[li] || '') : '',
+              canalId: canalMatch ? canalMatch.id : null, parceiroId: canalMatch ? canalMatch.parceiroId : null,
+              status: 'Ativo'
+            };
+            try { var salvo = await cdaSalvarProduto(o); ST.produtos.push(salvo); added++; }
+            catch (e2) { erros++; console.error(e2); }
+          }
+          host.querySelector('#cdap-file').value = '';
+          rerenderFromStart();
+          sync();
+          alert(added + ' produto(s) importado(s)' +
+            (autoClassificados ? ', ' + autoClassificados + ' com tipo de peça classificado automaticamente' : '') +
+            (erros ? ', ' + erros + ' com erro' : '') + '.');
+        } catch (err) {
+          console.error(err);
+          alert('Erro ao importar: ' + err.message);
+        }
+      };
+      rd.readAsArrayBuffer(file);
+    });
   }
 
   render();

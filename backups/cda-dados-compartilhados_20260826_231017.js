@@ -51,7 +51,6 @@ const CDA_CLIENTE_MAP = {
     complemento: r.complemento, referencia: r.referencia, bairro: r.bairro, cidade: r.cidade,
     estado: r.estado, cep: r.cep, pais: r.pais, situacao: r.situacao_legado_desativado, grupo: r.grupo,
     ativo: r.ativo, tipo: r.tipo, rg: r.rg, cnpj: r.cnpj, 'razao-social': r.razao_social,
-    nome_fantasia: r.nome_fantasia || '',
     ie: r.ie, 'data-criacao': r.data_criacao,
     // campos comerciais (novos)
     tipoComercial: r.tipo_comercial || '', instagram: r.instagram || '',
@@ -76,7 +75,6 @@ const CDA_CLIENTE_MAP = {
     bairro: o.bairro || null, cidade: o.cidade || null, estado: o.estado || null, cep: o.cep || null,
     pais: o.pais || null, situacao_legado_desativado: o.situacao || null, grupo: o.grupo || null, ativo: o.ativo || null,
     tipo: o.tipo || null, rg: o.rg || null, cnpj: o.cnpj || null, razao_social: o['razao-social'] || null,
-    nome_fantasia: o.nome_fantasia || null,
     ie: o.ie || null, data_criacao: o['data-criacao'] || null,
     // campos comerciais (novos)
     tipo_comercial: o.tipoComercial || null, instagram: o.instagram || null,

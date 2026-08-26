@@ -35,9 +35,11 @@ async function montarModuloClientes(containerId, opts) {
     '<div class="row-bt">' +
       '<div><div class="sec-t">Clientes</div><div class="sec-d">Base completa de clientes</div></div>' +
       '<div style="display:flex;gap:7px;">' +
+        (editavel ? '<button class="btn" id="cdacli-btn-imp">⬆ Importar XLSX</button>' : '') +
         (editavel ? '<button class="btn" id="cdacli-btn-exp">⬇ Exportar XLSX</button>' : '') +
         (editavel ? '<button class="btn rust" id="cdacli-btn-novo">＋ Novo Cliente</button>' : '') +
       '</div>' +
+      '<input type="file" id="cdacli-file" accept=".xlsx,.xls" style="display:none">' +
     '</div>' +
     '<div class="fb">' +
       '<select id="cdacli-f-canal"><option value="">Todos os canais</option></select>' +
@@ -340,8 +342,55 @@ async function montarModuloClientes(containerId, opts) {
   host.querySelector('#cdacli-modal-x').addEventListener('click', fecharModal);
   host.querySelector('#cdacli-m-salvar').addEventListener('click', salvarCliente);
 
-  // ── Exportar XLSX ── (importação de clientes foi centralizada em
-  // Financeiro > Importar Planilha Bling — ago/2026)
+  // ── Importar / Exportar XLSX ──
+  if (editavel) host.querySelector('#cdacli-btn-imp').addEventListener('click', function () { host.querySelector('#cdacli-file').click(); });
+  host.querySelector('#cdacli-file').addEventListener('change', function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var rd = new FileReader();
+    rd.onload = async function (ev) {
+      try {
+        var wb = XLSX.read(ev.target.result, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+        if (!rows.length) { alert('Nenhum dado encontrado na planilha.'); return; }
+        var cv = function (v) { var s = String(v || '').trim(); return (s === 'nan' || s === 'NaN' || s === '<NA>') ? '' : s.replace(/\.0$/, ''); };
+        var added = 0, updated = 0, erros = 0;
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          var idRaw = cv(row['id'] || row['ID']);
+          var existente = idRaw ? ST.clientes.find(function (x) { return String(x.id) === idRaw; }) : null;
+          var o = {
+            id: existente ? existente.id : (idRaw || ''),
+            nome: cv(row['nome']), email: cv(row['email']), cpf: cv(row['cpf']), cnpj: cv(row['cnpj']),
+            sexo: cv(row['sexo']), 'data-nascimento': cv(row['data-nascimento']),
+            'telefone-celular': cv(row['telefone-celular']), 'telefone-principal': cv(row['telefone-principal']), 'telefone-comercial': cv(row['telefone-comercial']),
+            grupo: cv(row['grupo']), tipo: cv(row['tipo']), ativo: cv(row['ativo']) || 'sim',
+            rg: cv(row['rg']), 'razao-social': cv(row['razao-social']), ie: cv(row['ie']),
+            endereco: cv(row['endereco']), numero: cv(row['numero']), complemento: cv(row['complemento']), referencia: cv(row['referencia']),
+            bairro: cv(row['bairro']), cidade: cv(row['cidade']), estado: cv(row['estado']), cep: cv(row['cep']), pais: cv(row['pais']) || 'Brasil',
+            situacao: cv(row['situacao']) || 'pendente'
+          };
+          if (!o.nome) continue;
+          try {
+            var salvo = await cdaSalvarCliente(o);
+            if (existente) { var idx = ST.clientes.findIndex(function (x) { return String(x.id) === String(existente.id); }); ST.clientes[idx] = salvo; updated++; }
+            else { ST.clientes.push(salvo); added++; }
+          } catch (e2) { erros++; console.error(e2); }
+        }
+        host.querySelector('#cdacli-file').value = '';
+        popularFiltrosBase();
+        rerenderFromStart();
+        sync();
+        alert('Importação concluída: ' + added + ' adicionados, ' + updated + ' atualizados' + (erros ? ', ' + erros + ' com erro' : '') + '.');
+      } catch (err) {
+        console.error(err);
+        alert('Erro ao importar: ' + err.message);
+      }
+    };
+    rd.readAsArrayBuffer(file);
+  });
+
   if (editavel) host.querySelector('#cdacli-btn-exp').addEventListener('click', function () {
     var f = getFiltro();
     var header = ['id', 'email', 'nome', 'grupo', 'ativo', 'sexo', 'data-nascimento', 'tipo', 'rg', 'cpf', 'cnpj', 'razao-social', 'ie', 'telefone-principal', 'telefone-comercial', 'telefone-celular', 'endereco', 'numero', 'complemento', 'referencia', 'bairro', 'cidade', 'estado', 'cep', 'pais', 'situacao', 'tipo_comercial', 'origem_dados', 'responsavel_comercial', 'canal_principal', 'canais_adicionais'];
