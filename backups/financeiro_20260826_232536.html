@@ -2160,7 +2160,7 @@ function doFile(f){
       upParsed=secoes;
       const cvs=getCVS();
       const cols=DB.g('collabs');
-      let totalItens=0,totalPecas=0,totalValor=0;
+      let totalItens=0;
       let html='';
 
       // Show all detected canals including empty ones
@@ -2170,10 +2170,7 @@ function doFile(f){
         const cv=canalEx?cvs.find(x=>x.id==canalEx.cv_id):null;
         const isNovo=!canalEx;
         const tot=itens.reduce((s,i)=>s+i.tvenda,0);
-        const pecas=itens.reduce((s,i)=>s+i.qtde,0);
         totalItens+=itens.length;
-        totalPecas+=pecas;
-        totalValor+=tot;
         const canalEx2=cols.find(col=>col.nome.trim().toLowerCase()===nomeCanal.trim().toLowerCase());
         const cvId2=canalEx2?canalEx2.cv_id:null;
         const cvKey2=cvId2?'cv_'+cvId2:'canal_individual';
@@ -2187,12 +2184,12 @@ function doFile(f){
             ${!canalEx2?'<span class="badge b-rust" style="margin-left:4px;font-size:8px">⚠ não encontrado no cadastro</span>':''}
             ${canalEx2&&!canalEx2.cv_id?'<span class="badge b-gd" style="margin-left:4px;font-size:8px">⚠ sem CV</span>':''}
           </div>
-          <span class="mn">${pecas.toLocaleString('pt-BR')} peça(s) · R$ ${tot.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
+          <span class="mn">${itens.length} itens · R$ ${tot.toLocaleString('pt-BR',{minimumFractionDigits:2})}</span>
         </div>`;
       });
 
       html+=`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-top:2px solid var(--ink);margin-top:4px">
-        <b>Total: ${secoesArr.length} canal(is) · ${totalPecas.toLocaleString('pt-BR')} peça(s) · R$ ${totalValor.toLocaleString('pt-BR',{minimumFractionDigits:2})}</b>
+        <b>${secoesArr.length} canal(is) · ${totalItens} itens</b>
         <button class="btn rust sm" onclick="doImport()">✔ Confirmar Importação</button>
       </div>`;
 
