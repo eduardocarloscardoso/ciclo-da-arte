@@ -2047,15 +2047,7 @@ function parseRows(rows){
     }
 
     // Definir canal atual
-    // No formato "Vendas com Cadastro Completo" cada linha já traz o canal
-    // dela mesma (não é célula mesclada como no formato antigo) — nunca
-    // herda da linha anterior. Canal vazio/"-" (Bling não atribuiu canal ao
-    // pedido) vira "Vendas sem Vendedor" (regra definida pelo CEO, ago/2026).
-    if(isBlingCompleto){
-      const canalLimpo=colCanal&&colCanal!=='-'&&colCanal.length>2&&colCanal!=='nan'?colCanal:'Vendas sem vendedor';
-      canalAtual=canalLimpo;
-      if(!secoes[canalAtual])secoes[canalAtual]=[];
-    } else if(colCanal&&colCanal.length>2&&colCanal!=='nan'){
+    if(colCanal&&colCanal.length>2&&colCanal!=='nan'){
       canalAtual=colCanal;
       if(!secoes[canalAtual])secoes[canalAtual]=[];
     }
