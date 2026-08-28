@@ -1151,11 +1151,11 @@ function fillFiltrosPrest(){
   const cvs=getCVS();
   const cols=DB.g('collabs');
   // Períodos únicos
-  const periodos=[...new Set(prs.map(p=>p.mes))].sort();
+  const periodos=[...new Set(prs.map(p=>p.mes))].sort().reverse();
   const selP=document.getElementById('f-prest-periodo');
   if(selP){selP.innerHTML='<option value="">Todos os períodos</option>'+periodos.map(m=>`<option value="${m}">${mesLabel(m)}</option>`).join('');}
   // CVs únicos nas prestações
-  const cvIds=[...new Set(prs.map(p=>p.cv_id).filter(Boolean))].sort((a,b)=>{const na=(cvs.find(x=>x.id==a)||{}).nome||'';const nb=(cvs.find(x=>x.id==b)||{}).nome||'';return na.localeCompare(nb);});
+  const cvIds=[...new Set(prs.map(p=>p.cv_id).filter(Boolean))];
   const selCV=document.getElementById('f-prest-cv');
   if(selCV){selCV.innerHTML='<option value="">Todos os collabs</option>'+cvIds.map(id=>{const cv=cvs.find(x=>x.id==id);return cv?`<option value="${id}">${cv.nome}</option>`:''}).join('');}
   // Canais únicos
