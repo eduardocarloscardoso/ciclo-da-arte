@@ -368,11 +368,6 @@ tr:hover td{background:#faf7f0;}
           <select id="f-prest-periodo" onchange="rPrestList()"><option value="">Todos os períodos</option></select>
           <select id="f-prest-cv" onchange="rPrestList()"><option value="">Todos os collabs</option></select>
           <select id="f-prest-canal" onchange="rPrestList()"><option value="">Todos os canais</option></select>
-          <select id="f-prest-com" onchange="rPrestList()">
-            <option value="">Collab com Comissão: Todos</option>
-            <option value="com">Com Comissão</option>
-            <option value="sem">Sem Comissão</option>
-          </select>
           <select id="f-prest-status" onchange="rPrestList()">
             <option value="">Todos os Status</option>
             <option value="em_aberto">Em Aberto</option>
@@ -1179,7 +1174,6 @@ function rPrestList(){
   const fCV=(document.getElementById('f-prest-cv')||{value:''}).value;
   const fCanal=(document.getElementById('f-prest-canal')||{value:''}).value;
   const fStatus=(document.getElementById('f-prest-status')||{value:''}).value;
-  const fComissao=(document.getElementById('f-prest-com')||{value:''}).value;
   const filtered=prs.filter(p=>{
     if(fPer&&p.mes!==fPer)return false;
     if(fCV&&String(p.cv_id)!=fCV)return false;
@@ -1188,11 +1182,6 @@ function rPrestList(){
       if(!canais.includes(fCanal))return false;
     }
     if(fStatus&&(p.status_prest||'em_aberto')!==fStatus)return false;
-    if(fComissao){
-      const comVal=calcP(p).com;
-      if(fComissao==='com'&&comVal===0)return false;
-      if(fComissao==='sem'&&comVal!==0)return false;
-    }
     return true;
   }).sort((a,b)=>(b.mes||'').localeCompare(a.mes||''));
   const cnt=document.getElementById('prest-cnt');
