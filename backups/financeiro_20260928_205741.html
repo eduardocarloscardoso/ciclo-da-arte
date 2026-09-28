@@ -2021,10 +2021,6 @@ function parseRows(rows){
   const iClienteNamed=hdr.findIndex(h=>h==='cliente');
   const iDataNamed=hdr.findIndex(h=>h==='data da venda'||h==='data');
   const iSituacaoNamed=hdr.findIndex(h=>h==='situação'||h==='situacao');
-  // "Valor total" (líquido real do Bling) — só existe no formato "Vendas com
-  // Cadastro Completo". Usado como respaldo pra descobrir desconto implícito
-  // quando a coluna "Desconto proporcional total" vem em branco (ago/2026).
-  const iValorTotalNamed=hdr.findIndex(h=>h==='valor total');
   // Colunas de cadastro do cliente — só existem no formato "Vendas com
   // Cadastro Completo" (isBlingCompleto). "Situação - Produto" é só
   // informativa por decisão do CEO (não grava status do produto por ora).
@@ -2091,18 +2087,8 @@ function parseRows(rows){
     const varStr=[tamM?tamM[1].trim():'',genM?genM[1].trim():'',corM?corM[1].trim():''].filter(Boolean).join(' \u00b7 ');
     const preco=toNum(row[iPreco]);
     const frete=iFrete>=0?toNum(row[iFrete]):0;
-    let desc=iDesconto>=0?toNum(row[iDesconto]):0;
+    const desc=iDesconto>=0?toNum(row[iDesconto]):0;
     const valorCalc=Math.round(qtde*preco*100)/100;
-    // Desconto implícito (ago/2026): quando a coluna "Desconto" vem vazia mas
-    // o Bling aplicou um desconto proporcional que só aparece na diferença
-    // entre Qtde×Preço e "Valor total" (líquido real), captura essa diferença
-    // como desconto — senão o valor bruto sobe pro sistema sem desconto nenhum.
-    if(desc===0&&isBlingCompleto&&iValorTotalNamed>=0){
-      const valorTotalReal=toNum(row[iValorTotalNamed]);
-      if(valorTotalReal>0&&valorCalc>valorTotalReal){
-        desc=Math.round((valorCalc-valorTotalReal)*100)/100;
-      }
-    }
     const valor=valorCalc>0?valorCalc:toNum(row[8])||toNum(row[6])||0;
     const precoFinal=valor>0&&qtde>0?Math.round(valor/qtde*100)/100:preco;
     const numeroPedido=iPedidoNamed>=0?String(row[iPedidoNamed]||'').trim():'';
