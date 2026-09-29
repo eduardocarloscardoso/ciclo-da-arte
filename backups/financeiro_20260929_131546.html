@@ -1808,9 +1808,8 @@ function verPrest(id){
               var itensS=sec.itens||[];
               if(!itensS.length)return;
               // Linha de quebra do canal
-              var temComercialX=itensS.some(function(x){return x.produto==='COMERCIAL - PREVISAO DE VENDAS';});
-              rows+='<tr style="background:var(--ink);color:var(--cream);page-break-inside:avoid"><td colspan="7" style="padding:6px 10px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>'+
-                (sec.canal||'—')+'</span>'+(temComercialX?'<button class="btn sm" style="font-size:9px;padding:3px 8px;text-transform:none;letter-spacing:0;font-weight:600" onclick="abrirExplosaoComercial(\''+p.id+'\',\''+(sec.canal||'').replace(/'/g,"\\\\'")+'\')">🎲 Substituir Comercial por produtos reais</button>':'')+'</div></td></tr>';
+              rows+='<tr style="background:var(--ink);color:var(--cream);page-break-inside:avoid"><td colspan="7" style="padding:6px 10px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase">'+
+                (sec.canal||'—')+'</td></tr>';
               // Cabeçalho repetido
               rows+='<tr style="background:#f5f5f5;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px"><td>Produto</td><td>Variante</td><td>Qtde</td><td>Preço Unit.</td><td>Total Vendido</td><td>Desconto</td><td>Total Líquido</td></tr>';
               // Itens da seção
@@ -1836,11 +1835,6 @@ rows+='<tr><td><b>'+i.produto+'</b></td><td class="tmu">'+(i.var||'—')+'</td><
             });
           } else {
             // Canal único — sem quebra
-            var temComercialUnico=(p.itens||[]).some(function(x){return x.produto==='COMERCIAL - PREVISAO DE VENDAS';});
-            if(temComercialUnico){
-              rows+='<tr style="background:var(--ink);color:var(--cream);page-break-inside:avoid"><td colspan="7" style="padding:6px 10px;font-size:10px;font-weight:900;letter-spacing:1px;text-transform:uppercase"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><span>'+
-                (p.canal||'—')+'</span><button class="btn sm" style="font-size:9px;padding:3px 8px;text-transform:none;letter-spacing:0;font-weight:600" onclick="abrirExplosaoComercial(\''+p.id+'\',\''+(p.canal||'').replace(/'/g,"\\\\'")+'\')">🎲 Substituir Comercial por produtos reais</button></div></td></tr>';
-            }
             p.itens.forEach(function(i){
               var liqS=Math.round(((i.total||0)-(i.desc||0))*100)/100;
 rows+='<tr><td><b>'+i.produto+'</b></td><td class="tmu">'+(i.var||'—')+'</td><td class="mn">'+i.qtde+'</td><td class="mn">'+R(i.preco)+'</td><td class="mn">'+R(i.total)+'</td><td class="mn tr" style="white-space:nowrap">'+(i.desc?'− '+R(i.desc):'—')+'</td><td class="mn tg">'+R(liqS)+'</td></tr>';
@@ -3279,201 +3273,6 @@ function abrirCardapioCV(cvId){
     toast('Cardápio não disponível. Reimporte em Cardápios.');return;
   }
   window.open(window._cPdfs[cvId],'_blank');
-}
-
-const COMERCIAL_PLACEHOLDER='COMERCIAL - PREVISAO DE VENDAS';
-
-// ── Explosão do "Comercial - Previsão de Vendas" em produtos reais (ago/2026) ──
-function abrirExplosaoComercial(prestacaoId,canalNome){
-  const prs=DB.g('prestacoes');
-  const p=prs.find(function(x){return x.id==prestacaoId;});
-  if(!p){toast('Prestação não encontrada.','err');return;}
-  const secoes=p.secoes||[];
-  const secAlvo=secoes.length?secoes.find(function(s){return s.canal===canalNome;}):{canal:p.canal,itens:p.itens};
-  if(!secAlvo){toast('Canal não encontrado nessa prestação.','err');return;}
-  const itensComercial=(secAlvo.itens||[]).filter(function(i){return i.produto===COMERCIAL_PLACEHOLDER;});
-  if(!itensComercial.length){toast('Esse canal não tem o produto "Comercial - Previsão de Vendas".','err');return;}
-  const valorAlvo=Math.round(itensComercial.reduce(function(s,i){return s+(i.total||0);},0)*100)/100;
-
-  // Busca o canal E-Commerce "irmão" (mesmo artista, mesmo mês) — primeiro
-  // dentro da mesma prestação (secoes), senão em outra prestação com o
-  // mesmo cv_id e mês.
-  let secFonte=null;
-  if(secoes.length){
-    secFonte=secoes.find(function(s){return s!==secAlvo&&/e-?commerce/i.test(s.canal||'');});
-  }
-  if(!secFonte){
-    const outraP=prs.find(function(x){return x.id!==p.id&&x.cv_id===p.cv_id&&x.mes===p.mes&&/e-?commerce/i.test(x.canal||'');});
-    if(outraP){
-      secFonte=(outraP.secoes&&outraP.secoes.length)?outraP.secoes.find(function(s){return/e-?commerce/i.test(s.canal||'');}):{canal:outraP.canal,itens:outraP.itens};
-    }
-  }
-  if(!secFonte||!secFonte.itens||!secFonte.itens.length){
-    toast('Não encontrei produtos do canal E-Commerce desse artista nesse mês pra usar como base.','err');
-    return;
-  }
-
-  const produtosBase=[];
-  const vistos={};
-  secFonte.itens.forEach(function(i){
-    if(i.produto===COMERCIAL_PLACEHOLDER)return;
-    const key=i.produto+'|'+i.preco;
-    if(vistos[key])return;
-    vistos[key]=true;
-    produtosBase.push({produto:i.produto,preco:i.preco});
-  });
-  if(!produtosBase.length){
-    toast('O canal E-Commerce desse mês só tem itens genéricos, não dá pra gerar produtos reais.','err');
-    return;
-  }
-
-  window._explosaoCtx={prestacaoId:p.id,canalNome:canalNome,valorAlvo:valorAlvo,produtosBase:produtosBase,itensComerciaisOriginais:itensComercial};
-  _gerarNovaDistribuicaoExplosao();
-}
-
-function _gerarDistribuicaoAleatoria(produtosBase,valorAlvo){
-  let melhor=null,melhorDiff=Infinity;
-  for(let tent=0;tent<20000;tent++){
-    const qtds=produtosBase.map(function(){return 1+Math.floor(Math.random()*20);});
-    const soma=qtds.reduce(function(s,q,idx){return s+q*produtosBase[idx].preco;},0);
-    const diff=Math.abs(soma-valorAlvo);
-    if(diff<melhorDiff){melhorDiff=diff;melhor=qtds;}
-    if(Math.round(soma*100)===Math.round(valorAlvo*100))break;
-  }
-  const itens=produtosBase.map(function(pb,idx){
-    const total=Math.round(melhor[idx]*pb.preco*100)/100;
-    return{produto:pb.produto,preco:pb.preco,qtde:melhor[idx],total:total,desc:0,tvenda:total,frete:0,var:''};
-  });
-  const somaFinal=itens.reduce(function(s,i){return s+i.total;},0);
-  const diffCents=Math.round((somaFinal-valorAlvo)*100)/100;
-  if(diffCents!==0){
-    let idxMaior=0;
-    itens.forEach(function(it,idx){if(it.total>itens[idxMaior].total)idxMaior=idx;});
-    itens[idxMaior].desc=Math.round((itens[idxMaior].desc+diffCents)*100)/100;
-  }
-  return itens;
-}
-
-function _gerarNovaDistribuicaoExplosao(){
-  const ctx=window._explosaoCtx;
-  if(!ctx)return;
-  ctx.itensGerados=_gerarDistribuicaoAleatoria(ctx.produtosBase,ctx.valorAlvo);
-  _renderModalExplosao();
-}
-
-function _renderModalExplosao(){
-  const ctx=window._explosaoCtx;
-  const itens=ctx.itensGerados;
-  const somaGerada=itens.reduce(function(s,i){return s+(i.total-(i.desc||0));},0);
-  const rows=itens.map(function(i){
-    return'<tr><td style="padding:4px 8px">'+i.produto+'</td><td class="mn" style="padding:4px 8px">'+i.qtde+'</td><td class="mn" style="padding:4px 8px">'+R(i.preco)+'</td><td class="mn" style="padding:4px 8px">'+R(i.total-(i.desc||0))+'</td></tr>';
-  }).join('');
-  const html='<div id="modal-explosao-overlay" style="position:fixed;inset:0;background:rgba(13,13,13,.55);z-index:9999;display:flex;align-items:center;justify-content:center">'+
-    '<div style="background:#fff;border-radius:8px;padding:24px;width:480px;max-width:92vw;font-family:inherit;max-height:85vh;overflow-y:auto">'+
-    '<h3 style="margin:0 0 6px;font-family:\'DM Serif Display\',serif;color:#1a1410">Substituir "Comercial - Previsão de Vendas"</h3>'+
-    '<div style="font-size:11px;color:#8a8a8a;margin-bottom:14px">Canal: <b>'+ctx.canalNome+'</b> · Valor alvo: <b>'+R(ctx.valorAlvo)+'</b></div>'+
-    '<table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:10px">'+
-    '<thead><tr style="background:#f5f5f5;text-align:left"><th style="padding:4px 8px">Produto</th><th style="padding:4px 8px" class="mn">Qtde</th><th style="padding:4px 8px" class="mn">Preço</th><th style="padding:4px 8px" class="mn">Total</th></tr></thead>'+
-    '<tbody>'+rows+'</tbody>'+
-    '<tfoot><tr style="font-weight:700;border-top:2px solid #1a1410"><td colspan="3" style="padding:6px 8px">TOTAL GERADO</td><td class="mn" style="padding:6px 8px">'+R(somaGerada)+'</td></tr></tfoot>'+
-    '</table>'+
-    '<div style="font-size:10px;color:#8a8a8a;margin-bottom:16px">Produtos e preços vêm do canal E-Commerce desse artista no mesmo mês; as quantidades foram distribuídas aleatoriamente até fechar o valor.</div>'+
-    '<div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">'+
-    '<button class="btn sm" onclick="document.getElementById(\'modal-explosao-overlay\').remove();window._explosaoCtx=null">Cancelar</button>'+
-    '<button class="btn sm" onclick="_gerarNovaDistribuicaoExplosao()">🎲 Gerar Outra</button>'+
-    '<button class="btn sm rust" onclick="confirmarExplosaoComercial()">✔ Confirmar e Substituir</button>'+
-    '</div></div></div>';
-  const existing=document.getElementById('modal-explosao-overlay');
-  if(existing)existing.remove();
-  document.body.insertAdjacentHTML('beforeend',html);
-}
-
-function confirmarExplosaoComercial(){
-  const ctx=window._explosaoCtx;
-  if(!ctx)return;
-  const overlay=document.getElementById('modal-explosao-overlay');
-  if(overlay)overlay.remove();
-
-  const prs=DB.g('prestacoes');
-  const idx=prs.findIndex(function(x){return x.id==ctx.prestacaoId;});
-  if(idx<0){toast('Prestação não encontrada.','err');return;}
-  const p=prs[idx];
-  const secoesP=p.secoes||[];
-  const secAlvo=secoesP.length?secoesP.find(function(s){return s.canal===ctx.canalNome;}):null;
-
-  const meta=ctx.itensComerciaisOriginais[0]||{};
-  const itensFinais=ctx.itensGerados.map(function(i){
-    return Object.assign({},i,{
-      var:'',cliente:meta.cliente||'',clienteDados:meta.clienteDados||null,
-      situacao:meta.situacao||'Atendido',data_compra:meta.data_compra||(p.mes+'-01'),
-      numero_pedido:meta.numero_pedido||''
-    });
-  });
-
-  let canalIdAlvo=null;
-  if(secAlvo){
-    secAlvo.itens=(secAlvo.itens||[]).filter(function(i){return i.produto!==COMERCIAL_PLACEHOLDER;}).concat(itensFinais);
-    canalIdAlvo=secAlvo.canal_id;
-    p.itens=[].concat.apply([],secoesP.map(function(s){return s.itens||[];}));
-  }else{
-    p.itens=(p.itens||[]).filter(function(i){return i.produto!==COMERCIAL_PLACEHOLDER;}).concat(itensFinais);
-    canalIdAlvo=p.canal_id;
-  }
-
-  try{
-    const snap=calcP(p);
-    p.snap={tot:snap.tot,descTotal:snap.descTotal,subtotal:snap.subtotal,frete:snap.frete,imp:snap.imp,totDesc:snap.totDesc,liq:snap.liq,com:snap.com,qtde:snap.qtde,op:snap.op,cs:snap.cs};
-  }catch(e){console.error('Erro ao recalcular prestação após explosão:',e);}
-
-  DB.s('prestacoes',prs);
-  toast('Produto substituído com sucesso!','ok');
-
-  window._explosaoCtxAplicado={numero_pedido:meta.numero_pedido,itensFinais:itensFinais,canal_id:canalIdAlvo,prestacaoId:p.id};
-  window._explosaoCtx=null;
-
-  setTimeout(function(){
-    if(confirm('Deseja também aplicar essa mudança no Histórico de Compras deste pedido?')){
-      _sincronizarComprasExplosao();
-    }
-    verPrest(p.id);
-  },200);
-}
-
-async function _sincronizarComprasExplosao(){
-  const ctx=window._explosaoCtxAplicado;
-  if(!ctx)return;
-  try{
-    if(ctx.numero_pedido){
-      const{data:existentes}=await cdaClient.from('compras').select('id').eq('numero_pedido',ctx.numero_pedido).eq('produto',COMERCIAL_PLACEHOLDER);
-      if(existentes&&existentes.length){
-        for(const e of existentes){await cdaClient.from('compras').delete().eq('id',e.id);}
-      }
-    }
-    let clienteId=null;
-    const nomeCliente=(ctx.itensFinais[0]&&ctx.itensFinais[0].cliente)||'';
-    if(nomeCliente){
-      const clientesAtuais=DB.g('clientes')||[];
-      const achado=clientesAtuais.find(function(c){return(c.nome||'').trim().toLowerCase()===nomeCliente.trim().toLowerCase();});
-      if(achado)clienteId=achado.id;
-    }
-    for(const item of ctx.itensFinais){
-      const salvo=await cdaSalvarCompra({
-        clienteId:clienteId,canalId:ctx.canal_id,produto:item.produto,variacao:item.var||'',
-        quantidade:item.qtde,valorUnitario:item.preco,valorBruto:item.total,valorTotal:item.total,
-        desconto:item.desc||0,frete:0,situacao:item.situacao||'Atendido',dataCompra:item.data_compra,
-        origem:'explosao_comercial',obs:'Gerado automaticamente ao substituir "Comercial - Previsão de Vendas"',
-        numeroPedido:ctx.numero_pedido
-      });
-      if(salvo&&salvo.id){
-        try{await cdaClient.from('compras').update({prestacao_id:ctx.prestacaoId}).eq('id',salvo.id);}catch(e2){console.error('Erro ao vincular prestacao_id:',e2);}
-      }
-    }
-    toast('Histórico de Compras atualizado também!','ok');
-  }catch(err){
-    console.error(err);
-    toast('Erro ao sincronizar com o Histórico de Compras: '+err.message,'err');
-  }
-  window._explosaoCtxAplicado=null;
 }
 
 function salvarCamposPrest(id){
