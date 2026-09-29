@@ -302,32 +302,11 @@ tbody td{padding:11px 13px;vertical-align:middle}
 <div id="login-screen">
 <div class="login-box">
 <div class="login-logo"><div class="brand">CICLO <span>DA ARTE</span></div><div class="sub">Sistema de Gestão Estratégica</div></div>
-
-<div id="login-form-box">
 <p class="login-subtitle">Entre com seu acesso para continuar</p>
 <div class="form-group"><label class="form-label">Usuário</label><input class="form-input" id="inp-user" type="text" placeholder="seu@email.com"></div>
 <div class="form-group"><label class="form-label">Senha</label><input class="form-input" id="inp-pass" type="password" placeholder="••••••••"></div>
 <button class="login-btn" id="login-btn" onclick="doLogin()">Entrar no Sistema</button>
 <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
-<div style="text-align:center;margin-top:14px"><a href="javascript:void(0)" onclick="mostrarEsqueciSenha()" style="color:var(--muted,#8a8a8a);font-size:12px;text-decoration:underline">Esqueceu a senha?</a></div>
-</div>
-
-<div id="forgot-pass-box" style="display:none">
-<p class="login-subtitle">Informe seu e-mail de acesso pra receber o link de recuperação</p>
-<div class="form-group"><label class="form-label">E-mail</label><input class="form-input" id="inp-forgot-email" type="text" placeholder="seu@email.com"></div>
-<button class="login-btn" id="forgot-btn" onclick="enviarLinkRecuperacao()">Enviar Link de Recuperação</button>
-<div id="forgot-msg" style="display:none;text-align:center;font-size:12px;margin-top:10px"></div>
-<div style="text-align:center;margin-top:14px"><a href="javascript:void(0)" onclick="voltarParaLogin()" style="color:var(--muted,#8a8a8a);font-size:12px;text-decoration:underline">← Voltar pro login</a></div>
-</div>
-
-<div id="reset-pass-box" style="display:none">
-<p class="login-subtitle">Defina sua nova senha</p>
-<div class="form-group"><label class="form-label">Nova senha</label><input class="form-input" id="inp-new-pass" type="password" placeholder="Mínimo 6 caracteres"></div>
-<div class="form-group"><label class="form-label">Confirmar nova senha</label><input class="form-input" id="inp-new-pass-confirm" type="password" placeholder="Repita a senha"></div>
-<button class="login-btn" id="reset-btn" onclick="salvarNovaSenha()">Salvar Nova Senha</button>
-<div id="reset-msg" style="display:none;text-align:center;font-size:12px;margin-top:10px"></div>
-</div>
-
 </div>
 </div>
 <div id="app">
@@ -365,78 +344,7 @@ const sbAuth=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 // o token antigo expirado -> 401 em qualquer PATCH/POST (ex: salvar colaborador).
 sbAuth.auth.onAuthStateChange(function(event,session){
   if(session&&session.access_token){sb.headers.Authorization='Bearer '+session.access_token;}
-  // Recuperação de senha (ago/2026): quando o usuário clica no link do
-  // e-mail, o Supabase abre a página já autenticado nesse evento especial
-  // — mostramos a tela de "definir nova senha" em vez do login normal.
-  if(event==='PASSWORD_RECOVERY'){
-    document.getElementById('login-form-box').style.display='none';
-    document.getElementById('forgot-pass-box').style.display='none';
-    document.getElementById('reset-pass-box').style.display='block';
-  }
 });
-// ── Esqueci minha senha (ago/2026) ──
-function mostrarEsqueciSenha(){
-  document.getElementById('login-form-box').style.display='none';
-  document.getElementById('forgot-pass-box').style.display='block';
-  document.getElementById('inp-forgot-email').value=document.getElementById('inp-user').value.trim();
-}
-function voltarParaLogin(){
-  document.getElementById('forgot-pass-box').style.display='none';
-  document.getElementById('login-form-box').style.display='block';
-  document.getElementById('forgot-msg').style.display='none';
-}
-async function enviarLinkRecuperacao(){
-  var btn=document.getElementById('forgot-btn');
-  var email=document.getElementById('inp-forgot-email').value.trim().toLowerCase();
-  var msg=document.getElementById('forgot-msg');
-  if(!email){msg.style.display='block';msg.style.color='#c94a2b';msg.textContent='Digite um e-mail.';return;}
-  btn.disabled=true;btn.textContent='Enviando...';
-  try{
-    var redirectUrl=window.location.origin+window.location.pathname;
-    var{error}=await sbAuth.auth.resetPasswordForEmail(email,{redirectTo:redirectUrl});
-    msg.style.display='block';
-    if(error){
-      msg.style.color='#c94a2b';
-      msg.textContent='Não deu pra enviar o link agora. Tenta de novo em alguns minutos.';
-      console.error('Erro ao enviar reset de senha:',error);
-    }else{
-      msg.style.color='#4a7c59';
-      msg.textContent='Se esse e-mail estiver cadastrado, um link de recuperação foi enviado. Confere a caixa de entrada (e o spam).';
-    }
-  }catch(e){
-    msg.style.display='block';msg.style.color='#c94a2b';
-    msg.textContent='Erro de conexão. Tenta de novo.';
-  }
-  btn.disabled=false;btn.textContent='Enviar Link de Recuperação';
-}
-async function salvarNovaSenha(){
-  var btn=document.getElementById('reset-btn');
-  var p1=document.getElementById('inp-new-pass').value;
-  var p2=document.getElementById('inp-new-pass-confirm').value;
-  var msg=document.getElementById('reset-msg');
-  msg.style.display='block';
-  if(p1.length<6){msg.style.color='#c94a2b';msg.textContent='A senha precisa ter pelo menos 6 caracteres.';return;}
-  if(p1!==p2){msg.style.color='#c94a2b';msg.textContent='As senhas não são iguais.';return;}
-  btn.disabled=true;btn.textContent='Salvando...';
-  try{
-    var{error}=await sbAuth.auth.updateUser({password:p1});
-    if(error){
-      msg.style.color='#c94a2b';msg.textContent='Não deu pra salvar: '+error.message;
-      btn.disabled=false;btn.textContent='Salvar Nova Senha';return;
-    }
-    msg.style.color='#4a7c59';msg.textContent='Senha atualizada! Redirecionando pro login...';
-    await sbAuth.auth.signOut();
-    setTimeout(function(){
-      document.getElementById('reset-pass-box').style.display='none';
-      document.getElementById('login-form-box').style.display='block';
-      document.getElementById('inp-pass').value='';
-      msg.style.display='none';
-    },1800);
-  }catch(e){
-    msg.style.color='#c94a2b';msg.textContent='Erro de conexão. Tenta de novo.';
-    btn.disabled=false;btn.textContent='Salvar Nova Senha';
-  }
-}
 const sb={
 headers:{'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Content-Type':'application/json','Prefer':'return=representation'},
 async get(t,p=''){var r=await axios.get(SUPABASE_URL+'/rest/v1/'+t+'?'+p,{headers:this.headers});return r.data;},

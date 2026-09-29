@@ -3461,7 +3461,7 @@ async function _sincronizarComprasExplosao(){
         clienteId:clienteId,canalId:ctx.canal_id,produto:item.produto,variacao:item.var||'',
         quantidade:item.qtde,valorUnitario:item.preco,valorBruto:item.total,valorTotal:item.total,
         desconto:item.desc||0,frete:0,situacao:item.situacao||'Atendido',dataCompra:item.data_compra,
-        origem:'manual_sem_vinculo',obs:'Gerado automaticamente ao substituir "Comercial - Previsão de Vendas"',
+        origem:'explosao_comercial',obs:'Gerado automaticamente ao substituir "Comercial - Previsão de Vendas"',
         numeroPedido:ctx.numero_pedido
       });
       if(salvo&&salvo.id){
