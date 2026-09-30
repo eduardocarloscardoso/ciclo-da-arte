@@ -1543,7 +1543,7 @@ function verPrest(id){
 
   document.getElementById('pv-list').style.display='none';
   document.getElementById('pv-detail').style.display='block';
-  document.getElementById('tbact').innerHTML=`<button class="btn sm" onclick="document.getElementById('pv-list').style.display='block';document.getElementById('pv-detail').style.display='none';document.getElementById('tbact').innerHTML='';rPrestList();">← Voltar</button><button class="btn rust sm" onclick="printComCardapio(${p.cv_id})">🖨 PDF</button>${(function(){var cd=window._cPdfs&&window._cPdfs[p.cv_id];return cd?'<button class="btn sm vio" onclick="abrirCardapioCV('+p.cv_id+')">📄 Cardápio</button>':''})()}`;
+  document.getElementById('tbact').innerHTML=`<button class="btn sm" onclick="document.getElementById('pv-list').style.display='block';document.getElementById('pv-detail').style.display='none';document.getElementById('tbact').innerHTML=''">← Voltar</button><button class="btn rust sm" onclick="printComCardapio(${p.cv_id})">🖨 PDF</button>${(function(){var cd=window._cPdfs&&window._cPdfs[p.cv_id];return cd?'<button class="btn sm vio" onclick="abrirCardapioCV('+p.cv_id+')">📄 Cardápio</button>':''})()}`;
 
   // Propaga saldo apenas se zerado E nunca editado manualmente
   if((p.saldo_anterior||0)===0&&!p.saldo_editado){
