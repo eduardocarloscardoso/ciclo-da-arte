@@ -453,6 +453,7 @@ async del(t,id){await axios.delete(SUPABASE_URL+'/rest/v1/'+t+'?id=eq.'+id,{head
 // em todo o sistema quando for só leitura.
 // ════════════════════════════════════════════════
 var PROJETOS={
+  orcamento_vendas:{icon:'🧮',label:'Orçamento Vendas',desc:'Orçamentos e simulações de parcerias'},
   comercial:{icon:'🛍',label:'Comercial',desc:'CRM, clientes e vendas'},
   mkt:{icon:'📣',label:'Marketing',desc:'Mídia paga, orçamento e calendário editorial'},
   financeiro:{icon:'💰',label:'Financeiro',desc:'Prestação de contas'},
@@ -687,6 +688,7 @@ function renderSidebarNav(){
   }
 }
 async function openProject(key){
+  if(key==='orcamento_vendas'&&!canAccessProject(key)){showToast('Seu usuário não tem acesso a Orçamento Vendas.','info');return;}
   currentProject=key;
   document.getElementById('page-title').textContent=PROJETOS[key]?PROJETOS[key].label:(PM[key]?PM[key].label:key);
   renderSidebarNav();
@@ -694,6 +696,10 @@ async function openProject(key){
   var iframeWrap0=document.getElementById('financeiro-iframe-wrap');
   if(key!=='comercial'&&key!=='financeiro'&&iframeWrap0) iframeWrap0.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
+  if(key==='orcamento_vendas'){
+    el.innerHTML=roBanner+'<div class="ph"><h1>🧮 Orçamento Vendas</h1><p>Acesso ao módulo confirmado.</p></div><div class="card"><div class="card-title">Implantação por etapas</div><p>Esta primeira etapa disponibiliza o módulo e seu credenciamento. As funcionalidades de Parcerias Shows/Eventos, E-Commerce e Private Label serão integradas nas próximas etapas.</p></div>';
+    return;
+  }
   if(key==='credenciamento'){el.innerHTML=roBanner;renderCredenciamento(el);return;}
   if(key==='seguranca'){
     el.innerHTML=roBanner+'<div class="crm-embed">'+
