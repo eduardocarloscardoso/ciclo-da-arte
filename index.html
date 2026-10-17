@@ -21,6 +21,7 @@
 <script src="cda-modulo-vendas-por-canal.js"></script>
 <script src="cda-modulo-tutorial-estoque.js"></script>
 <script src="cda-modulo-marketing.js"></script>
+<script src="cda-modulo-orcamento-vendas.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 :root{--navy:#0f1623;--navy2:#161f30;--navy3:#1e2b3f;--red:#e8334a;--red2:#c42a3f;--gold:#c9943a;--gold2:#f0c060;--teal:#2ec4b6;--purple:#9b72cf;--green:#3ec97a;--blue:#4a9eff;--white:#f5f3ee;--muted:#7a8499;--muted2:#a0aab8;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--card:rgba(255,255,255,0.04);--card2:rgba(255,255,255,0.07);--ff-d:'Playfair Display',serif;--ff-b:'DM Sans',sans-serif;--ff-m:'DM Mono',monospace}
@@ -628,6 +629,13 @@ function renderSidebarNav(){
     var activeSeg=currentProject==='seguranca'?'active':'';
     nav.innerHTML+='<div class="nav-item '+activeSeg+'" id="nav-proj-seguranca" onclick="openProject(\'seguranca\')"><span class="nav-icon">🛡</span>Segurança</div>';
   }
+  if(currentProject==='orcamento_vendas'){
+    nav.innerHTML+='<div class="sb-section">Orçamento Vendas</div>';
+    Object.keys(ORCAMENTO_PAGES).forEach(function(id){
+      var p=ORCAMENTO_PAGES[id];
+      nav.innerHTML+='<div class="nav-item '+(window._orcamentoPage===id?'active':'')+'" id="nav-orcamento-'+id+'" onclick="navigateOrcamento(\''+id+'\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    });
+  }
   // Se o projeto ativo tiver submenu (hoje só Marketing), mostra embaixo
   if(currentProject==='marketing'&&RC[cu.role]){
     nav.innerHTML+='<div class="sb-section">Gestão de Projetos</div>';
@@ -696,10 +704,7 @@ async function openProject(key){
   var iframeWrap0=document.getElementById('financeiro-iframe-wrap');
   if(key!=='comercial'&&key!=='financeiro'&&iframeWrap0) iframeWrap0.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
-  if(key==='orcamento_vendas'){
-    el.innerHTML=roBanner+'<div class="ph"><h1>🧮 Orçamento Vendas</h1><p>Acesso ao módulo confirmado.</p></div><div class="card"><div class="card-title">Implantação por etapas</div><p>Esta primeira etapa disponibiliza o módulo e seu credenciamento. As funcionalidades de Parcerias Shows/Eventos, E-Commerce e Private Label serão integradas nas próximas etapas.</p></div>';
-    return;
-  }
+  if(key==='orcamento_vendas'){navigateOrcamento('configuracoes');return;}
   if(key==='credenciamento'){el.innerHTML=roBanner;renderCredenciamento(el);return;}
   if(key==='seguranca'){
     el.innerHTML=roBanner+'<div class="crm-embed">'+
