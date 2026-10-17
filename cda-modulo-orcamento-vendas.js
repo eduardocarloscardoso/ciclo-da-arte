@@ -29,6 +29,7 @@ function navigateOrcamento(page){
  }
 }
 function abrirConfiguracaoOrcamento(gi,ii){
+ if(gi===0&&(ii===0||ii===1)){orcCadastro(ii===0?'pessoas':'papeis');return;}
  if(!canAccessProject('orcamento_vendas'))return;
  var nome=ORCAMENTO_CONFIG[gi]&&ORCAMENTO_CONFIG[gi].itens[ii];if(!nome)return;
  var desc={
@@ -47,4 +48,50 @@ function abrirConfiguracaoOrcamento(gi,ii){
  'Situações e etapas':'Rascunho, Em elaboração, Em revisão, Aprovado, Encerrado e Cancelado.'
  };
  document.getElementById('orcamento-config-detalhe').innerHTML='<div class="card"><div class="card-title">'+nome+'</div><p style="color:var(--muted2)">'+desc[nome]+'</p><p style="color:var(--muted);margin-top:12px">Escopo definido. Cadastro e gravação serão implementados na próxima etapa.</p></div>';
+}
+
+var orcDados={pessoas:[],papeis:[]};
+function orcEsc(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function orcPodeEditar(){return canAccessProject('orcamento_vendas')&&!isReadOnly();}
+async function orcCadastro(tipo){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var el=document.getElementById('orcamento-config-detalhe');if(!el)return;
+ el.innerHTML='<div class="card">Carregando cadastros...</div>';
+ try{
+ var rows=await Promise.all([sb.get('cda_orc_pessoas','order=nome'),sb.get('cda_orc_papeis','order=nome')]);orcDados.pessoas=rows[0];orcDados.papeis=rows[1];
+ if(currentProject!=='orcamento_vendas'||window._orcamentoPage!=='configuracoes')return;
+ var titulo=tipo==='pessoas'?'Empresas e Pessoas':'Papéis dos participantes';
+ el.innerHTML='<div class="card"><div class="card-title">'+titulo+'</div>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcFormulario(\''+tipo+'\')">＋ Novo cadastro</button>':'<p>Somente leitura</p>')+'<div id="orc-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Nome</th>'+(tipo==='pessoas'?'<th>Papéis</th>':'')+'<th>Situação</th><th>Ações</th></tr></thead><tbody>'+orcDados[tipo].map(function(p){
+ var papeis=(p.papeis||[]).map(function(id){var r=orcDados.papeis.find(function(x){return x.id===id;});return orcEsc(r?r.nome:'Papel indisponível');}).join(', ');
+ return '<tr><td>'+orcEsc(p.nome)+'</td>'+(tipo==='pessoas'?'<td>'+papeis+'</td>':'')+'<td>'+(p.ativo?'Ativo':'Inativo')+'</td><td>'+(orcPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="orcFormulario(\''+tipo+'\',\''+p.id+'\')">Editar</button> <button class="btn btn-ghost btn-sm" onclick="orcSituacao(\''+tipo+'\',\''+p.id+'\')">'+(p.ativo?'Inativar':'Reativar')+'</button>':'—')+'</td></tr>';
+ }).join('')+'</tbody></table></div></div>';
+ }catch(e){el.innerHTML='<div class="card">Não foi possível carregar os cadastros. Atualize sua sessão e tente novamente.</div>';showToast('Falha ao consultar os cadastros','error');}
+}
+function orcFormulario(tipo,id){
+ if(!orcPodeEditar())return;
+ var p=orcDados[tipo].find(function(x){return x.id===id;})||{};
+ var html='<form id="orc-cadastro-form"><div class="form-group"><label class="form-label" for="orc-nome">Nome *</label><input class="form-input" id="orc-nome" required maxlength="160" value="'+orcEsc(p.nome)+'"></div>';
+ if(tipo==='pessoas'){
+ html+='<div class="form-group"><label class="form-label">Papéis * — selecione pelo menos um</label>'+orcDados.papeis.filter(function(r){return r.ativo||(p.papeis||[]).indexOf(r.id)>=0;}).map(function(r){return '<label style="display:inline-flex;gap:7px;margin:6px 18px 6px 0"><input type="checkbox" class="orc-papel" value="'+r.id+'" '+((p.papeis||[]).indexOf(r.id)>=0?'checked':'')+'>'+orcEsc(r.nome)+(r.ativo?'':' (inativo)')+'</label>';}).join('')+'</div><details><summary style="cursor:pointer;margin-bottom:14px">Dados complementares opcionais</summary><div class="form-group"><label class="form-label" for="orc-tipo">Tipo de pessoa</label><select class="form-input" id="orc-tipo"><option value="">Não informado</option><option value="fisica" '+(p.tipo==='fisica'?'selected':'')+'>Física</option><option value="juridica" '+(p.tipo==='juridica'?'selected':'')+'>Jurídica</option></select></div>';
+ [['documento','CPF/CNPJ'],['email','E-mail'],['telefone','Telefone / WhatsApp'],['endereco','Endereço'],['observacoes','Observações']].forEach(function(f){html+='<div class="form-group"><label class="form-label" for="orc-'+f[0]+'">'+f[1]+'</label><input class="form-input" id="orc-'+f[0]+'" '+(f[0]==='email'?'type="email"':'')+' value="'+orcEsc(p[f[0]])+'"></div>';});
+ html+='</details>';
+ }
+ html+='<button class="btn btn-primary" type="submit">Salvar</button> <button class="btn btn-ghost" type="button" onclick="document.getElementById(\'orc-form\').innerHTML=\'\'">Cancelar</button></form>';
+ document.getElementById('orc-form').innerHTML=html;
+ document.getElementById('orc-cadastro-form').onsubmit=async function(e){
+ e.preventDefault();if(!orcPodeEditar())return;
+ var d={nome:document.getElementById('orc-nome').value.trim()};if(!d.nome){showToast('Informe o nome','error');return;}
+ if(tipo==='pessoas'){
+ d.papeis=Array.from(document.querySelectorAll('.orc-papel:checked')).map(function(x){return x.value;});if(!d.papeis.length){showToast('Selecione pelo menos um papel','error');return;}
+ d.tipo=document.getElementById('orc-tipo').value||null;
+ ['documento','email','telefone','endereco','observacoes'].forEach(function(k){d[k]=document.getElementById('orc-'+k).value.trim()||null;});
+ }
+ var btn=e.target.querySelector('[type=submit]');btn.disabled=true;
+ try{if(id)await sb.patch('cda_orc_'+tipo,id,d);else await sb.post('cda_orc_'+tipo,d);showToast('Cadastro salvo no banco de dados','success');await orcCadastro(tipo);}
+ catch(err){btn.disabled=false;showToast('Não foi possível salvar. Confira sua permissão e, para papéis, se o nome já existe.','error');}
+ };
+}
+async function orcSituacao(tipo,id){
+ if(!orcPodeEditar())return;var p=orcDados[tipo].find(function(x){return x.id===id;});if(!p)return;
+ try{await sb.patch('cda_orc_'+tipo,id,{ativo:!p.ativo});showToast('Situação atualizada','success');await orcCadastro(tipo);}catch(e){showToast('Não foi possível alterar a situação','error');}
 }
