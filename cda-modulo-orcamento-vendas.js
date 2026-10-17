@@ -9,7 +9,7 @@ var ORCAMENTO_PAGES={
 };
 var ORCAMENTO_CONFIG=[
  {nome:'Participantes e referências',itens:['Empresas e Pessoas','Papéis dos participantes','Funções profissionais','Produtos e categorias','Locais de eventos']},
- {nome:'Estrutura financeira',itens:['Categorias, rubricas e subrubricas','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio']},
+ {nome:'Estrutura financeira',itens:['Categorias e Subcategorias','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio']},
  {nome:'Modelos e controle',itens:['Tipos de parceria','Modelos de cenários','Modelos de orçamento','Situações e etapas']}
 ];
 window._orcamentoPage='configuracoes';
@@ -29,6 +29,7 @@ function navigateOrcamento(page){
  }
 }
 function abrirConfiguracaoOrcamento(gi,ii){
+ if(gi===1&&ii===0){orcCategorias();return;}
  if(gi===0&&(ii===0||ii===1)){orcCadastro(ii===0?'pessoas':'papeis');return;}
  if(!canAccessProject('orcamento_vendas'))return;
  var nome=ORCAMENTO_CONFIG[gi]&&ORCAMENTO_CONFIG[gi].itens[ii];if(!nome)return;
@@ -38,7 +39,7 @@ function abrirConfiguracaoOrcamento(gi,ii){
  'Funções profissionais':'Designer, supervisor, filmmaker, vendedor, estoquista e apoio, com valores de referência.',
  'Produtos e categorias':'Referências de produtos, categorias, custos e preços para os orçamentos.',
  'Locais de eventos':'Espaços, localização, capacidade e contatos.',
- 'Categorias, rubricas e subrubricas':'Organização das receitas, deduções, custos, investimentos e remunerações.',
+ 'Categorias e Subcategorias':'Organização das receitas, deduções, custos, investimentos e remunerações.',
  'Modalidades e bases de cálculo':'Percentual, valor fixo ou quantidade × valor unitário. Bases como venda bruta e venda após descontos.',
  'Unidades de referência':'Pessoa, diária, quilômetro, veículo, peça, pedido, loja, show e mês.',
  'Regras de participação e rateio':'Remuneração administrativa, divisão do resultado e distribuição dos custos compartilhados.',
@@ -94,4 +95,42 @@ function orcFormulario(tipo,id){
 async function orcSituacao(tipo,id){
  if(!orcPodeEditar())return;var p=orcDados[tipo].find(function(x){return x.id===id;});if(!p)return;
  try{await sb.patch('cda_orc_'+tipo,id,{ativo:!p.ativo});showToast('Situação atualizada','success');await orcCadastro(tipo);}catch(e){showToast('Não foi possível alterar a situação','error');}
+}
+
+var orcCategoriasDados=[];
+function orcOrdenarCategorias(rows){
+ var saida=[];function visitar(pai){rows.filter(function(r){return r.pai_id===pai;}).sort(function(a,b){return a.ordem-b.ordem;}).forEach(function(r){saida.push(r);visitar(r.id);});}visitar(null);return saida;
+}
+async function orcCategorias(){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var el=document.getElementById('orcamento-config-detalhe');if(!el)return;
+ el.innerHTML='<div class="card">Carregando categorias...</div>';
+ try{
+ orcCategoriasDados=await sb.get('cda_orc_categorias','order=ordem');
+ if(currentProject!=='orcamento_vendas'||window._orcamentoPage!=='configuracoes')return;
+ var rows=orcOrdenarCategorias(orcCategoriasDados);
+ el.innerHTML='<div class="card"><div class="card-title">Categorias e Subcategorias — Plano de contas</div><p style="color:var(--muted2);margin-bottom:16px">Três níveis: Categoria → Subcategoria → Desdobramento. Códigos permanentes e gerados automaticamente.</p>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcCategoriaForm()">＋ Nova categoria</button>':'<p>Somente leitura</p>')+'<div id="orc-cat-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Nível</th><th>Subdivisão</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(function(r){
+ var filhos=rows.filter(function(x){return x.pai_id===r.id;}).length;
+ return '<tr><td>'+r.codigo+'</td><td style="padding-left:'+((r.nivel-1)*20+13)+'px;'+(r.nivel===1?'font-weight:700':'')+'">'+orcEsc(r.nome)+'</td><td>'+r.nivel+'</td><td>'+(filhos?filhos+' registro(s)':'Inexistente')+'</td><td>'+(r.ativo?'Ativo':'Inativo')+'</td><td>'+(orcPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaForm(\''+r.id+'\')">Editar</button> '+(r.nivel<3&&r.ativo?'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaForm(null,\''+r.id+'\')">Adicionar subdivisão</button> ':'')+'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaSituacao(\''+r.id+'\')">'+(r.ativo?'Inativar':'Reativar')+'</button>':'—')+'</td></tr>';
+ }).join('')+'</tbody></table></div><p style="color:var(--muted);margin-top:16px">Inativar um registro preserva suas subdivisões e seus códigos. Cadastros inativos não devem ser utilizados em novos orçamentos. Esta etapa não altera valores nem versões de orçamento.</p></div>';
+ }catch(e){el.innerHTML='<div class="card">Não foi possível carregar as categorias. Atualize sua sessão e tente novamente.</div>';}
+}
+function orcCategoriaForm(id,paiId){
+ if(!orcPodeEditar())return;
+ var r=orcCategoriasDados.find(function(x){return x.id===id;}),pai=orcCategoriasDados.find(function(x){return x.id===paiId;});
+ if(pai&&(pai.nivel>=3||!pai.ativo))return;
+ var el=document.getElementById('orc-cat-form');
+ el.innerHTML='<form id="orc-cat-editor"><p style="margin-bottom:12px">'+(r?'Editar '+r.codigo:pai?'Nova subdivisão de '+pai.codigo+' — '+orcEsc(pai.nome):'Nova categoria — nível 1')+'</p><label class="form-label" for="orc-cat-nome">Nome *</label><input class="form-input" id="orc-cat-nome" required maxlength="160" value="'+orcEsc(r?r.nome:'')+'"><div style="margin:14px 0"><button class="btn btn-primary" type="submit">Salvar</button> <button class="btn btn-ghost" type="button" onclick="document.getElementById(\'orc-cat-form\').innerHTML=\'\'">Cancelar</button></div></form>';
+ document.getElementById('orc-cat-editor').onsubmit=async function(e){
+ e.preventDefault();if(!orcPodeEditar())return;var nome=document.getElementById('orc-cat-nome').value.trim();if(!nome)return;
+ var btn=e.target.querySelector('[type=submit]');btn.disabled=true;
+ try{if(r)await sb.patch('cda_orc_categorias',r.id,{nome:nome});else await sb.post('cda_orc_categorias',{nome:nome,pai_id:paiId||null});showToast('Categoria salva no banco de dados','success');await orcCategorias();}
+ catch(err){btn.disabled=false;showToast('Não foi possível salvar a categoria. Confira sua permissão.','error');}
+ };
+ el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+async function orcCategoriaSituacao(id){
+ if(!orcPodeEditar())return;var r=orcCategoriasDados.find(function(x){return x.id===id;});if(!r)return;
+ try{await sb.patch('cda_orc_categorias',id,{ativo:!r.ativo});showToast('Situação atualizada','success');await orcCategorias();}
+ catch(e){showToast('Não foi possível atualizar a situação','error');}
 }
