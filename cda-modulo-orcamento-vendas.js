@@ -9,7 +9,7 @@ var ORCAMENTO_PAGES={
 };
 var ORCAMENTO_CONFIG=[
  {nome:'Participantes e referências',itens:['Empresas e Pessoas','Papéis dos participantes','Funções profissionais','Produtos e categorias','Locais de eventos']},
- {nome:'Estrutura financeira',itens:['Categorias e Subcategorias','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio']},
+ {nome:'Estrutura financeira',itens:['Categorias e Subcategorias','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio','Dimensionamento operacional']},
  {nome:'Modelos e controle',itens:['Tipos de parceria','Modelos de cenários','Modelos de orçamento','Situações e etapas']}
 ];
 window._orcamentoPage='configuracoes';
@@ -29,6 +29,7 @@ function navigateOrcamento(page){
  }
 }
 function abrirConfiguracaoOrcamento(gi,ii){
+ if(gi===1&&ii===4){orcDimensionamento();return;}
  if(gi===1&&ii===0){orcCategorias();return;}
  if(gi===0&&(ii===0||ii===1)){orcCadastro(ii===0?'pessoas':'papeis');return;}
  if(!canAccessProject('orcamento_vendas'))return;
@@ -133,4 +134,34 @@ async function orcCategoriaSituacao(id){
  if(!orcPodeEditar())return;var r=orcCategoriasDados.find(function(x){return x.id===id;});if(!r)return;
  try{await sb.patch('cda_orc_categorias',id,{ativo:!r.ativo});showToast('Situação atualizada','success');await orcCategorias();}
  catch(e){showToast('Não foi possível atualizar a situação','error');}
+}
+
+var orcDim=null;
+var orcDimCampos={shows:'Quantidade de shows',publico:'Público por show',capacidade_loja:'Compradores atendidos por loja/show',compradores_vendedor:'Compradores atendidos por vendedor/show',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',apoio_evento:'Apoio fixo por evento',valor_vendedor:'Vendedor — R$/show',valor_estoquista:'Estoquista — R$/show',valor_apoio:'Apoio — R$/show'};
+function orcDimCalcular(d,r){
+ var round=d.arredondamento==='proximo'?Math.round:Math.ceil;
+ var compradores=d.publico*r.conversao/100;
+ var lojas=d.capacidade_loja?round(compradores/d.capacidade_loja):null;
+ var vendedores=d.compradores_vendedor?round(compradores/d.compradores_vendedor):null;
+ var estoquistas=lojas!==null&&d.estoquistas_loja!==null?round(lojas*d.estoquistas_loja):null;
+ var apoio=lojas!==null&&d.apoio_loja!==null&&d.apoio_evento!==null?round(lojas*d.apoio_loja+d.apoio_evento):null;
+ var total=vendedores!==null&&estoquistas!==null&&apoio!==null&&d.valor_vendedor!==null&&d.valor_estoquista!==null&&d.valor_apoio!==null?(vendedores*d.valor_vendedor+estoquistas*d.valor_estoquista+apoio*d.valor_apoio)*d.shows:null;
+ return {compradores:compradores,lojas:lojas,vendedores:vendedores,estoquistas:estoquistas,apoio:apoio,total:total};
+}
+async function orcDimensionamento(){
+ if(!canAccessProject('orcamento_vendas'))return;var el=document.getElementById('orcamento-config-detalhe');if(!el)return;
+ el.innerHTML='<div class="card">Carregando dimensionamento...</div>';
+ try{
+ var rows=await sb.get('cda_orc_dimensionamento','order=atualizado_em');
+ orcDim=rows[0];if(!orcDim)throw Error('Sem referência');
+ if(currentProject!=='orcamento_vendas'||window._orcamentoPage!=='configuracoes')return;
+ var d=orcDim;
+ el.innerHTML='<div class="card"><div class="card-title">Dimensionamento operacional</div><p style="color:var(--muted2);margin-bottom:18px">Parâmetros de referência. Campos sem valor aguardam conferência da memória original e não são tratados como zero. O simulador abaixo não substitui a matriz aprovada.</p><form id="orc-dim-form"><div class="form-row">'+Object.keys(orcDimCampos).map(function(k){return '<div class="form-group"><label class="form-label" for="dim-'+k+'">'+orcDimCampos[k]+'</label><input class="form-input" id="dim-'+k+'" type="number" min="'+(['shows','publico','capacidade_loja','compradores_vendedor'].includes(k)?'1':'0')+'" step="'+(['shows','publico'].includes(k)?'1':'any')+'" '+(['shows','publico'].includes(k)?'required':'')+' value="'+(d[k]===null?'':d[k])+'" '+(orcPodeEditar()?'':'disabled')+'></div>';}).join('')+'</div><label class="form-label" for="dim-round">Arredondamento da simulação</label><select id="dim-round" class="form-input" '+(orcPodeEditar()?'':'disabled')+'><option value="cima" '+(d.arredondamento==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(d.arredondamento==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select><p style="color:var(--muted);margin:12px 0">Regra inicial do simulador: compradores = público × conversão; lojas = compradores ÷ capacidade/loja; vendedores = compradores ÷ capacidade/vendedor; estoquistas = lojas × fator; apoio = lojas × fator + fixos. Os fatores da memória original ainda precisam ser conferidos.</p>'+(orcPodeEditar()?'<button class="btn btn-primary" type="submit">Salvar parâmetros</button>':'')+'</form><div id="dim-memoria" style="margin-top:18px"></div></div>';
+ orcDimMemoria();
+ document.getElementById('orc-dim-form').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var next={};Object.keys(orcDimCampos).forEach(function(k){var v=document.getElementById('dim-'+k).value;next[k]=v===''?null:Number(v);});next.arredondamento=document.getElementById('dim-round').value;next.atualizado_em=new Date().toISOString();var btn=e.target.querySelector('[type=submit]');btn.disabled=true;try{await sb.patch('cda_orc_dimensionamento',d.id,next);Object.assign(orcDim,next);orcDimMemoria();showToast('Parâmetros salvos no Supabase','success');}catch(err){showToast('Não foi possível salvar os parâmetros','error');}finally{btn.disabled=false;}};
+ }catch(e){el.innerHTML='<div class="card">Não foi possível carregar o dimensionamento.</div>';}
+}
+function orcDimMemoria(){
+ var d=orcDim,fmt=function(v){return v===null?'Pendente':Number(v).toLocaleString('pt-BR');};
+ document.getElementById('dim-memoria').innerHTML='<div class="card-title">Referências aprovadas e memória da simulação</div><div class="tbl-wrap"><table><thead><tr><th>Cenário</th><th>Conversão</th><th>Compradores/show</th><th>Lojas aprovadas / calculadas</th><th>Vendedores aprovados / calculados</th><th>Estoquistas/show</th><th>Apoio/show</th><th>Equipe — total R$</th></tr></thead><tbody>'+d.referencias.map(function(r){var x=orcDimCalcular(d,r);return '<tr><td>'+orcEsc(r.cenario)+'</td><td>'+r.conversao+'%</td><td>'+fmt(x.compradores)+'</td><td>'+r.lojas+' / '+fmt(x.lojas)+'</td><td>'+r.vendedores+' / '+fmt(x.vendedores)+'</td><td>'+fmt(x.estoquistas)+'</td><td>'+fmt(x.apoio)+'</td><td>'+fmt(x.total)+'</td></tr>';}).join('')+'</tbody></table></div><p style="color:var(--muted);margin-top:12px">Público e shows são referências para novos orçamentos. A cópia dos parâmetros por versão e as exceções de cada evento serão integradas ao cadastro de projetos posteriormente.</p>';
 }
