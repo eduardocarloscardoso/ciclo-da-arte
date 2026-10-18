@@ -123,7 +123,7 @@ async function orcCategoriaSituacao(id){
 var orcDim=null;
 var orcDimCampos={shows:'Quantidade de shows',publico:'Público por show',capacidade_loja:'Compradores atendidos por loja/show',compradores_vendedor:'Compradores atendidos por vendedor/show',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',vendedores_loja:'Vendedores por loja',valor_vendedor:'Vendedor — R$/show',valor_estoquista:'Estoquista — R$/show',valor_apoio:'Apoio — R$/show'};
 function orcDimCalcular(d,r){
- var round=d.arredondamento==='proximo'?Math.round:Math.ceil;
+ var round=Math.round;
  var compradores=d.publico*r.conversao/100;
  var lojas=d.capacidade_loja?round(compradores/d.capacidade_loja):null;
  var vendedores=d.compradores_vendedor?round(compradores/d.compradores_vendedor):null;
@@ -265,7 +265,7 @@ function orcVoltarCadastros(){var el=document.getElementById('orc-cadastro-proje
 var orcPadraoSelecionado=null,orcEditor=null;
 var orcEsquemas={
  premissas:{publico_total:null,shows:null,cenarios:[{nome:'',conversao:null}]},
- dimensionamento:{capacidade_loja:null,area_loja:null,compradores_vendedor:null,estoquistas_loja:null,apoio_loja:null,vendedores_loja:null,arredondamento:'cima'},
+ dimensionamento:{area_loja:null,capacidade_loja:null,compradores_vendedor:null,vendedores_loja:null,estoquistas_loja:null,apoio_loja:null,arredondamento:'proximo'},
  funcoes:[{nome:'',unidade:'profissional/show',valor_unitario:null}],
  calculos:{modalidades:[''],bases:['']},
  produtos:[{nome:'',unidade:'peça',custo_unitario:null,preco_venda:null}],
@@ -300,6 +300,7 @@ function orcIniciarEditor(escopo,r,k,pessoas){
  var d=JSON.parse(JSON.stringify(r.conteudo));
  if(k==='dimensionamento'&&d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).length){delete d['apoio'+'_evento'];if(d.vendedores_loja===undefined)d.vendedores_loja=4;}
  if(!d||!Object.keys(d).length)d=JSON.parse(JSON.stringify(orcEsquemas[k]));
+ if(k==='dimensionamento'){d.arredondamento='proximo';['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja'].forEach(function(key){if(d[key]===undefined)d[key]=null;});}
  orcEditor={escopo:escopo,r:r,k:k,anterior:JSON.parse(JSON.stringify(r.conteudo)),dados:d,pessoas:pessoas};
  orcRenderEditor();
 }
@@ -313,7 +314,7 @@ function orcRenderEditor(){
  return '<fieldset style="border:1px solid var(--border2);padding:14px;margin:14px 0"><legend>'+orcEsc(label)+'</legend>'+v.map(function(item,i){return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+campo(item,path.concat(i),key)+(editable?'<button class="btn btn-ghost btn-sm" type="button" data-remove="'+n+':'+i+'">Retirar item</button>':'')+'</div>';}).join('')+(editable?'<button class="btn btn-ghost" type="button" data-add="'+n+'">＋ Adicionar item</button>':'')+'</fieldset>';
  }
  if(v&&typeof v==='object'){
- return '<div class="form-row">'+Object.keys(v).filter(function(k){return !['id','criado_em','atualizado_em'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
+ return '<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
  }
  if(key==='pessoa_id')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+orcEditor.pessoas.map(function(p){return '<option value="'+p.id+'" '+(p.id===v?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select>';
  if(key==='arredondamento')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="cima" '+(v==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(v==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select>';
