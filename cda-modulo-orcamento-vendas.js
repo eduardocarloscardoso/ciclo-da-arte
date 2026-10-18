@@ -1,16 +1,13 @@
 // Orçamento Vendas — navegação inicial; sem gravação de dados nesta etapa.
 var ORCAMENTO_PAGES={
+ tipos:{icon:'🗂',label:'Tipos de Projeto'},
  projetos:{icon:'📁',label:'Projetos'},
- shows:{icon:'🎤',label:'Parcerias Shows/Eventos'},
- ecommerce:{icon:'🛒',label:'Parcerias E-Commerce'},
- private_label:{icon:'👕',label:'Parcerias Private Label'},
- consolidado:{icon:'📊',label:'Consolidado do Projeto'},
- configuracoes:{icon:'⚙',label:'Configurações'}
+ configuracoes:{icon:'⚙',label:'Cadastros compartilhados'}
 };
 var ORCAMENTO_CONFIG=[
  {nome:'Participantes e referências',itens:['Empresas e Pessoas','Papéis dos participantes','Funções profissionais','Produtos e categorias','Locais de eventos']},
  {nome:'Estrutura financeira',itens:['Categorias e Subcategorias','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio','Dimensionamento operacional']},
- {nome:'Modelos e controle',itens:['Tipos de parceria','Modelos de cenários','Modelos de orçamento','Situações e etapas']}
+ {nome:'Controle',itens:['Cenários','Situações e etapas']}
 ];
 window._orcamentoPage='configuracoes';
 function navigateOrcamento(page){
@@ -21,6 +18,7 @@ function navigateOrcamento(page){
  var el=document.getElementById('main-content');
  var banner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura</div>':'';
  el.innerHTML=banner+'<div class="ph"><h1>'+ORCAMENTO_PAGES[page].icon+' '+ORCAMENTO_PAGES[page].label+'</h1><p>Orçamento Vendas</p></div>';
+ if(page==='tipos'||page==='projetos'){orcEstrutura(page);return;}
  if(page==='configuracoes'){
    el.innerHTML+='<p style="color:var(--muted2);margin-bottom:20px">Cadastros e tabelas básicas compartilhados pelas modalidades de parceria. Selecione um item para consultar seu escopo.</p>'+ORCAMENTO_CONFIG.map(function(g,gi){return '<div class="card" style="margin-bottom:16px"><div class="card-title">'+g.nome+'</div><div style="display:flex;gap:8px;flex-wrap:wrap">'+g.itens.map(function(nome,ii){return '<button class="btn btn-ghost" onclick="abrirConfiguracaoOrcamento('+gi+','+ii+')">'+nome+'</button>';}).join('')+'</div></div>';}).join('')+'<div id="orcamento-config-detalhe" aria-live="polite"></div>';
  }else{
@@ -164,4 +162,53 @@ async function orcDimensionamento(){
 function orcDimMemoria(){
  var d=orcDim,fmt=function(v){return v===null?'Pendente':Number(v).toLocaleString('pt-BR');};
  document.getElementById('dim-memoria').innerHTML='<div class="card-title">Referências aprovadas e memória da simulação</div><div class="tbl-wrap"><table><thead><tr><th>Cenário</th><th>Conversão</th><th>Compradores/show</th><th>Lojas aprovadas / calculadas</th><th>Vendedores aprovados / calculados</th><th>Estoquistas/show</th><th>Apoio/show</th><th>Equipe — total R$</th></tr></thead><tbody>'+d.referencias.map(function(r){var x=orcDimCalcular(d,r);return '<tr><td>'+orcEsc(r.cenario)+'</td><td>'+r.conversao+'%</td><td>'+fmt(x.compradores)+'</td><td>'+r.lojas+' / '+fmt(x.lojas)+'</td><td>'+r.vendedores+' / '+fmt(x.vendedores)+'</td><td>'+fmt(x.estoquistas)+'</td><td>'+fmt(x.apoio)+'</td><td>'+fmt(x.total)+'</td></tr>';}).join('')+'</tbody></table></div><p style="color:var(--muted);margin-top:12px">Público e shows são referências para novos orçamentos. A cópia dos parâmetros por versão e as exceções de cada evento serão integradas ao cadastro de projetos posteriormente.</p>';
+}
+
+var orcEstr={tipos:[],projetos:[],vinculos:[],pessoas:[],participantes:[]};
+async function orcEstrCarregar(){
+ var r=await Promise.all([sb.get('cda_orc_tipos_projeto','order=codigo'),sb.get('cda_orc_projetos','order=nome'),sb.get('cda_orc_projeto_tipos','order=id'),sb.get('cda_orc_pessoas','order=nome'),sb.get('cda_orc_projeto_participantes','order=id')]);
+ orcEstr={tipos:r[0],projetos:r[1],vinculos:r[2],pessoas:r[3],participantes:r[4]};
+}
+async function orcEstrutura(page){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var el=document.getElementById('main-content');el.innerHTML='<div class="card">Carregando...</div>';
+ try{await orcEstrCarregar();if(window._orcamentoPage!==page)return;
+ var isTipo=page==='tipos',rows=isTipo?orcEstr.tipos:orcEstr.projetos;
+ el.innerHTML='<div class="ph"><h1>'+(isTipo?'Tipos de Projeto':'Projetos')+'</h1><p>'+(isTipo?'Regras reutilizáveis por negócio. Um projeto pode utilizar vários tipos.':'Selecione um projeto para acessar seus tipos de negócio e o consolidado.')+'</p></div>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcEstrForm(\''+page+'\')">＋ '+(isTipo?'Novo tipo':'Novo projeto')+'</button>':'<div class="readonly-banner">Somente leitura</div>')+'<div id="orc-estr-form" style="margin:16px 0"></div><div class="card"><div class="tbl-wrap"><table><thead><tr><th>Nome</th><th>'+(isTipo?'Descrição':'Tipos vinculados')+'</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(function(r){
+ var tipos=orcEstr.vinculos.filter(function(v){return v.projeto_id===r.id&&v.ativo;}).map(function(v){var t=orcEstr.tipos.find(function(x){return x.id===v.tipo_id;});return t?orcEsc(t.nome):'';}).join(', ');
+ return '<tr><td>'+(isTipo?String(r.codigo).padStart(2,'0')+' — ':'')+orcEsc(r.nome)+'</td><td>'+(isTipo?orcEsc(r.descricao):tipos)+'</td><td>'+(r.ativo?'Ativo':'Inativo')+'</td><td>'+(!isTipo?'<button class="btn btn-primary btn-sm" onclick="orcAbrirProjeto(\''+r.id+'\')">Abrir projeto</button> ':'')+(orcPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="orcEstrForm(\''+page+'\',\''+r.id+'\')">Editar</button> <button class="btn btn-ghost btn-sm" onclick="orcEstrAtivo(\''+page+'\',\''+r.id+'\')">'+(r.ativo?'Inativar':'Reativar')+'</button>':'')+'</td></tr>';
+ }).join('')+'</tbody></table></div></div>';
+ }catch(e){el.innerHTML='<div class="card">Não foi possível carregar a estrutura de projetos.</div>';}
+}
+function orcEstrForm(page,id){
+ if(!orcPodeEditar())return;var tipo=page==='tipos',r=orcEstr[page].find(function(x){return x.id===id;})||{};
+ document.getElementById('orc-estr-form').innerHTML='<form id="orc-estr-editor" class="card"><label class="form-label" for="estr-nome">Nome *</label><input class="form-input" id="estr-nome" required value="'+orcEsc(r.nome)+'"><label class="form-label" for="estr-desc" style="margin-top:12px">Descrição</label><input class="form-input" id="estr-desc" value="'+orcEsc(r.descricao)+'">'+(!tipo?'<p style="margin:14px 0">Tipos de Projeto * — selecione pelo menos um</p>'+orcEstr.tipos.filter(function(t){return t.ativo||orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});}).map(function(t){var selected=orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});return '<label style="display:inline-flex;gap:8px;margin-right:18px"><input type="checkbox" class="estr-tipo" value="'+t.id+'" '+(selected?'checked':'')+'>'+orcEsc(t.nome)+'</label>';}).join(''):'')+'<p style="margin-top:16px"><button type="submit" class="btn btn-primary">Salvar</button></p></form>';
+ document.getElementById('orc-estr-editor').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;
+ var nome=document.getElementById('estr-nome').value.trim(),descricao=document.getElementById('estr-desc').value.trim(),ids=Array.from(document.querySelectorAll('.estr-tipo:checked')).map(function(x){return x.value;});if(!nome||(!tipo&&!ids.length)){showToast('Informe nome e pelo menos um tipo para o projeto','error');return;}
+ var btn=e.target.querySelector('button');btn.disabled=true;
+ try{
+ var table=tipo?'cda_orc_tipos_projeto':'cda_orc_projetos',pid=id;
+ if(id)await sb.patch(table,id,{nome:nome,descricao:descricao});else{var created=await sb.post(table,{nome:nome,descricao:descricao});pid=created[0].id;}
+ if(!tipo){
+ for(var v of orcEstr.vinculos.filter(function(x){return x.projeto_id===pid;}))await sb.patch('cda_orc_projeto_tipos',v.id,{ativo:ids.indexOf(v.tipo_id)>=0});
+ for(var tid of ids)if(!orcEstr.vinculos.some(function(x){return x.projeto_id===pid&&x.tipo_id===tid;}))await sb.post('cda_orc_projeto_tipos',{projeto_id:pid,tipo_id:tid});
+ }
+ showToast('Cadastro salvo','success');await orcEstrutura(page);
+ }catch(err){showToast('Não foi possível concluir. Reabra o cadastro para conferir o que foi salvo antes de repetir.','error');btn.disabled=false;}
+ };
+}
+async function orcEstrAtivo(page,id){if(!orcPodeEditar())return;var r=orcEstr[page].find(function(x){return x.id===id;});try{await sb.patch(page==='tipos'?'cda_orc_tipos_projeto':'cda_orc_projetos',id,{ativo:!r.ativo});await orcEstrutura(page);}catch(e){showToast('Não foi possível alterar a situação','error');}}
+function orcAbrirProjeto(id){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var p=orcEstr.projetos.find(function(x){return x.id===id;});if(!p)return;
+ var el=document.getElementById('main-content');
+ document.getElementById('page-title').textContent='Orçamento Vendas · '+p.nome;
+ var participantes=orcEstr.participantes.filter(function(x){return x.projeto_id===id&&x.ativo;}).map(function(x){var pessoa=orcEstr.pessoas.find(function(a){return a.id===x.pessoa_id;});return pessoa?orcEsc(pessoa.nome):'';}).join(', ');
+ el.innerHTML='<div class="ph"><h1>'+orcEsc(p.nome)+'</h1><p>Participantes: '+(participantes||'Nenhum vinculado')+'</p></div><button class="btn btn-ghost" onclick="navigateOrcamento(\'projetos\')">← Projetos</button><div id="orc-projeto-tipos" style="margin-top:18px">'+orcEstr.vinculos.filter(function(v){return v.projeto_id===id&&v.ativo;}).map(function(v){var t=orcEstr.tipos.find(function(x){return x.id===v.tipo_id;});return '<div class="card" style="margin-bottom:14px"><div class="card-title">'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</div><button class="btn btn-primary" onclick="orcProjetoTipo(\''+v.id+'\')">Abrir orçamento deste tipo</button></div>';}).join('')+'</div><div class="card"><div class="card-title">Consolidado do projeto</div><p>Reunirá os resultados dos tipos vinculados, sem duplicar custos compartilhados. Integração dos orçamentos em desenvolvimento.</p></div><div id="orc-projeto-detalhe" style="margin-top:18px"></div>';
+}
+function orcProjetoTipo(id){
+ var v=orcEstr.vinculos.find(function(x){return x.id===id;});if(!v||!canAccessProject('orcamento_vendas'))return;
+ var t=orcEstr.tipos.find(function(x){return x.id===v.tipo_id;}),p=orcEstr.projetos.find(function(x){return x.id===v.projeto_id;}),params=v.parametros||{};
+ document.getElementById('orc-projeto-detalhe').innerHTML='<div class="card"><div class="card-title">'+orcEsc(p.nome)+' → '+orcEsc(t.nome)+'</div><p>Orçamento próprio deste projeto e tipo. Sem camada de modelos de orçamento.</p>'+(params.publico_total?'<p style="margin-top:12px">Público total: '+params.publico_total.toLocaleString('pt-BR')+' · Shows: '+params.shows+' · Conversões: '+params.conversoes.join('%, ')+'%</p>':'<p style="margin-top:12px">Premissas específicas ainda não definidas.</p>')+'<p style="color:var(--muted2);margin-top:12px">Categorias, regras padrão por tipo e cópia dos parâmetros para cada versão serão integradas na próxima etapa. Os cadastros existentes foram preservados.</p></div>';
+ document.getElementById('orc-projeto-detalhe').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
