@@ -1,0 +1,5 @@
+alter table public.cda_orc_dimensionamento add column vendedores_loja numeric check(vendedores_loja>0);
+update public.cda_orc_dimensionamento set vendedores_loja=4;
+alter table public.cda_orc_dimensionamento drop column apoio_evento;
+update public.cda_orc_padroes_tipo set conteudo=(conteudo-'apoio_evento')||jsonb_build_object('vendedores_loja',coalesce(conteudo->'vendedores_loja','4'::jsonb)),atualizado_em=now() where chave='dimensionamento' and (conteudo ? 'apoio_evento' or exists(select 1 from public.cda_orc_tipos_projeto t where t.id=tipo_id and t.codigo=1));
+update public.cda_orc_cadastros_projeto set conteudo=(conteudo-'apoio_evento')||jsonb_build_object('vendedores_loja',coalesce(conteudo->'vendedores_loja','4'::jsonb)) where chave='dimensionamento' and jsonb_typeof(conteudo)='object' and (conteudo ? 'apoio_evento' or exists(select 1 from public.cda_orc_projeto_tipos v join public.cda_orc_tipos_projeto t on t.id=v.tipo_id where v.id=projeto_tipo_id and t.codigo=1));
