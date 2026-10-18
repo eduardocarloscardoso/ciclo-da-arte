@@ -313,6 +313,7 @@ function orcIniciarEditor(escopo,r,k,pessoas,tiposParticipantes){
 function orcEditorGet(path){return path.reduce(function(o,k){return o[k];},orcEditor.dados);}
 function orcEditorSet(path,value){if(!orcPodeEditar())return;var parent=orcEditor.dados;for(var i=0;i<path.length-1;i++)parent=parent[path[i]];parent[path[path.length-1]]=value;}
 function orcRenderEditor(){
+ if(orcEditor.k==='participantes'){orcRenderParticipantesTipo();return;}
  var paths=[],editable=orcPodeEditar();
  function campo(v,path,key){
  var n=paths.push(path)-1,label=orcRotulos[key]||key||'Item',disabled=editable?'':' disabled';
@@ -344,4 +345,44 @@ function orcRenderEditor(){
  ed.r.conteudo=JSON.parse(JSON.stringify(ed.dados));ed.anterior=JSON.parse(JSON.stringify(ed.dados));showToast('Cadastro salvo no '+(ed.escopo==='padrao'?'padrão do tipo':'projeto'),'success');
  }catch(err){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');}finally{btn.disabled=false;}
  };
+}
+
+function orcRenderParticipantesTipo(){
+ var ed=orcEditor,el=document.getElementById('orc-editor-conteudo'),editavel=orcPodeEditar();
+ el.innerHTML=(editavel?'<button class="btn btn-primary" id="orc-part-novo">＋ Novo cadastro</button>':'')+'<div id="orc-part-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Participante</th><th>Tipo Participação</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+ed.dados.map(function(item,i){
+ if(!item.pessoa_id&&!item.papel)return '';
+ var pessoa=ed.pessoas.find(function(p){return p.id===item.pessoa_id;}),tipo=ed.tiposParticipantes.find(function(t){return t.id===item.papel;});
+ return '<tr><td>'+orcEsc(pessoa?pessoa.nome:item.pessoa_id||'')+'</td><td>'+orcEsc(tipo?tipo.nome:item.papel||'')+'</td><td>'+(item.ativo===false?'Inativo':'Ativo')+'</td><td>'+(editavel?'<button class="btn btn-ghost btn-sm" data-part-edit="'+i+'">Editar</button> <button class="btn btn-ghost btn-sm" data-part-status="'+i+'">'+(item.ativo===false?'Reativar':'Inativar')+'</button>':'—')+'</td></tr>';
+ }).join('')+'</tbody></table></div>'+(ed.dados.some(function(x){return x.pessoa_id||x.papel;})?'':'<p>Nenhum participante cadastrado para este tipo.</p>');
+ var novo=document.getElementById('orc-part-novo');if(novo)novo.onclick=function(){orcParticipanteTipoForm();};
+ el.querySelectorAll('[data-part-edit]').forEach(function(b){b.onclick=function(){orcParticipanteTipoForm(Number(this.dataset.partEdit));};});
+ el.querySelectorAll('[data-part-status]').forEach(function(b){b.onclick=async function(){
+ if(!orcPodeEditar())return;this.disabled=true;
+ var dados=JSON.parse(JSON.stringify(ed.dados)),i=Number(this.dataset.partStatus);dados[i].ativo=dados[i].ativo===false;
+ if(!await orcSalvarParticipantesTipo(ed,dados))this.disabled=false;
+ };});
+}
+function orcParticipanteTipoForm(indice){
+ if(!orcPodeEditar())return;
+ var ed=orcEditor,item=indice===undefined?{pessoa_id:'',papel:'',ativo:true}:ed.dados[indice],el=document.getElementById('orc-part-form');
+ el.innerHTML='<form id="orc-part-editor"><div class="form-row"><div><label class="form-label" for="orc-part-pessoa">Participante *</label><select class="form-input" id="orc-part-pessoa" required><option value="">Selecione</option>'+ed.pessoas.filter(function(p){return p.ativo!==false||p.id===item.pessoa_id;}).map(function(p){return '<option value="'+orcEsc(p.id)+'" '+(p.id===item.pessoa_id?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select></div><div><label class="form-label" for="orc-part-tipo">Tipo Participação *</label><select class="form-input" id="orc-part-tipo" required><option value="">Selecione</option>'+((item.papel&&!ed.tiposParticipantes.some(function(t){return t.id===item.papel;}))?'<option value="'+orcEsc(item.papel)+'" selected>'+orcEsc(item.papel)+' (cadastro anterior)</option>':'')+ed.tiposParticipantes.filter(function(t){return t.ativo!==false||t.id===item.papel;}).map(function(t){return '<option value="'+orcEsc(t.id)+'" '+(t.id===item.papel?'selected':'')+'>'+orcEsc(t.nome)+'</option>';}).join('')+'</select></div></div><p style="margin:16px 0"><button class="btn btn-primary" type="submit">Salvar</button> <button class="btn btn-ghost" type="button" id="orc-part-cancel">Cancelar</button></p></form>';
+ document.getElementById('orc-part-cancel').onclick=function(){el.innerHTML='';};
+ document.getElementById('orc-part-editor').onsubmit=async function(e){
+ e.preventDefault();if(!orcPodeEditar())return;
+ var pessoa=document.getElementById('orc-part-pessoa').value,papel=document.getElementById('orc-part-tipo').value;
+ if(!pessoa||!papel)return;
+ if(ed.dados.some(function(x,i){return i!==indice&&x.pessoa_id===pessoa&&x.papel===papel;})){showToast('Este participante já possui este tipo de participação.','error');return;}
+ var dados=JSON.parse(JSON.stringify(ed.dados)),registro=Object.assign({},item,{pessoa_id:pessoa,papel:papel});
+ if(indice===undefined){dados=dados.filter(function(x){return x.pessoa_id||x.papel;});dados.push(registro);}else dados[indice]=registro;
+ var btn=e.target.querySelector('[type=submit]');btn.disabled=true;if(!await orcSalvarParticipantesTipo(ed,dados))btn.disabled=false;
+ };
+}
+async function orcSalvarParticipantesTipo(ed,dados){
+ if(!orcPodeEditar())return false;
+ try{
+ if(ed.r.id)await orcRpc('cda_orc_salvar_cadastro',{escopo:ed.escopo,registro:ed.r.id,anterior:ed.anterior,novo:dados});
+ else{var res=await sb.post('cda_orc_padroes_tipo',{tipo_id:ed.r.tipo_id,chave:ed.k,conteudo:dados});ed.r.id=res[0].id;}
+ ed.r.conteudo=JSON.parse(JSON.stringify(dados));ed.anterior=JSON.parse(JSON.stringify(dados));ed.dados=dados;
+ if(orcEditor===ed)orcRenderParticipantesTipo();showToast('Cadastro salvo','success');return true;
+ }catch(e){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');return false;}
 }
