@@ -5,9 +5,8 @@ var ORCAMENTO_PAGES={
  configuracoes:{icon:'⚙',label:'Cadastros compartilhados'}
 };
 var ORCAMENTO_CONFIG=[
- {nome:'Participantes e referências',itens:['Empresas e Pessoas','Papéis dos participantes','Funções profissionais','Produtos e categorias','Locais de eventos']},
- {nome:'Estrutura financeira',itens:['Categorias e Subcategorias','Modalidades e bases de cálculo','Unidades de referência','Regras de participação e rateio','Dimensionamento operacional']},
- {nome:'Controle',itens:['Cenários','Situações e etapas']}
+ {nome:'Identidades compartilhadas',itens:['Empresas e Pessoas','Papéis dos participantes']},
+ {nome:'Cadastros padrão por Tipo de Projeto',itens:['Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Modalidades e bases de cálculo','Produtos e preços','Participantes e papéis','Participação e rateio']}
 ];
 window._orcamentoPage='configuracoes';
 function navigateOrcamento(page){
@@ -27,31 +26,13 @@ function navigateOrcamento(page){
  }
 }
 function abrirConfiguracaoOrcamento(gi,ii){
- if(gi===1&&ii===4){orcDimensionamento();return;}
- if(gi===1&&ii===0){orcCategorias();return;}
- if(gi===0&&(ii===0||ii===1)){orcCadastro(ii===0?'pessoas':'papeis');return;}
  if(!canAccessProject('orcamento_vendas'))return;
- var nome=ORCAMENTO_CONFIG[gi]&&ORCAMENTO_CONFIG[gi].itens[ii];if(!nome)return;
- var desc={
- 'Empresas e Pessoas':'Cadastro único. Obrigatórios: nome e pelo menos um papel. Tipo de pessoa, CPF/CNPJ, contatos e endereço opcionais.',
- 'Papéis dos participantes':'Owner Product; Parceiro Cultural; Cliente; Parceiro Fabricação; Fornecedor; Prestador de Serviços. Uma pessoa ou empresa poderá acumular papéis.',
- 'Funções profissionais':'Designer, supervisor, filmmaker, vendedor, estoquista e apoio, com valores de referência.',
- 'Produtos e categorias':'Referências de produtos, categorias, custos e preços para os orçamentos.',
- 'Locais de eventos':'Espaços, localização, capacidade e contatos.',
- 'Categorias e Subcategorias':'Organização das receitas, deduções, custos, investimentos e remunerações.',
- 'Modalidades e bases de cálculo':'Percentual, valor fixo ou quantidade × valor unitário. Bases como venda bruta e venda após descontos.',
- 'Unidades de referência':'Pessoa, diária, quilômetro, veículo, peça, pedido, loja, show e mês.',
- 'Regras de participação e rateio':'Remuneração administrativa, divisão do resultado e distribuição dos custos compartilhados.',
- 'Tipos de parceria':'Shows/Eventos; E-Commerce; Private Label.',
- 'Modelos de cenários':'Pessimista, Conservador e Otimista.',
- 'Modelos de orçamento':'Rubricas e parâmetros iniciais para cada tipo de parceria. Referências não alteram versões já aprovadas.',
- 'Situações e etapas':'Rascunho, Em elaboração, Em revisão, Aprovado, Encerrado e Cancelado.'
- };
- document.getElementById('orcamento-config-detalhe').innerHTML='<div class="card"><div class="card-title">'+nome+'</div><p style="color:var(--muted2)">'+desc[nome]+'</p><p style="color:var(--muted);margin-top:12px">Escopo definido. Cadastro e gravação serão implementados na próxima etapa.</p></div>';
+ if(gi===0){orcCadastro(ii===0?'pessoas':'papeis');return;}
+ if(gi===1){if(ii===0){orcCategorias();return;}orcPadraoTipo(Object.keys(ORC_CADASTROS)[ii]);}
 }
 
 var orcDados={pessoas:[],papeis:[]};
-function orcEsc(v){return String(v||'').replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function orcEsc(v){return String(v===null||v===undefined?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 function orcPodeEditar(){return canAccessProject('orcamento_vendas')&&!isReadOnly();}
 async function orcCadastro(tipo){
  if(!canAccessProject('orcamento_vendas'))return;
@@ -214,7 +195,7 @@ function orcAbrirProjeto(id){
 function orcProjetoTipo(id){
  var v=orcEstr.vinculos.find(function(x){return x.id===id;});if(!v||!canAccessProject('orcamento_vendas'))return;
  var t=orcEstr.tipos.find(function(x){return x.id===v.tipo_id;}),p=orcEstr.projetos.find(function(x){return x.id===v.projeto_id;}),params=v.parametros||{};
- document.getElementById('orc-projeto-detalhe').innerHTML='<div class="card"><div class="card-title">'+orcEsc(p.nome)+' → '+orcEsc(t.nome)+'</div><p>Orçamento próprio deste projeto e tipo. Sem camada de modelos de orçamento.</p>'+(params.publico_total?'<p style="margin-top:12px">Público total: '+params.publico_total.toLocaleString('pt-BR')+' · Shows: '+params.shows+' · Conversões: '+params.conversoes.join('%, ')+'%</p>':'<p style="margin-top:12px">Premissas específicas ainda não definidas.</p>')+'<p style="color:var(--muted2);margin-top:12px">Categorias, regras padrão por tipo e cópia dos parâmetros para cada versão serão integradas na próxima etapa. Os cadastros existentes foram preservados.</p></div>';
+ document.getElementById('orc-projeto-detalhe').innerHTML='<div class="card"><div class="card-title">'+orcEsc(p.nome)+' → '+orcEsc(t.nome)+'</div><p>Orçamento próprio deste projeto e tipo. Sem camada de modelos de orçamento.</p>'+(params.publico_total?'<p style="margin-top:12px">Público total: '+params.publico_total.toLocaleString('pt-BR')+' · Shows: '+params.shows+' · Conversões: '+params.conversoes.join('%, ')+'%</p>':'<p style="margin-top:12px">Premissas específicas ainda não definidas.</p>')+'<p style="color:var(--muted2);margin-top:12px">Os cadastros deste projeto são cópias independentes dos padrões do Tipo de Projeto. Alterações nos padrões não modificam estas cópias.</p></div>';
  document.getElementById('orc-projeto-detalhe').innerHTML+='<div class="card" style="margin-top:14px"><div class="card-title">Cadastros do projeto · '+orcEsc(t.nome)+'</div><button class="btn btn-primary" onclick="orcGeracaoPrevia(\''+id+'\')">Consultar cadastros do projeto</button><div id="orc-geracao" style="margin-top:16px"></div></div>';
  orcGeracaoPrevia(id);
  document.getElementById('orc-projeto-detalhe').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -238,6 +219,7 @@ async function orcGeracaoExecutar(){
 }
 function orcGeracaoConsultar(k){
  if(k==='categorias'){orcCategoriasProjeto();return;}
+ orcProjetoCadastroEditor(k);return;
  if(!canAccessProject('orcamento_vendas'))return;
  var g=orcGeracao.gerados.find(function(x){return x.chave===k;}),p=orcGeracao.previa.find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null;
  var el=document.getElementById('orc-cadastro-projeto');if(!el)return;
@@ -279,3 +261,75 @@ async function orcCategoriaProjetoSituacao(id){
 }
 
 function orcVoltarCadastros(){var el=document.getElementById('orc-cadastro-projeto');if(el)el.innerHTML='';var lista=document.getElementById('orc-geracao');if(lista)lista.scrollIntoView({behavior:'smooth',block:'start'});}
+
+var orcPadraoSelecionado=null,orcEditor=null;
+var orcEsquemas={
+ premissas:{publico_total:null,shows:null,cenarios:[{nome:'',conversao:null}]},
+ dimensionamento:{capacidade_loja:null,area_loja:null,compradores_vendedor:null,estoquistas_loja:null,apoio_loja:null,apoio_evento:null,arredondamento:'cima'},
+ funcoes:[{nome:'',unidade:'profissional/show',valor_unitario:null}],
+ calculos:{modalidades:[''],bases:['']},
+ produtos:[{nome:'',unidade:'peça',custo_unitario:null,preco_venda:null}],
+ participantes:[{pessoa_id:'',papel:''}],
+ participacao:{regras:[{nome:'',percentual:null,base:''}]}
+};
+var orcRotulos={nome:'Nome',publico_total:'Público total',shows:'Quantidade de eventos',cenarios:'Cenários',conversao:'Conversão (%)',conversoes:'Conversões (%)',capacidade_loja:'Compradores atendidos por loja/evento',area_loja:'Área por loja (m²)',compradores_vendedor:'Compradores atendidos por vendedor/evento',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',apoio_evento:'Apoio fixo por evento',arredondamento:'Arredondamento',unidade:'Unidade',valor_unitario:'Valor unitário (R$)',modalidades:'Modalidades',bases:'Bases de cálculo',custo_unitario:'Custo unitário (R$)',preco_venda:'Preço de venda (R$)',pessoa_id:'Pessoa ou empresa',papel:'Papel no projeto',regras:'Regras',percentual:'Percentual (%)',base:'Base de cálculo',publico:'Público por evento',valor_vendedor:'Vendedor — R$/evento',valor_estoquista:'Estoquista — R$/evento',valor_apoio:'Apoio — R$/evento',referencias:'Referências preservadas',cenario:'Cenário',lojas:'Lojas',vendedores:'Vendedores',situacao:'Situação'};
+async function orcPadraoTipo(k){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var el=document.getElementById('orcamento-config-detalhe');el.innerHTML='<div class="card">Carregando padrões por tipo...</div>';
+ try{
+ var tipos=await sb.get('cda_orc_tipos_projeto','order=codigo');
+ if(!orcPadraoSelecionado&&tipos.length)orcPadraoSelecionado=tipos[0].id;
+ var rows=await sb.get('cda_orc_padroes_tipo','tipo_id=eq.'+orcPadraoSelecionado+'&chave=eq.'+k);
+ var pessoas=await sb.get('cda_orc_pessoas','order=nome');
+ el.innerHTML='<div class="card"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro compartilhado</div><label class="form-label" for="orc-padrao-tipo">Tipo de Projeto</label><select id="orc-padrao-tipo" class="form-input">'+tipos.map(function(t){return '<option value="'+t.id+'" '+(t.id===orcPadraoSelecionado?'selected':'')+'>'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</option>';}).join('')+'</select><p style="color:var(--muted2);margin:14px 0">Padrão exclusivo do tipo selecionado. Salvar aqui não altera os cadastros já gerados nos projetos.</p><div id="orc-editor-conteudo"></div></div>';
+ document.getElementById('orc-padrao-tipo').onchange=function(){orcPadraoSelecionado=this.value;orcPadraoTipo(k);};
+ var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};
+ orcIniciarEditor('padrao',r,k,pessoas);
+ }catch(e){el.innerHTML='<div class="card">Não foi possível carregar o cadastro compartilhado.</div>';}
+}
+async function orcProjetoCadastroEditor(k){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var g=orcGeracao.gerados.find(function(x){return x.chave===k;}),p=orcGeracao.previa.find(function(x){return x.chave===k;});
+ var el=document.getElementById('orc-cadastro-projeto');
+ if(!g){el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><p>Gere este cadastro para editar a cópia do projeto.</p></div>';return;}
+ el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p style="color:var(--muted2);margin-bottom:14px">Estas alterações pertencem somente ao projeto e tipo selecionados. O padrão compartilhado é preservado.</p><div id="orc-editor-conteudo"></div></div>';
+ try{var pessoas=await sb.get('cda_orc_pessoas','order=nome');orcIniciarEditor('projeto',g,k,pessoas);}catch(e){showToast('Não foi possível abrir o editor','error');}
+ el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function orcIniciarEditor(escopo,r,k,pessoas){
+ var d=JSON.parse(JSON.stringify(r.conteudo));
+ if(!d||!Object.keys(d).length)d=JSON.parse(JSON.stringify(orcEsquemas[k]));
+ orcEditor={escopo:escopo,r:r,k:k,anterior:JSON.parse(JSON.stringify(r.conteudo)),dados:d,pessoas:pessoas};
+ orcRenderEditor();
+}
+function orcEditorGet(path){return path.reduce(function(o,k){return o[k];},orcEditor.dados);}
+function orcEditorSet(path,value){if(!orcPodeEditar())return;var parent=orcEditor.dados;for(var i=0;i<path.length-1;i++)parent=parent[path[i]];parent[path[path.length-1]]=value;}
+function orcRenderEditor(){
+ var paths=[],editable=orcPodeEditar();
+ function campo(v,path,key){
+ var n=paths.push(path)-1,label=orcRotulos[key]||key||'Item',disabled=editable?'':' disabled';
+ if(Array.isArray(v)){
+ return '<fieldset style="border:1px solid var(--border2);padding:14px;margin:14px 0"><legend>'+orcEsc(label)+'</legend>'+v.map(function(item,i){return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+campo(item,path.concat(i),key)+(editable?'<button class="btn btn-ghost btn-sm" type="button" data-remove="'+n+':'+i+'">Retirar item</button>':'')+'</div>';}).join('')+(editable?'<button class="btn btn-ghost" type="button" data-add="'+n+'">＋ Adicionar item</button>':'')+'</fieldset>';
+ }
+ if(v&&typeof v==='object'){
+ return '<div class="form-row">'+Object.keys(v).filter(function(k){return !['id','criado_em','atualizado_em'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
+ }
+ if(key==='pessoa_id')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+orcEditor.pessoas.map(function(p){return '<option value="'+p.id+'" '+(p.id===v?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select>';
+ if(key==='arredondamento')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="cima" '+(v==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(v==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select>';
+ var numeric=typeof v==='number'||v===null;
+ return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" data-field="'+n+'" data-number="'+numeric+'" type="'+(numeric?'number':'text')+'" '+(numeric?'min="0" step="any"':'')+' value="'+orcEsc(v===null?'':v)+'"'+disabled+'></div>';
+ }
+ var el=document.getElementById('orc-editor-conteudo');if(!el)return;
+ el.innerHTML='<form id="orc-padrao-editor">'+campo(orcEditor.dados,[],ORC_CADASTROS[orcEditor.k])+(editable?'<p style="margin-top:18px"><button class="btn btn-primary" type="submit">Salvar '+(orcEditor.escopo==='padrao'?'padrão do tipo':'no projeto')+'</button> <button class="btn btn-ghost" id="orc-editor-cancel" type="button">Cancelar alterações</button></p>':'<p>Somente leitura</p>')+'</form>';
+ el.querySelectorAll('[data-field]').forEach(function(input){input.onchange=function(){orcEditorSet(paths[Number(this.dataset.field)],this.dataset.number==='true'?(this.value===''?null:Number(this.value)):this.value);};});
+ el.querySelectorAll('[data-remove]').forEach(function(b){b.onclick=function(){if(!orcPodeEditar())return;var x=this.dataset.remove.split(':');orcEditorGet(paths[Number(x[0])]).splice(Number(x[1]),1);orcRenderEditor();};});
+ el.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){if(!orcPodeEditar())return;var path=paths[Number(this.dataset.add)],arr=orcEditorGet(path),schema=orcEsquemas[orcEditor.k];for(var i=0;i<path.length;i++){if(schema===undefined)break;schema=Array.isArray(schema)&&typeof path[i]==='number'?schema[0]:schema[path[i]];}var sample=arr[0]!==undefined?arr[0]:Array.isArray(schema)?schema[0]:'';var item=JSON.parse(JSON.stringify(sample===undefined?'':sample));function limpar(x){if(Array.isArray(x))return [];if(x&&typeof x==='object'){Object.keys(x).forEach(function(k){x[k]=limpar(x[k]);});return x;}return typeof x==='number'?null:'';}arr.push(limpar(item));orcRenderEditor();};});
+ var cancel=document.getElementById('orc-editor-cancel');if(cancel)cancel.onclick=function(){orcIniciarEditor(orcEditor.escopo,orcEditor.r,orcEditor.k,orcEditor.pessoas);};
+ document.getElementById('orc-padrao-editor').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var ed=orcEditor,btn=e.target.querySelector('[type=submit]');btn.disabled=true;
+ try{
+ if(ed.r.id)await orcRpc('cda_orc_salvar_cadastro',{escopo:ed.escopo,registro:ed.r.id,anterior:ed.anterior,novo:ed.dados});
+ else{var res=await sb.post('cda_orc_padroes_tipo',{tipo_id:ed.r.tipo_id,chave:ed.k,conteudo:ed.dados});ed.r.id=res[0].id;}
+ ed.r.conteudo=JSON.parse(JSON.stringify(ed.dados));ed.anterior=JSON.parse(JSON.stringify(ed.dados));showToast('Cadastro salvo no '+(ed.escopo==='padrao'?'padrão do tipo':'projeto'),'success');
+ }catch(err){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');}finally{btn.disabled=false;}
+ };
+}
