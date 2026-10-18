@@ -97,6 +97,7 @@ async function orcSituacao(tipo,id){
 }
 
 var orcCategoriasDados=[];
+var orcCategoriaTipo=null,orcCategoriaTipos=[];
 function orcOrdenarCategorias(rows){
  var saida=[];function visitar(pai){rows.filter(function(r){return r.pai_id===pai;}).sort(function(a,b){return a.ordem-b.ordem;}).forEach(function(r){saida.push(r);visitar(r.id);});}visitar(null);return saida;
 }
@@ -105,10 +106,14 @@ async function orcCategorias(){
  var el=document.getElementById('orcamento-config-detalhe');if(!el)return;
  el.innerHTML='<div class="card">Carregando categorias...</div>';
  try{
- orcCategoriasDados=await sb.get('cda_orc_categorias','order=ordem');
+ orcCategoriaTipos=await sb.get('cda_orc_tipos_projeto','order=codigo');
+ if(!orcCategoriaTipo&&orcCategoriaTipos.length)orcCategoriaTipo=orcCategoriaTipos[0].id;
+ var todasCategorias=await sb.get('cda_orc_categorias','order=ordem');
+ orcCategoriasDados=todasCategorias.filter(function(x){return x.tipo_id===orcCategoriaTipo;});
  if(currentProject!=='orcamento_vendas'||window._orcamentoPage!=='configuracoes')return;
  var rows=orcOrdenarCategorias(orcCategoriasDados);
- el.innerHTML='<div class="card"><div class="card-title">Categorias e Subcategorias — Plano de contas</div><p style="color:var(--muted2);margin-bottom:16px">Três níveis: Categoria → Subcategoria → Desdobramento. Códigos permanentes e gerados automaticamente.</p>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcCategoriaForm()">＋ Nova categoria</button>':'<p>Somente leitura</p>')+'<div id="orc-cat-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Nível</th><th>Subdivisão</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(function(r){
+ el.innerHTML='';
+ el.innerHTML='<div class="card"><div class="card-title">Categorias e Subcategorias — Plano de contas</div><p style="color:var(--muted2);margin-bottom:16px">Três níveis: Categoria → Subcategoria → Desdobramento. Padrões separados por Tipo de Projeto.</p><label class="form-label" for="orc-cat-tipo">Tipo de Projeto</label><select class="form-input" id="orc-cat-tipo" onchange="orcCategoriaTipo=this.value;orcCategorias()">'+orcCategoriaTipos.map(function(t){return '<option value="'+t.id+'" '+(t.id===orcCategoriaTipo?'selected':'')+'>'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</option>';}).join('')+'</select><br>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcCategoriaForm()">＋ Nova categoria</button>':'<p>Somente leitura</p>')+'<div id="orc-cat-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Código</th><th>Descrição</th><th>Nível</th><th>Subdivisão</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+rows.map(function(r){
  var filhos=rows.filter(function(x){return x.pai_id===r.id;}).length;
  return '<tr><td>'+r.codigo+'</td><td style="padding-left:'+((r.nivel-1)*20+13)+'px;'+(r.nivel===1?'font-weight:700':'')+'">'+orcEsc(r.nome)+'</td><td>'+r.nivel+'</td><td>'+(filhos?filhos+' registro(s)':'Inexistente')+'</td><td>'+(r.ativo?'Ativo':'Inativo')+'</td><td>'+(orcPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaForm(\''+r.id+'\')">Editar</button> '+(r.nivel<3&&r.ativo?'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaForm(null,\''+r.id+'\')">Adicionar subdivisão</button> ':'')+'<button class="btn btn-ghost btn-sm" onclick="orcCategoriaSituacao(\''+r.id+'\')">'+(r.ativo?'Inativar':'Reativar')+'</button>':'—')+'</td></tr>';
  }).join('')+'</tbody></table></div><p style="color:var(--muted);margin-top:16px">Inativar um registro preserva suas subdivisões e seus códigos. Cadastros inativos não devem ser utilizados em novos orçamentos. Esta etapa não altera valores nem versões de orçamento.</p></div>';
@@ -123,7 +128,7 @@ function orcCategoriaForm(id,paiId){
  document.getElementById('orc-cat-editor').onsubmit=async function(e){
  e.preventDefault();if(!orcPodeEditar())return;var nome=document.getElementById('orc-cat-nome').value.trim();if(!nome)return;
  var btn=e.target.querySelector('[type=submit]');btn.disabled=true;
- try{if(r)await sb.patch('cda_orc_categorias',r.id,{nome:nome});else await sb.post('cda_orc_categorias',{nome:nome,pai_id:paiId||null});showToast('Categoria salva no banco de dados','success');await orcCategorias();}
+ try{if(r)await sb.patch('cda_orc_categorias',r.id,{nome:nome});else await sb.post('cda_orc_categorias',{nome:nome,pai_id:paiId||null,tipo_id:orcCategoriaTipo});showToast('Categoria salva no banco de dados','success');await orcCategorias();}
  catch(err){btn.disabled=false;showToast('Não foi possível salvar a categoria. Confira sua permissão.','error');}
  };
  el.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -182,7 +187,7 @@ async function orcEstrutura(page){
 }
 function orcEstrForm(page,id){
  if(!orcPodeEditar())return;var tipo=page==='tipos',r=orcEstr[page].find(function(x){return x.id===id;})||{};
- document.getElementById('orc-estr-form').innerHTML='<form id="orc-estr-editor" class="card"><label class="form-label" for="estr-nome">Nome *</label><input class="form-input" id="estr-nome" required value="'+orcEsc(r.nome)+'"><label class="form-label" for="estr-desc" style="margin-top:12px">Descrição</label><input class="form-input" id="estr-desc" value="'+orcEsc(r.descricao)+'">'+(!tipo?'<p style="margin:14px 0">Tipos de Projeto * — selecione pelo menos um</p>'+orcEstr.tipos.filter(function(t){return t.ativo||orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});}).map(function(t){var selected=orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});return '<label style="display:inline-flex;gap:8px;margin-right:18px"><input type="checkbox" class="estr-tipo" value="'+t.id+'" '+(selected?'checked':'')+'>'+orcEsc(t.nome)+'</label>';}).join(''):'')+'<p style="margin-top:16px"><button type="submit" class="btn btn-primary">Salvar</button></p></form>';
+ document.getElementById('orc-estr-form').innerHTML='<form id="orc-estr-editor" class="card"><label class="form-label" for="estr-nome">Nome *</label><input class="form-input" id="estr-nome" required value="'+orcEsc(r.nome)+'"><label class="form-label" for="estr-desc" style="margin-top:12px">Descrição</label><input class="form-input" id="estr-desc" value="'+orcEsc(r.descricao)+'">'+(!tipo?'<p style="margin:14px 0">Tipos de Projeto * — selecione pelo menos um</p>'+orcEstr.tipos.filter(function(t){return t.ativo||orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});}).map(function(t){var selected=orcEstr.vinculos.some(function(v){return v.projeto_id===id&&v.tipo_id===t.id&&v.ativo;});return '<label style="display:inline-flex;gap:8px;margin-right:18px"><input type="checkbox" class="estr-tipo" value="'+t.id+'" '+(selected?'checked':'')+'>'+orcEsc(t.nome)+'</label>';}).join(''):'')+'<p style="margin-top:16px"><button type="submit" class="btn btn-primary">Salvar</button> <button type="button" class="btn btn-ghost" onclick="orcEstrutura(\''+page+'\')">Voltar / Cancelar</button></p></form>';
  document.getElementById('orc-estr-editor').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;
  var nome=document.getElementById('estr-nome').value.trim(),descricao=document.getElementById('estr-desc').value.trim(),ids=Array.from(document.querySelectorAll('.estr-tipo:checked')).map(function(x){return x.value;});if(!nome||(!tipo&&!ids.length)){showToast('Informe nome e pelo menos um tipo para o projeto','error');return;}
  var btn=e.target.querySelector('button');btn.disabled=true;
@@ -210,5 +215,37 @@ function orcProjetoTipo(id){
  var v=orcEstr.vinculos.find(function(x){return x.id===id;});if(!v||!canAccessProject('orcamento_vendas'))return;
  var t=orcEstr.tipos.find(function(x){return x.id===v.tipo_id;}),p=orcEstr.projetos.find(function(x){return x.id===v.projeto_id;}),params=v.parametros||{};
  document.getElementById('orc-projeto-detalhe').innerHTML='<div class="card"><div class="card-title">'+orcEsc(p.nome)+' → '+orcEsc(t.nome)+'</div><p>Orçamento próprio deste projeto e tipo. Sem camada de modelos de orçamento.</p>'+(params.publico_total?'<p style="margin-top:12px">Público total: '+params.publico_total.toLocaleString('pt-BR')+' · Shows: '+params.shows+' · Conversões: '+params.conversoes.join('%, ')+'%</p>':'<p style="margin-top:12px">Premissas específicas ainda não definidas.</p>')+'<p style="color:var(--muted2);margin-top:12px">Categorias, regras padrão por tipo e cópia dos parâmetros para cada versão serão integradas na próxima etapa. Os cadastros existentes foram preservados.</p></div>';
+ document.getElementById('orc-projeto-detalhe').innerHTML+='<div class="card" style="margin-top:14px"><div class="card-title">Cadastros do projeto · '+orcEsc(t.nome)+'</div><button class="btn btn-primary" onclick="orcGeracaoPrevia(\''+id+'\')">Gerar cadastros compartilhados / Consultar</button><div id="orc-geracao" style="margin-top:16px"></div></div>';
  document.getElementById('orc-projeto-detalhe').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+var ORC_CADASTROS={categorias:'Categorias e Subcategorias',premissas:'Premissas e cenários',dimensionamento:'Regras de dimensionamento',funcoes:'Funções profissionais e remunerações',calculos:'Modalidades e bases de cálculo',produtos:'Produtos e preços',participantes:'Participantes e papéis',participacao:'Participação e rateio'};
+var orcGeracao={vinculo:null,previa:[],gerados:[]};
+async function orcRpc(nome,dados){return await sb.post('rpc/'+nome,dados);}
+async function orcGeracaoPrevia(id){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var el=document.getElementById('orc-geracao');if(!el)return;el.innerHTML='Carregando prévia...';
+ try{
+ var res=await Promise.all([orcRpc('cda_orc_previa_cadastros',{vinculo:id}),sb.get('cda_orc_cadastros_projeto','projeto_tipo_id=eq.'+id)]);
+ orcGeracao={vinculo:id,previa:res[0],gerados:res[1]};
+ el.innerHTML='<p style="color:var(--muted2);margin-bottom:14px">A geração cria cópias próprias deste projeto e tipo. Não substitui cópias existentes. Pessoas e empresas permanecem vinculadas pelo ID. Itens sem definição ficam pendentes.</p><div class="tbl-wrap"><table><thead><tr><th>Cadastro</th><th>Situação</th><th>Ação</th></tr></thead><tbody>'+Object.keys(ORC_CADASTROS).map(function(k){var g=res[1].find(function(x){return x.chave===k;}),p=res[0].find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null,empty=!d||!Object.keys(d).length;return '<tr><td>'+ORC_CADASTROS[k]+'</td><td>'+(g?'Gerado':'Ainda não gerado')+(empty?' · Pendente de definição':'')+'</td><td><button class="btn btn-ghost btn-sm" onclick="orcGeracaoConsultar(\''+k+'\')">'+(g?'Consultar cadastro':'Ver prévia')+'</button></td></tr>';}).join('')+'</tbody></table></div>'+(orcPodeEditar()?'<button id="orc-gerar-btn" class="btn btn-primary" style="margin-top:16px" onclick="orcGeracaoExecutar()">Gerar cadastros faltantes</button>':'')+'<div id="orc-cadastro-projeto" style="margin-top:16px"></div>';
+ }catch(e){el.innerHTML='Não foi possível carregar a prévia dos cadastros.';}
+}
+async function orcGeracaoExecutar(){
+ if(!orcPodeEditar())return;var id=orcGeracao.vinculo,b=document.getElementById('orc-gerar-btn');b.disabled=true;
+ try{var n=await orcRpc('cda_orc_gerar_cadastros',{vinculo:id});showToast(n?'Cadastros gerados sem substituir os existentes':'Os cadastros já estavam gerados','success');await orcGeracaoPrevia(id);}catch(e){showToast('Não foi possível gerar os cadastros. Nenhuma geração parcial foi aplicada.','error');b.disabled=false;}
+}
+function orcGeracaoConsultar(k){
+ if(!canAccessProject('orcamento_vendas'))return;
+ var g=orcGeracao.gerados.find(function(x){return x.chave===k;}),p=orcGeracao.previa.find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null;
+ var el=document.getElementById('orc-cadastro-projeto');if(!el)return;
+ var label=function(x){return ({publico_total:'Público total',shows:'Quantidade de shows',conversoes:'Conversões (%)',situacao:'Situação',valor_unitario:'Valor unitário',nome:'Nome',unidade:'Unidade',codigo:'Código',nivel:'Nível',papeis:'Papéis',pessoa_id:'Participante',publico:'Público por show',capacidade_loja:'Compradores por loja',compradores_vendedor:'Compradores por vendedor',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',apoio_evento:'Apoio fixo por evento',valor_vendedor:'Vendedor R$/show',valor_estoquista:'Estoquista R$/show',valor_apoio:'Apoio R$/show',arredondamento:'Arredondamento',referencias:'Referências aprovadas',cenario:'Cenário',conversao:'Conversão (%)',lojas:'Lojas',vendedores:'Vendedores',modalidades:'Modalidades',bases:'Bases'})[x]||x;};
+ function mostrar(v){
+ if(v===null||v===undefined)return 'Pendente';
+ if(typeof v!=='object')return orcEsc(v);
+ if(Array.isArray(v)){if(!v.length)return '<p>Pendente de definição</p>';return v.map(function(x){return '<div style="padding:10px;border-bottom:1px solid var(--border)">'+mostrar(x)+'</div>';}).join('');}
+ var keys=Object.keys(v).filter(function(x){return !['id','pai_id','tipo_id','criado_em','atualizado_em','ativo'].includes(x);});
+ return '<table><tbody>'+keys.map(function(x){var val=v[x];if(x==='pessoa_id'){var pessoa=orcEstr.pessoas.find(function(z){return z.id===val;});val=pessoa?pessoa.nome:'Participante vinculado';}return '<tr><td>'+label(x)+'</td><td>'+mostrar(val)+'</td></tr>';}).join('')+'</tbody></table>';
+ }
+ el.innerHTML='<div class="card"><div class="card-title">'+ORC_CADASTROS[k]+' · '+(g?'Cadastro do projeto':'Prévia')+'</div>'+(!d||!Object.keys(d).length?'<p>Pendente de definição.</p>':mostrar(d))+'<p style="color:var(--muted);margin-top:14px">'+(g?'Cópia preservada desde '+new Date(g.gerado_em).toLocaleString('pt-BR')+'.':'Conteúdo de referência antes da geração.')+' A edição específica destes cadastros será integrada na próxima etapa.</p></div>';
 }
