@@ -5,8 +5,8 @@ var ORCAMENTO_PAGES={
  configuracoes:{icon:'⚙',label:'Cadastros compartilhados'}
 };
 var ORCAMENTO_CONFIG=[
- {nome:'Identidades compartilhadas',itens:['Empresas e Pessoas','Papéis dos participantes']},
- {nome:'Cadastros padrão por Tipo de Projeto',itens:['Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Modalidades e bases de cálculo','Produtos e preços','Participantes e papéis','Participação e rateio']}
+ {nome:'Identidades compartilhadas',itens:['Tipo Participantes','Participantes']},
+ {nome:'Cadastros padrão por Tipo de Projeto',itens:['Participantes por Tipo','Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Modalidades e bases de cálculo','Produtos e preços','Participação e rateio']}
 ];
 window._orcamentoPage='configuracoes';
 function navigateOrcamento(page){
@@ -27,8 +27,8 @@ function navigateOrcamento(page){
 }
 function abrirConfiguracaoOrcamento(gi,ii){
  if(!canAccessProject('orcamento_vendas'))return;
- if(gi===0){orcCadastro(ii===0?'pessoas':'papeis');return;}
- if(gi===1){if(ii===0){orcCategorias();return;}orcPadraoTipo(Object.keys(ORC_CADASTROS)[ii]);}
+ if(gi===0){orcCadastro(ii===0?'papeis':'pessoas');return;}
+ if(gi===1){var chave=['participantes','categorias','premissas','dimensionamento','funcoes','calculos','produtos','participacao'][ii];if(chave==='categorias'){orcCategorias();return;}if(chave)orcPadraoTipo(chave);}
 }
 
 var orcDados={pessoas:[],papeis:[]};
@@ -41,8 +41,8 @@ async function orcCadastro(tipo){
  try{
  var rows=await Promise.all([sb.get('cda_orc_pessoas','order=nome'),sb.get('cda_orc_papeis','order=nome')]);orcDados.pessoas=rows[0];orcDados.papeis=rows[1];
  if(currentProject!=='orcamento_vendas'||window._orcamentoPage!=='configuracoes')return;
- var titulo=tipo==='pessoas'?'Empresas e Pessoas':'Papéis dos participantes';
- el.innerHTML='<div class="card"><div class="card-title">'+titulo+'</div>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcFormulario(\''+tipo+'\')">＋ Novo cadastro</button>':'<p>Somente leitura</p>')+'<div id="orc-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Nome</th>'+(tipo==='pessoas'?'<th>Papéis</th>':'')+'<th>Situação</th><th>Ações</th></tr></thead><tbody>'+orcDados[tipo].map(function(p){
+ var titulo=tipo==='pessoas'?'Participantes':'Tipo Participantes';
+ el.innerHTML='<div class="card"><div class="card-title">'+titulo+'</div>'+(orcPodeEditar()?'<button class="btn btn-primary" onclick="orcFormulario(\''+tipo+'\')">＋ Novo cadastro</button>':'<p>Somente leitura</p>')+'<div id="orc-form" style="margin-top:16px"></div><div class="tbl-wrap"><table><thead><tr><th>Nome</th>'+(tipo==='pessoas'?'<th>Tipo Participantes</th>':'')+'<th>Situação</th><th>Ações</th></tr></thead><tbody>'+orcDados[tipo].map(function(p){
  var papeis=(p.papeis||[]).map(function(id){var r=orcDados.papeis.find(function(x){return x.id===id;});return orcEsc(r?r.nome:'Papel indisponível');}).join(', ');
  return '<tr><td>'+orcEsc(p.nome)+'</td>'+(tipo==='pessoas'?'<td>'+papeis+'</td>':'')+'<td>'+(p.ativo?'Ativo':'Inativo')+'</td><td>'+(orcPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="orcFormulario(\''+tipo+'\',\''+p.id+'\')">Editar</button> <button class="btn btn-ghost btn-sm" onclick="orcSituacao(\''+tipo+'\',\''+p.id+'\')">'+(p.ativo?'Inativar':'Reativar')+'</button>':'—')+'</td></tr>';
  }).join('')+'</tbody></table></div></div>';
@@ -53,7 +53,7 @@ function orcFormulario(tipo,id){
  var p=orcDados[tipo].find(function(x){return x.id===id;})||{};
  var html='<form id="orc-cadastro-form"><div class="form-group"><label class="form-label" for="orc-nome">Nome *</label><input class="form-input" id="orc-nome" required maxlength="160" value="'+orcEsc(p.nome)+'"></div>';
  if(tipo==='pessoas'){
- html+='<div class="form-group"><label class="form-label">Papéis * — selecione pelo menos um</label>'+orcDados.papeis.filter(function(r){return r.ativo||(p.papeis||[]).indexOf(r.id)>=0;}).map(function(r){return '<label style="display:inline-flex;gap:7px;margin:6px 18px 6px 0"><input type="checkbox" class="orc-papel" value="'+r.id+'" '+((p.papeis||[]).indexOf(r.id)>=0?'checked':'')+'>'+orcEsc(r.nome)+(r.ativo?'':' (inativo)')+'</label>';}).join('')+'</div><details><summary style="cursor:pointer;margin-bottom:14px">Dados complementares opcionais</summary><div class="form-group"><label class="form-label" for="orc-tipo">Tipo de pessoa</label><select class="form-input" id="orc-tipo"><option value="">Não informado</option><option value="fisica" '+(p.tipo==='fisica'?'selected':'')+'>Física</option><option value="juridica" '+(p.tipo==='juridica'?'selected':'')+'>Jurídica</option></select></div>';
+ html+='<div class="form-group"><label class="form-label">Tipo Participantes * — selecione pelo menos um</label>'+orcDados.papeis.filter(function(r){return r.ativo||(p.papeis||[]).indexOf(r.id)>=0;}).map(function(r){return '<label style="display:inline-flex;gap:7px;margin:6px 18px 6px 0"><input type="checkbox" class="orc-papel" value="'+r.id+'" '+((p.papeis||[]).indexOf(r.id)>=0?'checked':'')+'>'+orcEsc(r.nome)+(r.ativo?'':' (inativo)')+'</label>';}).join('')+'</div><details><summary style="cursor:pointer;margin-bottom:14px">Dados complementares opcionais</summary><div class="form-group"><label class="form-label" for="orc-tipo">Tipo de pessoa</label><select class="form-input" id="orc-tipo"><option value="">Não informado</option><option value="fisica" '+(p.tipo==='fisica'?'selected':'')+'>Física</option><option value="juridica" '+(p.tipo==='juridica'?'selected':'')+'>Jurídica</option></select></div>';
  [['documento','CPF/CNPJ'],['email','E-mail'],['telefone','Telefone / WhatsApp'],['endereco','Endereço'],['observacoes','Observações']].forEach(function(f){html+='<div class="form-group"><label class="form-label" for="orc-'+f[0]+'">'+f[1]+'</label><input class="form-input" id="orc-'+f[0]+'" '+(f[0]==='email'?'type="email"':'')+' value="'+orcEsc(p[f[0]])+'"></div>';});
  html+='</details>';
  }
@@ -63,7 +63,7 @@ function orcFormulario(tipo,id){
  e.preventDefault();if(!orcPodeEditar())return;
  var d={nome:document.getElementById('orc-nome').value.trim()};if(!d.nome){showToast('Informe o nome','error');return;}
  if(tipo==='pessoas'){
- d.papeis=Array.from(document.querySelectorAll('.orc-papel:checked')).map(function(x){return x.value;});if(!d.papeis.length){showToast('Selecione pelo menos um papel','error');return;}
+ d.papeis=Array.from(document.querySelectorAll('.orc-papel:checked')).map(function(x){return x.value;});if(!d.papeis.length){showToast('Selecione pelo menos um tipo de participante','error');return;}
  d.tipo=document.getElementById('orc-tipo').value||null;
  ['documento','email','telefone','endereco','observacoes'].forEach(function(k){d[k]=document.getElementById('orc-'+k).value.trim()||null;});
  }
@@ -201,7 +201,7 @@ function orcProjetoTipo(id){
  document.getElementById('orc-projeto-detalhe').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-var ORC_CADASTROS={categorias:'Categorias e Subcategorias',premissas:'Premissas e cenários',dimensionamento:'Regras de dimensionamento',funcoes:'Funções profissionais e remunerações',calculos:'Modalidades e bases de cálculo',produtos:'Produtos e preços',participantes:'Participantes e papéis',participacao:'Participação e rateio'};
+var ORC_CADASTROS={categorias:'Categorias e Subcategorias',premissas:'Premissas e cenários',dimensionamento:'Regras de dimensionamento',funcoes:'Funções profissionais e remunerações',calculos:'Modalidades e bases de cálculo',produtos:'Produtos e preços',participantes:'Participantes por Tipo',participacao:'Participação e rateio'};
 var orcGeracao={vinculo:null,previa:[],gerados:[]};
 async function orcRpc(nome,dados){return await sb.post('rpc/'+nome,dados);}
 async function orcGeracaoPrevia(id){
@@ -272,7 +272,7 @@ var orcEsquemas={
  participantes:[{pessoa_id:'',papel:''}],
  participacao:{regras:[{nome:'',percentual:null,base:''}]}
 };
-var orcRotulos={nome:'Nome',publico_total:'Público total',shows:'Quantidade de eventos',cenarios:'Cenários',conversao:'Conversão (%)',conversoes:'Conversões (%)',capacidade_loja:'Compradores atendidos por loja/evento',area_loja:'Área por loja (m²)',compradores_vendedor:'Compradores atendidos por vendedor/evento',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',vendedores_loja:'Vendedores por loja',arredondamento:'Arredondamento',unidade:'Unidade',valor_unitario:'Valor unitário (R$)',modalidades:'Modalidades',bases:'Bases de cálculo',custo_unitario:'Custo unitário (R$)',preco_venda:'Preço de venda (R$)',pessoa_id:'Pessoa ou empresa',papel:'Papel no projeto',regras:'Regras',percentual:'Percentual (%)',base:'Base de cálculo',publico:'Público por evento',valor_vendedor:'Vendedor — R$/evento',valor_estoquista:'Estoquista — R$/evento',valor_apoio:'Apoio — R$/evento',referencias:'Referências preservadas',cenario:'Cenário',lojas:'Lojas',vendedores:'Vendedores',situacao:'Situação'};
+var orcRotulos={nome:'Nome',publico_total:'Público total',shows:'Quantidade de eventos',cenarios:'Cenários',conversao:'Conversão (%)',conversoes:'Conversões (%)',capacidade_loja:'Compradores atendidos por loja/evento',area_loja:'Área por loja (m²)',compradores_vendedor:'Compradores atendidos por vendedor/evento',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',vendedores_loja:'Vendedores por loja',arredondamento:'Arredondamento',unidade:'Unidade',valor_unitario:'Valor unitário (R$)',modalidades:'Modalidades',bases:'Bases de cálculo',custo_unitario:'Custo unitário (R$)',preco_venda:'Preço de venda (R$)',pessoa_id:'Participante',papel:'Tipo Participação',regras:'Regras',percentual:'Percentual (%)',base:'Base de cálculo',publico:'Público por evento',valor_vendedor:'Vendedor — R$/evento',valor_estoquista:'Estoquista — R$/evento',valor_apoio:'Apoio — R$/evento',referencias:'Referências preservadas',cenario:'Cenário',lojas:'Lojas',vendedores:'Vendedores',situacao:'Situação'};
 async function orcPadraoTipo(k){
  if(!canAccessProject('orcamento_vendas'))return;
  var el=document.getElementById('orcamento-config-detalhe');el.innerHTML='<div class="card">Carregando padrões por tipo...</div>';
@@ -284,7 +284,8 @@ async function orcPadraoTipo(k){
  el.innerHTML='<div class="card"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro compartilhado</div><label class="form-label" for="orc-padrao-tipo">Tipo de Projeto</label><select id="orc-padrao-tipo" class="form-input">'+tipos.map(function(t){return '<option value="'+t.id+'" '+(t.id===orcPadraoSelecionado?'selected':'')+'>'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</option>';}).join('')+'</select><p style="color:var(--muted2);margin:14px 0">Padrão exclusivo do tipo selecionado. Salvar aqui não altera os cadastros já gerados nos projetos.</p><div id="orc-editor-conteudo"></div></div>';
  document.getElementById('orc-padrao-tipo').onchange=function(){orcPadraoSelecionado=this.value;orcPadraoTipo(k);};
  var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};
- orcIniciarEditor('padrao',r,k,pessoas);
+ var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];
+ orcIniciarEditor('padrao',r,k,pessoas,tiposParticipantes);
  }catch(e){el.innerHTML='<div class="card">Não foi possível carregar o cadastro compartilhado.</div>';}
 }
 async function orcProjetoCadastroEditor(k){
@@ -293,15 +294,20 @@ async function orcProjetoCadastroEditor(k){
  var el=document.getElementById('orc-cadastro-projeto');
  if(!g){el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><p>Gere este cadastro para editar a cópia do projeto.</p></div>';return;}
  el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p style="color:var(--muted2);margin-bottom:14px">Estas alterações pertencem somente ao projeto e tipo selecionados. O padrão compartilhado é preservado.</p><div id="orc-editor-conteudo"></div></div>';
- try{var pessoas=await sb.get('cda_orc_pessoas','order=nome');orcIniciarEditor('projeto',g,k,pessoas);}catch(e){showToast('Não foi possível abrir o editor','error');}
+ try{var pessoas=await sb.get('cda_orc_pessoas','order=nome');var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];orcIniciarEditor('projeto',g,k,pessoas,tiposParticipantes);}catch(e){showToast('Não foi possível abrir o editor','error');}
  el.scrollIntoView({behavior:'smooth',block:'start'});
 }
-function orcIniciarEditor(escopo,r,k,pessoas){
+function orcIniciarEditor(escopo,r,k,pessoas,tiposParticipantes){
  var d=JSON.parse(JSON.stringify(r.conteudo));
  if(k==='dimensionamento'&&d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).length){delete d['apoio'+'_evento'];if(d.vendedores_loja===undefined)d.vendedores_loja=4;}
  if(!d||!Object.keys(d).length)d=JSON.parse(JSON.stringify(orcEsquemas[k]));
  if(k==='dimensionamento'){d.arredondamento='proximo';['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja'].forEach(function(key){if(d[key]===undefined)d[key]=null;});}
- orcEditor={escopo:escopo,r:r,k:k,anterior:JSON.parse(JSON.stringify(r.conteudo)),dados:d,pessoas:pessoas};
+ if(k==='participantes'&&Array.isArray(d))d.forEach(function(item){
+ if(item.papel===undefined||item.papel===null)item.papel='';
+ var tipo=(tiposParticipantes||[]).find(function(t){return t.id===item.papel||t.nome===item.papel;});
+ if(tipo)item.papel=tipo.id;
+ });
+ orcEditor={escopo:escopo,r:r,k:k,anterior:JSON.parse(JSON.stringify(r.conteudo)),dados:d,pessoas:pessoas,tiposParticipantes:tiposParticipantes||[]};
  orcRenderEditor();
 }
 function orcEditorGet(path){return path.reduce(function(o,k){return o[k];},orcEditor.dados);}
@@ -316,6 +322,10 @@ function orcRenderEditor(){
  if(v&&typeof v==='object'){
  return '<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
  }
+ if(key==='papel'&&orcEditor.k==='participantes'){
+ var tipos=orcEditor.tiposParticipantes.filter(function(t){return t.ativo||t.id===v;});
+ return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+((v&&!tipos.some(function(t){return t.id===v;}))?'<option value="'+orcEsc(v)+'" selected>'+orcEsc(v)+' (cadastro anterior)</option>':'')+tipos.map(function(t){return '<option value="'+orcEsc(t.id)+'" '+(t.id===v?'selected':'')+'>'+orcEsc(t.nome)+(t.ativo?'':' (inativo)')+'</option>';}).join('')+'</select>';
+ }
  if(key==='pessoa_id')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+orcEditor.pessoas.map(function(p){return '<option value="'+p.id+'" '+(p.id===v?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select>';
  if(key==='arredondamento')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="cima" '+(v==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(v==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select>';
  var numeric=typeof v==='number'||v===null;
@@ -326,7 +336,7 @@ function orcRenderEditor(){
  el.querySelectorAll('[data-field]').forEach(function(input){input.onchange=function(){orcEditorSet(paths[Number(this.dataset.field)],this.dataset.number==='true'?(this.value===''?null:Number(this.value)):this.value);};});
  el.querySelectorAll('[data-remove]').forEach(function(b){b.onclick=function(){if(!orcPodeEditar())return;var x=this.dataset.remove.split(':');orcEditorGet(paths[Number(x[0])]).splice(Number(x[1]),1);orcRenderEditor();};});
  el.querySelectorAll('[data-add]').forEach(function(b){b.onclick=function(){if(!orcPodeEditar())return;var path=paths[Number(this.dataset.add)],arr=orcEditorGet(path),schema=orcEsquemas[orcEditor.k];for(var i=0;i<path.length;i++){if(schema===undefined)break;schema=Array.isArray(schema)&&typeof path[i]==='number'?schema[0]:schema[path[i]];}var sample=arr[0]!==undefined?arr[0]:Array.isArray(schema)?schema[0]:'';var item=JSON.parse(JSON.stringify(sample===undefined?'':sample));function limpar(x){if(Array.isArray(x))return [];if(x&&typeof x==='object'){Object.keys(x).forEach(function(k){x[k]=limpar(x[k]);});return x;}return typeof x==='number'?null:'';}arr.push(limpar(item));orcRenderEditor();};});
- var cancel=document.getElementById('orc-editor-cancel');if(cancel)cancel.onclick=function(){orcIniciarEditor(orcEditor.escopo,orcEditor.r,orcEditor.k,orcEditor.pessoas);};
+ var cancel=document.getElementById('orc-editor-cancel');if(cancel)cancel.onclick=function(){orcIniciarEditor(orcEditor.escopo,orcEditor.r,orcEditor.k,orcEditor.pessoas,orcEditor.tiposParticipantes);};
  document.getElementById('orc-padrao-editor').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var ed=orcEditor,btn=e.target.querySelector('[type=submit]');btn.disabled=true;
  try{
  if(ed.r.id)await orcRpc('cda_orc_salvar_cadastro',{escopo:ed.escopo,registro:ed.r.id,anterior:ed.anterior,novo:ed.dados});
