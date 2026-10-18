@@ -353,8 +353,11 @@ function orcRenderParticipantesTipo(){
  if(!item.pessoa_id&&!item.papel)return '';
  var pessoa=ed.pessoas.find(function(p){return p.id===item.pessoa_id;}),tipo=ed.tiposParticipantes.find(function(t){return t.id===item.papel;});
  return '<tr><td>'+orcEsc(pessoa?pessoa.nome:item.pessoa_id||'')+'</td><td>'+orcEsc(tipo?tipo.nome:item.papel||'')+'</td><td>'+(item.ativo===false?'Inativo':'Ativo')+'</td><td>'+(editavel?'<button class="btn btn-ghost btn-sm" data-part-edit="'+i+'">Editar</button> <button class="btn btn-ghost btn-sm" data-part-status="'+i+'">'+(item.ativo===false?'Reativar':'Inativar')+'</button>':'—')+'</td></tr>';
- }).join('')+'</tbody></table></div>'+(ed.dados.some(function(x){return x.pessoa_id||x.papel;})?'':'<p>Nenhum participante cadastrado para este tipo.</p>');
+ }).join('')+(ed.escopo==='padrao'?ed.pessoas.filter(function(p){return !ed.dados.some(function(x){return x.pessoa_id===p.id;});}).map(function(p){
+ return '<tr><td>'+orcEsc(p.nome)+'</td><td></td><td>Não vinculado a este tipo</td><td>'+(editavel?'<button class="btn btn-ghost btn-sm" data-part-link="'+orcEsc(p.id)+'">Cadastrar participação</button>':'—')+'</td></tr>';
+ }).join(''):'')+'</tbody></table></div>'+(ed.dados.some(function(x){return x.pessoa_id||x.papel;})?'':'<p>Nenhuma participação vinculada a este tipo. Selecione um participante para cadastrar.</p>');
  var novo=document.getElementById('orc-part-novo');if(novo)novo.onclick=function(){orcParticipanteTipoForm();};
+ el.querySelectorAll('[data-part-link]').forEach(function(b){b.onclick=function(){orcParticipanteTipoForm(undefined,this.dataset.partLink);};});
  el.querySelectorAll('[data-part-edit]').forEach(function(b){b.onclick=function(){orcParticipanteTipoForm(Number(this.dataset.partEdit));};});
  el.querySelectorAll('[data-part-status]').forEach(function(b){b.onclick=async function(){
  if(!orcPodeEditar())return;this.disabled=true;
@@ -362,9 +365,9 @@ function orcRenderParticipantesTipo(){
  if(!await orcSalvarParticipantesTipo(ed,dados))this.disabled=false;
  };});
 }
-function orcParticipanteTipoForm(indice){
+function orcParticipanteTipoForm(indice,pessoaId){
  if(!orcPodeEditar())return;
- var ed=orcEditor,item=indice===undefined?{pessoa_id:'',papel:'',ativo:true}:ed.dados[indice],el=document.getElementById('orc-part-form');
+ var ed=orcEditor,item=indice===undefined?{pessoa_id:pessoaId||'',papel:'',ativo:true}:ed.dados[indice],el=document.getElementById('orc-part-form');
  el.innerHTML='<form id="orc-part-editor"><div class="form-row"><div><label class="form-label" for="orc-part-pessoa">Participante *</label><select class="form-input" id="orc-part-pessoa" required><option value="">Selecione</option>'+ed.pessoas.filter(function(p){return p.ativo!==false||p.id===item.pessoa_id;}).map(function(p){return '<option value="'+orcEsc(p.id)+'" '+(p.id===item.pessoa_id?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select></div><div><label class="form-label" for="orc-part-tipo">Tipo Participação *</label><select class="form-input" id="orc-part-tipo" required><option value="">Selecione</option>'+((item.papel&&!ed.tiposParticipantes.some(function(t){return t.id===item.papel;}))?'<option value="'+orcEsc(item.papel)+'" selected>'+orcEsc(item.papel)+' (cadastro anterior)</option>':'')+ed.tiposParticipantes.filter(function(t){return t.ativo!==false||t.id===item.papel;}).map(function(t){return '<option value="'+orcEsc(t.id)+'" '+(t.id===item.papel?'selected':'')+'>'+orcEsc(t.nome)+'</option>';}).join('')+'</select></div></div><p style="margin:16px 0"><button class="btn btn-primary" type="submit">Salvar</button> <button class="btn btn-ghost" type="button" id="orc-part-cancel">Cancelar</button></p></form>';
  document.getElementById('orc-part-cancel').onclick=function(){el.innerHTML='';};
  document.getElementById('orc-part-editor').onsubmit=async function(e){
