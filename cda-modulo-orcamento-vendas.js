@@ -264,7 +264,7 @@ function orcVoltarCadastros(){var el=document.getElementById('orc-cadastro-proje
 
 var orcPadraoSelecionado=null,orcEditor=null;
 var orcEsquemas={
- premissas:{publico_total:null,shows:null,cenarios:[{nome:'',conversao:null}]},
+ premissas:{publico_total:null,shows:null,cenarios:[{nome:'',conversao:null}],valores:{ticket_medio:null}},
  dimensionamento:{area_loja:null,capacidade_loja:null,compradores_vendedor:null,vendedores_loja:null,estoquistas_loja:null,apoio_loja:null,arredondamento:'proximo'},
  funcoes:[{nome:'',unidade:'profissional/show',valor_unitario:null}],
  calculos:{modalidades:[''],bases:['']},
@@ -272,7 +272,7 @@ var orcEsquemas={
  participantes:[{pessoa_id:'',papel:''}],
  participacao:{regras:[{nome:'',percentual:null,base:''}]}
 };
-var orcRotulos={nome:'Nome',publico_total:'Público total',shows:'Quantidade de eventos',cenarios:'Cenários',conversao:'Conversão (%)',conversoes:'Conversões (%)',capacidade_loja:'Compradores atendidos por loja/evento',area_loja:'Área por loja (m²)',compradores_vendedor:'Compradores atendidos por vendedor/evento',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',vendedores_loja:'Vendedores por loja',arredondamento:'Arredondamento',unidade:'Unidade',valor_unitario:'Valor unitário (R$)',modalidades:'Modalidades',bases:'Bases de cálculo',custo_unitario:'Custo unitário (R$)',preco_venda:'Preço de venda (R$)',pessoa_id:'Participante',papel:'Tipo Participação',regras:'Regras',percentual:'Percentual (%)',base:'Base de cálculo',publico:'Público por evento',valor_vendedor:'Vendedor — R$/evento',valor_estoquista:'Estoquista — R$/evento',valor_apoio:'Apoio — R$/evento',referencias:'Referências preservadas',cenario:'Cenário',lojas:'Lojas',vendedores:'Vendedores',situacao:'Situação'};
+var orcRotulos={ticket_medio:'Ticket médio por comprador (R$)',valores:'Premissas de valores por show/evento',nome:'Nome',publico_total:'Público total',shows:'Quantidade de eventos',cenarios:'Cenários',conversao:'Conversão (%)',conversoes:'Conversões (%)',capacidade_loja:'Compradores atendidos por loja/evento',area_loja:'Área por loja (m²)',compradores_vendedor:'Compradores atendidos por vendedor/evento',estoquistas_loja:'Estoquistas por loja',apoio_loja:'Apoio por loja',vendedores_loja:'Vendedores por loja',arredondamento:'Arredondamento',unidade:'Unidade',valor_unitario:'Valor unitário (R$)',modalidades:'Modalidades',bases:'Bases de cálculo',custo_unitario:'Custo unitário (R$)',preco_venda:'Preço de venda (R$)',pessoa_id:'Participante',papel:'Tipo Participação',regras:'Regras',percentual:'Percentual (%)',base:'Base de cálculo',publico:'Público por evento',valor_vendedor:'Vendedor — R$/evento',valor_estoquista:'Estoquista — R$/evento',valor_apoio:'Apoio — R$/evento',referencias:'Referências preservadas',cenario:'Cenário',lojas:'Lojas',vendedores:'Vendedores',situacao:'Situação'};
 async function orcPadraoTipo(k){
  if(!canAccessProject('orcamento_vendas'))return;
  var el=document.getElementById('orcamento-config-detalhe');el.innerHTML='<div class="card">Carregando padrões por tipo...</div>';
@@ -301,6 +301,7 @@ function orcIniciarEditor(escopo,r,k,pessoas,tiposParticipantes){
  var d=JSON.parse(JSON.stringify(r.conteudo));
  if(k==='dimensionamento'&&d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).length){delete d['apoio'+'_evento'];if(d.vendedores_loja===undefined)d.vendedores_loja=4;}
  if(!d||!Object.keys(d).length)d=JSON.parse(JSON.stringify(orcEsquemas[k]));
+ if(k==='premissas'){if(!d.valores||typeof d.valores!=='object')d.valores={};if(d.valores.ticket_medio===undefined)d.valores.ticket_medio=null;}
  if(k==='dimensionamento'){d.arredondamento='proximo';['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja'].forEach(function(key){if(d[key]===undefined)d[key]=null;});}
  if(k==='participantes'&&Array.isArray(d))d.forEach(function(item){
  if(item.papel===undefined||item.papel===null)item.papel='';
@@ -321,7 +322,7 @@ function orcRenderEditor(){
  return '<fieldset style="border:1px solid var(--border2);padding:14px;margin:14px 0"><legend>'+orcEsc(label)+'</legend>'+v.map(function(item,i){return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+campo(item,path.concat(i),key)+(editable?'<button class="btn btn-ghost btn-sm" type="button" data-remove="'+n+':'+i+'">Retirar item</button>':'')+'</div>';}).join('')+(editable?'<button class="btn btn-ghost" type="button" data-add="'+n+'">＋ Adicionar item</button>':'')+'</fieldset>';
  }
  if(v&&typeof v==='object'){
- return '<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
+ return (orcEditor.k==='premissas'&&key==='valores'?'<h3 style="margin:18px 0">Premissas de valores por show/evento</h3>':'')+'<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
  }
  if(key==='papel'&&orcEditor.k==='participantes'){
  var tipos=orcEditor.tiposParticipantes.filter(function(t){return t.ativo||t.id===v;});
@@ -392,6 +393,7 @@ async function orcSalvarParticipantesTipo(ed,dados){
 
 function orcFormulaResumo(f){
  if(!f||!f.forma)return 'Não configurada';
+ if(f.calculo==='receita_bruta')return 'Público por evento × Conversão do cenário ÷ 100 × Ticket médio';
  if(f.forma==='soma_filhos')return 'Soma das subdivisões ativas';
  var multiplicador=f.aplicacao==='evento'?' × quantidade de eventos':'';
  if(f.forma==='percentual')return f.percentual+'% × '+f.base+(f.aplicacao==='evento'?' por evento':' do projeto')+multiplicador;
@@ -415,6 +417,12 @@ async function orcFormulaAbrir(escopo,id){
  if(bas&&Array.isArray(bas.conteudo.bases)&&bas.conteudo.bases.length)bases=bas.conteudo.bases;
  }else{var fun=orcGeracao.gerados.find(function(x){return x.chave==='funcoes';});funcoes=fun&&Array.isArray(fun.conteudo)?fun.conteudo:[];}
  if(sessao!==orcFormulaSessao)return;
+ if(!filhos&&f.calculo==='receita_bruta'){
+ var premissa;
+ if(escopo==='padrao'){var refPremissa=refs.find(function(x){return x.chave==='premissas';});premissa=refPremissa?refPremissa.conteudo:{};}
+ else{var refPremissa=(g?orcGeracao.gerados:orcGeracao.previa).find(function(x){return x.chave==='premissas';});premissa=refPremissa?refPremissa.conteudo:{};}
+ orcReceitaRender(el,cat,premissa,escopo,orcPodeEditar()&&(escopo==='padrao'||!!g));return;
+ }
  function select(k,label,options,value){return '<div class="form-group"><label class="form-label" for="orc-f-'+k+'">'+label+'</label><select class="form-input" id="orc-f-'+k+'">'+options.map(function(o){var key=Array.isArray(o)?o[0]:o,nome=Array.isArray(o)?o[1]:o;return '<option value="'+orcEsc(key)+'" '+(key===value?'selected':'')+'>'+orcEsc(nome)+'</option>';}).join('')+'</select></div>';}
  function numero(k,label,value){return '<div class="form-group"><label class="form-label" for="orc-f-'+k+'">'+label+'</label><input class="form-input" type="number" min="0" step="any" id="orc-f-'+k+'" value="'+orcEsc(value===undefined?'':value)+'"></div>';}
  var escrita=orcPodeEditar()&&(escopo==='padrao'||g);
@@ -448,4 +456,27 @@ async function orcFormulaAbrir(escopo,id){
  }
  el.scrollIntoView({behavior:'smooth',block:'nearest'});
  }catch(e){el.innerHTML='<p>Não foi possível abrir a fórmula. Reabra as categorias.</p>';}
+}
+
+function orcReceitaCalcular(p){
+ var total=Number(p.publico_total),shows=Number(p.shows),ticket=p.valores&&p.valores.ticket_medio;
+ var valido=p.publico_total!==null&&p.publico_total!==undefined&&p.shows!==null&&p.shows!==undefined&&Number.isFinite(total)&&total>=0&&Number.isFinite(shows)&&shows>0&&ticket!==null&&ticket!==undefined&&Number.isFinite(Number(ticket))&&Number(ticket)>=0;
+ var cenarios=Array.isArray(p.cenarios)?p.cenarios:Array.isArray(p.conversoes)?p.conversoes.map(function(v,i){return {nome:['Pessimista','Conservador','Otimista'][i]||'Cenário '+(i+1),conversao:v};}):[];
+ return {publico:p.publico_total!==null&&p.publico_total!==undefined&&Number.isFinite(total)&&shows>0?total/shows:null,shows:shows,total:total,ticket:ticket,cenarios:cenarios.map(function(c){var ok=valido&&c.conversao!==null&&c.conversao!==undefined&&Number.isFinite(Number(c.conversao))&&Number(c.conversao)>=0&&Number(c.conversao)<=100,compradores=ok?total/shows*Number(c.conversao)/100:null;return {nome:c.nome,conversao:c.conversao,compradores:compradores,evento:ok?compradores*Number(ticket):null,projeto:ok?compradores*Number(ticket)*shows:null};})};
+}
+function orcReceitaNumero(v,moeda){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('pt-BR',moeda?{style:'currency',currency:'BRL'}:{maximumFractionDigits:2});}
+function orcReceitaPopup(d,escopo){
+ var anterior=document.getElementById('orc-receita-dialog');if(anterior)anterior.remove();
+ var modal=document.createElement('dialog');modal.id='orc-receita-dialog';modal.setAttribute('aria-labelledby','orc-receita-dialog-titulo');modal.style.cssText='width:min(900px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border2);border-radius:12px;padding:24px;background:var(--bg,#181818);color:var(--text,#fff);margin:auto';
+ var origem=escopo==='padrao'?'Padrão do Tipo de Projeto':'Cadastro próprio do projeto';
+ modal.innerHTML='<h2 id="orc-receita-dialog-titulo">1 — Receitas de vendas · Fórmula de cálculo</h2><div class="card" style="margin:18px 0"><strong>Receita Bruta por evento = Público por evento × Conversão do cenário ÷ 100 × Ticket médio</strong><p style="margin-top:12px"><strong>Receita Bruta do projeto = Receita Bruta por evento × Quantidade de eventos</strong></p></div><p>Calculada simultaneamente para os três cenários, antes dos descontos, impostos e demais deduções.</p><div class="tbl-wrap"><table><thead><tr><th>Campo da fórmula</th><th>Origem</th><th>Apresentação</th></tr></thead><tbody><tr><td>Público por evento</td><td>Premissas quantitativas → Público total ÷ Quantidade de eventos</td><td>Automático: '+orcReceitaNumero(d.publico)+' pessoas</td></tr><tr><td>Conversão do cenário</td><td>Premissas e cenários → Conversão (%)</td><td>'+d.cenarios.map(function(c){return orcEsc(c.nome)+': '+orcReceitaNumero(c.conversao)+'%';}).join('<br>')+'</td></tr><tr><td>Ticket médio por comprador</td><td>Premissas de valores → Ticket médio por comprador</td><td>'+orcReceitaNumero(d.ticket,true)+' · mesmo valor nos três cenários</td></tr><tr><td>Quantidade de eventos</td><td>Premissas quantitativas → Quantidade de eventos</td><td>Automático: '+orcReceitaNumero(d.shows)+'</td></tr></tbody></table></div><p style="margin:14px 0">Origem dos valores: '+origem+'.</p><button class="btn btn-primary" id="orc-receita-fechar">Fechar</button>';
+ document.body.appendChild(modal);modal.onclose=function(){modal.remove();};modal.querySelector('#orc-receita-fechar').onclick=function(){modal.close();};modal.showModal();
+}
+function orcReceitaRender(el,cat,p,escopo,editavel){
+ var d=orcReceitaCalcular(p),n=orcReceitaNumero;
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+' · Previsão de Receita Bruta</div><button class="btn btn-ghost" id="orc-receita-explicar">Entender fórmula e origem dos campos</button><h3 style="margin:20px 0 12px">Premissas quantitativas do projeto</h3><div class="tbl-wrap"><table><thead><tr><th>Público total</th><th>Quantidade de eventos</th><th>Público por evento · automático</th></tr></thead><tbody><tr><td>'+n(d.total)+'</td><td>'+n(d.shows)+'</td><td>'+n(d.publico)+'</td></tr></tbody></table></div><h3 style="margin:20px 0 12px">Premissas de valores por show/evento</h3><p>Ticket médio por comprador: <strong>'+n(d.ticket,true)+'</strong></p>'+(editavel?'<button class="btn btn-ghost btn-sm" id="orc-receita-premissas">Editar premissas e ticket médio</button>':'')+'<h3 style="margin:20px 0 12px">Resultado por cenário</h3><div class="tbl-wrap"><table><thead><tr><th>Cenário</th><th>Conversão</th><th>Compradores/evento</th><th>Ticket médio</th><th>Receita bruta/evento</th><th>Receita bruta/projeto</th></tr></thead><tbody>'+d.cenarios.map(function(c){return '<tr><td>'+orcEsc(c.nome)+'</td><td>'+n(c.conversao)+'%</td><td>'+n(c.compradores)+'</td><td>'+n(d.ticket,true)+'</td><td>'+n(c.evento,true)+'</td><td><strong>'+n(c.projeto,true)+'</strong></td></tr>';}).join('')+'</tbody></table></div>'+(!d.cenarios.length||d.cenarios.some(function(c){return c.evento===null;})?'<p>Complete as premissas para calcular os resultados. Valores ausentes não são considerados zero.</p>':'')+'<button class="btn btn-ghost" id="orc-receita-voltar" style="margin-top:16px">← Voltar às categorias</button></div>';
+ document.getElementById('orc-receita-explicar').onclick=function(){orcReceitaPopup(d,escopo);};
+ document.getElementById('orc-receita-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+ var editar=document.getElementById('orc-receita-premissas');if(editar)editar.onclick=function(){if(escopo==='padrao'){orcPadraoSelecionado=cat.tipo_id;orcPadraoTipo('premissas');}else orcProjetoCadastroEditor('premissas');};
+ el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
