@@ -418,6 +418,7 @@ async function orcFormulaAbrir(escopo,id){
  }else{var fun=orcGeracao.gerados.find(function(x){return x.chave==='funcoes';});funcoes=fun&&Array.isArray(fun.conteudo)?fun.conteudo:[];}
  if(sessao!==orcFormulaSessao)return;
  var refPremissaBase=(escopo==='padrao'?refs:(g?orcGeracao.gerados:orcGeracao.previa)).find(function(x){return x.chave==='premissas';}),premissasBase=refPremissaBase?refPremissaBase.conteudo:{};
+ if(f.calculo==='participacao_cultural'){orcCulturalRender(el,cat,premissasBase,escopo,rows,g,registro);return;}
  if(f.calculo==='fabricacao_ticket'||f.calculo==='desconto_vendas'||cat.codigo==='2'&&rows.some(function(x){return x.pai_id===cat.id&&(escopo==='padrao'?orcFormulasCategorias.some(function(fc){return fc.categoria_id===x.id&&fc.definicao.calculo==='desconto_vendas';}):x.formula&&x.formula.calculo==='desconto_vendas');})){
  orcDescontoRender(el,cat,premissasBase,escopo,rows,g,registro);orcDescricaoUniversal(el,cat,f,escopo,g);return;
  }
@@ -516,7 +517,7 @@ function orcDescontoRender(el,cat,p,escopo,rows,g,registro){
 function orcDescricaoUniversal(el,cat,f,escopo,g){
  var escrita=orcPodeEditar()&&(escopo==='padrao'||!!g),texto=cat.descritivo_calculo===null||cat.descritivo_calculo===undefined?f.descritivo||'':cat.descritivo_calculo;
  var html='<div class="card" id="orc-descritivo-universal" style="margin:16px 0"><form id="orc-descritivo-form"><label class="form-label" for="orc-descritivo-texto">Descritivo da fórmula · texto livre</label><textarea class="form-input" id="orc-descritivo-texto" rows="4" maxlength="10000" '+(escrita?'':'disabled')+'>'+orcEsc(texto)+'</textarea>'+(escrita?'<button class="btn btn-ghost btn-sm" type="submit" style="margin-top:10px">Salvar descritivo</button>':'')+'</form></div>';
- if(!el.querySelector('#orc-desc-explicar')&&!el.querySelector('#orc-receita-explicar')){
+ if(!el.querySelector('#orc-desc-explicar')&&!el.querySelector('#orc-receita-explicar')&&!el.querySelector('#orc-cultural-explicar')){
  html+='<button class="btn btn-ghost" id="orc-universal-explicar">Entender fórmula e origem dos campos</button>';
  }
  var tabela=el.querySelector('.tbl-wrap');if(tabela)tabela.insertAdjacentHTML('afterend',html);else el.insertAdjacentHTML('afterbegin',html);
@@ -532,4 +533,27 @@ function orcDescricaoUniversal(el,cat,f,escopo,g){
  if(escopo==='padrao')await orcCategorias();else{cat.descritivo_calculo=novo;orcCategoriasProjeto();}await orcFormulaAbrir(escopo,cat.id);showToast('Descritivo salvo','success');}
  catch(err){b.disabled=false;showToast('Não foi possível salvar. Reabra o cadastro para conferir alterações em outra sessão.','error');}
  };
+}
+
+function orcParticipacaoResultados(p,percentual,descontos){
+ var d=orcDescontoResultados(p,descontos),pct=Number(percentual),ok=percentual!==null&&percentual!==undefined&&Number.isFinite(pct)&&pct>=0&&pct<=100;
+ return d.map(function(r){var liquida=r.evento===null||r.receitaEvento===null?null:r.receitaEvento-r.evento;var liquidaProjeto=r.projeto===null||r.receitaProjeto===null?null:r.receitaProjeto-r.projeto;return Object.assign({},r,{liquida:liquida,liquidaProjeto:liquidaProjeto,participacao:ok&&liquida!==null?liquida*pct/100:null,participacaoProjeto:ok&&liquidaProjeto!==null?liquidaProjeto*pct/100:null});});
+}
+function orcCulturalRender(el,cat,p,escopo,rows,g,registro){
+ var f=(escopo==='padrao'?registro&&registro.definicao:cat.formula)||{},n=orcReceitaNumero,escrita=orcPodeEditar()&&(escopo==='padrao'||!!g),raiz=rows.find(function(x){return x.codigo==='2';}),descontos=[];
+ function obter(item){if(escopo==='projeto')return item.formula;var reg=orcFormulasCategorias.find(function(x){return x.categoria_id===item.id;});return reg&&reg.definicao;}
+ function visitar(pai){rows.filter(function(x){return x.pai_id===pai&&x.ativo!==false;}).forEach(function(x){if(rows.some(function(y){return y.pai_id===x.id&&y.ativo!==false;}))visitar(x.id);else descontos.push(obter(x));});}
+ if(raiz&&raiz.ativo!==false){visitar(raiz.id);if(!descontos.length)descontos.push(undefined);}else if(!raiz)descontos.push(undefined);
+ var r=orcParticipacaoResultados(p,f.percentual,descontos);
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div>'+orcPremissasCabecalho(p)+'<form id="orc-cultural-form"><label class="form-label" for="orc-cultural-percentual">Percentual de participação (%)</label><input class="form-input" id="orc-cultural-percentual" type="number" min="0" max="100" step="any" required value="'+orcEsc(f.percentual===undefined?'':f.percentual)+'" '+(escrita?'':'disabled')+'><p>Base: Receita Bruta de Vendas (categoria 1) − Descontos sobre as Vendas (categoria 2).</p>'+(escrita?'<button class="btn btn-primary" type="submit">Salvar percentual</button>':'')+'</form><button class="btn btn-ghost" id="orc-cultural-explicar" style="margin:14px 0">Entender fórmula e origem dos campos</button><h3>Resultados por cenário</h3><div class="tbl-wrap"><table><thead><tr><th>Cenário</th><th>Receita Bruta/evento</th><th>Descontos/evento</th><th>Receita Líquida/evento</th><th>Participação (%)</th><th>Participação/evento</th><th>Participação/projeto</th></tr></thead><tbody>'+r.map(function(x){return '<tr><td>'+orcEsc(x.nome)+'</td><td>'+n(x.receitaEvento,true)+'</td><td>'+n(x.evento,true)+'</td><td>'+n(x.liquida,true)+'</td><td>'+n(f.percentual)+'%</td><td><strong>'+n(x.participacao,true)+'</strong></td><td><strong>'+n(x.participacaoProjeto,true)+'</strong></td></tr>';}).join('')+'</tbody></table></div>'+(r.some(function(x){return x.participacao===null;})?'<p>Complete as premissas e as fórmulas das subcategorias de descontos para calcular a participação.</p>':'')+'<button class="btn btn-ghost" id="orc-cultural-voltar" style="margin-top:16px">← Voltar às categorias</button></div>';
+ document.getElementById('orc-cultural-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+ document.getElementById('orc-cultural-explicar').onclick=function(){
+ var d=document.createElement('dialog');d.setAttribute('aria-label','Fórmula da participação cultural');d.style.cssText='width:min(900px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border2);border-radius:12px;padding:24px;background:var(--bg,#181818);color:var(--text,#fff);margin:auto';
+ d.innerHTML='<h2>'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</h2><p>'+orcEsc(cat.descritivo_calculo||'')+'</p><div class="card"><strong>Participação Cultural = (Receita Bruta de Vendas − Descontos sobre as Vendas) × Percentual de participação ÷ 100</strong></div><div class="tbl-wrap"><table><thead><tr><th>Campo da fórmula</th><th>Origem</th><th>Apresentação</th></tr></thead><tbody><tr><td>Receita Bruta de Vendas</td><td>Categoria 1 → Público × Conversão do cenário ÷ 100 × Ticket médio</td><td>Automático nos três cenários</td></tr><tr><td>Descontos sobre as Vendas</td><td>Categoria 2 → Soma das subcategorias ativas</td><td>Automático · parâmetros do cadastro aberto</td></tr><tr><td>Receita Líquida</td><td>Categoria 1 − Categoria 2</td><td>Automático por cenário</td></tr><tr><td>Percentual de participação</td><td>Fórmula desta categoria</td><td>'+n(f.percentual)+'% · editável</td></tr><tr><td>Quantidade de eventos</td><td>Premissas quantitativas</td><td>'+n(p.shows)+' · multiplica o valor por evento</td></tr></tbody></table></div><button class="btn btn-primary">Fechar</button>';
+ document.body.appendChild(d);d.querySelector('button').onclick=function(){d.close();};d.onclose=function(){d.remove();};d.showModal();
+ };
+ if(escrita)document.getElementById('orc-cultural-form').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var raw=document.getElementById('orc-cultural-percentual').value,pct=Number(raw);if(raw===''||!Number.isFinite(pct)||pct<0||pct>100)return;var novo=Object.assign({},f,{percentual:pct}),b=e.target.querySelector('[type=submit]');b.disabled=true;
+ try{if(escopo==='padrao'){if(registro)await sb.patch('cda_orc_formulas_categoria',registro.id,{definicao:novo,atualizado_em:new Date().toISOString()});else await sb.post('cda_orc_formulas_categoria',{categoria_id:cat.id,definicao:novo});await orcCategorias();}else{g.conteudo=await orcRpc('cda_orc_salvar_formula_projeto',{cadastro:g.id,item:cat.id,anterior:cat.formula||null,nova:novo});orcCategoriasProjeto();}await orcFormulaAbrir(escopo,cat.id);showToast('Percentual salvo','success');}catch(err){b.disabled=false;showToast('Não foi possível salvar. Reabra o cadastro antes de tentar novamente.','error');}
+ };
+ orcDescricaoUniversal(el,cat,f,escopo,g);el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
