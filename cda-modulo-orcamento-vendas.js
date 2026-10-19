@@ -417,6 +417,10 @@ async function orcFormulaAbrir(escopo,id){
  if(bas&&Array.isArray(bas.conteudo.bases)&&bas.conteudo.bases.length)bases=bas.conteudo.bases;
  }else{var fun=orcGeracao.gerados.find(function(x){return x.chave==='funcoes';});funcoes=fun&&Array.isArray(fun.conteudo)?fun.conteudo:[];}
  if(sessao!==orcFormulaSessao)return;
+ var refPremissaBase=(escopo==='padrao'?refs:(g?orcGeracao.gerados:orcGeracao.previa)).find(function(x){return x.chave==='premissas';}),premissasBase=refPremissaBase?refPremissaBase.conteudo:{};
+ if(f.calculo==='desconto_vendas'||cat.codigo==='2'&&rows.some(function(x){return x.pai_id===cat.id&&(escopo==='padrao'?orcFormulasCategorias.some(function(fc){return fc.categoria_id===x.id&&fc.definicao.calculo==='desconto_vendas';}):x.formula&&x.formula.calculo==='desconto_vendas');})){
+ orcDescontoRender(el,cat,premissasBase,escopo,rows,g,registro);return;
+ }
  if(!filhos&&f.calculo==='receita_bruta'){
  var premissa;
  if(escopo==='padrao'){var refPremissa=refs.find(function(x){return x.chave==='premissas';});premissa=refPremissa?refPremissa.conteudo:{};}
@@ -433,6 +437,7 @@ async function orcFormulaAbrir(escopo,id){
  '<div id="orc-f-funcao">'+select('funcao','Função profissional',[['','Selecione']].concat(funcoes.filter(function(x){return x.nome;}).map(function(x){return [x.nome,x.nome+' — R$ '+x.valor_unitario+' / '+x.unidade];})),f.funcao)+'</div></div>'+
  '<div id="orc-f-vmanual">'+numero('valor','Valor (R$)',f.valor)+'</div>'+select('aplicacao','Aplicação',[['projeto','Uma vez no projeto'],['evento','Por show/evento × quantidade de eventos das premissas']],f.aplicacao||'projeto')+
  '<p id="orc-f-previa" style="margin:14px 0"></p><button class="btn btn-primary" type="submit">Salvar fórmula</button></form>')+'<button class="btn btn-ghost" id="orc-f-voltar" style="margin-top:12px">← Voltar às categorias</button></div>';
+ el.insertAdjacentHTML('afterbegin',orcPremissasCabecalho(premissasBase));
  document.getElementById('orc-f-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
  if(!filhos&&escrita){
  function ler(){function val(k){return document.getElementById('orc-f-'+k).value;}function num(k){return val(k)===''?null:Number(val(k));}
@@ -478,5 +483,31 @@ function orcReceitaRender(el,cat,p,escopo,editavel){
  document.getElementById('orc-receita-explicar').onclick=function(){orcReceitaPopup(d,escopo);};
  document.getElementById('orc-receita-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
  var editar=document.getElementById('orc-receita-premissas');if(editar)editar.onclick=function(){if(escopo==='padrao'){orcPadraoSelecionado=cat.tipo_id;orcPadraoTipo('premissas');}else orcProjetoCadastroEditor('premissas');};
+ el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function orcPremissasCabecalho(p){
+ var d=orcReceitaCalcular(p||{}),n=orcReceitaNumero;
+ return '<h3 style="margin:18px 0 12px">Premissas quantitativas do projeto</h3><div class="tbl-wrap"><table><thead><tr><th>Público total</th><th>Quantidade de eventos</th><th>Público por evento · automático</th></tr></thead><tbody><tr><td>'+n(d.total)+'</td><td>'+n(d.shows)+'</td><td>'+n(d.publico)+'</td></tr></tbody></table></div>';
+}
+function orcDescontoResultados(p,formulas){
+ var receita=orcReceitaCalcular(p);
+ return receita.cenarios.map(function(c){var parcelas=formulas.map(function(f){var pct=f&&f.percentual,ok=pct!==null&&pct!==undefined&&Number.isFinite(Number(pct))&&Number(pct)>=0&&Number(pct)<=100;return {percentual:pct,evento:ok&&c.evento!==null?c.evento*Number(pct)/100:null,projeto:ok&&c.projeto!==null?c.projeto*Number(pct)/100:null};});var valido=parcelas.every(function(x){return x.evento!==null;});return {nome:c.nome,receitaEvento:c.evento,receitaProjeto:c.projeto,parcelas:parcelas,evento:valido?parcelas.reduce(function(s,x){return s+x.evento;},0):null,projeto:valido?parcelas.reduce(function(s,x){return s+x.projeto;},0):null};});
+}
+function orcDescontoPopup(cat,f,total,p){
+ var antigo=document.getElementById('orc-desconto-dialog');if(antigo)antigo.remove();var modal=document.createElement('dialog');modal.id='orc-desconto-dialog';modal.setAttribute('aria-labelledby','orc-desconto-titulo');modal.style.cssText='width:min(900px,94vw);max-height:88vh;overflow:auto;border:1px solid var(--border2);border-radius:12px;padding:24px;background:var(--bg,#181818);color:var(--text,#fff);margin:auto';
+ var formula=total?'Descontos sobre as Vendas = Descontos Comerciais + Descontos Financeiros':'Valor do desconto = Receita Bruta de Vendas × Percentual para orçamento ÷ 100';
+ modal.innerHTML='<h2 id="orc-desconto-titulo">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</h2><div class="card" style="margin:18px 0"><strong>'+formula+'</strong></div><p>'+orcEsc(total?'Soma automática das subcategorias ativas, por evento e no projeto, em cada cenário.':f.descritivo||'')+'</p><div class="tbl-wrap"><table><thead><tr><th>Campo da fórmula</th><th>Origem</th><th>Apresentação</th></tr></thead><tbody>'+ (total?'<tr><td>Descontos Comerciais</td><td>Subcategoria 2.1 → Fórmula de cálculo</td><td>Automático nos três cenários</td></tr><tr><td>Descontos Financeiros</td><td>Subcategoria 2.2 → Fórmula de cálculo</td><td>Automático nos três cenários</td></tr>':'<tr><td>Receita Bruta de Vendas</td><td>Categoria 1 → Público × Conversão do cenário ÷ 100 × Ticket médio</td><td>Automático por evento e projeto</td></tr><tr><td>Percentual para orçamento</td><td>Fórmula desta subcategoria</td><td>'+orcReceitaNumero(f.percentual)+'% sobre toda a receita bruta</td></tr>')+'</tbody></table></div><p style="margin:14px 0">O percentual representa o maior desconto previsto para orçamento. Os cenários usam as premissas do cadastro aberto.</p><button class="btn btn-primary" id="orc-desconto-fechar">Fechar</button>';
+ document.body.appendChild(modal);modal.onclose=function(){modal.remove();};modal.querySelector('#orc-desconto-fechar').onclick=function(){modal.close();};modal.showModal();
+}
+function orcDescontoRender(el,cat,p,escopo,rows,g,registro){
+ var total=cat.codigo==='2',f=escopo==='padrao'?registro&&registro.definicao:cat.formula;f=f||{};
+ function formula(item){if(escopo==='projeto')return item.formula;var reg=orcFormulasCategorias.find(function(x){return x.categoria_id===item.id;});return reg&&reg.definicao;}
+ var filhos=total?rows.filter(function(x){return x.pai_id===cat.id&&x.ativo!==false;}):[cat],formulas=filhos.map(formula),resultados=orcDescontoResultados(p,formulas),n=orcReceitaNumero,escrita=orcPodeEditar()&&(escopo==='padrao'||!!g);
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div>'+orcPremissasCabecalho(p)+'<h3 style="margin:20px 0 12px">'+(total?'Valor Descontos sobre as Vendas · automático (somatório das subcategorias)':'Parâmetros do desconto')+'</h3>'+(total?'':'<form id="orc-desc-form"><label class="form-label" for="orc-desc-texto">Descritivo do desconto</label><textarea class="form-input" id="orc-desc-texto" rows="5" '+(escrita?'':'disabled')+'>'+orcEsc(f.descritivo||'')+'</textarea><label class="form-label" for="orc-desc-percentual" style="margin-top:12px">Percentual para orçamento (%) · maior desconto previsto</label><input class="form-input" id="orc-desc-percentual" type="number" min="0" max="100" step="any" required value="'+orcEsc(f.percentual===undefined?'':f.percentual)+'" '+(escrita?'':'disabled')+'><p>Base: Receita Bruta de Vendas integral, em cada cenário.</p>'+(escrita?'<button class="btn btn-primary" type="submit">Salvar desconto</button>':'')+'</form>')+'<button class="btn btn-ghost" id="orc-desc-explicar" style="margin:14px 0">Entender fórmula e origem dos campos</button><div class="tbl-wrap"><table><thead><tr><th>Cenário</th><th>Receita Bruta/evento</th>'+(total?filhos.map(function(x){return '<th>'+orcEsc(x.nome)+'/evento</th>';}).join(''):'<th>Percentual</th>')+'<th>Valor descontos/evento</th><th>Valor descontos/projeto</th></tr></thead><tbody>'+resultados.map(function(r){return '<tr><td>'+orcEsc(r.nome)+'</td><td>'+n(r.receitaEvento,true)+'</td>'+(total?r.parcelas.map(function(x){return '<td>'+n(x.evento,true)+'</td>';}).join(''):'<td>'+n(f.percentual)+'%</td>')+'<td><strong>'+n(r.evento,true)+'</strong></td><td><strong>'+n(r.projeto,true)+'</strong></td></tr>';}).join('')+'</tbody></table></div>'+(total&&!filhos.length?'<p>Cadastre as subcategorias para compor o total.</p>':'')+'<button class="btn btn-ghost" id="orc-desc-voltar" style="margin-top:16px">← Voltar às categorias</button></div>';
+ document.getElementById('orc-desc-explicar').onclick=function(){orcDescontoPopup(cat,f,total,p);};document.getElementById('orc-desc-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+ if(!total&&escrita)document.getElementById('orc-desc-form').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var raw=document.getElementById('orc-desc-percentual').value,pct=Number(raw);if(raw===''||!Number.isFinite(pct)||pct<0||pct>100)return;var novo=Object.assign({},f,{forma:'percentual',calculo:'desconto_vendas',base:'Venda bruta',aplicacao:'projeto',percentual:pct,descritivo:document.getElementById('orc-desc-texto').value.trim()}),b=e.target.querySelector('[type=submit]');b.disabled=true;
+ try{if(escopo==='padrao'){if(registro)await sb.patch('cda_orc_formulas_categoria',registro.id,{definicao:novo,atualizado_em:new Date().toISOString()});else await sb.post('cda_orc_formulas_categoria',{categoria_id:cat.id,definicao:novo});await orcCategorias();}else{g.conteudo=await orcRpc('cda_orc_salvar_formula_projeto',{cadastro:g.id,item:cat.id,anterior:cat.formula||null,nova:novo});orcCategoriasProjeto();}showToast('Desconto salvo','success');await orcFormulaAbrir(escopo,cat.id);}catch(err){b.disabled=false;showToast('Não foi possível salvar. Reabra o cadastro antes de tentar novamente.','error');}
+ };
  el.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
