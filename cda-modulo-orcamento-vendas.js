@@ -287,7 +287,7 @@ async function orcPadraoTipo(k){
  document.getElementById('orc-padrao-tipo').onchange=function(){orcPadraoSelecionado=this.value;orcPadraoTipo(k);};
  var tipoAtual=tipos.find(function(t){return t.id===orcPadraoSelecionado;});
  if(k==='dimensionamento'&&tipoAtual&&Number(tipoAtual.codigo)===2){orcEditor=null;document.getElementById('orc-editor-conteudo').innerHTML='<p role="status" style="margin:18px 0">Não se Aplica a este tipo de Projeto</p>';return;}
- var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};
+ var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};r.tipo_codigo=tipoAtual&&tipoAtual.codigo;
  var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];
  orcIniciarEditor('padrao',r,k,pessoas,tiposParticipantes);
  }catch(e){el.innerHTML='<div class="card">Não foi possível carregar o cadastro compartilhado.</div>';}
@@ -303,6 +303,8 @@ async function orcProjetoCadastroEditor(k){
 }
 function orcIniciarEditor(escopo,r,k,pessoas,tiposParticipantes){
  var d=JSON.parse(JSON.stringify(r.conteudo));
+ var vinculo=(orcEstr.vinculos||[]).find(function(v){return v.id===r.projeto_tipo_id;}),tipo=(orcEstr.tipos||[]).find(function(t){return t.id===(r.tipo_id||(vinculo&&vinculo.tipo_id));}),ecommerce=Number(r.tipo_codigo||(tipo&&tipo.codigo))===2;
+ if(k==='premissas'&&(ecommerce||d&&d.modelo==='ecommerce')){d=d||{};d.modelo='ecommerce';if(d.visitantes_mensais===undefined)d.visitantes_mensais=d.publico_total===undefined?null:d.publico_total;if(d.meses===undefined)d.meses=6;delete d.shows;delete d.publico_total;}
  if(k==='dimensionamento'&&d&&typeof d==='object'&&!Array.isArray(d)&&Object.keys(d).length){delete d['apoio'+'_evento'];if(d.vendedores_loja===undefined)d.vendedores_loja=4;}
  if(!d||!Object.keys(d).length)d=JSON.parse(JSON.stringify(orcEsquemas[k]));
  if(k==='premissas'){if(!d.valores||typeof d.valores!=='object')d.valores={};if(d.valores.ticket_medio===undefined)d.valores.ticket_medio=null;}
@@ -321,12 +323,12 @@ function orcRenderEditor(){
  if(orcEditor.k==='participantes'){orcRenderParticipantesTipo();return;}
  var paths=[],editable=orcPodeEditar();
  function campo(v,path,key){
- var n=paths.push(path)-1,label=orcRotulos[key]||key||'Item',disabled=editable?'':' disabled';
+ var n=paths.push(path)-1,label=({visitantes_mensais:'Visitantes mensais do site',meses:'Quantidade de meses'})[key]||orcRotulos[key]||key||'Item',disabled=editable?'':' disabled';
  if(Array.isArray(v)){
  return '<fieldset style="border:1px solid var(--border2);padding:14px;margin:14px 0"><legend>'+orcEsc(label)+'</legend>'+v.map(function(item,i){return '<div style="border-bottom:1px solid var(--border);padding:12px 0">'+campo(item,path.concat(i),key)+(editable?'<button class="btn btn-ghost btn-sm" type="button" data-remove="'+n+':'+i+'">Retirar item</button>':'')+'</div>';}).join('')+(editable?'<button class="btn btn-ghost" type="button" data-add="'+n+'">＋ Adicionar item</button>':'')+'</fieldset>';
  }
  if(v&&typeof v==='object'){
- return (orcEditor.k==='premissas'&&key==='valores'?'<h3 style="margin:18px 0">Premissas de valores por show/evento</h3>':'')+'<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja','designer_evento','supervisores_evento','filmmaker_evento']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
+ return (orcEditor.k==='premissas'&&key==='valores'?'<h3 style="margin:18px 0">'+(orcEditor.dados.modelo==='ecommerce'?'Premissas de valores do E-Commerce':'Premissas de valores por show/evento')+'</h3>':'')+'<div class="form-row">'+(orcEditor.k==='dimensionamento'&&orcEditor.escopo==='padrao'&&path.length===0?['area_loja','capacidade_loja','compradores_vendedor','vendedores_loja','estoquistas_loja','apoio_loja','designer_evento','supervisores_evento','filmmaker_evento']:Object.keys(v)).filter(function(k){return !['id','criado_em','atualizado_em','arredondamento','modelo'].includes(k);}).map(function(k){return '<div>'+campo(v[k],path.concat(k),k)+'</div>';}).join('')+'</div>';
  }
  if(key==='papel'&&orcEditor.k==='participantes'){
  var tipos=orcEditor.tiposParticipantes.filter(function(t){return t.ativo||t.id===v;});
@@ -345,6 +347,7 @@ function orcRenderEditor(){
  var cancel=document.getElementById('orc-editor-cancel');if(cancel)cancel.onclick=function(){orcIniciarEditor(orcEditor.escopo,orcEditor.r,orcEditor.k,orcEditor.pessoas,orcEditor.tiposParticipantes);};
  document.getElementById('orc-padrao-editor').onsubmit=async function(e){e.preventDefault();if(!orcPodeEditar())return;var ed=orcEditor,btn=e.target.querySelector('[type=submit]');btn.disabled=true;
  try{
+ if(ed.k==='premissas'&&ed.dados.modelo==='ecommerce'&&(!Number.isInteger(Number(ed.dados.meses))||Number(ed.dados.meses)<=0)){showToast('Informe uma quantidade inteira de meses maior que zero.','error');btn.disabled=false;return;}
  if(ed.r.id)await orcRpc('cda_orc_salvar_cadastro',{escopo:ed.escopo,registro:ed.r.id,anterior:ed.anterior,novo:ed.dados});
  else{var res=await sb.post('cda_orc_padroes_tipo',{tipo_id:ed.r.tipo_id,chave:ed.k,conteudo:ed.dados});ed.r.id=res[0].id;}
  ed.r.conteudo=JSON.parse(JSON.stringify(ed.dados));ed.anterior=JSON.parse(JSON.stringify(ed.dados));showToast('Cadastro salvo no '+(ed.escopo==='padrao'?'padrão do tipo':'projeto'),'success');
@@ -492,6 +495,10 @@ async function orcFormulaAbrir(escopo,id){
 }
 
 function orcReceitaCalcular(p){
+ if(p.modelo==='ecommerce'){
+ var visitantes=p.visitantes_mensais,meses=p.meses,ticket=p.valores&&p.valores.ticket_medio,ok=visitantes!==null&&visitantes!==undefined&&Number.isFinite(Number(visitantes))&&Number(visitantes)>=0&&Number.isInteger(Number(meses))&&Number(meses)>0&&ticket!==null&&ticket!==undefined&&Number.isFinite(Number(ticket))&&Number(ticket)>=0;
+ return {modelo:'ecommerce',publico:visitantes,shows:null,meses:meses,total:visitantes!==null&&visitantes!==undefined&&meses>0?Number(visitantes)*Number(meses):null,ticket:ticket,cenarios:(p.cenarios||[]).map(function(c){var valido=ok&&c.conversao!==null&&c.conversao!==undefined&&Number.isFinite(Number(c.conversao))&&Number(c.conversao)>=0&&Number(c.conversao)<=100,compradores=valido?Number(visitantes)*Number(c.conversao)/100:null,mensal=valido?compradores*Number(ticket):null;return {nome:c.nome,conversao:c.conversao,compradores:compradores,mensal:mensal,evento:null,projeto:mensal===null?null:mensal*Number(meses)};})};
+ }
  var total=Number(p.publico_total),shows=Number(p.shows),ticket=p.valores&&p.valores.ticket_medio;
  var valido=p.publico_total!==null&&p.publico_total!==undefined&&p.shows!==null&&p.shows!==undefined&&Number.isFinite(total)&&total>=0&&Number.isFinite(shows)&&shows>0&&ticket!==null&&ticket!==undefined&&Number.isFinite(Number(ticket))&&Number(ticket)>=0;
  var cenarios=Array.isArray(p.cenarios)?p.cenarios:Array.isArray(p.conversoes)?p.conversoes.map(function(v,i){return {nome:['Pessimista','Conservador','Otimista'][i]||'Cenário '+(i+1),conversao:v};}):[];
