@@ -285,6 +285,8 @@ async function orcPadraoTipo(k){
  var pessoas=await sb.get('cda_orc_pessoas','order=nome');
  el.innerHTML='<div class="card"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro compartilhado</div><label class="form-label" for="orc-padrao-tipo">Tipo de Projeto</label><select id="orc-padrao-tipo" class="form-input">'+tipos.map(function(t){return '<option value="'+t.id+'" '+(t.id===orcPadraoSelecionado?'selected':'')+'>'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</option>';}).join('')+'</select><p style="color:var(--muted2);margin:14px 0">Padrão exclusivo do tipo selecionado. Salvar aqui não altera os cadastros já gerados nos projetos.</p><div id="orc-editor-conteudo"></div></div>';
  document.getElementById('orc-padrao-tipo').onchange=function(){orcPadraoSelecionado=this.value;orcPadraoTipo(k);};
+ var tipoAtual=tipos.find(function(t){return t.id===orcPadraoSelecionado;});
+ if(k==='dimensionamento'&&tipoAtual&&Number(tipoAtual.codigo)===2){orcEditor=null;document.getElementById('orc-editor-conteudo').innerHTML='<p role="status" style="margin:18px 0">Não se Aplica a este tipo de Projeto</p>';return;}
  var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};
  var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];
  orcIniciarEditor('padrao',r,k,pessoas,tiposParticipantes);
