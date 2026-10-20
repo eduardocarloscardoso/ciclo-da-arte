@@ -358,7 +358,7 @@ function orcRenderEditor(){
  }
  if(key==='pessoa_id')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+orcEditor.pessoas.map(function(p){return '<option value="'+p.id+'" '+(p.id===v?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select>';
  if(key==='arredondamento')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="cima" '+(v==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(v==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select>';
- if(key==='visitantes_mensais'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo'))return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" id="orc-visitas-mensais-auto" readonly value="'+orcVisitantesExibir(orcVisitantesMensais(orcEditor.dados))+'"><small>Visitantes no período ÷ quantidade de meses</small></div>';
+ if(key==='visitantes_mensais'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo'))return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" id="orc-visitas-mensais-auto" readonly value="'+orcVisitantesExibir(orcVisitantesMensais(orcEditor.dados))+'"></div>';
  var numeric=typeof v==='number'||v===null;
  return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" data-field="'+n+'" data-number="'+numeric+'" type="'+(numeric?'number':'text')+'" '+(numeric?'min="0" step="any"':'')+' value="'+orcEsc(v===null?'':v)+'"'+disabled+'></div>';
  }
