@@ -7,7 +7,7 @@ var ORCAMENTO_PAGES={
 };
 var ORCAMENTO_CONFIG=[
  {nome:'Identidades compartilhadas',itens:['Tipo Participantes','Participantes']},
- {nome:'Cadastros padrão por Tipo de Projeto',itens:['Participantes por Tipo','Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Produtos e preços','Participação e rateio']}
+ {nome:'Cadastros padrão por Tipo de Projeto',itens:['Participantes por Tipo','Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Produtos e preços']}
 ];
 window._orcamentoPage='configuracoes';
 function navigateOrcamento(page){
@@ -30,7 +30,7 @@ function navigateOrcamento(page){
 function abrirConfiguracaoOrcamento(gi,ii){
  if(!canAccessProject('orcamento_vendas'))return;
  if(gi===0){orcCadastro(ii===0?'papeis':'pessoas');return;}
- if(gi===1){var chave=['participantes','categorias','premissas','dimensionamento','funcoes','produtos','participacao'][ii];if(chave==='categorias'){orcCategorias();return;}if(chave)orcPadraoTipo(chave);}
+ if(gi===1){var chave=['participantes','categorias','premissas','dimensionamento','funcoes','produtos'][ii];if(chave==='categorias'){orcCategorias();return;}if(chave)orcPadraoTipo(chave);}
 }
 
 var orcDados={pessoas:[],papeis:[]};
@@ -204,6 +204,7 @@ function orcProjetoTipo(id){
 }
 
 var ORC_CADASTROS={categorias:'Categorias e Subcategorias',premissas:'Premissas e cenários',dimensionamento:'Regras de dimensionamento',funcoes:'Funções profissionais e remunerações',calculos:'Modalidades e bases de cálculo',produtos:'Produtos e preços',participantes:'Participantes por Tipo',participacao:'Participação e rateio'};
+var ORC_CADASTROS_VISIVEIS=Object.keys(ORC_CADASTROS).filter(function(k){return k!=='calculos'&&k!=='participacao';});
 var orcGeracao={vinculo:null,previa:[],gerados:[]};
 async function orcRpc(nome,dados){return await sb.post('rpc/'+nome,dados);}
 function orcGeracaoTipoCodigo(){
@@ -228,7 +229,7 @@ async function orcGeracaoPrevia(id){
  try{
  var res=await Promise.all([orcRpc('cda_orc_previa_cadastros',{vinculo:id}),sb.get('cda_orc_cadastros_projeto','projeto_tipo_id=eq.'+id)]);
  orcGeracao={vinculo:id,previa:res[0],gerados:res[1]};
- el.innerHTML='<p style="color:var(--muted2);margin-bottom:14px">Cadastros próprios deste projeto e tipo. Os itens gerados estão disponíveis para consulta. Pessoas e empresas mantêm seus vínculos. A geração só é necessária para cadastros ainda inexistentes.</p><div class="tbl-wrap"><table><thead><tr><th>Cadastro</th><th>Situação</th><th>Ação</th></tr></thead><tbody>'+Object.keys(ORC_CADASTROS).filter(function(k){return k!=='calculos';}).map(function(k){var g=res[1].find(function(x){return x.chave===k;}),p=res[0].find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null,categorias=(res[1].find(function(x){return x.chave==='categorias';})||res[0].find(function(x){return x.chave==='categorias';})||{}).conteudo,situacao=orcCadastroProjetoSituacao(k,d,!!g,orcGeracaoTipoCodigo(),categorias);return '<tr><td>'+ORC_CADASTROS[k]+'</td><td>'+orcEsc(situacao)+'</td><td><button class="btn btn-ghost btn-sm" onclick="orcGeracaoConsultar(\''+k+'\')">'+(orcGeracaoTipoCodigo()===2&&k==='participacao'?'Consultar rateio':g?'Consultar cadastro':'Ver prévia')+'</button></td></tr>';}).join('')+'</tbody></table></div>'+(orcPodeEditar()&&res[1].length<Object.keys(ORC_CADASTROS).length?'<button id="orc-gerar-btn" class="btn btn-primary" style="margin-top:16px" onclick="orcGeracaoExecutar()">Gerar cadastros faltantes</button>':'')+'<div id="orc-cadastro-projeto" style="margin-top:16px"></div>';
+ el.innerHTML='<p style="color:var(--muted2);margin-bottom:14px">Cadastros próprios deste projeto e tipo. Os itens gerados estão disponíveis para consulta. Pessoas e empresas mantêm seus vínculos. A geração só é necessária para cadastros ainda inexistentes.</p><div class="tbl-wrap"><table><thead><tr><th>Cadastro</th><th>Situação</th><th>Ação</th></tr></thead><tbody>'+ORC_CADASTROS_VISIVEIS.map(function(k){var g=res[1].find(function(x){return x.chave===k;}),p=res[0].find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null,categorias=(res[1].find(function(x){return x.chave==='categorias';})||res[0].find(function(x){return x.chave==='categorias';})||{}).conteudo,situacao=orcCadastroProjetoSituacao(k,d,!!g,orcGeracaoTipoCodigo(),categorias);return '<tr><td>'+ORC_CADASTROS[k]+'</td><td>'+orcEsc(situacao)+'</td><td><button class="btn btn-ghost btn-sm" onclick="orcGeracaoConsultar(\''+k+'\')">'+(orcGeracaoTipoCodigo()===2&&k==='participacao'?'Consultar rateio':g?'Consultar cadastro':'Ver prévia')+'</button></td></tr>';}).join('')+'</tbody></table></div>'+(orcPodeEditar()&&ORC_CADASTROS_VISIVEIS.some(function(k){return !res[1].some(function(x){return x.chave===k;});})?'<button id="orc-gerar-btn" class="btn btn-primary" style="margin-top:16px" onclick="orcGeracaoExecutar()">Gerar cadastros faltantes</button>':'')+'<div id="orc-cadastro-projeto" style="margin-top:16px"></div>';
  }catch(e){el.innerHTML='Não foi possível carregar a prévia dos cadastros.';}
 }
 async function orcGeracaoExecutar(){
@@ -854,7 +855,7 @@ function orcRelSecao(ctx,visao){
  function financeira(label,fn){return '<tr><th scope="row">'+e(label)+'</th>'+orcResultadoCelulas(ctx,fn)+'</tr>';}
  function finTabela(linhas){return '<div class="tbl-wrap"><table><thead><tr>'+cab.map(function(x){return '<th>'+e(x)+'</th>';}).join('')+'</tr></thead><tbody>'+linhas+'</tbody></table></div>';}
  var titulo=(orcRelVisoes.find(function(x){return x[0]===visao;})||[])[1]||visao,h='<section class="orc-rel-secao"><h2>'+e(titulo)+'</h2>';
- if(visao==='projeto')h+=orcRelTabela(['Campo','Informação'],[['Projeto',e(ctx.projeto.nome)],['Descrição do projeto',e(ctx.projeto.descricao||'Não informada')],['Tipo de Projeto',e(ctx.tipo.codigo+' — '+ctx.tipo.nome)],['Descrição do tipo',e(ctx.tipo.descricao||'Não informada')],['Situação do orçamento',e(ctx.p.situacao||'Não informada')],['Origem','Cadastros próprios deste projeto e tipo'],['Consulta',e(ctx.consultado.toLocaleString('pt-BR'))]])+'<h3>Cadastros disponíveis</h3>'+orcRelTabela(['Cadastro','Geração da cópia'],(ctx.cadastros||[]).map(function(x){return [e(ORC_CADASTROS[x.chave]||x.chave),e(x.gerado_em?new Date(x.gerado_em).toLocaleString('pt-BR'):'Não informada')];}));
+ if(visao==='projeto')h+=orcRelTabela(['Campo','Informação'],[['Projeto',e(ctx.projeto.nome)],['Descrição do projeto',e(ctx.projeto.descricao||'Não informada')],['Tipo de Projeto',e(ctx.tipo.codigo+' — '+ctx.tipo.nome)],['Descrição do tipo',e(ctx.tipo.descricao||'Não informada')],['Situação do orçamento',e(ctx.p.situacao||'Não informada')],['Origem','Cadastros próprios deste projeto e tipo'],['Consulta',e(ctx.consultado.toLocaleString('pt-BR'))]])+'<h3>Cadastros disponíveis</h3>'+orcRelTabela(['Cadastro','Geração da cópia'],(ctx.cadastros||[]).filter(function(x){return ORC_CADASTROS_VISIVEIS.indexOf(x.chave)>=0;}).map(function(x){return [e(ORC_CADASTROS[x.chave]||x.chave),e(x.gerado_em?new Date(x.gerado_em).toLocaleString('pt-BR'):'Não informada')];}));
  if(visao==='participantes')h+=orcRelTabela(['Participante','Tipo de participação','Situação'],(ctx.participantes||[]).map(function(x){var p=(ctx.pessoas||[]).find(function(y){return y.id===x.pessoa_id;}),t=(ctx.papeis||[]).find(function(y){return y.id===x.papel;});return [e(p?p.nome:x.nome||x.pessoa_id||'Não informado'),e(t?t.nome:x.papel||'Não informado'),x.ativo===false?'Inativo':'Ativo'];}))+'<p>Somente os vínculos do cadastro próprio deste projeto e tipo. Fornecedores e prestadores ainda não vinculados não são incluídos.</p>';
  if(visao==='premissas')h+=orcPremissasCabecalho(ctx.p)+'<p>Ticket médio por comprador: <strong>'+n(receita.ticket,true)+'</strong></p>'+orcRelTabela(['Cenário','Conversão','Compradores/evento','Compradores/projeto','Receita/evento','Receita/projeto'],receita.cenarios.map(function(c){return [e(c.nome),n(c.conversao)+'%',n(c.compradores),n(c.compradores===null?null:c.compradores*receita.shows),n(c.evento,true),n(c.projeto,true)];}))+'<h3>Todos os campos das premissas</h3>'+orcRelDados(ctx.p)+'<h3>Funções e valores unitários</h3>'+orcRelTabela(['Função','Unidade','Valor unitário'],ctx.funcoes.map(function(f){return [e(f.nome),e(f.unidade||''),n(f.valor_unitario,true)];}));
  if(visao==='dimensionamento'){
