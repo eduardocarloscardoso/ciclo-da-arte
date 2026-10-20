@@ -206,13 +206,29 @@ function orcProjetoTipo(id){
 var ORC_CADASTROS={categorias:'Categorias e Subcategorias',premissas:'Premissas e cenários',dimensionamento:'Regras de dimensionamento',funcoes:'Funções profissionais e remunerações',calculos:'Modalidades e bases de cálculo',produtos:'Produtos e preços',participantes:'Participantes por Tipo',participacao:'Participação e rateio'};
 var orcGeracao={vinculo:null,previa:[],gerados:[]};
 async function orcRpc(nome,dados){return await sb.post('rpc/'+nome,dados);}
+function orcGeracaoTipoCodigo(){
+ var v=orcEstr.vinculos.find(function(x){return x.id===orcGeracao.vinculo;}),t=v&&orcEstr.tipos.find(function(x){return x.id===v.tipo_id;});return t?Number(t.codigo):null;
+}
+function orcCadastroProjetoSituacao(k,d,gerado,codigo,categorias){
+ var vazio=!d||!Object.keys(d).length,prefixo=gerado?'Gerado':'Ainda não gerado';
+ if(codigo===2){
+ if(k==='dimensionamento'||k==='funcoes')return 'Não se Aplica a este tipo de Projeto';
+ if(k==='produtos'&&vazio)return prefixo+' · Opcional — previsão por ticket médio';
+ if(k==='participacao'){
+ var ativos=(Array.isArray(categorias)?categorias:[]).filter(function(x){return x.ativo!==false;}),lucro=ativos.find(function(x){return x.codigo==='90';}),owner=ativos.find(function(x){return x.codigo==='91';}),fab=ativos.find(function(x){return x.codigo==='92';}),a=owner&&owner.formula&&owner.formula.percentual,b=fab&&fab.formula&&fab.formula.percentual;
+ var valido=lucro&&a!==null&&a!==undefined&&a!==''&&b!==null&&b!==undefined&&b!==''&&Number.isFinite(Number(a))&&Number.isFinite(Number(b))&&Number(a)>=0&&Number(a)<=100&&Number(b)>=0&&Number(b)<=100&&Math.abs(Number(a)+Number(b)-100)<0.0000001;
+ return valido?'Definido nas categorias 90, 91 e 92':'Pendente — conferir rateio nas categorias 90, 91 e 92';
+ }
+ }
+ return prefixo+(vazio?' · Pendente de definição':'');
+}
 async function orcGeracaoPrevia(id){
  if(!canAccessProject('orcamento_vendas'))return;
  var el=document.getElementById('orc-geracao');if(!el)return;el.innerHTML='Carregando prévia...';
  try{
  var res=await Promise.all([orcRpc('cda_orc_previa_cadastros',{vinculo:id}),sb.get('cda_orc_cadastros_projeto','projeto_tipo_id=eq.'+id)]);
  orcGeracao={vinculo:id,previa:res[0],gerados:res[1]};
- el.innerHTML='<p style="color:var(--muted2);margin-bottom:14px">Cadastros próprios deste projeto e tipo. Os itens gerados estão disponíveis para consulta. Pessoas e empresas mantêm seus vínculos. A geração só é necessária para cadastros ainda inexistentes.</p><div class="tbl-wrap"><table><thead><tr><th>Cadastro</th><th>Situação</th><th>Ação</th></tr></thead><tbody>'+Object.keys(ORC_CADASTROS).filter(function(k){return k!=='calculos';}).map(function(k){var g=res[1].find(function(x){return x.chave===k;}),p=res[0].find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null,empty=!d||!Object.keys(d).length;return '<tr><td>'+ORC_CADASTROS[k]+'</td><td>'+(g?'Gerado':'Ainda não gerado')+(empty?' · Pendente de definição':'')+'</td><td><button class="btn btn-ghost btn-sm" onclick="orcGeracaoConsultar(\''+k+'\')">'+(g?'Consultar cadastro':'Ver prévia')+'</button></td></tr>';}).join('')+'</tbody></table></div>'+(orcPodeEditar()&&res[1].length<Object.keys(ORC_CADASTROS).length?'<button id="orc-gerar-btn" class="btn btn-primary" style="margin-top:16px" onclick="orcGeracaoExecutar()">Gerar cadastros faltantes</button>':'')+'<div id="orc-cadastro-projeto" style="margin-top:16px"></div>';
+ el.innerHTML='<p style="color:var(--muted2);margin-bottom:14px">Cadastros próprios deste projeto e tipo. Os itens gerados estão disponíveis para consulta. Pessoas e empresas mantêm seus vínculos. A geração só é necessária para cadastros ainda inexistentes.</p><div class="tbl-wrap"><table><thead><tr><th>Cadastro</th><th>Situação</th><th>Ação</th></tr></thead><tbody>'+Object.keys(ORC_CADASTROS).filter(function(k){return k!=='calculos';}).map(function(k){var g=res[1].find(function(x){return x.chave===k;}),p=res[0].find(function(x){return x.chave===k;}),d=g?g.conteudo:p?p.conteudo:null,categorias=(res[1].find(function(x){return x.chave==='categorias';})||res[0].find(function(x){return x.chave==='categorias';})||{}).conteudo,situacao=orcCadastroProjetoSituacao(k,d,!!g,orcGeracaoTipoCodigo(),categorias);return '<tr><td>'+ORC_CADASTROS[k]+'</td><td>'+orcEsc(situacao)+'</td><td><button class="btn btn-ghost btn-sm" onclick="orcGeracaoConsultar(\''+k+'\')">'+(orcGeracaoTipoCodigo()===2&&k==='participacao'?'Consultar rateio':g?'Consultar cadastro':'Ver prévia')+'</button></td></tr>';}).join('')+'</tbody></table></div>'+(orcPodeEditar()&&res[1].length<Object.keys(ORC_CADASTROS).length?'<button id="orc-gerar-btn" class="btn btn-primary" style="margin-top:16px" onclick="orcGeracaoExecutar()">Gerar cadastros faltantes</button>':'')+'<div id="orc-cadastro-projeto" style="margin-top:16px"></div>';
  }catch(e){el.innerHTML='Não foi possível carregar a prévia dos cadastros.';}
 }
 async function orcGeracaoExecutar(){
@@ -220,6 +236,8 @@ async function orcGeracaoExecutar(){
  try{var n=await orcRpc('cda_orc_gerar_cadastros',{vinculo:id});showToast(n?'Cadastros gerados sem substituir os existentes':'Os cadastros já estavam gerados','success');await orcGeracaoPrevia(id);}catch(e){showToast('Não foi possível gerar os cadastros. Nenhuma geração parcial foi aplicada.','error');b.disabled=false;}
 }
 function orcGeracaoConsultar(k){
+ if(!canAccessProject('orcamento_vendas'))return;
+ if(orcGeracaoTipoCodigo()===2&&k==='participacao'){orcCategoriasProjeto();var base=orcGeracao.gerados.find(function(x){return x.chave==='categorias';})||orcGeracao.previa.find(function(x){return x.chave==='categorias';}),cat=base&&Array.isArray(base.conteudo)&&base.conteudo.find(function(x){return x.codigo==='90'&&x.ativo!==false;});if(cat)orcFormulaAbrir('projeto',cat.id);else showToast('Defina o rateio na categoria 90 do projeto.','info');return;}
  if(k==='categorias'){orcCategoriasProjeto();return;}
  orcProjetoCadastroEditor(k);return;
  if(!canAccessProject('orcamento_vendas'))return;
@@ -296,8 +314,10 @@ async function orcProjetoCadastroEditor(k){
  if(!canAccessProject('orcamento_vendas'))return;
  var g=orcGeracao.gerados.find(function(x){return x.chave===k;}),p=orcGeracao.previa.find(function(x){return x.chave===k;});
  var el=document.getElementById('orc-cadastro-projeto');
+ if(orcGeracaoTipoCodigo()===2&&(k==='dimensionamento'||k==='funcoes')){orcEditor=null;el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p role="status">Não se Aplica a este tipo de Projeto</p></div>';el.scrollIntoView({behavior:'smooth',block:'start'});return;}
  if(!g){el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><p>Gere este cadastro para editar a cópia do projeto.</p></div>';return;}
  el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p style="color:var(--muted2);margin-bottom:14px">Estas alterações pertencem somente ao projeto e tipo selecionados. O padrão compartilhado é preservado.</p><div id="orc-editor-conteudo"></div></div>';
+ if(orcGeracaoTipoCodigo()===2&&k==='produtos')document.getElementById('orc-editor-conteudo').insertAdjacentHTML('beforebegin','<p>Cadastro opcional para esta previsão: o orçamento atual utiliza visitantes, conversão e ticket médio dos produtos. Os itens poderão ser detalhados posteriormente.</p>');
  try{var pessoas=await sb.get('cda_orc_pessoas','order=nome');var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];orcIniciarEditor('projeto',g,k,pessoas,tiposParticipantes);}catch(e){showToast('Não foi possível abrir o editor','error');}
  el.scrollIntoView({behavior:'smooth',block:'start'});
 }
