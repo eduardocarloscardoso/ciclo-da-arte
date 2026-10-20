@@ -8,9 +8,9 @@ O documento Word recebido nesta conversa é a **matriz visual definitiva da vers
 Nome de referência: Proposta_101026_V4_MATRIZ_FINAL.docx
 Biblioteca: /Projetos/Ciclo da Arte/Orcamento Vendas/Proposta_101026_V4_MATRIZ_FINAL.docx
 library_file_id: libfile_c40f4b01d8d48191a6b39ac388993ce9
-SHA256 dos bytes: f572d6586a906ab67350dce002e7319393fc4ed75275bd85908301b30de03a2f
-Word de origem: Proposta_Comercial_Sandy_Junior_2027_V3_Anexos_01_02 (3)(2).docx (nome do arquivo não define versão; conteúdo declara V4).
-Documento examinado com 7 páginas na apresentação recebida e 8 tabelas (incluindo assinatura). Cabeçalhos de cenários, anexos 01 e 02, e resumo final de participações.
+SHA256 dos bytes: ee1df06ef35630b6fce629512d902b6e393d5b96da74fd37955395334a49c2fb
+Word de origem atualizado: PROPOSTA COMERCIAL Sandy e Junior .docx (ajustes finais de tabulação recebidos em 20/10/2026) (nome do arquivo não define versão; conteúdo declara V4).
+Documento atualizado examinado com 7 páginas na apresentação recebida e 8 tabelas (incluindo assinatura). Cabeçalhos de cenários, anexos 01 e 02, e resumo final de participações.
 
 ## Dinâmica
 Os *valores* de premissas, matrizes e resumo devem continuar sendo recalculados em cada emissão usando snapshots próprios atuais cda_orc_cadastros_projeto para cada projeto_tipo_id. O Word é fonte da identidade visual e redação, NÃO dos números se parâmetros forem alterados.
