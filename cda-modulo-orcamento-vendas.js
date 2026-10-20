@@ -919,10 +919,51 @@ function orcPropostaHtml(p){
  function blocos(bs){return bs.map(function(b){if(b.tipo==='tabela')return orcRelTabela(b.linhas[0],b.linhas.slice(1).map(function(r){return r.map(orcEsc);}));var tag=b.estilo==='Title'?'h1':b.estilo==='Subtitle'?'h2':b.estilo==='Heading 1'?'h3':b.estilo==='Heading 2'?'h4':'p';return '<'+tag+'>'+orcEsc(b.texto).replace(/\n/g,'<br>')+'</'+tag+'>';}).join('');}
  return '<div class="orc-proposta-documento">'+blocos(p.conteudo.corpo||[])+(p.conteudo.anexos||[]).map(function(a){return '<section class="orc-proposta-anexo">'+blocos(a.blocos||[])+'</section>';}).join('')+'</div>';
 }
+
+/* Emissão dinâmica: preserva a proposta versionada e recalcula somente as tabelas
+   dos anexos a partir dos snapshots próprios de cada projeto/tipo. */
+async function orcPropostaEmissaoAtual(p){
+ var d=JSON.parse(JSON.stringify(p)), vinculos=orcEstr.vinculos.filter(function(v){return v.projeto_id===p.projeto_id&&v.ativo;});
+ var alvos=(d.conteudo.anexos||[]).filter(function(a){return Number(a.tipo_codigo)===1||Number(a.tipo_codigo)===2;});
+ var ids=alvos.map(function(a){var t=orcEstr.tipos.find(function(x){return Number(x.codigo)===Number(a.tipo_codigo);});var v=t&&vinculos.find(function(x){return x.tipo_id===t.id;});if(!v)throw Error('Tipo '+a.tipo_codigo+' não vinculado ao projeto.');return v;});
+ var rows=await Promise.all(ids.map(function(v){return sb.get('cda_orc_cadastros_projeto','projeto_tipo_id=eq.'+encodeURIComponent(v.id));}));
+ function moeda(n){return 'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+ function inteiro(n){return Math.round(n).toLocaleString('pt-BR');}
+ var resumos={};
+ alvos.forEach(function(a,k){
+  var r=rows[k],pre=(r.find(function(x){return x.chave==='premissas';})||{}).conteudo,cats=(r.find(function(x){return x.chave==='categorias';})||{}).conteudo;
+  if(!pre||!Array.isArray(cats))throw Error('Cadastros próprios incompletos no tipo '+a.tipo_codigo);
+  function pct(c){var x=cats.find(function(z){return z.codigo===c&&z.ativo!==false;});if(!x||!x.formula)throw Error('Fórmula '+c+' ausente');return Number(x.formula.percentual||0)/100;}
+  var comercial=pct('2.1'),financeiro=pct('2.2'),tributos=pct('2.3'),freteCategoria=cats.find(function(x){return x.codigo==='2.4';}),frete=Number((freteCategoria&&freteCategoria.formula||{}).percentual_frete||0)/100,tributoFrete=pct('2.4'),cultural=pct('3');
+  var ecommerce=Number(a.tipo_codigo)===2,periodos=Number(ecommerce?pre.meses:pre.shows),publico=Number(ecommerce?pre.visitantes_periodo:pre.publico_total),ticket=Number(pre.valores&&pre.valores.ticket_medio);
+  if(!periodos||!publico||!ticket||!Array.isArray(pre.cenarios)||pre.cenarios.length!==3)throw Error('Premissas inválidas no tipo '+a.tipo_codigo);
+  var periodo=publico/periodos,cenarios=pre.cenarios,unit=cenarios.map(function(c){var bruto=periodo*Number(c.conversao)/100*ticket,descCom=bruto*comercial,descFin=bruto*financeiro,impVenda=(bruto-descCom)*tributos,impFrete=bruto*frete*tributoFrete,descontos=descCom+descFin+impVenda+impFrete,base=bruto-descontos;return [bruto,descontos,base,base*cultural];}),total=unit.map(function(v){return v.map(function(n){return n*periodos;});});
+  var tabelas=a.blocos.filter(function(b){return b.tipo==='tabela';});if(tabelas.length<3)throw Error('Estrutura de tabelas inesperada no anexo '+a.tipo_codigo);
+  var prem=tabelas[0],linhas=prem.linhas;
+  linhas.forEach(function(l){var chave=String(l[0]).toLowerCase();if(ecommerce){if(chave.indexOf('visitantes do site no período')>=0)l[1]=inteiro(publico)+' pessoas';else if(chave.indexOf('quantidade de meses')>=0)l[1]=inteiro(periodos);else if(chave.indexOf('visitantes mensais')>=0)l[1]=inteiro(periodo)+' pessoas';else if(chave.indexOf('ticket médio')>=0)l[1]=moeda(ticket);}else{if(chave.indexOf('público total')>=0)l[1]=inteiro(publico)+' pessoas';else if(chave.indexOf('quantidade de shows')>=0)l[1]=inteiro(periodos);else if(chave.indexOf('público médio')>=0)l[1]=inteiro(periodo)+' pessoas';else if(chave.indexOf('ticket médio')>=0)l[1]=moeda(ticket);}});
+  [unit,total].forEach(function(m,j){var tab=tabelas[j+1];if(tab.linhas.length<5)throw Error('Matriz incompleta no tipo '+a.tipo_codigo);for(var i=0;i<4;i++)for(var z=0;z<3;z++)tab.linhas[i+1][z+1]=moeda(m[z][i]);tab.linhas[4][0]='Participação do Parceiro Cultural — '+inteiro(cultural*100)+'%';});
+  resumos[a.tipo_codigo]=total.map(function(v){return v[3];});
+ });
+ if(resumos[1]&&resumos[2]){
+  var resumo=alvos[alvos.length-1].blocos.filter(function(b){return b.tipo==='tabela';}).slice(-1)[0];
+  if(!resumo||!resumo.linhas||resumo.linhas.length!==4)throw Error('Tabela consolidada não localizada.');
+  for(var z=0;z<3;z++){resumo.linhas[1][z+1]=moeda(resumos[1][z]);resumo.linhas[2][z+1]=moeda(resumos[2][z]);resumo.linhas[3][z+1]=moeda(resumos[1][z]+resumos[2][z]);}
+ }
+ d.conteudo.origem_emissao='Emissão dinâmica com cadastros próprios consultados na data da emissão; versão original preservada.';
+ return d;
+}
+async function orcPropostaEmitir(p,formato){
+ var botao=document.getElementById(formato==='word'?'orc-proposta-word':'orc-proposta-pdf');
+ if(botao)botao.disabled=true;
+ try{var atual=await orcPropostaEmissaoAtual(p);if(formato==='word')orcPropostaWord(atual);else orcPropostaImprimir(atual);showToast('Proposta recalculada a partir dos cadastros próprios','success');}
+ catch(e){showToast('Emissão não concluída: '+(e.message||e),'error');}
+ finally{if(botao)botao.disabled=false;}
+}
+
 function orcPropostaMostrar(id){
  var p=orcPropostas.find(function(x){return x.id===id;});if(!p)return;orcPropostaAtual=p;
- var el=document.getElementById('main-content');el.innerHTML='<div class="ph"><h1>'+orcEsc(p.titulo)+'</h1><p>Proposta '+orcEsc(p.numero)+' · '+orcEsc(p.versao)+'</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn btn-ghost" id="orc-proposta-voltar">← Propostas</button>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-proposta-editar">Editar textos</button>':'')+'<button class="btn btn-ghost" id="orc-proposta-word">Baixar Word</button><button class="btn btn-ghost" id="orc-proposta-pdf">Gerar PDF / Imprimir</button></div><p>Conteúdo e valores desta versão aprovada. Na impressão, selecione “Salvar como PDF”.</p><div id="orc-proposta-editor"></div><div class="card" id="orc-proposta-previa">'+orcPropostaHtml(p)+'</div>';
- document.getElementById('orc-proposta-voltar').onclick=orcPropostasAbrir;document.getElementById('orc-proposta-word').onclick=function(){orcPropostaWord(p);};document.getElementById('orc-proposta-pdf').onclick=function(){orcPropostaImprimir(p);};var b=document.getElementById('orc-proposta-editar');if(b)b.onclick=function(){orcPropostaEditar(p);};
+ var el=document.getElementById('main-content');el.innerHTML='<div class="ph"><h1>'+orcEsc(p.titulo)+'</h1><p>Proposta '+orcEsc(p.numero)+' · '+orcEsc(p.versao)+'</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn btn-ghost" id="orc-proposta-voltar">← Propostas</button>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-proposta-editar">Editar textos</button>':'')+'<button class="btn btn-ghost" id="orc-proposta-word">Baixar Word</button><button class="btn btn-ghost" id="orc-proposta-pdf">Gerar PDF / Imprimir</button></div><p>Os textos seguem a versão aprovada; as tabelas serão recalculadas com os cadastros próprios atuais no momento da emissão. Para PDF, selecione “Salvar como PDF” na impressão.</p><div id="orc-proposta-editor"></div><div class="card" id="orc-proposta-previa">'+orcPropostaHtml(p)+'</div>';
+ document.getElementById('orc-proposta-voltar').onclick=orcPropostasAbrir;document.getElementById('orc-proposta-word').onclick=function(){orcPropostaEmitir(p,'word');};document.getElementById('orc-proposta-pdf').onclick=function(){orcPropostaEmitir(p,'pdf');};var b=document.getElementById('orc-proposta-editar');if(b)b.onclick=function(){orcPropostaEditar(p);};
 }
 function orcPropostaEditar(p){
  if(!orcPodeEditar())return;var d=JSON.parse(JSON.stringify(p.conteudo)),bs=orcPropostaBlocos(d),el=document.getElementById('orc-proposta-editor');
@@ -940,7 +981,7 @@ function orcPropostaZip(files){
 }
 function orcPropostaWord(p){
  function txt(s){return orcEsc(s);}
- function par(s,style){return '<w:p><w:pPr><w:keepLines/>'+(['4 Organização e responsabilidades','7 Acompanhamento e prestação de contas','3 Participação do Parceiro Cultural'].indexOf(String(s))>=0?'<w:pageBreakBefore/>':'')+(style?'<w:pStyle w:val="'+style+'"/>':'')+'</w:pPr>'+String(s).split('\n').map(function(t,i){return '<w:r>'+(i?'<w:br/>':'')+'<w:t xml:space="preserve">'+txt(t)+'</w:t></w:r>';}).join('')+'</w:p>';}
+ function par(s,style){return '<w:p><w:pPr><w:keepLines/>'+(['Resumo Participação Parceiro Cultural'].indexOf(String(s))>=0?'<w:pageBreakBefore/>':'')+(style?'<w:pStyle w:val="'+style+'"/>':'')+'</w:pPr>'+String(s).split('\n').map(function(t,i){return '<w:r>'+(i?'<w:br/>':'')+'<w:t xml:space="preserve">'+txt(t)+'</w:t></w:r>';}).join('')+'</w:p>';}
  function render(bs){return bs.map(function(b){if(b.tipo!=='tabela')return par(b.texto,({'Title':'Title','Subtitle':'Subtitle','Heading 1':'Heading1','Heading 2':'Heading2'})[b.estilo]);return '<w:tbl><w:tblPr><w:tblW w:w="10080" w:type="dxa"/><w:tblBorders>'+['top','left','bottom','right','insideH','insideV'].map(function(k){return '<w:'+k+' w:val="single" w:sz="4" w:color="D9D9D9"/>';}).join('')+'</w:tblBorders></w:tblPr>'+b.linhas.map(function(row,i){return '<w:tr><w:trPr><w:cantSplit/>'+(i===0?'<w:tblHeader/>':'')+'</w:trPr>'+row.map(function(t){return '<w:tc><w:tcPr><w:tcW w:w="'+Math.floor(10080/row.length)+'" w:type="dxa"/>'+(i===0?'<w:shd w:fill="E8EFF5"/>':'')+'</w:tcPr>'+par(t,'TableText')+'</w:tc>';}).join('')+'</w:tr>';}).join('')+'</w:tbl>';}).join('');}
  var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>',body=render(p.conteudo.corpo||[])+(p.conteudo.anexos||[]).map(function(a){return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'+render(a.blocos||[]);}).join('');
  var files=[['[Content_Types].xml',xml+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'],['_rels/.rels',xml+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],['word/document.xml',xml+'<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>'+body+'<w:sectPr><w:pgSz w:w="12240" w:h="15840"/><w:pgMar w:top="1008" w:right="1080" w:bottom="1008" w:left="1080"/></w:sectPr></w:body></w:document>'],['word/_rels/document.xml.rels',xml+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],['word/styles.xml',xml+'<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Calibri" w:hAnsi="Calibri"/><w:sz w:val="22"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="120"/></w:pPr></w:pPrDefault></w:docDefaults>'+[['Normal',22],['Title',40],['Subtitle',30],['Heading1',26],['Heading2',23],['TableText',19]].map(function(s){return '<w:style w:type="paragraph" w:styleId="'+s[0]+'"><w:name w:val="'+s[0]+'"/><w:pPr>'+(s[0]!=='Normal'?'<w:keepNext/>':'')+'</w:pPr><w:rPr><w:sz w:val="'+s[1]+'"/></w:rPr></w:style>';}).join('')+'</w:styles>']];
