@@ -339,7 +339,7 @@ function orcIniciarEditor(escopo,r,k,pessoas,tiposParticipantes){
  orcRenderEditor();
 }
 function orcEditorGet(path){return path.reduce(function(o,k){return o[k];},orcEditor.dados);}
-function orcEditorSet(path,value){if(!orcPodeEditar())return;var parent=orcEditor.dados;for(var i=0;i<path.length-1;i++)parent=parent[path[i]];parent[path[path.length-1]]=value;if(orcEditor.k==='premissas'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo')){orcEditor.dados.visitantes_mensais=orcVisitantesMensais(orcEditor.dados);var auto=document.getElementById('orc-visitas-mensais-auto');if(auto)auto.value=orcReceitaNumero(orcEditor.dados.visitantes_mensais);}}
+function orcEditorSet(path,value){if(!orcPodeEditar())return;var parent=orcEditor.dados;for(var i=0;i<path.length-1;i++)parent=parent[path[i]];parent[path[path.length-1]]=value;if(orcEditor.k==='premissas'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo')){orcEditor.dados.visitantes_mensais=orcVisitantesMensais(orcEditor.dados);var auto=document.getElementById('orc-visitas-mensais-auto');if(auto)auto.value=orcVisitantesExibir(orcEditor.dados.visitantes_mensais);}}
 function orcRenderEditor(){
  if(orcEditor.k==='participantes'){orcRenderParticipantesTipo();return;}
  var paths=[],editable=orcPodeEditar();
@@ -358,7 +358,7 @@ function orcRenderEditor(){
  }
  if(key==='pessoa_id')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="">Selecione</option>'+orcEditor.pessoas.map(function(p){return '<option value="'+p.id+'" '+(p.id===v?'selected':'')+'>'+orcEsc(p.nome)+'</option>';}).join('')+'</select>';
  if(key==='arredondamento')return '<label class="form-label">'+label+'</label><select class="form-input" data-field="'+n+'"'+disabled+'><option value="cima" '+(v==='cima'?'selected':'')+'>Para cima</option><option value="proximo" '+(v==='proximo'?'selected':'')+'>Inteiro mais próximo</option></select>';
- if(key==='visitantes_mensais'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo'))return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" id="orc-visitas-mensais-auto" readonly value="'+orcReceitaNumero(orcVisitantesMensais(orcEditor.dados))+'"><small>Visitantes no período ÷ quantidade de meses</small></div>';
+ if(key==='visitantes_mensais'&&Object.prototype.hasOwnProperty.call(orcEditor.dados,'visitantes_periodo'))return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" id="orc-visitas-mensais-auto" readonly value="'+orcVisitantesExibir(orcVisitantesMensais(orcEditor.dados))+'"><small>Visitantes no período ÷ quantidade de meses</small></div>';
  var numeric=typeof v==='number'||v===null;
  return '<div class="form-group"><label class="form-label">'+orcEsc(label)+'</label><input class="form-input" data-field="'+n+'" data-number="'+numeric+'" type="'+(numeric?'number':'text')+'" '+(numeric?'min="0" step="any"':'')+' value="'+orcEsc(v===null?'':v)+'"'+disabled+'></div>';
  }
@@ -524,6 +524,7 @@ async function orcFormulaAbrir(escopo,id){
  }catch(e){el.innerHTML='<p>Não foi possível abrir a fórmula. Reabra as categorias.</p>';}
 }
 
+function orcVisitantesExibir(v){return v===null||v===undefined||!Number.isFinite(Number(v))?'—':Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0});}
 function orcVisitantesMensais(p){
  if(Object.prototype.hasOwnProperty.call(p,'visitantes_periodo')){var v=p.visitantes_periodo,m=p.meses;return v!==null&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0&&Number.isInteger(Number(m))&&Number(m)>0?Number(v)/Number(m):null;}
  return p.visitantes_mensais;
