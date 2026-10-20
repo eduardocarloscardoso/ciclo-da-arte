@@ -955,15 +955,80 @@ async function orcPropostaEmissaoAtual(p){
 async function orcPropostaEmitir(p,formato){
  var botao=document.getElementById(formato==='word'?'orc-proposta-word':'orc-proposta-pdf');
  if(botao)botao.disabled=true;
- try{var atual=await orcPropostaEmissaoAtual(p);if(formato==='word')orcPropostaWord(atual);else orcPropostaImprimir(atual);showToast('Proposta recalculada a partir dos cadastros próprios','success');}
+ try{var atual=await orcPropostaEmissaoAtual(p);if(formato==='word')await orcPropostaWordMatriz(atual);else orcPropostaImprimir(atual);showToast('Proposta recalculada a partir dos cadastros próprios','success');}
  catch(e){showToast('Emissão não concluída: '+(e.message||e),'error');}
  finally{if(botao)botao.disabled=false;}
 }
 
+
+/* Matriz V4 DOCX: mantém o pacote OOXML original. Somente as células
+   numéricas vinculadas aos snapshots são substituídas. */
+async function orcPropostaZipBiblioteca(){
+ if(window.JSZip)return window.JSZip;
+ if(!window._orcZipPromessa)window._orcZipPromessa=new Promise(function(resolve,reject){
+  var script=document.createElement('script');
+  script.src='https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+  script.onload=function(){window.JSZip?resolve(window.JSZip):reject(Error('Biblioteca DOCX indisponível'));};
+  script.onerror=function(){reject(Error('Não foi possível carregar a biblioteca DOCX'));};
+  document.head.appendChild(script);
+ });
+ return window._orcZipPromessa;
+}
+async function orcPropostaImportarMatriz(p){
+ if(!orcPodeEditar())return;
+ var campo=document.createElement('input');campo.type='file';campo.accept='.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+ campo.onchange=async function(){
+  var file=campo.files&&campo.files[0];if(!file)return;
+  try{
+   if(file.size>3000000)throw Error('Arquivo excede 3 MB');
+   var JSZip=await orcPropostaZipBiblioteca(),dados=await file.arrayBuffer(),z=await JSZip.loadAsync(dados);
+   if(!z.file('word/document.xml'))throw Error('DOCX inválido');
+   var xml=await z.file('word/document.xml').async('string'),doc=new DOMParser().parseFromString(xml,'application/xml'),tables=doc.getElementsByTagNameNS('http://schemas.openxmlformats.org/wordprocessingml/2006/main','tbl');
+   if(tables.length!==8)throw Error('A matriz V4 aprovada deve conter exatamente 8 tabelas; encontradas '+tables.length);
+   var encoded=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onload=function(){resolve(String(reader.result).split(',')[1]);};reader.onerror=reject;reader.readAsDataURL(file);});
+   var novo=JSON.parse(JSON.stringify(p.conteudo));novo.matriz_docx_base64=encoded;novo.matriz_docx_nome=file.name;
+   await sb.patch('cda_orc_propostas',p.id,{conteudo:novo});p.conteudo=novo;
+   orcPropostaMostrar(p.id);showToast('Matriz DOCX V4 original registrada na proposta','success');
+  }catch(e){showToast('Não foi possível registrar a matriz: '+(e.message||e),'error');}
+ };
+ campo.click();
+}
+async function orcPropostaWordMatriz(p){
+ var base64=p.conteudo&&p.conteudo.matriz_docx_base64;
+ if(!base64)throw Error('Matriz DOCX ainda não importada. Use o botão Registrar matriz V4 original.');
+ var JSZip=await orcPropostaZipBiblioteca(),zip=await JSZip.loadAsync(base64,{base64:true});
+ var xml=await zip.file('word/document.xml').async('string'),doc=new DOMParser().parseFromString(xml,'application/xml');
+ var ns='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+ var tables=Array.from(doc.getElementsByTagNameNS(ns,'tbl'));
+ if(tables.length!==8)throw Error('Estrutura da matriz DOCX não corresponde à V4 final');
+ function direct(parent,tag){return Array.from(parent.childNodes).filter(function(x){return x.nodeType===1&&x.localName===tag;});}
+ function cell(t,r,c){var tr=direct(t,'tr')[r],tc=tr&&direct(tr,'tc')[c];if(!tc)throw Error('Célula de matriz ausente '+r+'/'+c);return tc;}
+ function write(t,r,c,val){
+  var tc=cell(t,r,c),textos=Array.from(tc.getElementsByTagNameNS(ns,'t'));
+  if(!textos.length)throw Error('Matriz sem segmento de texto na célula '+r+'/'+c);
+  textos[0].textContent=String(val);
+  for(var i=1;i<textos.length;i++)textos[i].textContent='';
+ }
+ var anexos=p.conteudo.anexos||[];
+ var a1=anexos.find(function(a){return Number(a.tipo_codigo)===1;}),a2=anexos.find(function(a){return Number(a.tipo_codigo)===2;});
+ if(!a1||!a2)throw Error('Anexos 01 e 02 não encontrados');
+ function tb(a){return a.blocos.filter(function(b){return b.tipo==='tabela';});}
+ var x=tb(a1),y=tb(a2);
+ [[1,x[0]],[2,x[1]],[3,x[2]],[4,y[0]],[5,y[1]],[6,y[2]],[7,y[y.length-1]]].forEach(function(pair){
+  var table=tables[pair[0]],dados=pair[1].linhas,trs=direct(table,'tr');
+  if(trs.length!==dados.length)throw Error('Quantidade de linhas divergente na tabela '+pair[0]);
+  for(var r=1;r<dados.length;r++)for(var c=1;c<dados[r].length;c++)write(table,r,c,dados[r][c]);
+ });
+ zip.file('word/document.xml',new XMLSerializer().serializeToString(doc));
+ var blob=await zip.generateAsync({type:'blob',compression:'DEFLATE',compressionOptions:{level:6}});
+ var url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download='Proposta_'+p.numero+'_'+p.versao+'_MATRIZ.docx';
+ document.body.appendChild(link);link.click();link.remove();setTimeout(function(){URL.revokeObjectURL(url);},10000);
+}
+
 function orcPropostaMostrar(id){
  var p=orcPropostas.find(function(x){return x.id===id;});if(!p)return;orcPropostaAtual=p;
- var el=document.getElementById('main-content');el.innerHTML='<div class="ph"><h1>'+orcEsc(p.titulo)+'</h1><p>Proposta '+orcEsc(p.numero)+' · '+orcEsc(p.versao)+'</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn btn-ghost" id="orc-proposta-voltar">← Propostas</button>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-proposta-editar">Editar textos</button>':'')+'<button class="btn btn-ghost" id="orc-proposta-word">Baixar Word</button><button class="btn btn-ghost" id="orc-proposta-pdf">Gerar PDF / Imprimir</button></div><p>Os textos seguem a versão aprovada; as tabelas serão recalculadas com os cadastros próprios atuais no momento da emissão. Para PDF, selecione “Salvar como PDF” na impressão.</p><div id="orc-proposta-editor"></div><div class="card" id="orc-proposta-previa">'+orcPropostaHtml(p)+'</div>';
- document.getElementById('orc-proposta-voltar').onclick=orcPropostasAbrir;document.getElementById('orc-proposta-word').onclick=function(){orcPropostaEmitir(p,'word');};document.getElementById('orc-proposta-pdf').onclick=function(){orcPropostaEmitir(p,'pdf');};var b=document.getElementById('orc-proposta-editar');if(b)b.onclick=function(){orcPropostaEditar(p);};
+ var el=document.getElementById('main-content');el.innerHTML='<div class="ph"><h1>'+orcEsc(p.titulo)+'</h1><p>Proposta '+orcEsc(p.numero)+' · '+orcEsc(p.versao)+'</p></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"><button class="btn btn-ghost" id="orc-proposta-voltar">← Propostas</button>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-proposta-editar">Editar textos</button>':'')+(orcPodeEditar()?'<button class="btn btn-ghost" id="orc-proposta-matriz">Registrar matriz V4 original</button>':'')+'<button class="btn btn-ghost" id="orc-proposta-word">Baixar Word</button><button class="btn btn-ghost" id="orc-proposta-pdf">Gerar PDF / Imprimir</button></div><p>Os textos seguem a versão aprovada; as tabelas serão recalculadas com os cadastros próprios atuais no momento da emissão. Para PDF, selecione “Salvar como PDF” na impressão.</p><div id="orc-proposta-editor"></div><div class="card" id="orc-proposta-previa">'+orcPropostaHtml(p)+'</div>';
+ document.getElementById('orc-proposta-voltar').onclick=orcPropostasAbrir;var mat=document.getElementById('orc-proposta-matriz');if(mat)mat.onclick=function(){orcPropostaImportarMatriz(p);};document.getElementById('orc-proposta-word').onclick=function(){orcPropostaEmitir(p,'word');};document.getElementById('orc-proposta-pdf').onclick=function(){orcPropostaEmitir(p,'pdf');};var b=document.getElementById('orc-proposta-editar');if(b)b.onclick=function(){orcPropostaEditar(p);};
 }
 function orcPropostaEditar(p){
  if(!orcPodeEditar())return;var d=JSON.parse(JSON.stringify(p.conteudo)),bs=orcPropostaBlocos(d),el=document.getElementById('orc-proposta-editor');
