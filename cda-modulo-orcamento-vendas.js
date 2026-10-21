@@ -448,10 +448,27 @@ async function orcSalvarParticipantesTipo(ed,dados){
  }catch(e){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');return false;}
 }
 
-function orcPrivateLabelCategoriaRender(el,cat,escopo,registros){
- var produtos=(registros||[]).find(function(x){return x.chave==='produtos';}),lista=produtos&&Array.isArray(produtos.conteudo)?produtos.conteudo:[],total=orcProdutosProjetoTotais(lista),valor=cat.codigo==='1'?total.venda:total.custo,moeda=function(x){return Number(x).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
- el.innerHTML='<div class="card"><div class="card-title">Categoria '+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p><strong>Base automática: Produtos e preços do projeto</strong></p><p>'+(cat.codigo==='1'?'Total Valor Venda = Σ (Quantidade × Preço Unitário Venda)':'Total Valor Custo = Σ (Quantidade × Preço Unitário Custo)')+'</p><h3 style="margin:18px 0">Valor calculado: '+moeda(valor)+'</h3><p>Quantidade total: '+total.quantidade.toLocaleString('pt-BR')+' · Produtos: '+lista.length+'</p>'+(produtos?'':'<p>Gere o cadastro Produtos e preços deste projeto para obter os valores.</p>')+'<button class="btn btn-ghost" id="orc-pl-cat-voltar">← Voltar às categorias</button></div>';
- document.getElementById('orc-pl-cat-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+function orcPrivateLabelDados(registros,rows){
+ var p=(registros||[]).find(function(x){return x.chave==='premissas';}),d=p&&p.conteudo||{},receita=orcPrivateLabelValor(d);
+ var c4=(rows||[]).find(function(x){return x.codigo==='4';}),c10=(rows||[]).find(function(x){return x.codigo==='10.1';});
+ var pctFab=Number((c4&&c4.formula&&c4.formula.percentual)??30),pctFrete=Number((c10&&c10.formula&&c10.formula.percentual)??2.5);
+ return {premissas:d,receita:receita,fabricacao:receita===null?null:receita*pctFab/100,frete:receita===null?null:receita*pctFrete/100,pctFab:pctFab,pctFrete:pctFrete};
+}
+function orcPrivateLabelCategoriaRender(el,cat,escopo,registros,rows){
+ var dados=orcPrivateLabelDados(registros,rows),valor=cat.codigo==='1'?dados.receita:dados.fabricacao;
+ var moeda=function(n){return n===null?'A definir':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
+ var cab='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p>Premissas e cenários do projeto: Quantidade de meses × Ticket médio de produtos (R$) × Quantidade Produtos.</p><p>Valor Total Previsto (Categoria 01): <strong>'+moeda(dados.receita)+'</strong></p>';
+ if(cat.codigo==='1'){el.innerHTML=cab+'<h3>Receita Bruta de Vendas: '+moeda(valor)+'</h3><button class="btn btn-ghost" id="orc-pl-categoria-voltar">← Voltar às categorias</button></div>';}
+ else{
+  el.innerHTML=cab+'<div class="card" style="margin:16px 0"><div class="card-title">Parâmetros de Fabricação</div><label class="form-label" for="orc-pl-fabricacao-pct">Percentual sobre a Receita Bruta de Vendas (%)</label><input class="form-input" type="number" id="orc-pl-fabricacao-pct" min="0" max="100" step="0.01" value="'+dados.pctFab+'" '+(orcPodeEditar()?'':'disabled')+'><h3 id="orc-pl-fabricacao-valor">Fabricação prevista: '+moeda(valor)+'</h3>'+(orcPodeEditar()?'<button class="btn btn-primary" type="button" id="orc-pl-fabricacao-save">Salvar percentual</button>':'')+'</div><button class="btn btn-ghost" id="orc-pl-categoria-voltar">← Voltar às categorias</button></div>';
+  var input=document.getElementById('orc-pl-fabricacao-pct');input.oninput=function(){var n=Number(input.value);document.getElementById('orc-pl-fabricacao-valor').textContent='Fabricação prevista: '+(input.value!==''&&Number.isFinite(n)&&n>=0&&n<=100&&dados.receita!==null?moeda(dados.receita*n/100):'A definir');};
+  var save=document.getElementById('orc-pl-fabricacao-save');if(save)save.onclick=async function(){var n=Number(input.value);if(input.value===''||!Number.isFinite(n)||n<0||n>100){showToast('Informe percentual entre 0 e 100','error');return;}
+   var g=orcGeracao.gerados.find(function(x){return x.chave==='categorias';}),original=cat.formula||null,nova={forma:'percentual',calculo:'fabricacao_private_label',base:'Receita Bruta de Vendas — Categoria 01',percentual:n,aplicacao:'projeto'};
+   if(!g){showToast('Cadastre as categorias do projeto antes de salvar','error');return;}save.disabled=true;
+   try{g.conteudo=await orcRpc('cda_orc_salvar_formula_projeto',{cadastro:g.id,item:cat.id,anterior:original,nova:nova});showToast('Percentual de fabricação salvo','success');orcCategoriasProjeto();}catch(e){save.disabled=false;showToast('Não foi possível salvar o percentual','error');}
+  };
+ }
+ document.getElementById('orc-pl-categoria-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
 }
 function orcFormulaResumo(f){
  if(!f||!f.forma)return 'Não configurada';
@@ -483,10 +500,10 @@ async function orcFormulaAbrir(escopo,id){
  orcGeracao.gerados=atuais[0];orcGeracao.previa=atuais[1];g=orcGeracao.gerados.find(function(x){return x.chave==='categorias';});previa=orcGeracao.previa.find(function(x){return x.chave==='categorias';});rows=g?g.conteudo:previa?previa.conteudo:[];
  }
  cat=rows.find(function(x){return x.id===id;});if(!cat){el.innerHTML='<p>Categoria indisponível. Reabra o cadastro.</p>';return;}
- if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados);return;}
+ if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados,rows);return;}
  if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='90'||cat.codigo==='90.1'||cat.codigo==='90.2')){
- var refProdutos90=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),total90=orcProdutosProjetoTotais(refProdutos90&&refProdutos90.conteudo);
- var refFrete90=rows.find(function(x){return x.codigo==='10.1';}),pctFrete90=Number((refFrete90&&refFrete90.formula&&refFrete90.formula.percentual)??2.5),frete90=total90.venda*pctFrete90/100;
+ var resumoPL90=orcPrivateLabelDados(orcGeracao.gerados,rows),total90={venda:resumoPL90.receita||0,custo:resumoPL90.fabricacao||0};
+ var pctFrete90=resumoPL90.pctFrete,frete90=resumoPL90.frete||0;
  var lucro90=total90.venda-total90.custo-frete90,distribuivel90=Math.max(0,lucro90),r901=rows.find(function(x){return x.codigo==='90.1';}),r902=rows.find(function(x){return x.codigo==='90.2';}),p901=Number((r901&&r901.formula&&r901.formula.percentual)??50),p902=Number((r902&&r902.formula&&r902.formula.percentual)??50);
  var dinheiro90=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
  var atual90=cat.codigo==='90.1'?p901:p902,parcela90=distribuivel90*atual90/100;
@@ -495,7 +512,7 @@ async function orcFormulaAbrir(escopo,id){
  document.getElementById('orc-pl-lucro-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};return;
 }
 if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codigo==='10.1')){
- var produtosPL=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),totPL=orcProdutosProjetoTotais(produtosPL&&produtosPL.conteudo),filhoPL=rows.find(function(x){return x.codigo==='10.1';});
+ var resumoFretePL=orcPrivateLabelDados(orcGeracao.gerados,rows),totPL={venda:resumoFretePL.receita||0},filhoPL=rows.find(function(x){return x.codigo==='10.1';});
  var pctPL=Number((filhoPL&&filhoPL.formula&&filhoPL.formula.percentual)??2.5);
  var fmtPL=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
  el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p>Base: Categoria 01 — Receita Bruta de Vendas: <strong>'+fmtPL(totPL.venda)+'</strong></p><div class="card" style="margin:16px 0"><div class="card-title">Parâmetros de Frete</div><label class="form-label" for="orc-pl-frete-pct">Percentual sobre o ticket médio (%)</label><input class="form-input" id="orc-pl-frete-pct" type="number" min="0" max="100" step="0.01" value="'+pctPL+'" '+(orcPodeEditar()?'':'disabled')+'><p style="color:var(--muted2)">Aplicado sobre a Receita Bruta de Vendas prevista (Categoria 01).</p><h3 id="orc-pl-frete-total">Valor previsto: '+fmtPL(totPL.venda*pctPL/100)+'</h3>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-pl-frete-save" type="button">Salvar percentual</button>':'')+'</div><p>Referências: transporte de até 1.000 km até o destinatário e peso médio de 0,150 kg por produto. Quilometragem e peso não multiplicam o percentual.</p><button class="btn btn-ghost" id="orc-pl-frete-voltar">← Voltar às categorias</button></div>';
