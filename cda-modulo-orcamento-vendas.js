@@ -484,7 +484,17 @@ async function orcFormulaAbrir(escopo,id){
  }
  cat=rows.find(function(x){return x.id===id;});if(!cat){el.innerHTML='<p>Categoria indisponível. Reabra o cadastro.</p>';return;}
  if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados);return;}
- if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codigo==='10.1')){
+ if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='90'||cat.codigo==='90.1'||cat.codigo==='90.2')){
+ var refProdutos90=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),total90=orcProdutosProjetoTotais(refProdutos90&&refProdutos90.conteudo);
+ var refFrete90=rows.find(function(x){return x.codigo==='10.1';}),pctFrete90=Number((refFrete90&&refFrete90.formula&&refFrete90.formula.percentual)??2.5),frete90=total90.venda*pctFrete90/100;
+ var lucro90=total90.venda-total90.custo-frete90,distribuivel90=Math.max(0,lucro90),r901=rows.find(function(x){return x.codigo==='90.1';}),r902=rows.find(function(x){return x.codigo==='90.2';}),p901=Number((r901&&r901.formula&&r901.formula.percentual)??50),p902=Number((r902&&r902.formula&&r902.formula.percentual)??50);
+ var dinheiro90=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
+ var atual90=cat.codigo==='90.1'?p901:p902,parcela90=distribuivel90*atual90/100;
+ var resumo90='<div class="tbl-wrap"><table><tbody><tr><td>Categoria 01 — Receita Bruta de Vendas</td><td>'+dinheiro90(total90.venda)+'</td></tr><tr><td>Categoria 04 — Fabricação de produtos</td><td>− '+dinheiro90(total90.custo)+'</td></tr><tr><td>Categoria 10 — Logística / Frete ('+pctFrete90.toLocaleString('pt-BR')+'%)</td><td>− '+dinheiro90(frete90)+'</td></tr><tr><th>Categoria 90 — Resultado líquido previsto</th><th>'+dinheiro90(lucro90)+'</th></tr></tbody></table></div>';
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div>'+resumo90+(lucro90<0?'<p>Resultado negativo: não há lucro disponível para distribuição.</p>':'')+(cat.codigo==='90'?'<h3>Lucro disponível para rateio: '+dinheiro90(distribuivel90)+'</h3><p>90.1 — Ciclo Arte: '+p901.toLocaleString('pt-BR')+'% = '+dinheiro90(distribuivel90*p901/100)+'</p><p>90.2 — Parceiro Fabricação: '+p902.toLocaleString('pt-BR')+'% = '+dinheiro90(distribuivel90*p902/100)+'</p>':'<p>Percentual de participação: <strong>'+atual90.toLocaleString('pt-BR')+'%</strong> sobre o lucro disponível para rateio.</p><h3>Participação prevista: '+dinheiro90(parcela90)+'</h3>')+(p901+p902!==100?'<p style="color:var(--danger)">A soma dos percentuais de rateio é '+(p901+p902).toLocaleString('pt-BR')+'%, diferente de 100%.</p>':'')+'<button class="btn btn-ghost" id="orc-pl-lucro-voltar">← Voltar às categorias</button></div>';
+ document.getElementById('orc-pl-lucro-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};return;
+}
+if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codigo==='10.1')){
  var produtosPL=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),totPL=orcProdutosProjetoTotais(produtosPL&&produtosPL.conteudo),filhoPL=rows.find(function(x){return x.codigo==='10.1';});
  var pctPL=Number((filhoPL&&filhoPL.formula&&filhoPL.formula.percentual)??2.5);
  var fmtPL=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
