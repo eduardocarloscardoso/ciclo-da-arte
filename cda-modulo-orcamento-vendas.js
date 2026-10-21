@@ -448,6 +448,12 @@ async function orcSalvarParticipantesTipo(ed,dados){
  }catch(e){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');return false;}
 }
 
+function orcReceitaPrivateLabelCompartilhadaRender(el,cat,p){
+ var v=orcPrivateLabelValor(p),moeda=function(n){return n===null?'A definir':Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});},numero=function(n){return n===null||n===undefined?'A definir':Number(n).toLocaleString('pt-BR');};
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+' · Previsão de Receita Bruta</div><button class="btn btn-ghost" type="button" id="orc-pl-receita-explicar">Entender fórmula e origem dos campos</button><h3 style="margin:20px 0 12px">Premissas quantitativas do projeto</h3><div class="tbl-wrap"><table><thead><tr><th>Quantidade de meses</th><th>Ticket médio de produtos (R$)</th><th>Quantidade Produtos</th></tr></thead><tbody><tr><td>'+numero(p.meses)+'</td><td>'+moeda(p.valores&&p.valores.ticket_medio!==undefined?p.valores.ticket_medio:null)+'</td><td>'+numero(p.quantidade_produtos)+'</td></tr></tbody></table></div><h3 style="margin:20px 0 12px">Resultado previsto</h3><div class="tbl-wrap"><table><thead><tr><th>Fórmula</th><th>Valor Total Previsto (R$) — automático</th></tr></thead><tbody><tr><td>Meses × Ticket médio de produtos × Quantidade Produtos</td><td><strong>'+moeda(v)+'</strong></td></tr></tbody></table></div><p>Consulta dos valores cadastrados em Premissas e cenários · Cadastro compartilhado. Para alterar as premissas, utilize exclusivamente aquele cadastro.</p><button class="btn btn-ghost" id="orc-pl-receita-voltar" type="button" style="margin-top:16px">← Voltar às categorias</button></div>';
+ document.getElementById('orc-pl-receita-explicar').onclick=function(){showToast('A receita utiliza os três parâmetros do cadastro compartilhado de Premissas e cenários.','info');};
+ document.getElementById('orc-pl-receita-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+}
 function orcPrivateLabelDados(registros,rows){
  var p=(registros||[]).find(function(x){return x.chave==='premissas';}),d=p&&p.conteudo||{},receita=orcPrivateLabelValor(d);
  var c4=(rows||[]).find(function(x){return x.codigo==='4';}),c10=(rows||[]).find(function(x){return x.codigo==='10.1';});
@@ -536,6 +542,7 @@ if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codig
  }else{var fun=orcGeracao.gerados.find(function(x){return x.chave==='funcoes';});funcoes=fun&&Array.isArray(fun.conteudo)?fun.conteudo:[];}
  if(sessao!==orcFormulaSessao)return;
  var refPremissaBase=(escopo==='padrao'?refs:(g?orcGeracao.gerados:orcGeracao.previa)).find(function(x){return x.chave==='premissas';}),premissasBase=refPremissaBase?refPremissaBase.conteudo:{};
+ if(escopo==='padrao'&&cat.tipo_id==='0d7cb1fc-fccf-46d5-84a1-8ca027f4a3cd'&&cat.codigo==='1'){orcReceitaPrivateLabelCompartilhadaRender(el,cat,premissasBase);orcDescricaoUniversal(el,cat,f,escopo,g);return;}
  if(orcPremissaEcommerce(premissasBase)&&f.calculo==='embalagens_pedido'){orcEcommerceEmbalagensRender(el,cat,premissasBase,escopo,g,registro);orcDescricaoUniversal(el,cat,f,escopo,g);return;}
  if(orcPremissaEcommerce(premissasBase)&&(cat.codigo==='6'||cat.codigo.indexOf('6.')===0)){if(filhos){orcEcommerceAdministracaoRender(el,cat,premissasBase,escopo,rows,g);orcDescricaoUniversal(el,cat,f,escopo,g);}else{orcEcommerceCulturalRender(el,cat,premissasBase,escopo,rows,g,registro);orcDescricaoUniversal(el,cat,f,escopo,g);}return;}
  if(orcPremissaEcommerce(premissasBase)&&f.calculo==='fabricacao_ticket'){orcEcommerceFabricacaoRender(el,cat,premissasBase,escopo,g,registro);orcDescricaoUniversal(el,cat,f,escopo,g);return;}
