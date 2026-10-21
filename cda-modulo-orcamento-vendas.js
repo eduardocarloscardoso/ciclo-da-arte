@@ -305,17 +305,39 @@ async function orcPadraoTipo(k){
  el.innerHTML='<div class="card"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro compartilhado</div><label class="form-label" for="orc-padrao-tipo">Tipo de Projeto</label><select id="orc-padrao-tipo" class="form-input">'+tipos.map(function(t){return '<option value="'+t.id+'" '+(t.id===orcPadraoSelecionado?'selected':'')+'>'+String(t.codigo).padStart(2,'0')+' — '+orcEsc(t.nome)+'</option>';}).join('')+'</select><p style="color:var(--muted2);margin:14px 0">Padrão exclusivo do tipo selecionado. Salvar aqui não altera os cadastros já gerados nos projetos.</p><div id="orc-editor-conteudo"></div></div>';
  document.getElementById('orc-padrao-tipo').onchange=function(){orcPadraoSelecionado=this.value;orcPadraoTipo(k);};
  var tipoAtual=tipos.find(function(t){return t.id===orcPadraoSelecionado;});
+ if(k==='produtos'){orcEditor=null;document.getElementById('orc-editor-conteudo').innerHTML='<p>Produtos e preços pertencem somente aos projetos; não há cadastro compartilhado.</p>';return;}
  if(((k==='dimensionamento'||k==='funcoes')&&(Number(tipoAtual&&tipoAtual.codigo)===2||Number(tipoAtual&&tipoAtual.codigo)===3))){orcEditor=null;document.getElementById('orc-editor-conteudo').innerHTML='<p role="status" style="margin:18px 0">Não se Aplica a este tipo de Projeto</p>';return;}
  var r=rows[0]||{id:null,conteudo:{},tipo_id:orcPadraoSelecionado,chave:k};r.tipo_codigo=tipoAtual&&tipoAtual.codigo;
  var tiposParticipantes=k==='participantes'?await sb.get('cda_orc_papeis','order=nome'):[];
  orcIniciarEditor('padrao',r,k,pessoas,tiposParticipantes);
  }catch(e){el.innerHTML='<div class="card">Não foi possível carregar o cadastro compartilhado.</div>';}
 }
+
+function orcProdutosProjetoTotais(xs){return (Array.isArray(xs)?xs:[]).reduce(function(t,x){var q=Number(x.quantidade)||0;t.quantidade+=q;t.venda+=q*(Number(x.preco_venda)||0);t.custo+=q*(Number(x.custo_unitario)||0);return t;},{quantidade:0,venda:0,custo:0});}
+function orcProdutosProjetoGrade(g){
+ var el=document.getElementById('orc-cadastro-projeto'),xs=Array.isArray(g.conteudo)?JSON.parse(JSON.stringify(g.conteudo)):[],original=JSON.parse(JSON.stringify(g.conteudo)),edit=orcPodeEditar();
+ function moeda(v){return Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+ function render(){
+ var tt=orcProdutosProjetoTotais(xs),header=['Nome Produto','Unidade','Quantidade','Preço Unitário Venda (R$)','Preço Total Venda','Preço Unitário Custo (R$)','Preço Total Custo','Ações'];
+ var inp=function(x,i,k){var num=['quantidade','preco_venda','custo_unitario'].includes(k);return '<input class="form-input" style="min-width:105px" data-pi="'+i+'" data-pk="'+k+'" type="'+(num?'number':'text')+'" '+(num?'min="0" step="'+(k==='quantidade'?'1':'0.01')+'"':'')+' value="'+orcEsc(x[k]==null?'':x[k])+'" '+(edit?'':'disabled')+'>';};
+ var body=xs.map(function(x,i){return '<tr><td>'+inp(x,i,'nome')+'</td><td>'+inp(x,i,'unidade')+'</td><td>'+inp(x,i,'quantidade')+'</td><td>'+inp(x,i,'preco_venda')+'</td><td>'+moeda((Number(x.quantidade)||0)*(Number(x.preco_venda)||0))+'</td><td>'+inp(x,i,'custo_unitario')+'</td><td>'+moeda((Number(x.quantidade)||0)*(Number(x.custo_unitario)||0))+'</td><td>'+(edit?'<button class="btn btn-ghost btn-sm" data-rm="'+i+'">Retirar</button>':'')+'</td></tr>';}).join('');
+ el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card"><div class="card-title">Produtos e preços · Cadastro próprio do Projeto Tipo 03</div><p>Categoria 01: Total Valor Venda. Categoria 04: Total Valor Custo.</p><div class="tbl-wrap"><table><thead><tr>'+header.map(function(h){return '<th>'+h+'</th>';}).join('')+'</tr></thead><tbody>'+body+'</tbody><tfoot><tr><th colspan="2">Totalizadores</th><th>'+tt.quantidade.toLocaleString('pt-BR')+'</th><th></th><th>'+moeda(tt.venda)+'</th><th></th><th>'+moeda(tt.custo)+'</th><th></th></tr></tfoot></table></div>'+(edit?'<button class="btn btn-ghost" id="orc-p-add">＋ Produto</button> <button class="btn btn-primary" id="orc-p-save">Salvar</button>':'')+'</div>';
+ el.querySelectorAll('[data-pi]').forEach(function(i){i.onchange=function(){var x=xs[Number(this.dataset.pi)],k=this.dataset.pk;x[k]=['quantidade','preco_venda','custo_unitario'].includes(k)?(this.value===''?null:Number(this.value)):this.value;render();};});
+ el.querySelectorAll('[data-rm]').forEach(function(b){b.onclick=function(){xs.splice(Number(this.dataset.rm),1);render();};});
+ var add=document.getElementById('orc-p-add');if(add)add.onclick=function(){xs.push({nome:'',unidade:'peça',quantidade:null,preco_venda:null,custo_unitario:null});render();};
+ var save=document.getElementById('orc-p-save');if(save)save.onclick=async function(){
+ if(xs.some(function(x){return !String(x.nome||'').trim()||x.quantidade===null||x.preco_venda===null||x.custo_unitario===null||!Number.isInteger(Number(x.quantidade))||Number(x.quantidade)<0||![x.preco_venda,x.custo_unitario].every(function(v){return Number.isFinite(Number(v))&&Number(v)>=0;});})){showToast('Informe produto, quantidade inteira e preços unitários não negativos','error');return;}
+ save.disabled=true;try{await orcRpc('cda_orc_salvar_cadastro',{escopo:'projeto',registro:g.id,anterior:original,novo:xs});g.conteudo=JSON.parse(JSON.stringify(xs));original=JSON.parse(JSON.stringify(xs));showToast('Produtos salvos','success');render();}catch(e){showToast('Erro ao salvar produtos do projeto','error');save.disabled=false;}
+ };
+ }render();
+}
+
 async function orcProjetoCadastroEditor(k){
  if(!canAccessProject('orcamento_vendas'))return;
  var g=orcGeracao.gerados.find(function(x){return x.chave===k;}),p=orcGeracao.previa.find(function(x){return x.chave===k;});
  var el=document.getElementById('orc-cadastro-projeto');
  if(((orcGeracaoTipoCodigo()===2||orcGeracaoTipoCodigo()===3)&&(k==='dimensionamento'||k==='funcoes'))){orcEditor=null;el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p role="status">Não se Aplica a este tipo de Projeto</p></div>';el.scrollIntoView({behavior:'smooth',block:'start'});return;}
+ if(k==='produtos'&&orcGeracaoTipoCodigo()===3&&g){orcProdutosProjetoGrade(g);return;}
  if(!g){el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><p>Gere este cadastro para editar a cópia do projeto.</p></div>';return;}
  el.innerHTML='<button class="btn btn-ghost" onclick="orcVoltarCadastros()">← Voltar aos cadastros</button><div class="card" style="margin-top:14px"><div class="card-title">'+ORC_CADASTROS[k]+' · Cadastro próprio do projeto</div><p style="color:var(--muted2);margin-bottom:14px">Estas alterações pertencem somente ao projeto e tipo selecionados. O padrão compartilhado é preservado.</p><div id="orc-editor-conteudo"></div></div>';
  if(orcGeracaoTipoCodigo()===2&&k==='produtos')document.getElementById('orc-editor-conteudo').insertAdjacentHTML('beforebegin','<p>Cadastro opcional para esta previsão: o orçamento atual utiliza visitantes, conversão e ticket médio dos produtos. Os itens poderão ser detalhados posteriormente.</p>');
