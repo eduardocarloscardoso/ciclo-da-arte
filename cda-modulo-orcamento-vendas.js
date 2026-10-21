@@ -485,9 +485,18 @@ async function orcFormulaAbrir(escopo,id){
  cat=rows.find(function(x){return x.id===id;});if(!cat){el.innerHTML='<p>Categoria indisponível. Reabra o cadastro.</p>';return;}
  if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados);return;}
  if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codigo==='10.1')){
- var produtosPL=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),totPL=orcProdutosProjetoTotais(produtosPL&&produtosPL.conteudo),filhoPL=rows.find(function(x){return x.codigo==='10.1';}),pctPL=Number((filhoPL&&filhoPL.formula&&filhoPL.formula.percentual)??2.5);
- var fretePL=totPL.venda*pctPL/100,fmtPL=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
- el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p>Base: Categoria 01 — Receita Bruta de Vendas: <strong>'+fmtPL(totPL.venda)+'</strong></p><p>Frete: '+pctPL.toLocaleString('pt-BR')+'% sobre a receita prevista</p><h3>Valor previsto: '+fmtPL(fretePL)+'</h3><p>Referências: transporte de até 1.000 km até o destinatário e peso médio de 0,150 kg por produto. Quilometragem e peso não multiplicam o percentual.</p><button class="btn btn-ghost" id="orc-pl-frete-voltar">← Voltar às categorias</button></div>';
+ var produtosPL=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),totPL=orcProdutosProjetoTotais(produtosPL&&produtosPL.conteudo),filhoPL=rows.find(function(x){return x.codigo==='10.1';});
+ var pctPL=Number((filhoPL&&filhoPL.formula&&filhoPL.formula.percentual)??2.5);
+ var fmtPL=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p>Base: Categoria 01 — Receita Bruta de Vendas: <strong>'+fmtPL(totPL.venda)+'</strong></p><div class="card" style="margin:16px 0"><div class="card-title">Parâmetros de Frete</div><label class="form-label" for="orc-pl-frete-pct">Percentual sobre o ticket médio (%)</label><input class="form-input" id="orc-pl-frete-pct" type="number" min="0" max="100" step="0.01" value="'+pctPL+'" '+(orcPodeEditar()?'':'disabled')+'><p style="color:var(--muted2)">Aplicado sobre a Receita Bruta de Vendas prevista (Categoria 01).</p><h3 id="orc-pl-frete-total">Valor previsto: '+fmtPL(totPL.venda*pctPL/100)+'</h3>'+(orcPodeEditar()?'<button class="btn btn-primary" id="orc-pl-frete-save" type="button">Salvar percentual</button>':'')+'</div><p>Referências: transporte de até 1.000 km até o destinatário e peso médio de 0,150 kg por produto. Quilometragem e peso não multiplicam o percentual.</p><button class="btn btn-ghost" id="orc-pl-frete-voltar">← Voltar às categorias</button></div>';
+ var inpPL=document.getElementById('orc-pl-frete-pct');
+ inpPL.oninput=function(){var n=Number(this.value);document.getElementById('orc-pl-frete-total').textContent='Valor previsto: '+(this.value!==''&&Number.isFinite(n)&&n>=0&&n<=100?fmtPL(totPL.venda*n/100):'Informe um percentual válido');};
+ var salvarPL=document.getElementById('orc-pl-frete-save');if(salvarPL)salvarPL.onclick=async function(){
+  var n=Number(inpPL.value);if(inpPL.value===''||!Number.isFinite(n)||n<0||n>100){showToast('Informe percentual entre 0 e 100','error');return;}
+  var originalPL=filhoPL&&filhoPL.formula||null,novoPL=Object.assign({},originalPL||{},{forma:'percentual',base:'Receita Bruta de Vendas — Categoria 01',percentual:n,aplicacao:'projeto',calculo:'frete_private_label_receita'});
+  var cadastroPL=orcGeracao.gerados.find(function(x){return x.chave==='categorias';});if(!cadastroPL||!filhoPL){showToast('Gere o cadastro de categorias do projeto antes de salvar','error');return;}
+  salvarPL.disabled=true;try{cadastroPL.conteudo=await orcRpc('cda_orc_salvar_formula_projeto',{cadastro:cadastroPL.id,item:filhoPL.id,anterior:originalPL,nova:novoPL});showToast('Percentual de frete salvo','success');orcCategoriasProjeto();}catch(err){salvarPL.disabled=false;showToast('Não foi possível salvar o percentual de frete','error');}
+ };
  document.getElementById('orc-pl-frete-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};return;
 }
 
