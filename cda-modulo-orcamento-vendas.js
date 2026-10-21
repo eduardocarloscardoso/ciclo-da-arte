@@ -7,7 +7,7 @@ var ORCAMENTO_PAGES={
 };
 var ORCAMENTO_CONFIG=[
  {nome:'Identidades compartilhadas',itens:['Tipo Participantes','Participantes']},
- {nome:'Cadastros padrão por Tipo de Projeto',itens:['Participantes por Tipo','Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações','Produtos e preços']}
+ {nome:'Cadastros padrão por Tipo de Projeto',itens:['Participantes por Tipo','Categorias e Subcategorias','Premissas e cenários','Regras de dimensionamento','Funções profissionais e remunerações']}
 ];
 window._orcamentoPage='configuracoes';
 function navigateOrcamento(page){
@@ -30,7 +30,7 @@ function navigateOrcamento(page){
 function abrirConfiguracaoOrcamento(gi,ii){
  if(!canAccessProject('orcamento_vendas'))return;
  if(gi===0){orcCadastro(ii===0?'papeis':'pessoas');return;}
- if(gi===1){var chave=['participantes','categorias','premissas','dimensionamento','funcoes','produtos'][ii];if(chave==='categorias'){orcCategorias();return;}if(chave)orcPadraoTipo(chave);}
+ if(gi===1){var chave=['participantes','categorias','premissas','dimensionamento','funcoes'][ii];if(chave==='categorias'){orcCategorias();return;}if(chave)orcPadraoTipo(chave);}
 }
 
 var orcDados={pessoas:[],papeis:[]};
