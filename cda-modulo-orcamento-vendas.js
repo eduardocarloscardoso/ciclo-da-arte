@@ -448,6 +448,11 @@ async function orcSalvarParticipantesTipo(ed,dados){
  }catch(e){showToast('Não foi possível salvar. Reabra o cadastro para conferir permissões ou alterações em outra sessão.','error');return false;}
 }
 
+function orcPrivateLabelCategoriaRender(el,cat,escopo,registros){
+ var produtos=(registros||[]).find(function(x){return x.chave==='produtos';}),lista=produtos&&Array.isArray(produtos.conteudo)?produtos.conteudo:[],total=orcProdutosProjetoTotais(lista),valor=cat.codigo==='1'?total.venda:total.custo,moeda=function(x){return Number(x).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
+ el.innerHTML='<div class="card"><div class="card-title">Categoria '+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p><strong>Base automática: Produtos e preços do projeto</strong></p><p>'+(cat.codigo==='1'?'Total Valor Venda = Σ (Quantidade × Preço Unitário Venda)':'Total Valor Custo = Σ (Quantidade × Preço Unitário Custo)')+'</p><h3 style="margin:18px 0">Valor calculado: '+moeda(valor)+'</h3><p>Quantidade total: '+total.quantidade.toLocaleString('pt-BR')+' · Produtos: '+lista.length+'</p>'+(produtos?'':'<p>Gere o cadastro Produtos e preços deste projeto para obter os valores.</p>')+'<button class="btn btn-ghost" id="orc-pl-cat-voltar">← Voltar às categorias</button></div>';
+ document.getElementById('orc-pl-cat-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};
+}
 function orcFormulaResumo(f){
  if(!f||!f.forma)return 'Não configurada';
  if(f.calculo==='receita_bruta')return 'Público por evento × Conversão do cenário ÷ 100 × Ticket médio';
@@ -478,6 +483,7 @@ async function orcFormulaAbrir(escopo,id){
  orcGeracao.gerados=atuais[0];orcGeracao.previa=atuais[1];g=orcGeracao.gerados.find(function(x){return x.chave==='categorias';});previa=orcGeracao.previa.find(function(x){return x.chave==='categorias';});rows=g?g.conteudo:previa?previa.conteudo:[];
  }
  cat=rows.find(function(x){return x.id===id;});if(!cat){el.innerHTML='<p>Categoria indisponível. Reabra o cadastro.</p>';return;}
+ if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados);return;}
  filhos=rows.some(function(x){return x.pai_id===id&&x.ativo!==false;});f=(escopo==='padrao'?registro&&registro.definicao:cat.formula)||{};
  var funcoes=[],bases=['Venda bruta','Venda após desconto comercial','Venda após descontos comerciais e financeiros','Resultado distribuível'];
  if(escopo==='padrao'){
