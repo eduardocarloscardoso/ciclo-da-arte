@@ -484,6 +484,13 @@ async function orcFormulaAbrir(escopo,id){
  }
  cat=rows.find(function(x){return x.id===id;});if(!cat){el.innerHTML='<p>Categoria indisponível. Reabra o cadastro.</p>';return;}
  if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='1'||cat.codigo==='4')){orcPrivateLabelCategoriaRender(el,cat,escopo,orcGeracao.gerados);return;}
+ if(escopo==='projeto'&&orcGeracaoTipoCodigo()===3&&(cat.codigo==='10'||cat.codigo==='10.1')){
+ var produtosPL=orcGeracao.gerados.find(function(x){return x.chave==='produtos';}),totPL=orcProdutosProjetoTotais(produtosPL&&produtosPL.conteudo),filhoPL=rows.find(function(x){return x.codigo==='10.1';}),pctPL=Number((filhoPL&&filhoPL.formula&&filhoPL.formula.percentual)??2.5);
+ var fretePL=totPL.venda*pctPL/100,fmtPL=function(n){return Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});};
+ el.innerHTML='<div class="card"><div class="card-title">'+orcEsc(cat.codigo)+' — '+orcEsc(cat.nome)+'</div><p>Base: Categoria 01 — Receita Bruta de Vendas: <strong>'+fmtPL(totPL.venda)+'</strong></p><p>Frete: '+pctPL.toLocaleString('pt-BR')+'% sobre a receita prevista</p><h3>Valor previsto: '+fmtPL(fretePL)+'</h3><p>Referências: transporte de até 1.000 km até o destinatário e peso médio de 0,150 kg por produto. Quilometragem e peso não multiplicam o percentual.</p><button class="btn btn-ghost" id="orc-pl-frete-voltar">← Voltar às categorias</button></div>';
+ document.getElementById('orc-pl-frete-voltar').onclick=function(){orcFormulaSessao++;el.innerHTML='';};return;
+}
+
  filhos=rows.some(function(x){return x.pai_id===id&&x.ativo!==false;});f=(escopo==='padrao'?registro&&registro.definicao:cat.formula)||{};
  var funcoes=[],bases=['Venda bruta','Venda após desconto comercial','Venda após descontos comerciais e financeiros','Resultado distribuível'];
  if(escopo==='padrao'){
