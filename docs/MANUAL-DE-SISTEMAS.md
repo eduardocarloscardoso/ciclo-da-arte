@@ -255,7 +255,7 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   `cda_e_membro_equipe()`, `cda_e_admin_equipe()`.
 - **Backups antigos** (22 tabelas `*_backup_*` de jul–ago/2026) foram
   **apagados** em 22/10/2026 por decisão do Cardoso: correções já validadas
-  há meses, e as cópias guardavam dados pessoais sem uso. Regra adotada:
+  há meses, e as cópias guardavam dados pessoais sem uso. Sugestão (a confirmar):
   backup antes de toda correção continua obrigatório, mas é descartado após
   ~30 dias validado. Atenção: o projeto está no plano FREE do Supabase (sem
   backups automáticos do banco).
