@@ -226,10 +226,20 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   22/10/2026): Previsto 2026 R 1.293.000,00 / D 1.564.500,00; Realizado
   jan–set/2026 R 1.019.152,00 / D 1.157.396,09; Realizado 2025 R
   2.130.998,09 / D 2.144.550,48; Provisão D 7.800,00.
-- **Fase 2 (no ar)**: Orçamento Anual, Orçamento Realizado (+ importação e
-  limpeza), Tabela Contábil (+ apelidos). **Fase 3**: Provisão Prevista,
-  Comparativo Mensal, Visão Trimestral, Visão Anual Acumulada, Comparativo de
-  Metas, Tutorial.
+- **No ar (22/10/2026)**: Tabelas Contábeis (+ apelidos), Orçamento Anual,
+  Orçamento Realizado (+ importação e limpeza), Provisão Prevista, Previsto
+  vs. Realizado (Comparativo Mensal com "Total Meses", Visão Trimestral
+  Acumulada, Visão Anual Acumulada, Comparativo de Metas com filtro de
+  status) e Tutorial. Sidebar: Planejamento Anual é o 1º projeto; submenu na
+  ordem do Manus, sem "Início".
+- **Decisões que diferem do Manus**: (1) meses restantes = 12 − último mês
+  realizado; (2) Provisão "Auto" grava Previsto − Realizado (no Manus gravava
+  o saldo já líquido da provisão, e clicar duas vezes alternava o valor);
+  (3) apelidos de importação viraram tabela editável (no Manus eram fixos no
+  código). Painéis consideram só cadastros ativos, como no Manus.
+- **Status**: Comparativo Mensal OK ≤10% · Atenção 10–30% · Crítico >30%;
+  Comparativo de Metas (desvio vs. Previsto Mês × meses com lançamento) OK
+  favorável · Atenção ≤10% · Crítico ≤20% · Intervenção >20% · Sem Dados.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
