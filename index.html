@@ -7,7 +7,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="cda-dados-compartilhados.js"></script>
+<script src="cda-dados-compartilhados.js?v=20261022-auth-edge"></script>
 <script src="cda-modulo-clientes.js"></script>
 <script src="cda-modulo-compras.js"></script>
 <script src="cda-modulo-produtos.js"></script>
@@ -20,7 +20,7 @@
 <script src="cda-modulo-vendas-tipo-peca.js"></script>
 <script src="cda-modulo-vendas-por-canal.js"></script>
 <script src="cda-modulo-tutorial-estoque.js"></script>
-<script src="cda-modulo-marketing.js"></script>
+<script src="cda-modulo-marketing.js?v=20261022-auth-edge"></script>
 <script src="cda-modulo-orcamento-vendas.js?v=20261021-private-label-projeto-telas-v11"></script>
 <script src="cda-modulo-planejamento.js?v=20261022-p6-fase3"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -1572,7 +1572,7 @@ showToast('Gerando planilha...','info');
 try{
 var response=await fetch(EDGE_URL,{
 method:'GET',
-headers:{'Authorization':'Bearer '+SUPABASE_KEY,'apikey':SUPABASE_KEY}
+headers:{'Authorization':sb.headers.Authorization,'apikey':SUPABASE_KEY}
 });
 if(!response.ok)throw new Error('Erro ao gerar planilha: '+response.status);
 var blob=await response.blob();

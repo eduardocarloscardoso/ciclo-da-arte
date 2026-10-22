@@ -927,7 +927,11 @@ async function cdaSalvarMensagensLote(atualizacoes) {
 // é 'tarefa', mensagemReferencia é passada pra IA ADAPTAR a mensagem em
 // instrução de ação, em vez de ignorá-la.
 async function cdaGerarSugestaoMensagemIA(campanha, tipo, mensagemReferencia) {
+  // Envia explicitamente o token de sessão — a função exige login de membro da equipe (out/2026).
+  let cabecalhoAuth = {};
+  try { const { data: ses } = await cdaClient.auth.getSession(); if (ses && ses.session) cabecalhoAuth = { Authorization: 'Bearer ' + ses.session.access_token }; } catch (_) {}
   const { data, error } = await cdaClient.functions.invoke('gerar-modelo-mensagem', {
+    headers: cabecalhoAuth,
     body: {
       nomeCampanha: campanha.nome, objetivo: campanha.objetivo,
       beneficioTipo: campanha.beneficioTipo, beneficioValor: campanha.beneficioValor, beneficioCondicoes: campanha.beneficioCondicoes,

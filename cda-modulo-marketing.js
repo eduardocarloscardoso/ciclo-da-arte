@@ -1,3 +1,8 @@
+// Cabeçalhos para as Edge Functions do Marketing (out/2026): envia o token
+// de sessão do usuário logado — as funções exigem login de membro da equipe.
+function cdaMktHeadersFuncao() {
+  return { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': (sb && sb.headers && sb.headers.Authorization) || ('Bearer ' + SUPABASE_KEY) };
+}
 // ════════════════════════════════════════════════════════════════════
 // cda-modulo-marketing.js
 // Módulo Marketing — Mídia paga, orçamento e calendário editorial.
@@ -367,7 +372,7 @@ async function mktSincronizarMeta(containerId) {
 
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/sync-meta-ads', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+      method: 'POST', headers: cdaMktHeadersFuncao(), body: '{}'
     });
     var data = await resp.json();
     if (!resp.ok || data.error) throw new Error(data.error || 'Erro desconhecido');
@@ -1106,7 +1111,7 @@ async function mktGerarDiagnostico(containerId) {
   }, 20000);
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cdaMktHeadersFuncao(),
       body: JSON.stringify({ acao: 'iniciar', tipo: tipo, periodo_solicitado: { inicio: de, fim: ate }, status_filtro: 'todos', nome_tipo: nomeTipo })
     });
     clearTimeout(avisoLongo);
@@ -1360,7 +1365,7 @@ async function mktContinuarDiagnostico(containerId, diagId, filtroAtual) {
   if (msgEl) msgEl.innerHTML = '<div class="rec-box" style="text-align:center"><b>⏳ AGUARDE — a IA está processando sua(s) resposta(s)/pergunta(s).</b><br><span class="tmu">Isso pode levar até 60 segundos.</span></div>';
   try {
     var resp = await fetch(SUPABASE_URL + '/functions/v1/diagnostico-marketing', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: cdaMktHeadersFuncao(),
       body: JSON.stringify({ acao: 'continuar', id: diagId, respostas_usuario: respostasUsuario, nova_pergunta: novaPergunta || null, usuario_nome: (typeof cu !== 'undefined' && cu && cu.name) ? cu.name : 'Usuário' })
     });
     var data = await resp.json();
@@ -1437,7 +1442,7 @@ async function mktGerarSimulacao(containerId, simId) {
     if (simId) payload.id = simId;
     var resp = await fetch(SUPABASE_URL + '/functions/v1/simular-marketing', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: cdaMktHeadersFuncao(),
       body: JSON.stringify(payload)
     });
     var data = await resp.json();
