@@ -253,9 +253,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   de permissão (`cda_permissoes_catalogo`, `cda_equipe_permissoes`): leitura
   para membros, gravação só admin. Funções auxiliares:
   `cda_e_membro_equipe()`, `cda_e_admin_equipe()`.
-- **Backups antigos** (22 tabelas `*_backup_*` de jul–ago/2026) foram movidos
-  para o schema `arquivo`, que não é exposto pela API. Dados preservados;
-  remover com `drop schema arquivo cascade;` quando não forem mais úteis.
+- **Backups antigos** (22 tabelas `*_backup_*` de jul–ago/2026) foram
+  **apagados** em 22/10/2026 por decisão do Cardoso: correções já validadas
+  há meses, e as cópias guardavam dados pessoais sem uso. Regra adotada:
+  backup antes de toda correção continua obrigatório, mas é descartado após
+  ~30 dias validado. Atenção: o projeto está no plano FREE do Supabase (sem
+  backups automáticos do banco).
 - **Edge Functions chamadas pelo sistema** (`sync-meta-ads`,
   `diagnostico-marketing`, `simular-marketing`, `exportar-excel`,
   `gerar-modelo-mensagem`): exigem o token de sessão de um membro da
