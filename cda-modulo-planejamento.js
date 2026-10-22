@@ -13,21 +13,23 @@
 
 var PA_PROJETO = 'planejamento_anual';
 var PA_PAGES = {
+  tabela:      {icon:'🗂', label:'Tabelas Contábeis'},
   orcamento:   {icon:'🎯', label:'Orçamento Anual'},
   realizado:   {icon:'🧾', label:'Orçamento Realizado'},
-  tabela:      {icon:'🗂', label:'Tabela Contábil'},
   provisao:    {icon:'🔮', label:'Provisão Prevista', fase:3},
-  comparativo: {icon:'📊', label:'Comparativo Mensal', fase:3},
-  trimestral:  {icon:'📅', label:'Visão Trimestral', fase:3},
-  anual:       {icon:'📈', label:'Visão Anual Acumulada', fase:3},
-  metas:       {icon:'🏁', label:'Comparativo de Metas', fase:3},
+  comparativo: {icon:'📊', label:'Comparativo Mensal', fase:3, grupo:'pxr'},
+  trimestral:  {icon:'📅', label:'Visão Trimestral Acumulada', fase:3, grupo:'pxr'},
+  anual:       {icon:'📈', label:'Visão Anual Acumulada', fase:3, grupo:'pxr'},
+  metas:       {icon:'🏁', label:'Comparativo de Metas', fase:3, grupo:'pxr'},
   tutorial:    {icon:'📘', label:'Tutorial', fase:3}
 };
+var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}};
 var PA_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Estado da tela (filtros persistem entre páginas do módulo)
 var paEstado = {
-  page: 'orcamento',
+  page: 'tabela',
+  grupoAberto: {pxr:false},
   ano: new Date().getFullYear(),
   mes: null,               // definido pelo último mês realizado
   tipo: '',                // '' | RECEITAS | DESPESAS
@@ -129,15 +131,26 @@ function paErro(e, padrao){
 // ─── Sidebar e navegação ─────────────────────────────────────────────
 function paRenderSidebar(nav){
   nav.innerHTML+='<div class="sb-section">Planejamento Anual</div>';
-  Object.keys(PA_PAGES).forEach(function(id){
+  var feitos={};
+  function item(id,recuo){
     var p=PA_PAGES[id];
-    nav.innerHTML+='<div class="nav-item '+(paEstado.page===id?'active':'')+'" id="nav-pa-'+id+'" onclick="navigatePlanejamento(\''+id+'\')" style="padding-left:32px;font-size:11.5px'+(p.fase?';opacity:.55':'')+'"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    return '<div class="nav-item '+(paEstado.page===id?'active':'')+'" id="nav-pa-'+id+'" onclick="navigatePlanejamento(\''+id+'\')" style="padding-left:'+recuo+'px;font-size:11.5px'+(p.fase?';opacity:.55':'')+'" title="'+(p.fase?'Em desenvolvimento — Fase '+p.fase:'')+'"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+  }
+  Object.keys(PA_PAGES).forEach(function(id){
+    var g=PA_PAGES[id].grupo;
+    if(!g){nav.innerHTML+=item(id,32);return;}
+    if(feitos[g])return;feitos[g]=1;
+    var dentro=PA_PAGES[paEstado.page]&&PA_PAGES[paEstado.page].grupo===g;
+    var aberto=paEstado.grupoAberto[g]||dentro;
+    nav.innerHTML+='<div class="nav-item'+(dentro?' active':'')+'" id="nav-pa-grupo-'+g+'" onclick="paAlternarGrupo(\''+g+'\')" style="padding-left:32px;font-size:11.5px" role="button" aria-expanded="'+aberto+'"><span class="nav-icon">'+PA_GRUPOS[g].icon+'</span>'+PA_GRUPOS[g].label+'<span style="margin-left:auto;font-size:10px;opacity:.7">'+(aberto?'▾':'▸')+'</span></div>';
+    if(aberto)Object.keys(PA_PAGES).forEach(function(sid){if(PA_PAGES[sid].grupo===g)nav.innerHTML+=item(sid,48);});
   });
 }
+function paAlternarGrupo(g){paEstado.grupoAberto[g]=!paEstado.grupoAberto[g];renderSidebarNav();}
 
 async function navigatePlanejamento(page){
   if(!paPodeLer()){showToast('Seu usuário não tem acesso ao Planejamento Anual.','info');return;}
-  if(!PA_PAGES[page])page='orcamento';
+  if(!PA_PAGES[page])page='tabela';
   currentProject=PA_PROJETO;paEstado.page=page;renderSidebarNav();
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');if(iframeWrap)iframeWrap.style.display='none';
   var p=PA_PAGES[page];
