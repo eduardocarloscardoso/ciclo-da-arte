@@ -252,7 +252,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - **Orçamento Anual — colunas** (22/10/2026, pedido do Cardoso): Realizado
   ano anterior · Previsto · Previsto Mês · Realizado · **Saldo Total sem
   Provisão** (Previsto − Realizado) · **Saldo Total com Provisão** (Previsto −
-  (Realizado + Provisão)). O Saldo Mensal a Realizar saiu desta tela (segue
+  (Realizado + Provisão)), preenchido **só onde há provisão** (centro com
+  provisão ≠ 0, e as subcontas/contas/totais que os contêm; demais em branco).
+  O Saldo Mensal a Realizar saiu desta tela (segue
   nos painéis e na Provisão). Layout compacto (`.pa-compacta`).
 - **Status**: Comparativo Mensal OK ≤10% · Atenção 10–30% · Crítico >30%;
   Comparativo de Metas (desvio vs. Previsto Mês × meses com lançamento) OK

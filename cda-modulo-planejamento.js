@@ -253,7 +253,7 @@ async function paOrcamentoAnual(){
   var restantes=Math.max(12-ultimo,0);
   function linha(cc){
     var p=prev[cc.id]||0,re=realEx[cc.id]||0,pv=prov[cc.id]||0;
-    return {ant:realAnt[cc.id]||0,prev:p,mes:p/12,real:re,saldoSem:p-re,saldoCom:p-re-pv};
+    return {ant:realAnt[cc.id]||0,prev:p,mes:p/12,real:re,saldoSem:p-re,saldoCom:p-re-pv,temProv:pv!==0};
   }
   var grupos=paContasFiltradas(h);
   var root=document.getElementById('pa-root');if(!root)return;
@@ -261,14 +261,14 @@ async function paOrcamentoAnual(){
   paEstado._anoAntMensal=!!realAnt._mensal;
   var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacaoAnual()">⬆ Importar Excel</button>':'';
   var html=paFiltroHTML(h,{anos:anos,acoes:acoes});
-  html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b> · Saldo sem provisão = Previsto − Realizado · Saldo com provisão = Previsto − (Realizado + Provisão)'+
+  html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b> · Saldo sem provisão = Previsto − Realizado · Saldo com provisão = Previsto − (Realizado + Provisão), preenchido só onde há provisão'+
     (podeEd?' · <span class="pa-legenda">✏️ campos com borda dourada são editáveis — digite e tecle Enter</span>':'')+
     (podeEd&&realAnt._mensal?' · Realizado '+(ano-1)+' vem dos lançamentos mensais (edite no Orçamento Realizado)':'')+
     ' · Realizado '+ano+' = soma dos meses (clique para abrir)</div>';
 
   // Totais gerais para KPIs
   var tot={RECEITAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0},DESPESAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0}};
-  h.contas.forEach(function(c){c.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);['ant','prev','mes','real','saldoSem','saldoCom'].forEach(function(k){tot[c.tipo][k]+=l[k];});});});});
+  h.contas.forEach(function(c){c.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);['ant','prev','mes','real','saldoSem','saldoCom'].forEach(function(k){tot[c.tipo][k]+=l[k];});if(l.temProv)tot[c.tipo].temProv=true;});});});
   var resPrev=tot.RECEITAS.prev-tot.DESPESAS.prev,resReal=tot.RECEITAS.real-tot.DESPESAS.real;
   html+='<div class="pa-kpis">'+
     paKpi('Receitas '+ano,'Previsto '+paBRL(tot.RECEITAS.prev),'Realizado '+paBRL(tot.RECEITAS.real),'var(--green)')+
@@ -280,8 +280,8 @@ async function paOrcamentoAnual(){
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th>Realizado<br>'+(ano-1)+'</th><th>Previsto<br>'+ano+'</th><th>Previsto<br>Mês</th><th>Realizado<br>'+ano+'</th><th title="Previsto − Realizado">Saldo Total<br>sem Provisão</th><th title="Previsto − (Realizado + Provisão Prevista)" style="color:var(--purple)">Saldo Total<br>com Provisão</th></tr></thead><tbody>';
   var tipoAtual='';
   function corS(v){return tipoAtual?paCorSaldo(v,tipoAtual):'inherit';}
-  function cels(t,campoPrev,campoAnt,campoReal){return '<td>'+(campoAnt||paBRL(t.ant))+'</td><td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+(campoReal||paBRL(t.real))+'</td><td style="color:'+corS(t.saldoSem)+'">'+paBRL(t.saldoSem)+'</td><td style="color:'+corS(t.saldoCom)+';font-weight:600">'+paBRL(t.saldoCom)+'</td>';}
-  function somaCentros(lista){var t={ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0};lista.forEach(function(cc){var l=linha(cc);for(var k in t)t[k]+=l[k];});return t;}
+  function cels(t,campoPrev,campoAnt,campoReal){return '<td>'+(campoAnt||paBRL(t.ant))+'</td><td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+(campoReal||paBRL(t.real))+'</td><td style="color:'+corS(t.saldoSem)+'">'+paBRL(t.saldoSem)+'</td>'+(t.temProv?'<td style="color:'+corS(t.saldoCom)+';font-weight:600">'+paBRL(t.saldoCom)+'</td>':'<td></td>');}
+  function somaCentros(lista){var t={ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0},tp=false;lista.forEach(function(cc){var l=linha(cc);for(var k in t)t[k]+=l[k];if(l.temProv)tp=true;});t.temProv=tp;return t;}
   grupos.forEach(function(g){
     var c=g.conta,todosCC=[];g.subcontas.forEach(function(s){todosCC=todosCC.concat(s.centros);});
     tipoAtual=c.tipo;
@@ -301,7 +301,7 @@ async function paOrcamentoAnual(){
   if(!paEstado.subcontaId&&!paEstado.tipo){
     tipoAtual='RECEITAS';html+='<tr class="total"><td>Total Receitas</td>'+cels(tot.RECEITAS)+'</tr>';
     tipoAtual='DESPESAS';html+='<tr class="total"><td>Total Despesas</td>'+cels(tot.DESPESAS)+'</tr>';
-    tipoAtual='';var res={};for(var k in tot.RECEITAS)res[k]=tot.RECEITAS[k]-tot.DESPESAS[k];
+    tipoAtual='';var res={};['ant','prev','mes','real','saldoSem','saldoCom'].forEach(function(k){res[k]=tot.RECEITAS[k]-tot.DESPESAS[k];});res.temProv=!!(tot.RECEITAS.temProv||tot.DESPESAS.temProv);
     html+='<tr class="resultado"><td>Resultado Líquido (Receitas − Despesas)</td>'+cels(res)+'</tr>';
   }
   html+='</tbody></table></div>';
