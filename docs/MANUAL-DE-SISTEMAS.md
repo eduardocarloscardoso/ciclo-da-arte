@@ -191,5 +191,47 @@ na tela de Prestações (`rPrestList`).
   seção de cada mês), com totalizador geral no fim — mesmo padrão pedido para
   virar futuramente coluna padrão na prestação mensal (ainda não feito).
 
+## 9. Planejamento Anual (PROJETO 6) — out/2026
+
+Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
+`d0d1eadc`). Antes era o SM-03 dentro do Financeiro. Arquivo
+`cda-modulo-planejamento.js` (funções com prefixo `pa`), chave de projeto
+`planejamento_anual` em `PROJETOS` (aparece no Credenciamento).
+
+- **Tabelas `cda_pa_*`** (RLS pela tabela `equipe`, mesmo padrão de
+  `cda_orc_*`): `conta` → `subconta` → `centro_custo`;
+  `orcamento_previsto` (ano, centro); `realizado_mensal` (ano, mês 1–12,
+  centro, `origem` manual/excel/migracao_manus/bling); `provisao` (ano,
+  centro — era o "mês 13" no Manus, pode ser negativa);
+  `realizado_anual_legado` (anos sem detalhe mensal, ex. 2025);
+  `alias_importacao` (nomes alternativos da planilha → centro).
+  Exclusão só admin; leitura/gravação para `is_admin` ou projeto
+  `planejamento_anual` com `permissao = leitura_escrita`.
+- **Views**: `cda_pa_v_hierarquia`, `cda_pa_v_realizado_anual` (mensal ou
+  legado), `cda_pa_v_resumo_anual`. **Função** `cda_pa_ultimo_mes_realizado(ano)`
+  = primeiro mês sem lançamento − 1.
+- **Regras de negócio**: Previsto Mês = Previsto Anual ÷ 12; Saldo Total a
+  Realizar = Previsto − (Realizado + Provisão); Saldo Mensal = saldo ÷
+  (12 − último mês realizado) — decisão de out/2026, diferente do Manus,
+  que usava o mês do calendário; status/cores invertidos entre Receitas e
+  Despesas.
+- **Importação mensal** (`cda_pa_importar_mes`, transação única no banco):
+  aba com "Receita"/"Despesa" no nome; layout Centro|Valor ou
+  Vendedor…Total Venda; apelido tem prioridade sobre o nome; subtotais
+  (nomes de subconta, "Despesas X") ignorados; valores do mesmo centro
+  somados; **se qualquer centro não for encontrado, nada é gravado**; a
+  planilha substitui o mês inteiro daquela conta. `cda_pa_limpar_periodo`
+  é só admin.
+- **Totais de controle da migração** (conferidos centavo a centavo em
+  22/10/2026): Previsto 2026 R 1.293.000,00 / D 1.564.500,00; Realizado
+  jan–set/2026 R 1.019.152,00 / D 1.157.396,09; Realizado 2025 R
+  2.130.998,09 / D 2.144.550,48; Provisão D 7.800,00.
+- **Fase 2 (no ar)**: Orçamento Anual, Orçamento Realizado (+ importação e
+  limpeza), Tabela Contábil (+ apelidos). **Fase 3**: Provisão Prevista,
+  Comparativo Mensal, Visão Trimestral, Visão Anual Acumulada, Comparativo de
+  Metas, Tutorial.
+- SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
+  financeiros não ficam no repositório).
+
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
