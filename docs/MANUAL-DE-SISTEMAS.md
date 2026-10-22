@@ -241,6 +241,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   o saldo já líquido da provisão, e clicar duas vezes alternava o valor);
   (3) apelidos de importação viraram tabela editável (no Manus eram fixos no
   código). Painéis consideram só cadastros ativos, como no Manus.
+- **Orçamento Anual — edição**: Previsto do exercício e Realizado do ano
+  anterior editáveis na linha (campos com borda dourada ✏️) e por **Importar
+  Excel** (layout Manus: A Tipo · B Subconta · C Centro · D Realizado ano
+  anterior · E Previsto; linhas não encontradas ou de tipo diferente são
+  ignoradas e listadas). O Realizado do ano anterior só é editável quando
+  aquele ano não tem lançamentos mensais (ex.: 2025); o Realizado do
+  exercício não é editado aqui — é a soma dos meses e funciona como atalho
+  para o Orçamento Realizado (decisão do Cardoso, 22/10/2026).
 - **Status**: Comparativo Mensal OK ≤10% · Atenção 10–30% · Crítico >30%;
   Comparativo de Metas (desvio vs. Previsto Mês × meses com lançamento) OK
   favorável · Atenção ≤10% · Crítico ≤20% · Intervenção >20% · Sem Dados.

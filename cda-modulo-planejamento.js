@@ -111,10 +111,13 @@ function paErro(e, padrao){
     '.pa-tbl tr.total td{background:var(--navy3);font-weight:700;border-top:1px solid var(--border2)}',
     '.pa-tbl tr.resultado td{background:rgba(201,148,58,.12);font-weight:700;color:var(--gold2)}',
     '.pa-tbl tr.cc:hover td{background:rgba(255,255,255,.03)}',
-    '.pa-in{width:120px;background:transparent;border:1px solid transparent;border-radius:6px;color:var(--white);text-align:right;font-family:var(--ff-m);font-size:12px;padding:4px 6px}',
-    '.pa-in:hover{border-color:var(--border2)}.pa-in:focus{outline:none;border-color:var(--gold);background:var(--navy3)}',
+    '.pa-in{width:128px;background:rgba(201,148,58,.07);border:1px solid rgba(201,148,58,.35);border-radius:6px;color:var(--white);text-align:right;font-family:var(--ff-m);font-size:12px;padding:4px 22px 4px 6px;cursor:text;background-image:url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2712%27 height=%2712%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%23c9943a%27 stroke-width=%272%27%3E%3Cpath d=%27M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z%27/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 6px center}',
+    '.pa-in:hover{border-color:var(--gold)}.pa-in:focus{outline:none;border-color:var(--gold2);background-color:var(--navy3)}',
+    '.pa-link{color:var(--blue);text-decoration:none;border-bottom:1px dotted var(--blue);cursor:pointer}.pa-link:hover{color:var(--white)}',
+    '.pa-legenda{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--gold2);background:rgba(201,148,58,.08);border:1px solid rgba(201,148,58,.3);border-radius:6px;padding:2px 8px}',
     '.pa-in.salvando{border-color:var(--blue)}.pa-in.ok{border-color:var(--green)}.pa-in.err{border-color:var(--red)}',
-    '.pa-in-txt{width:100%;min-width:200px;text-align:left;font-family:var(--ff-b)}',
+    '.pa-in-txt{width:100%;min-width:200px;text-align:left;font-family:var(--ff-b);background-color:transparent;border-color:transparent;background-image:none;padding-right:6px}',
+    '.pa-in-txt:hover{border-color:var(--border2)}',
     '.pa-neg{color:var(--red)}.pa-pos{color:var(--green)}.pa-mut{color:var(--muted)}',
     '.pa-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}',
     '.pa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--ff-b)}',
@@ -195,7 +198,10 @@ async function paCarregarHierarquia(forcar){
 // Realizado anual por centro (mensal 1–12 ou legado) — view cda_pa_v_realizado_anual
 async function paRealizadoAnualMapa(ano){
   var rows=await sb.get('cda_pa_v_realizado_anual','ano=eq.'+ano);
-  var m={};rows.forEach(function(x){m[x.centro_custo_id]=Number(x.valor_realizado)||0;});return m;
+  var m={};rows.forEach(function(x){m[x.centro_custo_id]=Number(x.valor_realizado)||0;});
+  // _mensal = o ano tem lançamentos mês a mês (então o total vem do Orçamento Realizado e não é editável aqui)
+  Object.defineProperty(m,'_mensal',{value:rows.some(function(x){return x.fonte==='mensal';}),enumerable:false});
+  return m;
 }
 async function paAnosDisponiveis(){
   var r=await Promise.all([sb.get('cda_pa_orcamento_previsto','select=ano'),sb.get('cda_pa_realizado_mensal','select=ano')]);
@@ -246,9 +252,14 @@ async function paOrcamentoAnual(){
   }
   var grupos=paContasFiltradas(h);
   var root=document.getElementById('pa-root');if(!root)return;
-  var podeEd=paPodeEditar();
-  var html=paFiltroHTML(h,{anos:anos});
-  html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b> · Meses restantes: <b>'+restantes+'</b> · Saldo Mensal = (Previsto − Realizado) ÷ meses restantes'+(podeEd?' · Clique em um valor previsto para editar':'')+'</div>';
+  var podeEd=paPodeEditar(),antEditavel=podeEd&&!realAnt._mensal;
+  paEstado._anoAntMensal=!!realAnt._mensal;
+  var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacaoAnual()">⬆ Importar Excel</button>':'';
+  var html=paFiltroHTML(h,{anos:anos,acoes:acoes});
+  html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b> · Meses restantes: <b>'+restantes+'</b> · Saldo Mensal = (Previsto − Realizado) ÷ meses restantes'+
+    (podeEd?' · <span class="pa-legenda">✏️ campos com borda dourada são editáveis — digite e tecle Enter</span>':'')+
+    (podeEd&&realAnt._mensal?' · Realizado '+(ano-1)+' vem dos lançamentos mensais (edite no Orçamento Realizado)':'')+
+    ' · Realizado '+ano+' = soma dos meses (clique para abrir)</div>';
 
   // Totais gerais para KPIs
   var tot={RECEITAS:{ant:0,prev:0,mes:0,real:0,saldoMes:0},DESPESAS:{ant:0,prev:0,mes:0,real:0,saldoMes:0}};
@@ -262,7 +273,7 @@ async function paOrcamentoAnual(){
   '</div>';
 
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th>Realizado ('+(ano-1)+')</th><th>Previsto ('+ano+')</th><th>Previsto (Mês)</th><th>Realizado ('+ano+')</th><th title="(Previsto − Realizado) ÷ meses restantes">Saldo Mensal a Realizar</th></tr></thead><tbody>';
-  function cels(t,campoPrev){return '<td>'+paBRL(t.ant)+'</td><td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+paBRL(t.real)+'</td><td class="'+(t.saldoMes<0?'pa-neg':'')+'">'+paBRL(t.saldoMes)+'</td>';}
+  function cels(t,campoPrev,campoAnt,campoReal){return '<td>'+(campoAnt||paBRL(t.ant))+'</td><td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+(campoReal||paBRL(t.real))+'</td><td class="'+(t.saldoMes<0?'pa-neg':'')+'">'+paBRL(t.saldoMes)+'</td>';}
   function somaCentros(lista){var t={ant:0,prev:0,mes:0,real:0,saldoMes:0};lista.forEach(function(cc){var l=linha(cc);for(var k in t)t[k]+=l[k];});return t;}
   grupos.forEach(function(g){
     var c=g.conta,todosCC=[];g.subcontas.forEach(function(s){todosCC=todosCC.concat(s.centros);});
@@ -272,8 +283,10 @@ async function paOrcamentoAnual(){
       if(paEstado.sintetico)return;
       s.centros.forEach(function(cc){
         var l=linha(cc);
-        var campo=podeEd?'<input class="pa-in" inputmode="decimal" aria-label="Previsto '+paEsc(cc.nome)+'" value="'+paValorInput(l.prev)+'" data-orig="'+l.prev+'" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarPrevisto(this,'+cc.id+','+ano+')">':null;
-        html+='<tr class="cc'+(cc.ativo?'':' inativo')+'"><td>'+paEsc(cc.nome)+(cc.ativo?'':' <span class="pa-badge mut">inativo</span>')+'</td>'+cels(l,campo)+'</tr>';
+        var campo=podeEd?'<input class="pa-in" inputmode="decimal" title="Editar previsto '+ano+'" aria-label="Previsto '+paEsc(cc.nome)+'" value="'+paValorInput(l.prev)+'" data-orig="'+l.prev+'" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarPrevisto(this,'+cc.id+','+ano+')">':null;
+        var campoAnt=antEditavel?'<input class="pa-in" inputmode="decimal" title="Editar realizado '+(ano-1)+'" aria-label="Realizado ano anterior '+paEsc(cc.nome)+'" value="'+paValorInput(l.ant)+'" data-orig="'+l.ant+'" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarAnoAnterior(this,'+cc.id+','+(ano-1)+')">':null;
+        var campoReal='<a class="pa-link" title="Abrir lançamentos mensais de '+ano+'" onclick="paEstado.mes=null;navigatePlanejamento(\'realizado\');return false;" href="#">'+paBRL(l.real)+'</a>';
+        html+='<tr class="cc'+(cc.ativo?'':' inativo')+'"><td>'+paEsc(cc.nome)+(cc.ativo?'':' <span class="pa-badge mut">inativo</span>')+'</td>'+cels(l,campo,campoAnt,campoReal)+'</tr>';
       });
     });
   });
@@ -287,6 +300,80 @@ async function paOrcamentoAnual(){
 }
 function paKpiValores(txt){return paEsc(txt).replace(/-?R\$[\s\u00a0]?[\d.,]+/g,function(m){return '<span style="white-space:nowrap">'+m+'</span>';});}
 function paKpi(t,v,s,cor){return '<div class="pa-kpi" style="border-top:3px solid '+cor+'"><div class="t">'+paEsc(t)+'</div><div class="v">'+paKpiValores(v)+'</div><div class="s">'+paKpiValores(s)+'</div></div>';}
+
+async function paSalvarAnoAnterior(inp, ccId, anoAnt){
+  if(!paPodeEditar())return;
+  var v=paNum(paParseValor(inp.value));
+  if(v===paNum(inp.dataset.orig)){inp.value=paValorInput(v);return;}
+  inp.className='pa-in salvando';
+  try{
+    await paUpsert('cda_pa_realizado_anual_legado','ano,centro_custo_id',[{ano:anoAnt,centro_custo_id:ccId,valor_realizado:v}]);
+    inp.dataset.orig=v;inp.className='pa-in ok';
+    setTimeout(function(){navigatePlanejamento('orcamento');},350);
+  }catch(e){inp.className='pa-in err';paErro(e,'Não foi possível salvar o realizado do ano anterior');}
+}
+
+// ─── Importação anual (layout do Manus): A Tipo | B Subconta | C Centro | D Realizado ano anterior | E Previsto
+var paImpAnual=null;
+function paAbrirImportacaoAnual(){
+  if(!paPodeEditar())return;
+  paImpAnual=null;
+  var ano=paEstado.ano,antMensal=!!paEstado._anoAntMensal;
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">⬆ Importar Orçamento Anual (Excel)</div>'+
+    '<p class="pa-info" style="margin:6px 0 14px">Layout (linha 1 = cabeçalho): <b>A</b> Tipo · <b>B</b> Subconta · <b>C</b> Centro de Custo · <b>D</b> Realizado '+(ano-1)+' · <b>E</b> Previsto '+ano+'. Os centros são localizados pelo nome (ou pelos apelidos da Tabela Contábil). Linhas não encontradas são listadas e <b>não</b> são gravadas.</p>'+
+    '<div class="pa-filtros"><label>Exercício<input value="'+ano+'" disabled style="width:90px"></label><label>Arquivo<input type="file" id="pa-ia-arq" accept=".xls,.xlsx"></label></div>'+
+    '<div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;margin-bottom:6px">'+
+      '<label style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="pa-ia-prev" checked> Gravar Previsto '+ano+' (coluna E)</label>'+
+      '<label style="display:flex;gap:6px;align-items:center'+(antMensal?';opacity:.5':'')+'"><input type="checkbox" id="pa-ia-ant" '+(antMensal?'disabled':'checked')+'> Gravar Realizado '+(ano-1)+' (coluna D)'+(antMensal?' — '+(ano-1)+' já tem lançamentos mensais':'')+'</label></div>'+
+    '<div id="pa-ia-res" aria-live="polite"></div>'+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-ghost" onclick="paImpAnualPrevia()">🔍 Pré-visualizar</button><button class="btn btn-primary" id="pa-ia-ok" disabled onclick="paImpAnualConfirmar()">Gravar</button></div></div>');
+}
+async function paImpAnualPrevia(){
+  var arq=document.getElementById('pa-ia-arq').files[0],res=document.getElementById('pa-ia-res');
+  document.getElementById('pa-ia-ok').disabled=true;
+  if(!arq){showToast('Escolha o arquivo Excel','info');return;}
+  res.innerHTML='<div class="card">Lendo planilha…</div>';
+  try{
+    var r=await Promise.all([paCarregarHierarquia(),sb.get('cda_pa_alias_importacao','select=alias,centro_custo_id')]);
+    var h=r[0],alias={};r[1].forEach(function(a){alias[paNorm(a.alias)]=a.centro_custo_id;});
+    var porNome={};h.centros.forEach(function(c){var k=paNorm(c.nome);if(!porNome[k])porNome[k]=c;});
+    var buf=await arq.arrayBuffer(),wb=XLSX.read(new Uint8Array(buf),{type:'array'});
+    var raw=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:''});
+    var linhas=[];
+    for(var i=1;i<raw.length;i++){
+      var row=raw[i]||[],nome=String(row[2]==null?'':row[2]).trim();
+      if(!nome||['total','totais'].indexOf(paNorm(nome))>=0)continue;
+      var tipoPl=paNorm(row[0]),cc=alias[paNorm(nome)]?h.centros.find(function(c){return c.id===alias[paNorm(nome)];}):porNome[paNorm(nome)];
+      var st='ok';
+      if(!cc)st='nao_encontrado';
+      else if(tipoPl&&((tipoPl.indexOf('receita')>=0&&cc.conta.tipo!=='RECEITAS')||(tipoPl.indexOf('despesa')>=0&&cc.conta.tipo!=='DESPESAS')))st='tipo_diferente';
+      linhas.push({linha:i+1,tipo:String(row[0]||''),sub:String(row[1]||''),nome:nome,ant:paNum(paParseValor(row[3])),prev:paNum(paParseValor(row[4])),cc:cc,status:st});
+    }
+    // centros repetidos: soma
+    var ok=linhas.filter(function(l){return l.status==='ok';}),ruins=linhas.filter(function(l){return l.status!=='ok';});
+    var agreg={};ok.forEach(function(l){var a=agreg[l.cc.id]||(agreg[l.cc.id]={cc:l.cc,ant:0,prev:0});a.ant+=l.ant;a.prev+=l.prev;});
+    paImpAnual={ano:paEstado.ano,itens:Object.keys(agreg).map(function(k){return agreg[k];})};
+    var sPrev=paImpAnual.itens.reduce(function(a,x){return a+x.prev;},0),sAnt=paImpAnual.itens.reduce(function(a,x){return a+x.ant;},0);
+    var badge=function(st){return st==='ok'?'<span class="pa-badge ok">ok</span>':st==='tipo_diferente'?'<span class="pa-badge err">tipo diferente</span>':'<span class="pa-badge err">não encontrado</span>';};
+    res.innerHTML='<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;margin:6px 0"><span>Linhas: <b>'+linhas.length+'</b></span><span>Centros a gravar: <b>'+paImpAnual.itens.length+'</b></span><span>Previsto: <b>'+paBRL(sPrev)+'</b></span><span>Realizado '+(paEstado.ano-1)+': <b>'+paBRL(sAnt)+'</b></span>'+(ruins.length?'<span class="pa-neg">Ignoradas: <b>'+ruins.length+'</b></span>':'')+'</div>'+
+      (ruins.length?'<div class="pa-neg" style="font-size:12.5px;margin:4px 0 8px">Não serão gravadas: '+ruins.map(function(l){return paEsc(l.nome);}).join(' · ')+'<br><span class="pa-mut">Cadastre o centro ou crie um apelido na Tabela Contábil, se quiser incluí-las.</span></div>':'')+
+      '<div class="pa-prev"><table class="pa-tbl"><thead><tr><th>Linha</th><th style="text-align:left">Centro na planilha</th><th>Realizado '+(paEstado.ano-1)+'</th><th>Previsto '+paEstado.ano+'</th><th>Status</th></tr></thead><tbody>'+
+      linhas.map(function(l){return '<tr><td>'+l.linha+'</td><td style="text-align:left;font-family:var(--ff-b)">'+paEsc(l.nome)+'</td><td>'+paBRL(l.ant)+'</td><td>'+paBRL(l.prev)+'</td><td>'+badge(l.status)+'</td></tr>';}).join('')+'</tbody></table></div>';
+    document.getElementById('pa-ia-ok').disabled=!paImpAnual.itens.length;
+  }catch(e){res.innerHTML='<div class="card">Não foi possível ler a planilha.</div>';paErro(e,'Falha na pré-visualização');}
+}
+async function paImpAnualConfirmar(){
+  if(!paImpAnual||!paPodeEditar())return;
+  var gPrev=document.getElementById('pa-ia-prev').checked,gAnt=document.getElementById('pa-ia-ant').checked&&!paEstado._anoAntMensal;
+  if(!gPrev&&!gAnt){showToast('Marque o que deseja gravar','info');return;}
+  var btn=document.getElementById('pa-ia-ok');btn.disabled=true;btn.textContent='Gravando…';
+  try{
+    if(gPrev)await paUpsert('cda_pa_orcamento_previsto','ano,centro_custo_id',paImpAnual.itens.map(function(x){return {ano:paImpAnual.ano,centro_custo_id:x.cc.id,valor_previsto:paNum(x.prev)};}));
+    if(gAnt)await paUpsert('cda_pa_realizado_anual_legado','ano,centro_custo_id',paImpAnual.itens.map(function(x){return {ano:paImpAnual.ano-1,centro_custo_id:x.cc.id,valor_realizado:paNum(x.ant)};}));
+    closeModal();showToast('Importação concluída — '+paImpAnual.itens.length+' centros'+(gPrev?' · Previsto '+paImpAnual.ano:'')+(gAnt?' · Realizado '+(paImpAnual.ano-1):''),'success');
+    navigatePlanejamento('orcamento');
+  }catch(e){btn.disabled=false;btn.textContent='Gravar';paErro(e,'Falha ao gravar a importação');}
+}
 
 async function paSalvarPrevisto(inp, ccId, ano){
   if(!paPodeEditar())return;
