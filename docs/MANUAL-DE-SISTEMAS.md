@@ -35,9 +35,13 @@
 
 1. **Nunca alterar sem entender o estado atual** — sempre `view`/`grep` o
    arquivo antes de editar, mesmo que a memória "lembre" do conteúdo.
-2. **Backup antes de qualquer alteração** — copiar o(s) arquivo(s) para
-   `backups/` (nome com timestamp) e comitar isso *antes* de aplicar a
-   mudança de verdade.
+2. **Backup antes de qualquer alteração** — o backup dos arquivos é o
+   **histórico do Git**: confirmar que o estado atual está comitado antes de
+   alterar, e fazer cada mudança em commit próprio (qualquer versão é
+   recuperável com `git show <commit>:<arquivo>`). A pasta `backups/` foi
+   extinta em 22/10/2026 (duplicava o Git e ia junto para o site publicado).
+   Para **dados** do banco, tabela de backup temporária antes de correções
+   em massa, apagada após a validação.
 3. **Nunca alterar schema sem checar impacto no frontend, nem construir
    frontend sem checar o estado do backend primeiro.**
 4. **Diff pós-deploy** — depois do push, buscar o arquivo cru do GitHub
