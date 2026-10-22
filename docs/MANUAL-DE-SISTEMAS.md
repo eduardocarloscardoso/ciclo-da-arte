@@ -271,10 +271,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   `cdaMktHeadersFuncao()`). Código-fonte versionado em `docs/edge-functions/`.
 - Funções do GitHub (`deploy-github`, `read-github`, `patch-github`,
   `github-listar-arquivos`) são protegidas por `x-deploy-secret`.
-- **Pendente**: funções avulsas de importação/teste do Meta
-  (`test-meta-token`, `import-meta-recentes`, `import-meta-completo`,
-  `backfill-meta-mensal`, `backfill-tipo-orcamento`) ainda aceitam chamadas
-  sem login.
+- Funções avulsas de importação/teste do Meta (`test-meta-token`,
+  `import-meta-recentes`, `import-meta-completo`, `backfill-meta-mensal`,
+  `backfill-tipo-orcamento`) foram **desativadas** em 22/10/2026: código
+  antigo apagado, respondem 410 a qualquer chamada. Podem ser excluídas de
+  vez no painel do Supabase (Edge Functions).
 
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
