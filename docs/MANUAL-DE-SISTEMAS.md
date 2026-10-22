@@ -243,5 +243,31 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
+## 10. Segurança do banco e das Edge Functions — out/2026
+
+- **RLS em todas as tabelas do schema `public`** (22/10/2026: 0 tabelas sem
+  RLS). Tabelas de Marketing/Comercial (`cda_marketing_*`, `cda_campanhas`,
+  `cda_tarefas`, `cda_historico_interacoes`, `cda_status_crm`,
+  `cda_parametros_segmentacao`, `cda_tutorial_comentarios`): política
+  `membros_equipe` (qualquer e-mail cadastrado em `equipe`, logado). Tabelas
+  de permissão (`cda_permissoes_catalogo`, `cda_equipe_permissoes`): leitura
+  para membros, gravação só admin. Funções auxiliares:
+  `cda_e_membro_equipe()`, `cda_e_admin_equipe()`.
+- **Backups antigos** (22 tabelas `*_backup_*` de jul–ago/2026) foram movidos
+  para o schema `arquivo`, que não é exposto pela API. Dados preservados;
+  remover com `drop schema arquivo cascade;` quando não forem mais úteis.
+- **Edge Functions chamadas pelo sistema** (`sync-meta-ads`,
+  `diagnostico-marketing`, `simular-marketing`, `exportar-excel`,
+  `gerar-modelo-mensagem`): exigem o token de sessão de um membro da
+  `equipe` (função `exigirMembroEquipe`); a chave pública não basta. O
+  frontend envia `sb.headers.Authorization` (Marketing usa
+  `cdaMktHeadersFuncao()`). Código-fonte versionado em `docs/edge-functions/`.
+- Funções do GitHub (`deploy-github`, `read-github`, `patch-github`,
+  `github-listar-arquivos`) são protegidas por `x-deploy-secret`.
+- **Pendente**: funções avulsas de importação/teste do Meta
+  (`test-meta-token`, `import-meta-recentes`, `import-meta-completo`,
+  `backfill-meta-mensal`, `backfill-tipo-orcamento`) ainda aceitam chamadas
+  sem login.
+
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
