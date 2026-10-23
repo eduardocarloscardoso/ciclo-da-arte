@@ -290,6 +290,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   teto de fixos para o lucro desejado. Status: OK ≤ meta · Atenção até +2 p.p.
   · Crítico acima. Metas 2026 (Cardoso): Pessoal mercado 18 / meta 15;
   Administrativas 10/10; Marketing 7,5/7,5; Financeiras 5/5.
+  Abertura por **centro de custo** (23/10/2026): % do ano anterior (histórico
+  próprio), Var. p.p. (tooltip com variação em R$ no ritmo anual), Mercado R$ e
+  Meta R$ (= % × Receita Prevista), **Previsto − Meta** (quanto cortar do
+  orçado) e meta/mercado opcionais por centro (chave `cc:<id>`). Status do
+  centro: com meta → OK / Atenção (+2 p.p.) / Fora de controle; sem meta → vs
+  ano anterior: +0,5 p.p. Atenção, +1 p.p. Fora de controle. Botão "Só fora de
+  controle". Linha de info mostra Ocupação (aluguel+condomínio+IPTU+energia)
+  vs mercado 6–10%.
 - **Natureza das despesas** (`natureza` em subconta e centro; SQL
   `planejamento_anual_04_estrutura_custos.sql`): variável · fixa · financeira.
   Subconta = padrão, centro = exceção (null herda). Pré-classificação:
