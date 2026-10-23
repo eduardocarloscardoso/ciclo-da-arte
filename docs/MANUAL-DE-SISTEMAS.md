@@ -273,6 +273,18 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
+## 11. Memória da última tela — out/2026
+
+`cda-memoria-tela.js` (carregado no fim do `index.html`, depois do script
+principal) envolve as funções de navegação (`openProject`, `navigateCRM`,
+`navigateMkt`, `navigate`, `navigateOrcamento`, `navigatePlanejamento`) e grava
+no `localStorage` do navegador, por e-mail do usuário, a última tela aberta.
+`initApp()` (agora disparado em `DOMContentLoaded`) chama `cdaRestaurarTela()`
+após restaurar a sessão: F5 / Ctrl+Shift+R volta ao mesmo módulo/submódulo.
+No Planejamento Anual também restaura os filtros (`paEstado`). Respeita as
+permissões atuais (não reabre tela de admin para quem deixou de ser admin).
+Ao criar uma nova função de navegação no hub, incluí-la em `FUNCOES`.
+
 ## 10. Segurança do banco e das Edge Functions — out/2026
 
 - **RLS em todas as tabelas do schema `public`** (22/10/2026: 0 tabelas sem

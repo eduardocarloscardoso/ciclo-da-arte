@@ -518,6 +518,7 @@ async function initApp(){
         setDate();await setupProjectSidebar();
         document.getElementById('page-title').textContent='Selecione um módulo';
         document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
+        if(typeof cdaRestaurarTela==='function'){await cdaRestaurarTela();} // volta para a última tela aberta (cda-memoria-tela.js)
       }
     }
   }catch(e){/* sem sessão válida — mantém tela de login */}
@@ -1880,7 +1881,9 @@ el.innerHTML='<div class="ph"><h1>Configurações</h1></div>'
 document.getElementById('inp-pass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 document.getElementById('inp-user').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('inp-pass').focus();});
 setDate();
-initApp();
+// initApp roda após todos os scripts (inclusive cda-memoria-tela.js) estarem carregados
+if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initApp);}else{initApp();}
 </script>
+<script src="cda-memoria-tela.js?v=20261023"></script>
 </body>
 </html>
