@@ -453,12 +453,12 @@ function paAbrirImportacao(){
   paImport=null;
   var mesOpts=PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('');
   openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">⬆ Importar Realizado do Mês (Excel)</div>'+
-    '<p class="pa-info" style="margin:6px 0 14px">A planilha <b>substitui o mês inteiro</b> da conta (Receitas ou Despesas). Abas com "Receita" ou "Despesa" no nome são reconhecidas automaticamente. Formatos aceitos: <b>Centro de Custo | Valor</b> ou <b>Vendedor … Total Venda</b>. Se algum centro não for encontrado, <b>nada é gravado</b>.</p>'+
+    '<p class="pa-info" style="margin:6px 0 14px">Cada aba <b>substitui o mês inteiro</b> da sua conta (Receitas ou Despesas) e é importada separadamente. Abas com "Receita" ou "Despesa" no nome são reconhecidas automaticamente. Formatos aceitos: <b>Centro de Custo | Valor</b> ou <b>Vendedor … Total Venda</b>. Se algum centro não for encontrado, <b>nada é gravado</b>.</p>'+
     '<div class="pa-filtros"><label>Ano<input type="number" id="pa-imp-ano" value="'+paEstado.ano+'" style="width:100px"></label><label>Mês<select id="pa-imp-mes">'+mesOpts+'</select></label>'+
     '<label>Tipo (se a aba não indicar)<select id="pa-imp-tipo"><option value="">Pela aba</option><option value="RECEITAS">Receitas</option><option value="DESPESAS">Despesas</option></select></label>'+
     '<label>Arquivo<input type="file" id="pa-imp-arq" accept=".xls,.xlsx"></label></div>'+
     '<div id="pa-imp-res" aria-live="polite"></div>'+
-    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-ghost" onclick="paImportarPrevia()">🔍 Pré-visualizar</button><button class="btn btn-primary" id="pa-imp-ok" disabled onclick="paImportarConfirmar()">Importar / Substituir mês</button></div></div>');
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal();if(paImport&&paImport.blocos.some(function(x){return x.importado;}))navigatePlanejamento(\'realizado\')">Fechar</button><button class="btn btn-primary" onclick="paImportarPrevia()">🔍 Pré-visualizar</button></div></div>');
 }
 function paLerPlanilha(arquivo, tipoForcado){
   return new Promise(function(resolve,reject){
@@ -490,48 +490,51 @@ function paLerPlanilha(arquivo, tipoForcado){
 }
 async function paImportarPrevia(){
   var arq=document.getElementById('pa-imp-arq').files[0];
-  var res=document.getElementById('pa-imp-res');document.getElementById('pa-imp-ok').disabled=true;
+  var res=document.getElementById('pa-imp-res');
   if(!arq){showToast('Escolha o arquivo Excel','info');return;}
   var ano=+document.getElementById('pa-imp-ano').value,mes=+document.getElementById('pa-imp-mes').value,tipoF=document.getElementById('pa-imp-tipo').value;
   res.innerHTML='<div class="card">Lendo planilha…</div>';
   try{
     var blocos=await paLerPlanilha(arq,tipoF);
     if(!blocos.length){res.innerHTML='<div class="card">Nenhuma aba de <b>Receita</b> ou <b>Despesa</b> encontrada. Renomeie a aba ou escolha o tipo.</div>';return;}
-    var html='',ok=true;
+    var resumo=[],corpo='';
     for(var i=0;i<blocos.length;i++){
-      var b=blocos[i];
+      var b=blocos[i],nomeT=b.tipo==='RECEITAS'?'Receitas':'Despesas';
       var r=await paRpc('cda_pa_importar_mes',{p_ano:ano,p_mes:mes,p_tipo:b.tipo,p_linhas:b.linhas,p_layout_vendedor:b.vendedor,p_simular:true});
       b.resultado=r;
       var ne=r.nao_encontrados||[],ot=r.de_outro_tipo||[];
-      if(ne.length||ot.length)ok=false;
-      html+='<div class="card" style="margin-top:10px"><div class="card-title">'+(b.tipo==='RECEITAS'?'🟢 Receitas':'🔴 Despesas')+' — aba(s): '+paEsc(b.abas.join(', '))+(b.vendedor?' · layout Vendedor':'')+'</div>'+
-        '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;margin-bottom:6px"><span>Linhas: <b>'+r.linhas+'</b></span><span>Subtotais ignorados: <b>'+r.subtotais_ignorados+'</b></span><span>Total a gravar: <b>'+paBRL(r.total_valor)+'</b></span></div>'+
+      b.ok=!ne.length&&!ot.length;
+      var motivo=[];if(ne.length)motivo.push(ne.length+' centro(s) não encontrado(s)');if(ot.length)motivo.push(ot.length+' centro(s) de '+(b.tipo==='RECEITAS'?'Despesas':'Receitas')+' nesta aba');
+      resumo.push(b.ok?'<div class="pa-pos">✓ <b>'+nomeT+'</b> pronta para importar — '+paBRL(r.total_valor)+'</div>':'<div class="pa-neg">⛔ <b>'+nomeT+'</b> bloqueada: '+motivo.join(' e ')+'. Veja abaixo.</div>');
+      var outros={};ot.forEach(function(n){outros[n]=1;});
+      corpo+='<div class="card" style="margin-top:10px;'+(b.ok?'':'border-color:rgba(232,51,74,.45)')+'"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="card-title" style="margin:0">'+(b.tipo==='RECEITAS'?'🟢 Receitas':'🔴 Despesas')+' — aba(s): '+paEsc(b.abas.join(', '))+(b.vendedor?' · layout Vendedor':'')+'</div>'+
+        '<button class="btn btn-primary btn-sm" style="margin-left:auto" id="pa-imp-btn-'+i+'" '+(b.ok?'':'disabled title="Corrija os itens em vermelho e pré-visualize de novo"')+' onclick="paImportarConfirmar('+i+')">⬆ Importar '+nomeT+' ('+PA_MESES[mes-1]+')</button></div>'+
+        '<div style="display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;margin:8px 0 6px"><span>Linhas: <b>'+r.linhas+'</b></span><span>Subtotais ignorados: <b>'+r.subtotais_ignorados+'</b></span><span>Total a gravar: <b>'+paBRL(r.total_valor)+'</b></span></div>'+
         (ne.length?'<div class="pa-neg" style="font-size:12.5px;margin:6px 0">❌ Centros não encontrados ('+ne.length+'): '+ne.map(paEsc).join(' · ')+'<br><span class="pa-mut">Cadastre-os na Tabela Contábil ou crie um apelido, e pré-visualize de novo.</span></div>':'')+
-        (ot.length?'<div class="pa-neg" style="font-size:12.5px;margin:6px 0">❌ Centros de outro tipo nesta aba: '+ot.map(paEsc).join(' · ')+'</div>':'')+
+        (ot.length?'<div class="pa-neg" style="font-size:12.5px;margin:6px 0">❌ Centros de '+(b.tipo==='RECEITAS'?'Despesas':'Receitas')+' nesta aba de '+nomeT+': '+ot.map(paEsc).join(' · ')+'<br><span class="pa-mut">Mova a linha para a aba certa ou corrija o nome/apelido.</span></div>':'')+
         '<div class="pa-prev"><table class="pa-tbl"><thead><tr><th>Linha</th><th style="text-align:left">Nome na planilha</th><th>Valor</th><th>Status</th></tr></thead><tbody>'+
-        (r.previa||[]).map(function(p){var st=p.status==='ok'?'<span class="pa-badge ok">ok</span>':p.status==='subtotal'?'<span class="pa-badge mut">subtotal</span>':'<span class="pa-badge err">não encontrado</span>';
+        (r.previa||[]).map(function(p){var st=p.status==='subtotal'?'<span class="pa-badge mut">subtotal</span>':p.status!=='ok'?'<span class="pa-badge err">não encontrado</span>':outros[p.nome]?'<span class="pa-badge err">outro tipo</span>':'<span class="pa-badge ok">ok</span>';
           return '<tr><td>'+p.linha+'</td><td style="text-align:left;font-family:var(--ff-b)">'+paEsc(p.nome)+'</td><td>'+paBRL(p.valor)+'</td><td>'+st+'</td></tr>';}).join('')+
         '</tbody></table></div></div>';
     }
     paImport={ano:ano,mes:mes,blocos:blocos};
-    res.innerHTML=html+(ok?'<p class="pa-pos" style="margin-top:10px;font-size:13px">✓ Tudo pronto. Ao confirmar, '+PA_MESES[mes-1]+'/'+ano+' de '+blocos.map(function(b){return b.tipo==='RECEITAS'?'Receitas':'Despesas';}).join(' e ')+' será substituído.</p>':'');
-    document.getElementById('pa-imp-ok').disabled=!ok;
+    res.innerHTML='<div class="card" style="font-size:13px;line-height:1.7">'+resumo.join('')+'<div class="pa-mut" style="font-size:12px;margin-top:4px">Cada aba é importada separadamente e substitui '+PA_MESES[mes-1]+'/'+ano+' somente daquela conta.</div></div>'+corpo;
   }catch(e){res.innerHTML='<div class="card">Não foi possível ler/validar a planilha.</div>';paErro(e,'Falha na pré-visualização');}
 }
-async function paImportarConfirmar(){
+async function paImportarConfirmar(i){
   if(!paImport||!paPodeEditar())return;
-  var btn=document.getElementById('pa-imp-ok');btn.disabled=true;btn.textContent='Importando…';
-  var msgs=[];
+  var b=paImport.blocos[i];if(!b||!b.ok)return;
+  var nomeT=b.tipo==='RECEITAS'?'Receitas':'Despesas';
+  var btn=document.getElementById('pa-imp-btn-'+i);btn.disabled=true;btn.textContent='Importando…';
   try{
-    for(var i=0;i<paImport.blocos.length;i++){
-      var b=paImport.blocos[i];
-      var r=await paRpc('cda_pa_importar_mes',{p_ano:paImport.ano,p_mes:paImport.mes,p_tipo:b.tipo,p_linhas:b.linhas,p_layout_vendedor:b.vendedor,p_simular:false});
-      if(!r.gravado)throw new Error('Validação falhou em '+b.tipo);
-      msgs.push((b.tipo==='RECEITAS'?'Receitas':'Despesas')+': '+r.gravados+' centros gravados ('+r.removidos+' substituídos)');
-    }
-    closeModal();showToast('Importação concluída — '+msgs.join(' · '),'success');
-    paEstado.ano=paImport.ano;paEstado.mes=paImport.mes;navigatePlanejamento('realizado');
-  }catch(e){btn.disabled=false;btn.textContent='Importar / Substituir mês';paErro(e,'Falha na importação'+(msgs.length?' (já gravado: '+msgs.join('; ')+')':''));}
+    var r=await paRpc('cda_pa_importar_mes',{p_ano:paImport.ano,p_mes:paImport.mes,p_tipo:b.tipo,p_linhas:b.linhas,p_layout_vendedor:b.vendedor,p_simular:false});
+    if(!r.gravado)throw new Error('Validação falhou em '+nomeT+' — pré-visualize de novo');
+    b.importado=true;btn.textContent='✓ '+nomeT+' importada';btn.className='btn btn-ghost btn-sm';
+    showToast(nomeT+' de '+PA_MESES[paImport.mes-1]+'/'+paImport.ano+': '+r.gravados+' centros gravados ('+r.removidos+' lançamentos anteriores substituídos)','success');
+    paEstado.ano=paImport.ano;paEstado.mes=paImport.mes;
+    var pend=paImport.blocos.filter(function(x){return x.ok&&!x.importado;}).length;
+    if(!pend){setTimeout(function(){closeModal();navigatePlanejamento('realizado');},900);}
+  }catch(e){btn.disabled=false;btn.textContent='⬆ Importar '+nomeT;paErro(e,'Falha na importação de '+nomeT);}
 }
 
 // ─── Limpeza de período (somente admin) ─────────────────────────────
