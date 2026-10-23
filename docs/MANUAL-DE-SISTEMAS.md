@@ -304,7 +304,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Produção Varejo/Atacado, Montagem Coleções, Comerciais e Shows Grande Porte
   variáveis; demais fixas; "Financeiras - Bancos/Empréstimos" (Comerciais) e
   "Financeiras - Tarifas" (Administrativas) financeiras; "Market Place -
-  Repasse" (Marketing) variável. Editável na Tabela Contábil.
+  Repasse" e "Anúncios - Propaganda e publicidade" (Marketing) variáveis
+  (Anúncios: decisão do Cardoso, 23/10/2026). Editável na Tabela Contábil.
 - **Valor vigente (reprevisão)** (23/10/2026, `cda_pa_valor_vigente`, SQL
   `planejamento_anual_05_vigente_vinculos.sql`): coluna **Vigente** na Tabela
   Contábil, por centro, com histórico (início mês/ano, valor, motivo, quem).
