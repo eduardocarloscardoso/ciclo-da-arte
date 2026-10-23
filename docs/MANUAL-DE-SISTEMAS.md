@@ -314,6 +314,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mês atual; registros futuros aparecem como "futuro". Sem cadastro = média dos
   últimos 3 meses. O Orçado nunca é alterado. Carga: Terceiros – Gerencial
   R$ 6.500/mês desde out/2026 (negociação interna).
+- **Margem por Canal** (Análises Estratégicas, 23/10/2026): para cada canal
+  (subconta de receita ativa) — receita prevista e margem prevista %, receita
+  realizada, custos variáveis rateados, margem R$ e %, Var. p.p., participação
+  na margem total, **meta de margem %** editável (`cda_pa_meta_estrutura`,
+  chave `canal:<id>`) e status (OK ≥ meta · Atenção até 5 p.p. abaixo · Fora
+  de controle; sem meta só acusa margem negativa). Rateio: vínculo do centro >
+  vínculo da subconta > todos os canais; % informados ou proporcional à receita
+  do canal no período. Rodapé: Margem total − Fixos e financeiros = Resultado
+  (confere com Receitas − Despesas). Analítico abre as despesas de cada canal.
+  Anúncios: vigente corrigido para 40,85% da receita do **E-commerce** (canal
+  vinculado), ≈ R$ 7.000/mês.
 - **Estrutura de Custos com Vigente** (23/10/2026): colunas Previsto e
   Realizado (R$ · % rec.), Var. p.p. vs ano anterior (tooltip com % e R$),
   **Vigente / mês** (cadastrado ou média dos últimos 3 meses *com lançamento*),
