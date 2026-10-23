@@ -825,25 +825,26 @@ async function paComparativoMensal(){
   var mes=paEstado.mesComp,total=mes===0,futuro=!total&&mes>d.maxMes;
   var mesesReal=d.ultimo||0;
   var sel='<label>Mês<select onchange="paEstado.mesComp=+this.value;navigatePlanejamento(\'comparativo\')"><option value="0" '+(total?'selected':'')+'>Total Meses (jan–'+(mesesReal?PA_MESES_AB[mesesReal-1].toLowerCase():'—')+')</option>'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-  var html=paFiltroHTML(d.h,{anos:d.anos}).replace('<label>Conta',sel+'<label>Conta');
-  html+=paInfoUltimo(d,ano,total?'Previsto acumulado = Previsto Mês × '+mesesReal+' meses realizados':'Variação = Realizado do mês − Previsto Mês'+(futuro?' · <b>mês sem lançamentos</b>':''));
+  var mesRef=total?mesesReal:mes,restRef=Math.max(12-mesRef,0);
+  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'comparativo'+'\')">ℹ️ Tutorial Informativo</button>'}).replace('<label>Conta',sel+'<label>Conta');
+  html+=paInfoUltimo(d,ano,(total?'Previsto acumulado = Previsto Mês × '+mesesReal+' meses realizados':'Variação = Realizado do mês − Previsto Mês'+(futuro?' · <b>mês sem lançamentos</b>':''))+' · Saldo Mensal a Real. = (Previsto Ano − Total Realizado) ÷ <b>'+restRef+'</b> meses restantes após '+(mesRef?PA_MESES[mesRef-1]:'—'));
   function linha(cc){
     var p=d.prev[cc.id]||0,pm,rm,acum;
     if(total){pm=p/12*mesesReal;rm=paRealAte(d,cc.id,12);acum=rm;}
     else{pm=futuro?0:p/12;rm=futuro?0:((d.mes[cc.id]||{})[mes]||0);acum=paRealAte(d,cc.id,Math.min(mes,d.maxMes));}
-    var pv=d.prov[cc.id]||0,sal=p-acum-pv,vr=rm-pm;
-    return {prev:p,pm:pm,rm:rm,vr:vr,prov:pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};
+    var pv=d.prov[cc.id]||0,totReal=acum+pv,vr=rm-pm,sal=p-totReal;
+    return {prev:p,pm:pm,rm:rm,vr:vr,prov:pv,totReal:totReal,saldoMes:restRef>0?sal/restRef:sal};
   }
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.pm;tot[g.conta.tipo].real+=l.rm;});});});
   html+=paKpisPrevReal(tot).replace(/Previsto R\$/g,(total?'Prev. acumulado':'Previsto mês')+' R$');
   html+=paTabelaHier(d,{
-    cols:[{t:'Previsto Ano'},{t:total?'Total Prev. Meses':'Previsto Mês'},{t:'Realizado'},{t:'Variação R$'},{t:'Var %'},{t:'Status'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo Total a Real.'},{t:'Saldo Mensal a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
-    campos:['prev','pm','rm','vr','prov','saldo','saldoMes'],linha:linha,
+    cols:[{t:'Previsto Ano'},{t:total?'Total Prev. Meses':'Previsto Mês'},{t:'Realizado'},{t:'Variação R$'},{t:'Var %'},{t:'Status'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Total Realizado',title:'Realizado acumulado até '+(mesRef?PA_MESES[mesRef-1]:'—')+' + Provisão Prevista'},{t:'Saldo Mensal a Real.',title:'(Previsto Ano − Total Realizado) ÷ '+restRef+' meses restantes'}],
+    campos:['prev','pm','rm','vr','prov','totReal','saldoMes'],linha:linha,
     celulas:function(l,tipo,nivel){
       var pct=l.pm!==0?(l.vr/l.pm)*100:null,cor=paCorVar(l.vr,tipo);
       return paCelula(paBRL(l.prev))+paCelula(paBRL(l.pm),'var(--muted2)')+paCelula(paBRL(l.rm))+paCelula(l.vr?(l.vr>0?'+':'')+paBRL(l.vr):'—',cor,500)+paCelula(paPct(pct),cor,500)+
-        '<td style="text-align:center">'+paBadgeStatus(paStatusMensal(pct,l.vr,tipo))+'</td>'+paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paBRL(l.saldo))+paCelula(paBRL(l.saldoMes),'var(--muted2)');
+        '<td style="text-align:center">'+paBadgeStatus(paStatusMensal(pct,l.vr,tipo))+'</td>'+paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paBRL(l.totReal),'',600)+paCelula(paBRL(l.saldoMes),'var(--muted2)');
     }
   });
   html+='<p class="pa-info" style="margin-top:10px">Status: <b>OK</b> dentro de 10% · <b>Atenção</b> desvio desfavorável de 10% a 30% · <b>Crítico</b> acima de 30%. Receita abaixo do previsto e despesa acima do previsto são desfavoráveis.</p>';
@@ -856,7 +857,7 @@ async function paVisaoTrimestral(){
   if(!paEstado.trim)paEstado.trim=Math.min(4,Math.max(1,Math.ceil((d.ultimo||1)/3)));
   var t=paEstado.trim,meses=[t*3-2,t*3-1,t*3];
   var seg='<div class="pa-toggle" role="group" aria-label="Trimestre">'+[1,2,3,4].map(function(i){return '<button class="'+(i===t?'on':'')+'" onclick="paEstado.trim='+i+';navigatePlanejamento(\'trimestral\')">'+i+'ºT</button>';}).join('')+'</div>';
-  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:seg});
+  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:seg+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'trimestral'+'\')">ℹ️ Tutorial Informativo</button>'});
   html+=paInfoUltimo(d,ano,'Exibindo <b>'+PA_MESES[meses[0]-1]+' a '+PA_MESES[meses[2]-1]+'</b> · Total Real. e Saldo consideram o ano inteiro · Prev. Mês = Prev. Ano ÷ 12');
   function linha(cc){var p=d.prev[cc.id]||0,mm=d.mes[cc.id]||{},re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;
     return {prev:p,pm:p/12,m1:mm[meses[0]]||0,m2:mm[meses[1]]||0,m3:mm[meses[2]]||0,real:re,prov:pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
@@ -877,7 +878,7 @@ async function paVisaoTrimestral(){
 // ─── 7) VISÃO ANUAL ACUMULADA ────────────────────────────────────────
 async function paVisaoAnual(){
   var ano=paEstado.ano,d=await paDadosAno(ano);
-  var html=paFiltroHTML(d.h,{anos:d.anos});
+  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'anual'+'\')">ℹ️ Tutorial Informativo</button>'});
   html+=paInfoUltimo(d,ano,'% Executado = Total Realizado ÷ Previsto Anual');
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
@@ -907,7 +908,7 @@ async function paComparativoMetas(){
   var ano=paEstado.ano,d=await paDadosAno(ano);
   if(!paEstado.statusMeta)paEstado.statusMeta='Todos';
   var sel='<label>Status<select onchange="paEstado.statusMeta=this.value;navigatePlanejamento(\'metas\')">'+['Todos','OK','Sem Dados','Atenção','Crítico','Intervenção'].map(function(s){return '<option '+(s===paEstado.statusMeta?'selected':'')+'>'+s+'</option>';}).join('')+'</select></label>';
-  var html=paFiltroHTML(d.h,{anos:d.anos}).replace('<div class="pa-toggle"',sel+'<div class="pa-toggle"');
+  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'metas'+'\')">ℹ️ Tutorial Informativo</button>'}).replace('<div class="pa-toggle"',sel+'<div class="pa-toggle"');
   html+=paInfoUltimo(d,ano,'% Desvio = (Realizado − Previsto Mês × meses com lançamento) ÷ previsto acumulado · Projeção Mensal = Saldo ÷ meses sem lançamento');
   function linha(cc){
     var p=d.prev[cc.id]||0,pm=p/12,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;
@@ -968,4 +969,63 @@ function paTutorial(){
   '<h3>4. Cores e status</h3><ul><li><b>Receitas</b>: realizar abaixo do previsto é desfavorável (vermelho). <b>Despesas</b>: gastar acima do previsto é desfavorável (vermelho).</li><li>Comparativo Mensal: <b>OK</b> até 10% · <b>Atenção</b> 10–30% · <b>Crítico</b> acima de 30%.</li><li>Comparativo de Metas: <b>OK</b> favorável · <b>Atenção</b> até 10% · <b>Crítico</b> 10–20% · <b>Intervenção</b> acima de 20%.</li></ul>'+
   '<h3>5. Filtros</h3><p>Todas as telas têm <b>Ano</b>, <b>Conta</b>, <b>Subconta</b> e o modo <b>Analítico/Sintético</b> (Sintético mostra só os totais por subconta). Os painéis consideram apenas cadastros <b>ativos</b>.</p>'+
   '<h3>6. Acesso</h3><p>Liberado em <b>Credenciamento</b> marcando o projeto <b>Planejamento Anual</b>. Usuários "somente leitura" consultam sem editar. Exclusões e limpeza de período são exclusivas de administradores.</p></div>';
+}
+
+// ─── Tutorial Informativo (popup) dos painéis Previsto vs. Realizado ──
+var PA_TUT_COMUM=[
+ ['Ano','Exercício analisado. Os valores previstos e realizados são sempre deste ano.'],
+ ['Conta / Subconta','Filtram a tabela por Receitas/Despesas e por subconta. Totais e cartões respeitam o filtro.'],
+ ['Analítico / Sintético','Analítico mostra cada centro de custo; Sintético mostra só os totais por subconta e conta.'],
+ ['Cores','Receitas: abaixo do previsto é desfavorável (vermelho). Despesas: acima do previsto é desfavorável (vermelho). Provisão: roxo se positiva, vermelho se negativa.'],
+ ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
+];
+var PA_TUT={
+ comparativo:{t:'Comparativo Mensal',d:'Compara, centro a centro, o previsto e o realizado de um mês (ou do total de meses já realizados) e mostra quanto falta realizar por mês até o fim do ano.',c:[
+  ['Mês','Mês analisado. "Total Meses" soma de janeiro até o último mês com lançamentos.'],
+  ['Previsto Ano','Valor previsto para o ano inteiro no Orçamento Anual.'],
+  ['Previsto Mês / Total Prev. Meses','Previsto Ano ÷ 12. Em "Total Meses": (Previsto Ano ÷ 12) × meses já realizados.','Previsto Ano ÷ 12'],
+  ['Realizado','Valor lançado no mês escolhido. Em "Total Meses": soma de todos os meses realizados.'],
+  ['Variação R$','Diferença entre o realizado e o previsto do período.','Realizado − Previsto Mês'],
+  ['Var %','Variação em percentual do previsto do período.','(Realizado − Previsto Mês) ÷ Previsto Mês × 100'],
+  ['Status','Situação do desvio desfavorável: OK até 10% · Atenção de 10% a 30% · Crítico acima de 30%.'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
+  ['Total Realizado','Tudo o que já foi realizado no ano até o mês analisado, somado ao que está provisionado.','Realizado acumulado (jan até o mês) + Provisão Prevista'],
+  ['Saldo Mensal a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o mês analisado, para atingir o previsto do ano.','(Previsto Ano − Total Realizado) ÷ meses restantes (12 − mês analisado)']]},
+ trimestral:{t:'Visão Trimestral Acumulada',d:'Mostra os três meses do trimestre lado a lado, com os totais do ano inteiro.',c:[
+  ['1ºT a 4ºT','Escolhe o trimestre exibido (1ºT = jan–mar … 4ºT = out–dez). Abre no trimestre do último mês realizado.'],
+  ['Prev. Ano','Valor previsto para o ano inteiro.'],
+  ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
+  ['Meses do trimestre','Realizado lançado em cada mês do trimestre escolhido.'],
+  ['Total Real.','Soma de todos os meses realizados no ano (não só do trimestre).'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
+  ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto do ano, já descontada a provisão.','Previsto Ano − (Total Realizado + Provisão)'],
+  ['Saldo Mensal a Real.','Saldo total distribuído pelos meses que faltam no ano.','Saldo Total ÷ (12 − último mês realizado)']]},
+ anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta.',c:[
+  ['Prev. Anual','Valor previsto para o ano inteiro.'],
+  ['Total Real.','Soma de todos os meses realizados no ano.'],
+  ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Realizado ÷ Previsto Anual × 100'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
+  ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − (Total Realizado + Provisão)'],
+  ['Saldo Mensal a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
+ metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já lançados e projeta o fechamento do ano.',c:[
+  ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
+  ['Prev. Ano','Valor previsto para o ano inteiro.'],
+  ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
+  ['Real. Acum.','Soma de todos os meses realizados no ano.'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
+  ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − (Realizado Acum. + Provisão)'],
+  ['% Exec.','Quanto do previsto já está realizado ou provisionado.','(Realizado Acum. + Provisão) ÷ Previsto Ano × 100'],
+  ['% Desvio','Desvio do realizado contra o previsto proporcional aos meses com lançamento.','(Realizado Acum. − Prev. Mês × meses com lançamento) ÷ (Prev. Mês × meses com lançamento) × 100'],
+  ['Status','Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],
+  ['Proj. Mensal','Quanto realizar por mês nos meses ainda sem lançamento.','Saldo a Real. ÷ meses sem lançamento'],
+  ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Realizado Acum. + Proj. Mensal × meses sem lançamento']]}
+};
+function paTutorialInformativo(chave){
+  var t=PA_TUT[chave];if(!t)return;
+  function lista(itens){return '<table class="pa-tbl" style="margin-top:6px"><thead><tr><th style="text-align:left;min-width:150px">Campo</th><th style="text-align:left">Para que serve</th><th style="text-align:left">Fórmula</th></tr></thead><tbody>'+
+    itens.map(function(i){return '<tr><td style="font-weight:600">'+paEsc(i[0])+'</td><td style="text-align:left;white-space:normal;font-family:var(--ff-b);font-size:12.5px;color:var(--muted2)">'+paEsc(i[1])+'</td><td style="text-align:left;white-space:normal;font-size:11.5px;color:var(--gold2)">'+(i[2]?paEsc(i[2]):'—')+'</td></tr>';}).join('')+'</tbody></table>';}
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">ℹ️ Tutorial Informativo — '+paEsc(t.t)+'</div><p class="pa-info" style="margin:6px 0 10px">'+paEsc(t.d)+'</p>'+
+    '<div class="card-title" style="margin-top:6px">Colunas</div><div class="tbl-wrap">'+lista(t.c)+'</div>'+
+    '<div class="card-title" style="margin-top:16px">Filtros e convenções</div><div class="tbl-wrap">'+lista(PA_TUT_COMUM)+'</div>'+
+    '<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-primary" onclick="closeModal()">Entendi</button></div></div>');
 }

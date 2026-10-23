@@ -256,6 +256,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   provisão ≠ 0, e as subcontas/contas/totais que os contêm; demais em branco).
   O Saldo Mensal a Realizar saiu desta tela (segue
   nos painéis e na Provisão). Layout compacto (`.pa-compacta`).
+- **Comparativo Mensal** (23/10/2026, pedido do Cardoso): coluna **Total
+  Realizado** = Realizado acumulado (jan até o mês filtrado) + Provisão
+  Prevista (substitui "Saldo Total a Real."); **Saldo Mensal a Real.** =
+  (Previsto Ano − Total Realizado) ÷ (12 − mês filtrado); em "Total Meses" o
+  mês de referência é o último mês realizado.
+- **Tutorial Informativo**: botão ℹ️ na linha de filtros dos 4 painéis
+  Previsto vs. Realizado; popup explica cada coluna, finalidade e fórmula
+  (conteúdo em `PA_TUT` no módulo — atualizar junto com qualquer mudança de
+  cálculo).
 - **Status**: Comparativo Mensal OK ≤10% · Atenção 10–30% · Crítico >30%;
   Comparativo de Metas (desvio vs. Previsto Mês × meses com lançamento) OK
   favorável · Atenção ≤10% · Crítico ≤20% · Intervenção >20% · Sem Dados.
