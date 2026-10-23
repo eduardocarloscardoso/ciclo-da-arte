@@ -21,15 +21,16 @@ var PA_PAGES = {
   trimestral:  {icon:'📅', label:'Visão Trimestral Acumulada', grupo:'pxr'},
   anual:       {icon:'📈', label:'Visão Anual Acumulada', grupo:'pxr'},
   metas:       {icon:'🏁', label:'Comparativo de Metas', grupo:'pxr'},
+  estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
-var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}};
+var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}, ae:{icon:'🧭', label:'Análises Estratégicas'}};
 var PA_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Estado da tela (filtros persistem entre páginas do módulo)
 var paEstado = {
   page: 'tabela',
-  grupoAberto: {pxr:false},
+  grupoAberto: {pxr:false, ae:false},
   ano: new Date().getFullYear(),
   mes: null,               // definido pelo último mês realizado
   tipo: '',                // '' | RECEITAS | DESPESAS
@@ -123,6 +124,8 @@ function paErro(e, padrao){
     '.pa-neg{color:var(--red)}.pa-pos{color:var(--green)}.pa-mut{color:var(--muted)}',
     '.pa-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}',
     '.pa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--ff-b)}',
+    '.pa-sel-nat{background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;padding:3px 6px;font-family:var(--ff-b);max-width:170px}.pa-sel-nat option{color:var(--white)}',
+    '.pa-in-pct{width:72px!important;padding-right:18px!important}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
     '.pa-modal-wide{width:860px!important}',
     '.pa-prev{max-height:340px;overflow:auto;border:1px solid var(--border);border-radius:8px;margin:12px 0}',
@@ -181,6 +184,7 @@ async function navigatePlanejamento(page){
     else if(page==='trimestral')await paVisaoTrimestral();
     else if(page==='anual')await paVisaoAnual();
     else if(page==='metas')await paComparativoMetas();
+    else if(page==='estrutura')await paEstruturaCustos();
     else if(page==='tutorial')paTutorial();
   }catch(e){
     document.getElementById('pa-root').innerHTML='<div class="card">Não foi possível carregar os dados. Atualize a página e tente novamente.</div>';
@@ -586,18 +590,20 @@ async function paTabelaContabil(){
   var b=paNorm(paEstado.busca);
   var tot=h.centros.length,ativos=h.centros.filter(function(x){return x.ativo;}).length;
   html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · Edite o nome direto na linha':'')+'</div>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
-    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td></tr>';
+    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td></tr>';
     g.subcontas.forEach(function(s){
       var centros=s.centros.filter(function(x){return !b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0;});
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
+        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
       if(paEstado.sintetico)return;
       centros.forEach(function(x){
         html+='<tr class="cc'+(x.ativo?'':' inativo')+'"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(x.nome)+'" data-orig="'+paEsc(x.nome)+'" aria-label="Nome do centro de custo" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_centro_custo\','+x.id+')">':paEsc(x.nome))+'</td>'+
+          '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_centro_custo',x.id,x.natureza,s.natureza,podeEd):'')+'</td>'+
           '<td style="text-align:center">'+paBadgeAtivo(x.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_centro_custo',x.id,x.ativo,podeEd,adm)+'</td></tr>';
       });
     });
@@ -611,6 +617,22 @@ async function paTabelaContabil(){
     (aliases.length?aliases.map(function(a){var cc=h.centros.find(function(x){return x.id===a.centro_custo_id;});return '<tr class="cc"><td>'+paEsc(a.alias)+'</td><td style="text-align:left;font-family:var(--ff-b)">'+paEsc(cc?cc.subconta.nome+' › '+cc.nome:'—')+'</td><td style="text-align:center">'+(podeEd?'<button class="pa-btn-ico" title="Remover apelido" onclick="paRemoverAlias('+a.id+')">🗑</button>':'—')+'</td></tr>';}).join(''):'<tr><td colspan="3" class="pa-mut">Nenhum apelido cadastrado.</td></tr>')+
     '</tbody></table></div></div>';
   document.getElementById('pa-root').innerHTML=html;
+}
+// ─── Natureza das despesas (variável / fixa / financeira) ───────────
+var PA_NATUREZAS={variavel:'Variável',fixa:'Fixa',financeira:'Financeira'};
+function paNaturezaCentro(cc){return cc.natureza||(cc.subconta&&cc.subconta.natureza)||'fixa';}
+function paCampoNatureza(tabela,id,valor,herdada,podeEd){
+  var cor={variavel:'var(--blue)',fixa:'var(--gold2)',financeira:'var(--purple)'};
+  var efetiva=valor||herdada||'';
+  if(!podeEd)return efetiva?'<span style="color:'+cor[efetiva]+';font-size:11.5px">'+PA_NATUREZAS[efetiva]+(valor||!herdada?'':' (herda)')+'</span>':'—';
+  var ops=(herdada!==null?'<option value="">↳ herda: '+(PA_NATUREZAS[herdada]||'—')+'</option>':(valor?'':'<option value="">—</option>'))+
+    Object.keys(PA_NATUREZAS).map(function(k){return '<option value="'+k+'" '+(k===valor?'selected':'')+'>'+PA_NATUREZAS[k]+(herdada!==null?' (exceção)':'')+'</option>';}).join('');
+  return '<select class="pa-sel-nat" aria-label="Natureza" style="color:'+(cor[efetiva]||'inherit')+'" onchange="paSalvarNatureza(this,\''+tabela+'\','+id+')">'+ops+'</select>';
+}
+async function paSalvarNatureza(sel,tabela,id){
+  if(!paPodeEditar())return;
+  try{await sb.patch(tabela,id,{natureza:sel.value||null});paCache.hier=null;showToast('Natureza atualizada','success');navigatePlanejamento('tabela');}
+  catch(e){showToast(paErro(e,'Não foi possível salvar a natureza.'),'error');}
 }
 function paBadgeAtivo(a){return a?'<span class="pa-badge ok">ativo</span>':'<span class="pa-badge mut">inativo</span>';}
 function paAcoesLinha(tabela,id,ativo,podeEd,adm){
@@ -980,13 +1002,97 @@ async function paComparativoMetas(){
   document.getElementById('pa-root').innerHTML=html;
 }
 
+// ─── 10) ANÁLISES ESTRATÉGICAS · ESTRUTURA DE CUSTOS FIXOS ───────────
+// Fixos e financeiros medidos contra a RECEITA TOTAL (não por canal): % sobre a
+// Receita Prevista (planejamento) e sobre a Receita Realizada (acompanhamento),
+// com referência de mercado e meta interna editáveis (cda_pa_meta_estrutura).
+async function paMetasEstrutura(ano){
+  var rows=await sb.get('cda_pa_meta_estrutura','ano=lte.'+ano+'&order=ano.desc');
+  var m={},anoBase=null;
+  rows.forEach(function(r){if(anoBase===null)anoBase=r.ano;if(r.ano===anoBase)m[r.chave]={mercado:r.pct_mercado===null?null:Number(r.pct_mercado),meta:r.pct_meta===null?null:Number(r.pct_meta)};});
+  return {m:m,anoBase:anoBase};
+}
+async function paSalvarMetaEstrutura(inp,chave,campo){
+  if(!paPodeEditar())return;
+  var v=String(inp.value).trim().replace(',','.'),n=v===''?null:Number(v);
+  if(n!==null&&(!isFinite(n)||n<0||n>100)){showToast('Informe um percentual entre 0 e 100.','error');return;}
+  var atual=(paCache.metasEstr&&paCache.metasEstr[chave])||{};
+  var linha={ano:paEstado.ano,chave:chave,pct_mercado:campo==='mercado'?n:(atual.mercado===undefined?null:atual.mercado),pct_meta:campo==='meta'?n:(atual.meta===undefined?null:atual.meta),atualizado_por:(window.cu&&cu.email)||null,atualizado_em:new Date().toISOString()};
+  try{await paUpsert('cda_pa_meta_estrutura','ano,chave',[linha]);showToast('Meta salva','success');navigatePlanejamento('estrutura');}
+  catch(e){showToast(paErro(e,'Não foi possível salvar a meta.'),'error');}
+}
+async function paEstruturaCustos(){
+  var ano=paEstado.ano;
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano)]);
+  var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,podeEd=paPodeEditar();
+  paCache.metasEstr=metas;
+  var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
+  var lucroAlvo=paEstado.lucroAlvo===undefined?5:paEstado.lucroAlvo;
+  var html=paFiltroHTML({contas:[],subcontas:[]},{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>'});
+  html=html.replace(/<label>Conta<select[\s\S]*?<\/select><\/label>/,'').replace(/<label>Subconta<select[\s\S]*?<\/select><\/label>/,'');
+  // Receita total, variáveis e linhas de fixos/financeiros (sempre total geral, sem filtro de conta)
+  var rec={prev:0,real:0},vari={prev:0,real:0},linhas={},ordem=[];
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){var s=gs.sub;gs.centros.forEach(function(cc){
+    var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,ult);
+    if(g.conta.tipo==='RECEITAS'){rec.prev+=p;rec.real+=re;return;}
+    var nat=paNaturezaCentro(cc);
+    if(nat==='variavel'){vari.prev+=p;vari.real+=re;return;}
+    var chave=nat==='financeira'?'financeira':'sub:'+s.id;
+    if(!linhas[chave]){linhas[chave]={chave:chave,nome:nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome,prev:0,real:0,centros:[]};ordem.push(chave);}
+    var L=linhas[chave];L.prev+=p;L.real+=re;if(p||re)L.centros.push({nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re});
+  });});});
+  ordem.sort(function(a,b){return a==='financeira'?1:b==='financeira'?-1:linhas[b].prev-linhas[a].prev;});
+  function pct(v,base){return base?v/base*100:null;}
+  function fp(v){return v===null||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';}
+  var tot={prev:0,real:0,mercado:0,meta:0,temMercado:false,temMeta:false};
+  ordem.forEach(function(k){var L=linhas[k],mt=metas[k]||{};tot.prev+=L.prev;tot.real+=L.real;
+    if(mt.mercado!==null&&mt.mercado!==undefined){tot.mercado+=mt.mercado;tot.temMercado=true;}
+    if(mt.meta!==null&&mt.meta!==undefined){tot.meta+=mt.meta;tot.temMeta=true;}});
+  var mcPrev=rec.prev?100-vari.prev/rec.prev*100:null,mcReal=rec.real?100-vari.real/rec.real*100:null;
+  var fixPrev=pct(tot.prev,rec.prev),fixReal=pct(tot.real,rec.real);
+  var mcBase=mcReal!==null?mcReal:mcPrev,teto=mcBase===null?null:mcBase-lucroAlvo,resMeta=mcBase===null||!tot.temMeta?null:mcBase-tot.meta;
+  html+=paInfoUltimo(d,ano,'Realizado = '+periodo+' · Fixos e financeiros medidos sobre a <b>receita total</b>'+(anoBaseMeta&&anoBaseMeta!==ano?' · Metas herdadas de '+anoBaseMeta+' (ao editar, gravam para '+ano+')':''));
+  html+='<div class="pa-kpis">'+
+    paKpi('Receita total','Prevista '+paBRL(rec.prev),'Realizada ('+periodo+') '+paBRL(rec.real),'var(--green)')+
+    paKpi('Margem de contribuição','Prevista '+fp(mcPrev)+' · Realizada '+fp(mcReal),'Receita − custos variáveis ('+fp(pct(vari.real,rec.real))+' realizado)','var(--blue)')+
+    paKpi('Fixos + financeiros','Previsto '+fp(fixPrev)+' · Realizado '+fp(fixReal),'Meta interna '+(tot.temMeta?fp(tot.meta):'—')+' · Mercado '+(tot.temMercado?fp(tot.mercado):'—'),fixReal!==null&&tot.temMeta&&fixReal>tot.meta?'var(--red)':'var(--gold2)')+
+    paKpi('Fechamento das metas','Resultado na meta '+fp(resMeta),'Teto de fixos p/ lucro de '+lucroAlvo+'%: '+fp(teto),resMeta!==null&&resMeta>=lucroAlvo?'var(--green)':'var(--red)')+
+  '</div>';
+  html+='<div class="pa-info">Fechamento = Margem de contribuição realizada ('+fp(mcBase)+') − soma das metas internas ('+(tot.temMeta?fp(tot.meta):'—')+'). Lucro desejado: '+
+    '<select aria-label="Lucro desejado" onchange="paEstado.lucroAlvo=+this.value;navigatePlanejamento(\'estrutura\')">'+[0,5,8,10,15].map(function(x){return '<option value="'+x+'" '+(x===lucroAlvo?'selected':'')+'>'+x+'%</option>';}).join('')+'</select></div>';
+  function status(real,meta){
+    if(real===null||meta===null||meta===undefined)return paBadgeStatus('Sem Dados');
+    if(real<=meta)return paBadgeStatus('OK');if(real<=meta+2)return paBadgeStatus('Atenção');return paBadgeStatus('Crítico');
+  }
+  function campoPct(chave,campo,v){
+    if(!podeEd)return fp(v===undefined?null:v);
+    return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="'+(campo==='meta'?'Meta interna':'Referência de mercado')+' '+chave+'" value="'+(v===null||v===undefined?'':String(v).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+campo+'\')">';
+  }
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Custo fixo / financeiro</th><th>Previsto<br>'+ano+'</th><th title="Previsto ÷ Receita Prevista">% Receita<br>Prevista</th><th>Realizado<br>'+periodo+'</th><th title="Realizado ÷ Receita Realizada no mesmo período">% Receita<br>Realizada</th><th>Ref.<br>Mercado %</th><th>Meta<br>Interna %</th><th style="text-align:center">Status</th></tr></thead><tbody>';
+  ordem.forEach(function(k){
+    var L=linhas[k],mt=metas[k]||{},pr=pct(L.real,rec.real);
+    var cor=mt.meta===null||mt.meta===undefined||pr===null?'':(pr>mt.meta?'var(--red)':'var(--green)');
+    html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+paCelula(paBRL(L.prev))+paCelula(fp(pct(L.prev,rec.prev)),'var(--muted2)')+paCelula(paBRL(L.real),'',600)+paCelula(fp(pr),cor,600)+
+      '<td>'+campoPct(k,'mercado',mt.mercado)+'</td><td>'+campoPct(k,'meta',mt.meta)+'</td><td style="text-align:center">'+status(pr,mt.meta)+'</td></tr>';
+    if(!paEstado.sintetico)L.centros.sort(function(a,b){return b.real-a.real;}).forEach(function(c){
+      html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+paCelula(paBRL(c.prev))+paCelula(fp(pct(c.prev,rec.prev)),'var(--muted2)')+paCelula(paBRL(c.real))+paCelula(fp(pct(c.real,rec.real)),'var(--muted2)')+'<td></td><td></td><td></td></tr>';
+    });
+  });
+  html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+paCelula(paBRL(tot.prev))+paCelula(fp(fixPrev))+paCelula(paBRL(tot.real))+paCelula(fp(fixReal),tot.temMeta&&fixReal!==null?(fixReal>tot.meta?'var(--red)':'var(--green)'):'',600)+
+    paCelula(tot.temMercado?fp(tot.mercado):'—')+paCelula(tot.temMeta?fp(tot.meta):'—','',600)+'<td style="text-align:center">'+status(fixReal,tot.temMeta?tot.meta:null)+'</td></tr>';
+  html+='</tbody></table></div>';
+  html+='<p class="pa-info" style="margin-top:10px">A natureza de cada despesa (variável, fixa ou financeira) é definida na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>. Status: dentro da meta = <b>OK</b> · até 2 p.p. acima = <b>Atenção</b> · mais de 2 p.p. acima = <b>Crítico</b>.</p>';
+  document.getElementById('pa-root').innerHTML=html;
+}
+
 // ─── 9) TUTORIAL ─────────────────────────────────────────────────────
 function paTutorial(){
   document.getElementById('pa-root').innerHTML='<div class="card pa-tut" style="max-width:900px">'+
   '<p>O <b>Planejamento Anual</b> organiza o orçamento de <b>Receitas e Despesas</b> da Ciclo da Arte em três níveis: <b>Conta</b> (Receitas/Despesas) → <b>Subconta</b> → <b>Centro de Custo</b>. Os valores do <b>Ano Anterior</b> servem de base; o <b>Ano Exercício</b> é planejado (previsto) e acompanhado mês a mês (realizado).</p>'+
   '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro na <b>Tabela Contábil</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise a <b>Provisão Prevista</b> e consulte os painéis de <b>Previsto vs. Realizado</b>.</li></ul>'+
   '<h3>2. Telas</h3><ul>'+
-  '<li><b>Tabelas Contábeis</b> — cadastro da hierarquia. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página.</li>'+
+  '<li><b>Tabelas Contábeis</b> — cadastro da hierarquia. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro (a subconta dá o padrão; o centro pode ter exceção).</li>'+
+  '<li><b>Análises Estratégicas › Estrutura de Custos Fixos</b> — fixos e financeiros como % da receita total (prevista e realizada), com referência de mercado, meta interna editável, status e o teste de fechamento das metas.</li>'+
   '<li><b>Orçamento Anual</b> — Realizado do ano anterior, <b>Previsto</b> do exercício (editável), Previsto do mês, Realizado acumulado e Saldo Mensal a Realizar.</li>'+
   '<li><b>Orçamento Realizado</b> — valores de cada mês por centro; edição manual, importação Excel e <b>Limpar Período</b> (somente administradores).</li>'+
   '<li><b>Provisão Prevista</b> — quanto ainda se espera realizar até o fim do ano. Digite o valor ou use <b>⚡ Auto</b> (Provisão = Previsto − Realizado) por centro, subconta ou conta. Pode ser negativa (roxo = positiva, vermelho = negativa).</li>'+
@@ -1038,6 +1144,15 @@ var PA_TUT={
   ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. ÷ Previsto Anual × 100 (não inclui a provisão)'],
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − Total Real. com Prov.'],
   ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
+ estrutura:{t:'Estrutura de Custos Fixos',d:'Mede os custos fixos e financeiros contra a receita TOTAL da empresa (não por canal), compara com a referência de mercado e com a meta interna, e testa se as metas fecham a conta.',c:[
+  ['Natureza','Cada despesa é variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). Definida na Tabela Contábil: a subconta dá o padrão e o centro de custo pode ter exceção. Só fixas e financeiras aparecem aqui.'],
+  ['Previsto / % Receita Prevista','Valor previsto no ano e quanto representa da receita prevista — para planejar.','Previsto da linha ÷ Receita Prevista total × 100'],
+  ['Realizado / % Receita Realizada','Valor realizado até o último mês lançado e quanto representa da receita realizada no mesmo período — para acompanhar. Se a receita não vem, o % sobe mesmo com o gasto em R$ dentro do previsto.','Realizado da linha ÷ Receita Realizada total × 100'],
+  ['Ref. Mercado % / Meta Interna %','Percentuais editáveis (clique e digite). Valem para o ano exibido; um ano sem metas usa as do ano anterior até você editar.'],
+  ['Status','Compara o % realizado com a meta interna: OK dentro da meta · Atenção até 2 p.p. acima · Crítico mais de 2 p.p. acima.'],
+  ['Margem de contribuição','O que sobra da receita depois dos custos variáveis — é o que paga a estrutura.','100% − Custos variáveis ÷ Receita × 100'],
+  ['Fechamento das metas','Mostra o resultado (% da receita) se todas as metas internas forem cumpridas. Negativo = mesmo cumprindo as metas, a empresa ainda dá prejuízo.','Margem de contribuição realizada − soma das metas internas'],
+  ['Teto de fixos','Quanto os fixos + financeiros podem somar para atingir o lucro desejado (escolha o % na linha de informação).','Margem de contribuição − lucro desejado']]},
  metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],

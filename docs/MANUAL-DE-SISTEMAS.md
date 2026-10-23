@@ -280,6 +280,23 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Provisão Prev. · **Total Real. com Prov.** (Total Real. + Provisão) · % Exec.
   (Total Real. ÷ Prev. Anual, sem provisão) · Saldo Total a Real. · Saldo
   Mensal Anual pendente a Real. Tabela compacta sem "R$" nas células.
+- **Análises Estratégicas** (grupo novo no menu, 23/10/2026) —
+  **Estrutura de Custos Fixos**: fixos + financeiros medidos sobre a
+  **receita total** (não por canal), em % da Receita Prevista e da Receita
+  Realizada (jan até o último mês), com Ref. Mercado % e Meta Interna %
+  editáveis (`cda_pa_meta_estrutura`, por ano; ano sem metas herda o anterior).
+  Cartões: Receita, Margem de contribuição (100% − variáveis), Fixos +
+  financeiros vs metas, **Fechamento das metas** (margem − soma das metas) e
+  teto de fixos para o lucro desejado. Status: OK ≤ meta · Atenção até +2 p.p.
+  · Crítico acima. Metas 2026 (Cardoso): Pessoal mercado 18 / meta 15;
+  Administrativas 10/10; Marketing 7,5/7,5; Financeiras 5/5.
+- **Natureza das despesas** (`natureza` em subconta e centro; SQL
+  `planejamento_anual_04_estrutura_custos.sql`): variável · fixa · financeira.
+  Subconta = padrão, centro = exceção (null herda). Pré-classificação:
+  Produção Varejo/Atacado, Montagem Coleções, Comerciais e Shows Grande Porte
+  variáveis; demais fixas; "Financeiras - Bancos/Empréstimos" (Comerciais) e
+  "Financeiras - Tarifas" (Administrativas) financeiras; "Market Place -
+  Repasse" (Marketing) variável. Editável na Tabela Contábil.
 - **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
   Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
   (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).
