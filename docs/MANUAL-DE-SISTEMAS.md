@@ -305,6 +305,22 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   variáveis; demais fixas; "Financeiras - Bancos/Empréstimos" (Comerciais) e
   "Financeiras - Tarifas" (Administrativas) financeiras; "Market Place -
   Repasse" (Marketing) variável. Editável na Tabela Contábil.
+- **Valor vigente (reprevisão)** (23/10/2026, `cda_pa_valor_vigente`, SQL
+  `planejamento_anual_05_vigente_vinculos.sql`): coluna **Vigente** na Tabela
+  Contábil, por centro, com histórico (início mês/ano, valor, motivo, quem).
+  Tipo pela natureza: fixa/financeira e receita recorrente = R$/mês; despesa
+  variável = % da receita vinculada. Vale o registro mais recente com início ≤
+  mês atual; registros futuros aparecem como "futuro". Sem cadastro = média dos
+  últimos 3 meses. O Orçado nunca é alterado. Carga: Terceiros – Gerencial
+  R$ 6.500/mês desde out/2026 (negociação interna).
+- **Vínculos Receita × Despesa** (`cda_pa_vinculo`): seção no fim da Tabela
+  Contábil. Despesa variável → canais (subcontas de receita). Subconta =
+  padrão, centro = exceção (vínculos próprios substituem os da subconta);
+  sem vínculo = todos os canais; % de rateio opcional (todos preenchidos e
+  somando 100%) ou automático pela receita. Carga: Produção Atacado → Private
+  Label; Produção Varejo → canais de varejo; Comissões Revendas → Revendas;
+  Eventos (5 centros) → Shows, Feiras e Bazares, Shows Multimarcas; Shows
+  Grande Porte → Shows; Market Place Repasse → Market Place.
 - **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
   Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
   (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).

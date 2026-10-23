@@ -46,6 +46,8 @@ var paFmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 function paBRL(v){var n=Math.round((Number(v)||0)*100)/100;if(n===0)n=0;return paFmtBRL.format(n);}
 // Valor sem o símbolo (tabelas largas; o cabeçalho avisa "valores em R$")
 function paValor(v){var n=Math.round((Number(v)||0)*100)/100;if(n===0)n=0;return n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+// Digitação manual: "6.500" (sem vírgula, com milhar) = 6500; demais casos como paParseValor
+function paParseDigitado(raw){var t=String(raw==null?'':raw).trim().replace(/R\$\s*/gi,'').replace(/\s/g,'');if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');return paParseValor(t);}
 function paNum(v){return Math.round((Number(v)||0)*100)/100;}
 // Aceita "1.234,56", "1234.56", "R$ 1.234,56", número
 function paParseValor(raw){
@@ -125,6 +127,7 @@ function paErro(e, padrao){
     '.pa-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}',
     '.pa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--ff-b)}',
     '.pa-sel-nat{background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;padding:3px 6px;font-family:var(--ff-b);max-width:170px}.pa-sel-nat option{color:var(--white)}',
+    '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
     '.pa-modal-wide{width:860px!important}',
@@ -582,7 +585,8 @@ async function paLimparConfirmar(){
 // ════════════════════════════════════════════════════════════════════
 async function paTabelaContabil(){
   var h=await paCarregarHierarquia(true);
-  var aliases=await sb.get('cda_pa_alias_importacao','order=alias');
+  var extra=await Promise.all([sb.get('cda_pa_alias_importacao','order=alias'),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_vinculo','order=id')]);
+  var aliases=extra[0];paCache.vigentes=extra[1];paCache.vinculos=extra[2];
   var podeEd=paPodeEditar(),adm=paIsAdmin();
   var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paFormCadastro()">＋ Novo cadastro</button>':'';
   var html=paFiltroHTML(h,{busca:true,acoes:acoes});
@@ -590,26 +594,28 @@ async function paTabelaContabil(){
   var b=paNorm(paEstado.busca);
   var tot=h.centros.length,ativos=h.centros.filter(function(x){return x.ativo;}).length;
   html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · Edite o nome direto na linha':'')+'</div>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
-    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td></tr>';
+    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td><td></td></tr>';
     g.subcontas.forEach(function(s){
       var centros=s.centros.filter(function(x){return !b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0;});
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
-        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td>'+
+        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td><td></td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
       if(paEstado.sintetico)return;
       centros.forEach(function(x){
         html+='<tr class="cc'+(x.ativo?'':' inativo')+'"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(x.nome)+'" data-orig="'+paEsc(x.nome)+'" aria-label="Nome do centro de custo" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_centro_custo\','+x.id+')">':paEsc(x.nome))+'</td>'+
           '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_centro_custo',x.id,x.natureza,s.natureza,podeEd):'')+'</td>'+
+          '<td style="text-align:center">'+paCampoVigente(x,c.tipo,podeEd)+'</td>'+
           '<td style="text-align:center">'+paBadgeAtivo(x.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_centro_custo',x.id,x.ativo,podeEd,adm)+'</td></tr>';
       });
     });
   });
   html+='</tbody></table></div>';
 
+  html+=paSecaoVinculos(h,podeEd);
   // Apelidos de importação
   html+='<div class="card" style="margin-top:18px"><div class="card-title">🔁 Apelidos de importação</div><p class="pa-info" style="margin:4px 0 10px">Quando a planilha usa um nome diferente do cadastro, o apelido indica a qual centro de custo o valor pertence. O apelido tem prioridade sobre o nome.</p>';
   if(podeEd)html+='<div class="pa-filtros"><label>Nome na planilha<input id="pa-al-nome" placeholder="Ex.: REVENDA - SHOWROOM / SAC" style="min-width:260px"></label><label>Centro de custo<select id="pa-al-cc">'+h.centros.map(function(x){return '<option value="'+x.id+'">'+paEsc(x.subconta.nome+' › '+x.nome)+'</option>';}).join('')+'</select></label><button class="btn btn-primary btn-sm" onclick="paSalvarAlias()">＋ Adicionar</button></div>';
@@ -634,6 +640,117 @@ async function paSalvarNatureza(sel,tabela,id){
   try{await sb.patch(tabela,id,{natureza:sel.value||null});paCache.hier=null;showToast('Natureza atualizada','success');navigatePlanejamento('tabela');}
   catch(e){showToast(paErro(e,'Não foi possível salvar a natureza.'),'error');}
 }
+// ─── Valor vigente (reprevisão) ─────────────────────────────────────
+function paTipoVigente(cc,tipoConta){return tipoConta==='DESPESAS'&&paNaturezaCentro(cc)==='variavel'?'percentual':'valor';}
+function paFmtVigente(v){var n=Number(v.valor);return v.tipo==='percentual'?n.toLocaleString('pt-BR',{maximumFractionDigits:2})+'% da receita':paBRL(n)+'/mês';}
+function paMesAno(a,m){return PA_MESES_AB[m-1].toLowerCase()+'/'+String(a).slice(2);}
+function paVigentesDoCentro(id){return (paCache.vigentes||[]).filter(function(v){return String(v.centro_custo_id)===String(id);});}
+function paVigenteAtual(id,ano,mes){
+  var hoje=new Date();ano=ano||hoje.getFullYear();mes=mes||hoje.getMonth()+1;
+  return paVigentesDoCentro(id).find(function(v){return v.ano_inicio<ano||(v.ano_inicio===ano&&v.mes_inicio<=mes);})||null;
+}
+function paCampoVigente(cc,tipoConta,podeEd){
+  var lista=paVigentesDoCentro(cc.id),atual=paVigenteAtual(cc.id),futuro=lista.length&&lista[0]!==atual?lista[0]:null;
+  var txt=atual?'<span style="font-size:11.5px;white-space:nowrap">'+paFmtVigente(atual)+'</span><span style="display:block;font-size:10.5px;color:var(--muted)">desde '+paMesAno(atual.ano_inicio,atual.mes_inicio)+'</span>':'';
+  if(futuro)txt+='<span style="display:block;font-size:10.5px;color:var(--gold2)">'+paMesAno(futuro.ano_inicio,futuro.mes_inicio)+': '+paFmtVigente(futuro)+'</span>';
+  if(!txt)txt='<span class="pa-mut" style="font-size:11px">média 3 meses</span>';
+  var botao='<button class="pa-btn-ico" title="'+(podeEd?'Cadastrar / ver histórico':'Ver histórico')+'" aria-label="Valor vigente de '+paEsc(cc.nome)+'" onclick="paAbrirVigente('+cc.id+',\''+tipoConta+'\')">'+(lista.length?'🕘':(podeEd?'＋':''))+'</button>';
+  return '<div style="display:flex;align-items:center;justify-content:center;gap:6px"><div style="text-align:right">'+txt+'</div>'+(lista.length||podeEd?botao:'')+'</div>';
+}
+function paAbrirVigente(ccId,tipoConta){
+  var h=paCache.hier,cc=h.centros.find(function(x){return String(x.id)===String(ccId);});if(!cc)return;
+  var tipo=paTipoVigente(cc,tipoConta),podeEd=paPodeEditar(),lista=paVigentesDoCentro(ccId),atual=paVigenteAtual(ccId),hoje=new Date();
+  var expl=tipo==='percentual'?'Despesa <b>variável</b>: informe o <b>% sobre a receita</b> do(s) canal(is) vinculado(s) (ex.: royalty de 10%, comissão de 15%).':
+    (tipoConta==='RECEITAS'?'Receita: use só para <b>contratos recorrentes</b> — informe o <b>R$ esperado por mês</b>.':'Despesa <b>'+(PA_NATUREZAS[paNaturezaCentro(cc)]||'fixa').toLowerCase()+'</b>: informe o <b>valor mensal em R$</b> que vale a partir do mês indicado (ex.: contrato renegociado).');
+  var hist=lista.length?'<div class="tbl-wrap"><table class="pa-tbl"><thead><tr><th style="text-align:left">A partir de</th><th>Valor</th><th style="text-align:left">Motivo</th><th style="text-align:left">Registro</th>'+(podeEd?'<th></th>':'')+'</tr></thead><tbody>'+
+    lista.map(function(v){var st=v===atual?'<span class="pa-badge ok">vigente</span>':((v.ano_inicio>hoje.getFullYear()||(v.ano_inicio===hoje.getFullYear()&&v.mes_inicio>hoje.getMonth()+1))?'<span class="pa-badge pa-st-warn">futuro</span>':'<span class="pa-badge mut">substituído</span>');
+      return '<tr class="cc"><td style="text-align:left">'+paMesAno(v.ano_inicio,v.mes_inicio)+' '+st+'</td><td>'+paFmtVigente(v)+'</td><td style="text-align:left;font-family:var(--ff-b);white-space:normal">'+paEsc(v.motivo||'—')+'</td><td style="text-align:left;font-family:var(--ff-b);font-size:11px;color:var(--muted2)">'+paEsc((v.criado_por||'').split('@')[0])+' · '+new Date(v.criado_em).toLocaleDateString('pt-BR')+'</td>'+
+        (podeEd?'<td><button class="pa-btn-ico" title="Excluir este registro" onclick="paExcluirVigente('+v.id+','+ccId+',\''+tipoConta+'\')">🗑</button></td>':'')+'</tr>';}).join('')+'</tbody></table></div>':'<p class="pa-mut" style="font-size:12.5px">Nenhum valor cadastrado — o sistema usa a média dos últimos 3 meses.</p>';
+  var form=podeEd?'<div class="card-title" style="margin-top:14px;font-size:13px">Novo valor</div><div class="pa-filtros">'+
+    '<label>A partir de<select id="pa-vg-mes">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i===hoje.getMonth()?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>'+
+    '<label>Ano<input id="pa-vg-ano" inputmode="numeric" value="'+hoje.getFullYear()+'" style="width:80px"></label>'+
+    '<label>'+(tipo==='percentual'?'% da receita':'R$ por mês')+'<input id="pa-vg-valor" inputmode="decimal" placeholder="'+(tipo==='percentual'?'10,0':'6.500,00')+'" style="width:120px"></label>'+
+    '<label style="flex:1 1 220px">Motivo<input id="pa-vg-motivo" placeholder="Ex.: negociação interna" maxlength="200"></label></div>'+
+    '<div id="pa-vg-erro" class="pa-info" style="color:var(--red);min-height:16px" aria-live="polite"></div>':'';
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">🕘 Valor vigente — '+paEsc(cc.nome)+'</div>'+
+    '<p class="pa-info" style="margin:6px 0 12px">'+expl+' O <b>Orçado</b> não é alterado: o vigente alimenta projeções, status e a base do ano seguinte. Ao cadastrar um novo valor, o anterior fica no histórico.</p>'+hist+form+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button>'+(podeEd?'<button class="btn btn-primary" onclick="paSalvarVigente('+ccId+',\''+tipo+'\',\''+tipoConta+'\')">Salvar</button>':'')+'</div></div>');
+}
+async function paSalvarVigente(ccId,tipo,tipoConta){
+  var err=document.getElementById('pa-vg-erro');err.textContent='';
+  var mes=+document.getElementById('pa-vg-mes').value,ano=+document.getElementById('pa-vg-ano').value,valor=paParseDigitado(document.getElementById('pa-vg-valor').value),motivo=document.getElementById('pa-vg-motivo').value.trim();
+  if(!(ano>=2000&&ano<=2100)){err.textContent='Informe um ano válido.';return;}
+  if(!(valor>0)){err.textContent='Informe um valor maior que zero.';return;}
+  if(tipo==='percentual'&&valor>100){err.textContent='O percentual deve ficar entre 0 e 100.';return;}
+  if(!motivo){err.textContent='Informe o motivo (ex.: negociação interna).';return;}
+  try{
+    await paUpsert('cda_pa_valor_vigente','centro_custo_id,ano_inicio,mes_inicio',[{centro_custo_id:ccId,ano_inicio:ano,mes_inicio:mes,tipo:tipo,valor:valor,motivo:motivo,criado_por:(window.cu&&cu.email)||null,criado_em:new Date().toISOString()}]);
+    paCache.vigentes=await sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc');
+    showToast('Valor vigente salvo','success');paAbrirVigente(ccId,tipoConta);paAtualizarCelulaVigente();
+  }catch(e){err.textContent=paErro(e,'Não foi possível salvar.');}
+}
+async function paExcluirVigente(id,ccId,tipoConta){
+  if(!confirm('Excluir este registro do histórico?'))return;
+  try{await sb.del('cda_pa_valor_vigente',id);paCache.vigentes=await sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc');showToast('Registro excluído','success');paAbrirVigente(ccId,tipoConta);paAtualizarCelulaVigente();}
+  catch(e){showToast(paErro(e,'Não foi possível excluir.'),'error');}
+}
+function paAtualizarCelulaVigente(){if(paEstado.page==='tabela'){var y=window.scrollY;paTabelaContabil().then(function(){window.scrollTo(0,y);});}}
+
+// ─── Vínculos Receita × Despesa (despesas variáveis → canais de receita) ──
+function paCanaisReceita(h){var c=h.contas.find(function(x){return x.tipo==='RECEITAS';});return c?c.subcontas.filter(function(s){return s.ativo;}):[];}
+function paVinculosDe(campo,id){return (paCache.vinculos||[]).filter(function(v){return String(v[campo])===String(id);});}
+function paTextoVinculos(h,lista){
+  if(!lista.length)return '<span class="pa-mut">Todos os canais (rateio automático)</span>';
+  var manual=lista.some(function(v){return v.pct_rateio!==null;});
+  return lista.map(function(v){var s=h.subcontas.find(function(x){return String(x.id)===String(v.receita_subconta_id);});return '<span class="pa-chip">'+paEsc(s?s.nome:'?')+(manual&&v.pct_rateio!==null?' · '+String(v.pct_rateio).replace('.',',')+'%':'')+'</span>';}).join(' ')+
+    (manual?'':' <span class="pa-mut" style="font-size:11px">(rateio automático pela receita)</span>');
+}
+function paSecaoVinculos(h,podeEd){
+  var desp=h.contas.find(function(x){return x.tipo==='DESPESAS';});if(!desp)return '';
+  var linhas='';
+  desp.subcontas.filter(function(s){return s.ativo;}).forEach(function(s){
+    var centrosVar=s.centros.filter(function(cc){return cc.ativo&&paNaturezaCentro(cc)==='variavel';});
+    if(s.natureza!=='variavel'&&!centrosVar.length)return;
+    var vs=paVinculosDe('despesa_subconta_id',s.id);
+    linhas+='<tr class="sub"><td>'+paEsc(s.nome)+(s.natureza!=='variavel'?' <span class="pa-mut" style="font-size:11px">(só os centros variáveis)</span>':'')+'</td><td style="text-align:left;font-family:var(--ff-b);white-space:normal">'+paTextoVinculos(h,vs)+'</td><td style="text-align:center">'+(podeEd?'<button class="pa-btn-ico" title="Editar vínculo da subconta" onclick="paAbrirVinculo(\'sub\','+s.id+')">✏️</button>':'')+'</td></tr>';
+    if(paEstado.sintetico)return;
+    centrosVar.forEach(function(cc){
+      var vc=paVinculosDe('despesa_centro_id',cc.id);
+      linhas+='<tr class="cc"><td>'+paEsc(cc.nome)+'</td><td style="text-align:left;font-family:var(--ff-b);white-space:normal">'+(vc.length?paTextoVinculos(h,vc)+' <span class="pa-badge pa-st-warn">exceção</span>':'<span class="pa-mut" style="font-size:11.5px">↳ herda da subconta</span>')+'</td><td style="text-align:center">'+(podeEd?'<button class="pa-btn-ico" title="Editar vínculo do centro" onclick="paAbrirVinculo(\'cc\','+cc.id+')">✏️</button>':'')+'</td></tr>';
+    });
+  });
+  return '<div class="card" style="margin-top:18px"><div class="card-title">🔗 Vínculos Receita × Despesa</div><p class="pa-info" style="margin:4px 0 10px">Liga cada <b>despesa variável</b> ao(s) <b>canal(is) de receita</b> que ela gera — base da futura análise de Margem por Canal. A subconta define o padrão; um centro de custo pode ter vínculo próprio (exceção). Sem vínculo = todos os canais. O rateio entre canais é automático (proporcional à receita de cada um), salvo se você informar os percentuais.</p>'+
+    '<div class="tbl-wrap"><table class="pa-tbl"><thead><tr><th>Despesa variável</th><th style="text-align:left">Canais de receita vinculados</th><th style="text-align:center">Ações</th></tr></thead><tbody>'+(linhas||'<tr><td colspan="3" class="pa-mut">Nenhuma despesa variável cadastrada (defina a Natureza acima).</td></tr>')+'</tbody></table></div></div>';
+}
+function paAbrirVinculo(nivel,id){
+  var h=paCache.hier,campo=nivel==='sub'?'despesa_subconta_id':'despesa_centro_id';
+  var obj=nivel==='sub'?h.subcontas.find(function(x){return String(x.id)===String(id);}):h.centros.find(function(x){return String(x.id)===String(id);});if(!obj)return;
+  var atuais=paVinculosDe(campo,id),mapa={};atuais.forEach(function(v){mapa[v.receita_subconta_id]=v;});
+  var herda=nivel==='cc'?paVinculosDe('despesa_subconta_id',obj.subconta_id):null;
+  var canais=paCanaisReceita(h);
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">🔗 Vínculo — '+paEsc(obj.nome)+'</div>'+
+    '<p class="pa-info" style="margin:6px 0 12px">Marque os canais de receita que esta despesa gera. Deixe os percentuais em branco para rateio automático (proporcional à receita de cada canal), ou preencha todos somando 100%.'+(nivel==='cc'?' Sem nenhum canal marcado, o centro <b>herda da subconta</b> ('+(herda.length?herda.length+' canal(is)':'todos os canais')+').':' Sem nenhum canal marcado = <b>todos os canais</b>.')+'</p>'+
+    '<div class="tbl-wrap"><table class="pa-tbl"><thead><tr><th>Canal de receita</th><th style="text-align:center">Vincular</th><th>% rateio (opcional)</th></tr></thead><tbody>'+
+    canais.map(function(c){var v=mapa[c.id];return '<tr class="cc"><td>'+paEsc(c.nome)+'</td><td style="text-align:center"><input type="checkbox" class="pa-vc-chk" data-id="'+c.id+'" '+(v?'checked':'')+' aria-label="Vincular '+paEsc(c.nome)+'"></td><td><input class="pa-in pa-in-pct pa-vc-pct" data-id="'+c.id+'" inputmode="decimal" value="'+(v&&v.pct_rateio!==null?String(v.pct_rateio).replace('.',','):'')+'" aria-label="% rateio '+paEsc(c.nome)+'"></td></tr>';}).join('')+
+    '</tbody></table></div><div id="pa-vc-erro" class="pa-info" style="color:var(--red);min-height:16px" aria-live="polite"></div>'+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="paSalvarVinculo(\''+nivel+'\','+id+')">Salvar</button></div></div>');
+}
+async function paSalvarVinculo(nivel,id){
+  var campo=nivel==='sub'?'despesa_subconta_id':'despesa_centro_id',err=document.getElementById('pa-vc-erro');err.textContent='';
+  var marcados=[].slice.call(document.querySelectorAll('.pa-vc-chk')).filter(function(c){return c.checked;}).map(function(c){
+    var t=document.querySelector('.pa-vc-pct[data-id="'+c.dataset.id+'"]').value.trim();return {id:+c.dataset.id,pct:t===''?null:paParseDigitado(t)};});
+  var comPct=marcados.filter(function(m){return m.pct!==null;});
+  if(comPct.length&&comPct.length!==marcados.length){err.textContent='Preencha o % de todos os canais marcados, ou deixe todos em branco (rateio automático).';return;}
+  if(comPct.length){var soma=comPct.reduce(function(a,m){return a+m.pct;},0);if(comPct.some(function(m){return !(m.pct>0);})||Math.abs(soma-100)>0.01){err.textContent='Os percentuais devem ser maiores que zero e somar 100% (hoje: '+soma.toLocaleString('pt-BR')+'%).';return;}}
+  try{
+    var antigos=paVinculosDe(campo,id);
+    for(var i=0;i<antigos.length;i++)await sb.del('cda_pa_vinculo',antigos[i].id);
+    if(marcados.length)await sb.post('cda_pa_vinculo',marcados.map(function(m){var o={receita_subconta_id:m.id,pct_rateio:m.pct,criado_por:(window.cu&&cu.email)||null};o[campo]=id;return o;}));
+    paCache.vinculos=await sb.get('cda_pa_vinculo','order=id');
+    closeModal();showToast('Vínculo salvo','success');paAtualizarCelulaVigente();
+  }catch(e){err.textContent=paErro(e,'Não foi possível salvar o vínculo.');}
+}
+
 function paBadgeAtivo(a){return a?'<span class="pa-badge ok">ativo</span>':'<span class="pa-badge mut">inativo</span>';}
 function paAcoesLinha(tabela,id,ativo,podeEd,adm){
   if(!podeEd)return '—';
@@ -1126,7 +1243,7 @@ function paTutorial(){
   '<p>O <b>Planejamento Anual</b> organiza o orçamento de <b>Receitas e Despesas</b> da Ciclo da Arte em três níveis: <b>Conta</b> (Receitas/Despesas) → <b>Subconta</b> → <b>Centro de Custo</b>. Os valores do <b>Ano Anterior</b> servem de base; o <b>Ano Exercício</b> é planejado (previsto) e acompanhado mês a mês (realizado).</p>'+
   '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro na <b>Tabela Contábil</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise a <b>Provisão Prevista</b> e consulte os painéis de <b>Previsto vs. Realizado</b>.</li></ul>'+
   '<h3>2. Telas</h3><ul>'+
-  '<li><b>Tabelas Contábeis</b> — cadastro da hierarquia. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro (a subconta dá o padrão; o centro pode ter exceção).</li>'+
+  '<li><b>Tabelas Contábeis</b> — cadastro da hierarquia. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro (a subconta dá o padrão; o centro pode ter exceção). A coluna <b>Vigente</b> guarda o valor que vale hoje, com data e motivo (R$/mês para fixas e financeiras; % da receita para variáveis) — o Orçado não muda. No fim da página, <b>Vínculos Receita × Despesa</b> liga cada despesa variável aos canais de receita.</li>'+
   '<li><b>Análises Estratégicas › Estrutura de Custos Fixos</b> — fixos e financeiros como % da receita total (prevista e realizada), com referência de mercado, meta interna editável, status e o teste de fechamento das metas.</li>'+
   '<li><b>Orçamento Anual</b> — Realizado do ano anterior, <b>Previsto</b> do exercício (editável), Previsto do mês, Realizado acumulado e Saldo Mensal a Realizar.</li>'+
   '<li><b>Orçamento Realizado</b> — valores de cada mês por centro; edição manual, importação Excel e <b>Limpar Período</b> (somente administradores).</li>'+
