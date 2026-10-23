@@ -263,6 +263,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Real.** = (Previsto Ano − Total Realizado) ÷ (12 − último mês realizado).
   Essas duas colunas não mudam com o mês filtrado; o filtro de mês vale só
   para Previsto Mês, Realizado, Variação e Status.
+- **Visão Trimestral Acumulada** (23/10/2026, pedido do Cardoso): cartões
+  "Total Receitas / Despesas / Resultado **até o nºT**" — Previsto = Prev.
+  Mês × meses até o fim do trimestre; Realizado = jan até o fim do
+  trimestre. Colunas: Prev. Ano · Prev. Mês · 3 meses · **Total Trimestral**
+  (soma dos 3 meses) · **Total Real. até o nºT** (jan até o fim do
+  trimestre) · **Média Mensal Realizada Acum.** = Total Real. até o nºT ÷
+  mín(3 × n, último mês realizado) — ex.: 4ºT com outubro lançado ÷ 10;
+  vermelho quando Receitas abaixo ou Despesas acima do Prev. Mês. Saíram
+  Provisão Prev., Saldo Total a Real. e Saldo Mensal a Real.
 - **Tutorial Informativo**: botão ℹ️ na linha de filtros dos 4 painéis
   Previsto vs. Realizado; popup explica cada coluna, finalidade e fórmula
   (conteúdo em `PA_TUT` no módulo — atualizar junto com qualquer mudança de
