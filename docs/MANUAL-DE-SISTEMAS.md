@@ -314,6 +314,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mês atual; registros futuros aparecem como "futuro". Sem cadastro = média dos
   últimos 3 meses. O Orçado nunca é alterado. Carga: Terceiros – Gerencial
   R$ 6.500/mês desde out/2026 (negociação interna).
+- **Estrutura de Custos com Vigente** (23/10/2026): colunas Previsto e
+  Realizado (R$ · % rec.), Var. p.p. vs ano anterior (tooltip com % e R$),
+  **Vigente / mês** (cadastrado ou média dos últimos 3 meses *com lançamento*),
+  **Vigente % anual** (vigente × 12 ÷ receita prevista — base do Status, que
+  passa a olhar para frente), **Projeção** (realizado + vigente × meses
+  restantes), Ref. Mercado % (R$ no tooltip), Meta % e Meta R$, Previsto −
+  Meta. Alerta **"⚠ mudou?"** quando o último mês importado foge > 20% da
+  média dos 3 anteriores; clique abre o cadastro do vigente pré-preenchido.
+  Vigente R$ 0 = despesa eventual (ex.: rescisão). Cadastros de 23/10:
+  Agências R$ 4.600/mês e Anúncios 6,43% da receita (≈ R$ 7.000/mês) desde
+  out/2026; Anúncios vinculado só ao E-commerce; meta Marketing (fixo) 3,5%.
 - **Vínculos Receita × Despesa** (`cda_pa_vinculo`): seção no fim da Tabela
   Contábil. Despesa variável → canais (subcontas de receita). Subconta =
   padrão, centro = exceção (vínculos próprios substituem os da subconta);
