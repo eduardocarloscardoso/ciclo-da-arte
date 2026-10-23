@@ -825,14 +825,14 @@ async function paComparativoMensal(){
   var mes=paEstado.mesComp,total=mes===0,futuro=!total&&mes>d.maxMes;
   var mesesReal=d.ultimo||0;
   var sel='<label>Mês<select onchange="paEstado.mesComp=+this.value;navigatePlanejamento(\'comparativo\')"><option value="0" '+(total?'selected':'')+'>Total Meses (jan–'+(mesesReal?PA_MESES_AB[mesesReal-1].toLowerCase():'—')+')</option>'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-  var mesRef=total?mesesReal:mes,restRef=Math.max(12-mesRef,0);
+  var mesRef=mesesReal,restRef=d.restantes; // sempre o último Orçamento Realizado lançado (mesmo parcial)
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'comparativo'+'\')">ℹ️ Tutorial Informativo</button>'}).replace('<label>Conta',sel+'<label>Conta');
-  html+=paInfoUltimo(d,ano,(total?'Previsto acumulado = Previsto Mês × '+mesesReal+' meses realizados':'Variação = Realizado do mês − Previsto Mês'+(futuro?' · <b>mês sem lançamentos</b>':''))+' · Saldo Mensal a Real. = (Previsto Ano − Total Realizado) ÷ <b>'+restRef+'</b> meses restantes após '+(mesRef?PA_MESES[mesRef-1]:'—'));
+  html+=paInfoUltimo(d,ano,(total?'Previsto acumulado = Previsto Mês × '+mesesReal+' meses realizados':'Variação = Realizado do mês − Previsto Mês'+(futuro?' · <b>mês sem lançamentos</b>':''))+' · Total Realizado e Saldo Mensal usam o último mês realizado (<b>'+(mesRef?PA_MESES[mesRef-1]:'—')+'</b>): Saldo Mensal = (Previsto Ano − Total Realizado) ÷ <b>'+restRef+'</b> meses');
   function linha(cc){
     var p=d.prev[cc.id]||0,pm,rm,acum;
     if(total){pm=p/12*mesesReal;rm=paRealAte(d,cc.id,12);acum=rm;}
     else{pm=futuro?0:p/12;rm=futuro?0:((d.mes[cc.id]||{})[mes]||0);acum=paRealAte(d,cc.id,Math.min(mes,d.maxMes));}
-    var pv=d.prov[cc.id]||0,totReal=acum+pv,vr=rm-pm,sal=p-totReal;
+    var pv=d.prov[cc.id]||0,totReal=paRealAte(d,cc.id,12)+pv,vr=rm-pm,sal=p-totReal;
     return {prev:p,pm:pm,rm:rm,vr:vr,prov:pv,totReal:totReal,saldoMes:restRef>0?sal/restRef:sal};
   }
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
@@ -981,7 +981,7 @@ var PA_TUT_COMUM=[
 ];
 var PA_TUT={
  comparativo:{t:'Comparativo Mensal',d:'Compara, centro a centro, o previsto e o realizado de um mês (ou do total de meses já realizados) e mostra quanto falta realizar por mês até o fim do ano.',c:[
-  ['Mês','Mês analisado. "Total Meses" soma de janeiro até o último mês com lançamentos.'],
+  ['Mês','Mês analisado nas colunas Previsto Mês, Realizado, Variação e Status. "Total Meses" soma de janeiro até o último mês com lançamentos.'],
   ['Previsto Ano','Valor previsto para o ano inteiro no Orçamento Anual.'],
   ['Previsto Mês / Total Prev. Meses','Previsto Ano ÷ 12. Em "Total Meses": (Previsto Ano ÷ 12) × meses já realizados.','Previsto Ano ÷ 12'],
   ['Realizado','Valor lançado no mês escolhido. Em "Total Meses": soma de todos os meses realizados.'],
@@ -989,8 +989,8 @@ var PA_TUT={
   ['Var %','Variação em percentual do previsto do período.','(Realizado − Previsto Mês) ÷ Previsto Mês × 100'],
   ['Status','Situação do desvio desfavorável: OK até 10% · Atenção de 10% a 30% · Crítico acima de 30%.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
-  ['Total Realizado','Tudo o que já foi realizado no ano até o mês analisado, somado ao que está provisionado.','Realizado acumulado (jan até o mês) + Provisão Prevista'],
-  ['Saldo Mensal a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o mês analisado, para atingir o previsto do ano.','(Previsto Ano − Total Realizado) ÷ meses restantes (12 − mês analisado)']]},
+  ['Total Realizado','Tudo o que já foi realizado no ano até o último Orçamento Realizado lançado (mesmo parcial), somado ao que está provisionado. Não muda com o mês filtrado.','Realizado acumulado (jan até o último mês realizado) + Provisão Prevista'],
+  ['Saldo Mensal a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o último Orçamento Realizado lançado, para atingir o previsto do ano. Não muda com o mês filtrado.','(Previsto Ano − Total Realizado) ÷ (12 − último mês realizado)']]},
  trimestral:{t:'Visão Trimestral Acumulada',d:'Mostra os três meses do trimestre lado a lado, com os totais do ano inteiro.',c:[
   ['1ºT a 4ºT','Escolhe o trimestre exibido (1ºT = jan–mar … 4ºT = out–dez). Abre no trimestre do último mês realizado.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
