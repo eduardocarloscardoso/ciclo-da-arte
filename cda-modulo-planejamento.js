@@ -121,8 +121,9 @@ function paErro(e, padrao){
     '.pa-link{color:var(--blue);text-decoration:none;border-bottom:1px dotted var(--blue);cursor:pointer}.pa-link:hover{color:var(--white)}',
     '.pa-legenda{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;color:var(--gold2);background:rgba(201,148,58,.08);border:1px solid rgba(201,148,58,.3);border-radius:6px;padding:2px 8px}',
     '.pa-in.salvando{border-color:var(--blue)}.pa-in.ok{border-color:var(--green)}.pa-in.err{border-color:var(--red)}',
-    '.pa-in-txt{width:100%;min-width:200px;text-align:left;font-family:var(--ff-b);background-color:transparent;border-color:transparent;background-image:none;padding-right:6px}',
-    '.pa-in-txt:hover{border-color:var(--border2)}',
+    '.pa-in-txt{width:100%;min-width:200px;text-align:left;font-family:var(--ff-b);background-color:rgba(201,148,58,.04);border:1px dashed rgba(201,148,58,.28);padding-right:24px;background-position:right 7px center}',
+    '.pa-in-txt:hover,.pa-in-txt:focus{border-style:solid;border-color:rgba(201,148,58,.6)}',
+    '.pa-btn-ico{font-size:14px!important;padding:3px 6px!important}',
     '.pa-neg{color:var(--red)}.pa-pos{color:var(--green)}.pa-mut{color:var(--muted)}',
     '.pa-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}',
     '.pa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--ff-b)}',
@@ -593,7 +594,7 @@ async function paTabelaContabil(){
   html+='<div id="pa-form"></div>';
   var b=paNorm(paEstado.busca);
   var tot=h.centros.length,ativos=h.centros.filter(function(x){return x.ativo;}).length;
-  html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · Edite o nome direto na linha':'')+'</div>';
+  html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · <b>✏️ Clique no nome</b> para renomear · <b>⏸</b> inativa / <b>▶</b> reativa · <b>🗑</b> exclui (só sem lançamentos) · <b>＋ Novo cadastro</b> inclui conta, subconta ou centro':'')+'</div>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
