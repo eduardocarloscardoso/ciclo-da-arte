@@ -43,6 +43,8 @@ var paCache = {hier: null};
 function paEsc(v){return String(v===null||v===undefined?'':v).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 var paFmtBRL = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
 function paBRL(v){var n=Math.round((Number(v)||0)*100)/100;if(n===0)n=0;return paFmtBRL.format(n);}
+// Valor sem o símbolo (tabelas largas; o cabeçalho avisa "valores em R$")
+function paValor(v){var n=Math.round((Number(v)||0)*100)/100;if(n===0)n=0;return n.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
 function paNum(v){return Math.round((Number(v)||0)*100)/100;}
 // Aceita "1.234,56", "1234.56", "R$ 1.234,56", número
 function paParseValor(raw){
@@ -130,6 +132,7 @@ function paErro(e, padrao){
     '.pa-compacta td{padding:4px 8px;font-size:11.5px}.pa-compacta td:first-child{font-size:12px}',
     '.pa-compacta .pa-in{width:112px;font-size:11.5px;padding:3px 20px 3px 5px;background-position:right 5px center}',
     '.pa-compacta tr.sub td:first-child{padding-left:16px}.pa-compacta tr.cc td:first-child{padding-left:28px}',
+    '.pa-estreita th{padding:7px 6px}.pa-estreita td{padding:4px 6px;font-size:11px}.pa-estreita th:first-child{min-width:190px}.pa-estreita td:first-child{white-space:normal;font-size:11.5px}',
     '@media (max-width:700px){.pa-tbl th:first-child{min-width:170px}.pa-in{width:96px}.pa-filtros label{flex:1 1 140px}.pa-filtros select,.pa-filtros input{min-width:0;width:100%}.pa-acoes{margin-left:0}.pa-kpi .v{font-size:15px;overflow-wrap:anywhere}.pa-info{overflow-wrap:anywhere}}'
   ].join('\n');
   document.head.appendChild(s);
@@ -750,7 +753,7 @@ function paKpisPrevReal(tot,rotReal){
 // Renderizador genérico de tabela hierárquica (conta/subconta/centro)
 // cfg: {cols:[{t,title?}], linha(cc,tipo)->obj, celulas(obj,tipo,nivel)->html, campos:[...] para somar, extraSub?, extraConta?}
 function paTabelaHier(d,cfg){
-  var html='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th>'+cfg.cols.map(function(c){return '<th'+(c.title?' title="'+paEsc(c.title)+'"':'')+(c.cor?' style="color:'+c.cor+'"':'')+'>'+c.t+'</th>';}).join('')+'</tr></thead><tbody>';
+  var html='<div class="pa-tbl-wrap"><table class="pa-tbl'+(cfg.classe?' '+cfg.classe:'')+'"><thead><tr><th>Conta / Subconta / Centro de Custo</th>'+cfg.cols.map(function(c){return '<th'+(c.title?' title="'+paEsc(c.title)+'"':'')+(c.cor?' style="color:'+c.cor+'"':'')+'>'+c.t+'</th>';}).join('')+'</tr></thead><tbody>';
   var totTipo={};
   paGruposAtivos(d.h).forEach(function(g){
     var c=g.conta,linhasConta=[];
@@ -865,10 +868,10 @@ async function paVisaoTrimestral(){
   var divMedia=Math.min(fimTri,d.ultimo||0);
   var seg='<div class="pa-toggle" role="group" aria-label="Trimestre">'+[1,2,3,4].map(function(i){return '<button class="'+(i===t?'on':'')+'" onclick="paEstado.trim='+i+';navigatePlanejamento(\'trimestral\')">'+i+'ºT</button>';}).join('')+'</div>';
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:seg+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'trimestral\')">ℹ️ Tutorial Informativo</button>'});
-  html+=paInfoUltimo(d,ano,'Exibindo <b>'+PA_MESES[meses[0]-1]+' a '+PA_MESES[meses[2]-1]+'</b> · Média Mensal Realizada = Total Real. '+rot+' ÷ <b>'+divMedia+'</b> '+(divMedia===1?'mês':'meses')+' com Orçamento Realizado');
+  html+=paInfoUltimo(d,ano,'Tabela em R$ · Exibindo <b>'+PA_MESES[meses[0]-1]+' a '+PA_MESES[meses[2]-1]+'</b> · Média Mensal Realizada = Total Real. '+rot+' ÷ <b>'+divMedia+'</b> '+(divMedia===1?'mês':'meses')+' com Orçamento Realizado');
   function linha(cc){
     var p=d.prev[cc.id]||0,mm=d.mes[cc.id]||{},m1=mm[meses[0]]||0,m2=mm[meses[1]]||0,m3=mm[meses[2]]||0,acum=paRealAte(d,cc.id,fimTri);
-    return {prev:p,pm:p/12,prevAte:p/12*fimTri,m1:m1,m2:m2,m3:m3,tri:m1+m2+m3,acum:acum,media:divMedia>0?acum/divMedia:0};
+    return {prev:p,pm:p/12,prevAte:p/12*fimTri,m1:m1,m2:m2,m3:m3,prevTri:p/12*3,tri:m1+m2+m3,acum:acum,media:divMedia>0?acum/divMedia:0};
   }
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prevAte;tot[g.conta.tipo].real+=l.acum;});});});
@@ -879,16 +882,20 @@ async function paVisaoTrimestral(){
     paKpi('Resultado (Receita − Despesa) '+rot,'Previsto '+paBRL(res.prev),'Realizado '+paBRL(res.real),res.real>=0?'var(--blue)':'var(--red)')+
   '</div>';
   html+=paTabelaHier(d,{
-    cols:[{t:'Prev. Ano'},{t:'Prev. Mês'}].concat(meses.map(function(m){return {t:PA_MESES_AB[m-1]};})).concat([
-      {t:'Total Trimestral',title:'Soma dos 3 meses exibidos'},
-      {t:'Total Real. '+rot,title:'Realizado de janeiro até o fim do '+t+'º trimestre'},
-      {t:'Média Mensal Realizada Acum.',title:'Total Real. '+rot+' ÷ '+divMedia+' meses com Orçamento Realizado — compare com o Prev. Mês'}]),
-    campos:['prev','pm','prevAte','m1','m2','m3','tri','acum','media'],linha:linha,
+    classe:'pa-compacta pa-estreita',
+    cols:[{t:'Prev.<br>Ano'},{t:'Prev.<br>Mês'}].concat(meses.map(function(m){return {t:PA_MESES_AB[m-1]};})).concat([
+      {t:'Prev.<br>Tri',title:'Previsto do trimestre = Prev. Mês × 3 — compare com o Total Trimestral'},
+      {t:'Total<br>Trimestral',title:'Soma dos 3 meses exibidos'},
+      {t:'Total Real.<br>'+rot,title:'Realizado de janeiro até o fim do '+t+'º trimestre'},
+      {t:'Média Mensal<br>Realizada Acum.',title:'Total Real. '+rot+' ÷ '+divMedia+' meses com Orçamento Realizado — compare com o Prev. Mês'}]),
+    campos:['prev','pm','prevAte','m1','m2','m3','prevTri','tri','acum','media'],linha:linha,
     celulas:function(l,tipo){
       var ruim=divMedia>0&&l.pm!==0&&(tipo==='RECEITAS'?l.media<l.pm:l.media>l.pm);
       var corMedia=divMedia===0||!l.media?'var(--muted)':(ruim?'var(--red)':'var(--green)');
-      return paCelula(paBRL(l.prev))+paCelula(paBRL(l.pm),'var(--muted2)')+[l.m1,l.m2,l.m3].map(function(v){return paCelula(v?paBRL(v):'—',v?'':'var(--muted)');}).join('')+
-        paCelula(paBRL(l.tri),'',600)+paCelula(paBRL(l.acum),'',600)+paCelula(divMedia>0?paBRL(l.media):'—',corMedia,600);
+      // Total Trimestral vs Prev. Tri: só colore quando o trimestre já tem Orçamento Realizado
+      var corTri=(d.ultimo||0)<meses[0]||(l.prevTri===0&&!l.tri)?'':((tipo==='RECEITAS'?l.tri<l.prevTri:l.tri>l.prevTri)?'var(--red)':'var(--green)');
+      return paCelula(paValor(l.prev))+paCelula(paValor(l.pm),'var(--muted2)')+[l.m1,l.m2,l.m3].map(function(v){return paCelula(v?paValor(v):'—',v?'':'var(--muted)');}).join('')+
+        paCelula(paValor(l.prevTri),'var(--muted2)')+paCelula(paValor(l.tri),corTri,600)+paCelula(paValor(l.acum),'',600)+paCelula(divMedia>0?paValor(l.media):'—',corMedia,600);
     }
   });
   document.getElementById('pa-root').innerHTML=html;
@@ -1017,7 +1024,8 @@ var PA_TUT={
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
   ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
   ['Meses do trimestre','Realizado lançado em cada mês do trimestre escolhido.'],
-  ['Total Trimestral','Soma dos três meses exibidos.','Mês 1 + Mês 2 + Mês 3'],
+  ['Prev. Tri','Previsto para os três meses do trimestre — para comparar com o Total Trimestral.','Prev. Mês × 3'],
+  ['Total Trimestral','Soma dos três meses exibidos. Verde = dentro do Prev. Tri; vermelho = Receitas abaixo ou Despesas acima (só colore quando o trimestre já tem Orçamento Realizado).','Mês 1 + Mês 2 + Mês 3'],
   ['Total Real. até o nºT','Tudo o que foi realizado de janeiro até o fim do trimestre (mesmo valor do cartão).','Soma de jan até o último mês do trimestre'],
   ['Média Mensal Realizada Acum.','Média mensal do que foi realizado até o trimestre, para comparar com o Prev. Mês. Divide só pelos meses que já têm Orçamento Realizado (ex.: 4ºT com outubro lançado → 10 meses). Verde = dentro do previsto; vermelho = Receitas abaixo ou Despesas acima do Prev. Mês.','Total Real. até o nºT ÷ meses com Orçamento Realizado até o trimestre']]},
  anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta.',c:[

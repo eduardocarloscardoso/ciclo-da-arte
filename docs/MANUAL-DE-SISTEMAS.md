@@ -266,12 +266,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - **Visão Trimestral Acumulada** (23/10/2026, pedido do Cardoso): cartões
   "Total Receitas / Despesas / Resultado **até o nºT**" — Previsto = Prev.
   Mês × meses até o fim do trimestre; Realizado = jan até o fim do
-  trimestre. Colunas: Prev. Ano · Prev. Mês · 3 meses · **Total Trimestral**
-  (soma dos 3 meses) · **Total Real. até o nºT** (jan até o fim do
+  trimestre. Colunas: Prev. Ano · Prev. Mês · 3 meses · **Prev. Tri** (Prev. Mês ×
+  3) · **Total Trimestral** (soma dos 3 meses; verde/vermelho vs Prev. Tri) · **Total Real. até o nºT** (jan até o fim do
   trimestre) · **Média Mensal Realizada Acum.** = Total Real. até o nºT ÷
   mín(3 × n, último mês realizado) — ex.: 4ºT com outubro lançado ÷ 10;
   vermelho quando Receitas abaixo ou Despesas acima do Prev. Mês. Saíram
-  Provisão Prev., Saldo Total a Real. e Saldo Mensal a Real.
+  Provisão Prev., Saldo Total a Real. e Saldo Mensal a Real. Tabela sem "R$"
+  nas células (classe `.pa-estreita`) para caber em telas de 1366 px.
 - **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
   Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
   (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).
