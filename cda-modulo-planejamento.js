@@ -923,16 +923,17 @@ async function paComparativoMetas(){
   if(!paEstado.statusMeta)paEstado.statusMeta='Todos';
   var sel='<label>Status<select onchange="paEstado.statusMeta=this.value;navigatePlanejamento(\'metas\')">'+['Todos','OK','Sem Dados','Atenção','Crítico','Intervenção'].map(function(s){return '<option '+(s===paEstado.statusMeta?'selected':'')+'>'+s+'</option>';}).join('')+'</select></label>';
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'metas'+'\')">ℹ️ Tutorial Informativo</button>'}).replace('<div class="pa-toggle"',sel+'<div class="pa-toggle"');
-  html+=paInfoUltimo(d,ano,'% Desvio = (Realizado − Previsto Mês × meses com lançamento) ÷ previsto acumulado · Projeção Mensal = Saldo ÷ meses sem lançamento');
+  var mPass=d.ultimo||0,mRest=d.restantes;
+  html+=paInfoUltimo(d,ano,'% Desvio = (Realizado − Previsto Mês × <b>'+mPass+'</b>) ÷ previsto acumulado · Proj. Mensal = Saldo ÷ <b>'+mRest+'</b> meses restantes');
   function linha(cc){
     var p=d.prev[cc.id]||0,pm=p/12,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;
-    var com=Object.keys(d.mesesComValor[cc.id]||{}).length,sem=12-com,pa=pm*com;
+    var com=mPass,sem=mRest,pa=pm*com; // regra única: meses até o último Orçamento Realizado (todos os centros)
     var proj=sem>0?sal/sem:0;
     return {prev:p,pm:pm,real:re,prov:pv,saldo:sal,prevAcum:pa,com:com,projMes:proj,projAno:re+proj*sem};
   }
   function agregar(linhas,tipo){
     var t=paSomaLinhas(linhas,['prev','pm','real','prov','saldo','projMes','projAno']);
-    t.com=linhas.reduce(function(a,l){return Math.max(a,l.com);},0);t.prevAcum=t.pm*t.com;return t;
+    t.com=mPass;t.prevAcum=t.pm*t.com;return t;
   }
   var filtro=paEstado.statusMeta;
   function passa(l,tipo){var dv=l.prevAcum!==0?(l.real-l.prevAcum)/l.prevAcum*100:null;return filtro==='Todos'||paStatusMetas(dv,tipo)===filtro;}
@@ -1021,7 +1022,7 @@ var PA_TUT={
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − (Total Realizado + Provisão)'],
   ['Saldo Mensal a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
- metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já lançados e projeta o fechamento do ano.',c:[
+ metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
   ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
@@ -1029,10 +1030,10 @@ var PA_TUT={
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
   ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − (Realizado Acum. + Provisão)'],
   ['% Exec.','Quanto do previsto já está realizado ou provisionado.','(Realizado Acum. + Provisão) ÷ Previsto Ano × 100'],
-  ['% Desvio','Desvio do realizado contra o previsto proporcional aos meses com lançamento.','(Realizado Acum. − Prev. Mês × meses com lançamento) ÷ (Prev. Mês × meses com lançamento) × 100'],
+  ['% Desvio','Desvio do realizado contra o previsto proporcional aos meses já passados.','(Realizado Acum. − Prev. Mês × meses até o último realizado) ÷ (Prev. Mês × meses até o último realizado) × 100'],
   ['Status','Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],
-  ['Proj. Mensal','Quanto realizar por mês nos meses ainda sem lançamento.','Saldo a Real. ÷ meses sem lançamento'],
-  ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Realizado Acum. + Proj. Mensal × meses sem lançamento']]}
+  ['Proj. Mensal','Quanto realizar por mês nos meses que faltam no ano.','Saldo a Real. ÷ meses restantes (12 − último mês realizado)'],
+  ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Realizado Acum. + Proj. Mensal × meses restantes']]}
 };
 function paTutorialInformativo(chave){
   var t=PA_TUT[chave];if(!t)return;

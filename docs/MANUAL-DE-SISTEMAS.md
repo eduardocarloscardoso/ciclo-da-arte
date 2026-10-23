@@ -277,7 +277,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (conteúdo em `PA_TUT` no módulo — atualizar junto com qualquer mudança de
   cálculo).
 - **Status**: Comparativo Mensal OK ≤10% · Atenção 10–30% · Crítico >30%;
-  Comparativo de Metas (desvio vs. Previsto Mês × meses com lançamento) OK
+  Comparativo de Metas (desvio vs. Previsto Mês × meses até o último
+  realizado — mesma regra para todos os centros desde 23/10/2026; Proj.
+  Mensal = Saldo ÷ meses restantes) OK
   favorável · Atenção ≤10% · Crítico ≤20% · Intervenção >20% · Sem Dados.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
