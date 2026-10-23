@@ -273,6 +273,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   vermelho quando Receitas abaixo ou Despesas acima do Prev. Mês. Saíram
   Provisão Prev., Saldo Total a Real. e Saldo Mensal a Real. Tabela sem "R$"
   nas células (classe `.pa-estreita`) para caber em telas de 1366 px.
+- **Rótulo** (23/10/2026): no Comparativo Mensal e na Visão Anual a coluna
+  "Saldo Mensal a Real." passou a se chamar **Saldo Mensal Anual pendente a
+  Real.** (mesmo cálculo).
 - **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
   Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
   (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).

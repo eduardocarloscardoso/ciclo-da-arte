@@ -847,7 +847,7 @@ async function paComparativoMensal(){
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.pm;tot[g.conta.tipo].real+=l.rm;});});});
   html+=paKpisPrevReal(tot).replace(/Previsto R\$/g,(total?'Prev. acumulado':'Previsto mês')+' R$');
   html+=paTabelaHier(d,{
-    cols:[{t:'Previsto Ano'},{t:total?'Total Prev. Meses':'Previsto Mês'},{t:'Realizado'},{t:'Variação R$'},{t:'Var %'},{t:'Status'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Total Realizado',title:'Realizado acumulado até '+(mesRef?PA_MESES[mesRef-1]:'—')+' + Provisão Prevista'},{t:'Saldo Mensal a Real.',title:'(Previsto Ano − Total Realizado) ÷ '+restRef+' meses restantes'}],
+    cols:[{t:'Previsto Ano'},{t:total?'Total Prev. Meses':'Previsto Mês'},{t:'Realizado'},{t:'Variação R$'},{t:'Var %'},{t:'Status'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Total Realizado',title:'Realizado acumulado até '+(mesRef?PA_MESES[mesRef-1]:'—')+' + Provisão Prevista'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'(Previsto Ano − Total Realizado) ÷ '+restRef+' meses restantes'}],
     campos:['prev','pm','rm','vr','prov','totReal','saldoMes'],linha:linha,
     celulas:function(l,tipo,nivel){
       var pct=l.pm!==0?(l.vr/l.pm)*100:null,cor=paCorVar(l.vr,tipo);
@@ -911,7 +911,7 @@ async function paVisaoAnual(){
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
   html+=paKpisPrevReal(tot);
   html+=paTabelaHier(d,{
-    cols:[{t:'Prev. Anual'},{t:'Total Real.'},{t:'% Exec.'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo Total a Real.'},{t:'Saldo Mensal a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
+    cols:[{t:'Prev. Anual'},{t:'Total Real.'},{t:'% Exec.'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo Total a Real.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
     campos:['prev','real','prov','saldo','saldoMes'],linha:linha,
     celulas:function(l,tipo){
       var pct=l.prev!==0?l.real/l.prev*100:null,w=pct===null?0:Math.min(100,Math.max(0,pct));
@@ -1017,7 +1017,7 @@ var PA_TUT={
   ['Status','Situação do desvio desfavorável: OK até 10% · Atenção de 10% a 30% · Crítico acima de 30%.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
   ['Total Realizado','Tudo o que já foi realizado no ano até o último Orçamento Realizado lançado (mesmo parcial), somado ao que está provisionado. Não muda com o mês filtrado.','Realizado acumulado (jan até o último mês realizado) + Provisão Prevista'],
-  ['Saldo Mensal a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o último Orçamento Realizado lançado, para atingir o previsto do ano. Não muda com o mês filtrado.','(Previsto Ano − Total Realizado) ÷ (12 − último mês realizado)']]},
+  ['Saldo Mensal Anual pendente a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o último Orçamento Realizado lançado, para atingir o previsto do ano. Não muda com o mês filtrado.','(Previsto Ano − Total Realizado) ÷ (12 − último mês realizado)']]},
  trimestral:{t:'Visão Trimestral Acumulada',d:'Mostra os três meses do trimestre lado a lado e o acumulado do ano até o fim do trimestre, com a média mensal realizada para comparar com o previsto mensal.',c:[
   ['1ºT a 4ºT','Escolhe o trimestre (1ºT = jan–mar … 4ºT = out–dez). Abre no trimestre do último mês realizado.'],
   ['Cartões "até o nºT"','Previsto e Realizado acumulados de janeiro até o fim do trimestre escolhido, por Receitas e Despesas, e o Resultado (Receitas − Despesas).','Previsto = Prev. Mês × meses até o fim do trimestre · Realizado = soma de jan até o fim do trimestre'],
@@ -1034,7 +1034,7 @@ var PA_TUT={
   ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Realizado ÷ Previsto Anual × 100'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − (Total Realizado + Provisão)'],
-  ['Saldo Mensal a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
+  ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
  metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
