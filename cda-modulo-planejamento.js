@@ -237,6 +237,11 @@ function paContasFiltradas(h){
     return {conta:c,subcontas:subs};
   }).filter(function(x){return x.subcontas.length;});
 }
+// Cartões (KPIs) sempre mostram o total geral; Conta/Subconta filtram só a tabela (23/10/2026)
+function paGruposCartoes(h){
+  var t=paEstado.tipo,sc=paEstado.subcontaId;paEstado.tipo='';paEstado.subcontaId='';
+  try{return paGruposAtivos(h);}finally{paEstado.tipo=t;paEstado.subcontaId=sc;}
+}
 function paSoma(lista, f){return lista.reduce(function(a,x){return a+(Number(f(x))||0);},0);}
 
 // ════════════════════════════════════════════════════════════════════
@@ -774,7 +779,7 @@ async function paProvisaoPrevista(){
   html+=paInfoUltimo(d,ano,'Saldo Total = Previsto − (Realizado + Provisão)'+(podeEd?' · <b>Auto</b> grava Provisão = Previsto − Realizado':''));
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,saldo:sal,saldoMes:paSaldoMensal(d,sal),prov:pv,auto:p-re};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}},totProv={RECEITAS:0,DESPESAS:0};
-  paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;totProv[g.conta.tipo]+=l.prov;});});});
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;totProv[g.conta.tipo]+=l.prov;});});});
   html+='<div class="pa-kpis">'+paKpi('Provisão Receitas',paBRL(totProv.RECEITAS),'','var(--purple)')+paKpi('Provisão Despesas',paBRL(totProv.DESPESAS),'','var(--purple)')+paKpi('Realizado + Provisão (Resultado)',paBRL((tot.RECEITAS.real+totProv.RECEITAS)-(tot.DESPESAS.real+totProv.DESPESAS)),'','var(--blue)')+'</div>';
   html+=paTabelaHier(d,{
     cols:[{t:'Previsto Anual'},{t:'Total Realizado'},{t:'Saldo Total a Realizar'},{t:'Saldo Mensal a Realizar',title:'Saldo Total ÷ '+d.restantes+' meses'},{t:'Provisão Prevista',cor:'var(--purple)'},{t:''}],
@@ -836,7 +841,7 @@ async function paComparativoMensal(){
     return {prev:p,pm:pm,rm:rm,vr:vr,prov:pv,totReal:totReal,saldoMes:restRef>0?sal/restRef:sal};
   }
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
-  paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.pm;tot[g.conta.tipo].real+=l.rm;});});});
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.pm;tot[g.conta.tipo].real+=l.rm;});});});
   html+=paKpisPrevReal(tot).replace(/Previsto R\$/g,(total?'Prev. acumulado':'Previsto mês')+' R$');
   html+=paTabelaHier(d,{
     cols:[{t:'Previsto Ano'},{t:total?'Total Prev. Meses':'Previsto Mês'},{t:'Realizado'},{t:'Variação R$'},{t:'Var %'},{t:'Status'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Total Realizado',title:'Realizado acumulado até '+(mesRef?PA_MESES[mesRef-1]:'—')+' + Provisão Prevista'},{t:'Saldo Mensal a Real.',title:'(Previsto Ano − Total Realizado) ÷ '+restRef+' meses restantes'}],
@@ -866,7 +871,7 @@ async function paVisaoTrimestral(){
     return {prev:p,pm:p/12,prevAte:p/12*fimTri,m1:m1,m2:m2,m3:m3,tri:m1+m2+m3,acum:acum,media:divMedia>0?acum/divMedia:0};
   }
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
-  paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prevAte;tot[g.conta.tipo].real+=l.acum;});});});
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prevAte;tot[g.conta.tipo].real+=l.acum;});});});
   var res={prev:tot.RECEITAS.prev-tot.DESPESAS.prev,real:tot.RECEITAS.real-tot.DESPESAS.real};
   html+='<div class="pa-kpis">'+
     paKpi('Total Receitas '+rot,'Previsto '+paBRL(tot.RECEITAS.prev),'Realizado '+paBRL(tot.RECEITAS.real),'var(--green)')+
@@ -896,7 +901,7 @@ async function paVisaoAnual(){
   html+=paInfoUltimo(d,ano,'% Executado = Total Realizado ÷ Previsto Anual');
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
-  paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
   html+=paKpisPrevReal(tot);
   html+=paTabelaHier(d,{
     cols:[{t:'Prev. Anual'},{t:'Total Real.'},{t:'% Exec.'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo Total a Real.'},{t:'Saldo Mensal a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
@@ -938,7 +943,7 @@ async function paComparativoMetas(){
   var filtro=paEstado.statusMeta;
   function passa(l,tipo){var dv=l.prevAcum!==0?(l.real-l.prevAcum)/l.prevAcum*100:null;return filtro==='Todos'||paStatusMetas(dv,tipo)===filtro;}
   var totT={RECEITAS:{prev:0,real:0,proj:0},DESPESAS:{prev:0,real:0,proj:0}};
-  paGruposAtivos(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);totT[g.conta.tipo].prev+=l.prev;totT[g.conta.tipo].real+=l.real;totT[g.conta.tipo].proj+=l.projAno;});});});
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);totT[g.conta.tipo].prev+=l.prev;totT[g.conta.tipo].real+=l.real;totT[g.conta.tipo].proj+=l.projAno;});});});
   html+='<div class="pa-kpis">'+
     paKpi('Total Receitas','Previsto '+paBRL(totT.RECEITAS.prev),'Realizado '+paBRL(totT.RECEITAS.real)+' · Projeção '+paBRL(totT.RECEITAS.proj),'var(--green)')+
     paKpi('Total Despesas','Previsto '+paBRL(totT.DESPESAS.prev),'Realizado '+paBRL(totT.DESPESAS.real)+' · Projeção '+paBRL(totT.DESPESAS.proj),'var(--red)')+
@@ -989,7 +994,7 @@ function paTutorial(){
 // ─── Tutorial Informativo (popup) dos painéis Previsto vs. Realizado ──
 var PA_TUT_COMUM=[
  ['Ano','Exercício analisado. Os valores previstos e realizados são sempre deste ano.'],
- ['Conta / Subconta','Filtram a tabela por Receitas/Despesas e por subconta. Totais e cartões respeitam o filtro.'],
+ ['Conta / Subconta','Filtram a tabela por Receitas/Despesas e por subconta. Os cartões do topo sempre mostram o total geral (Receitas, Despesas e Resultado), mesmo com filtro.'],
  ['Analítico / Sintético','Analítico mostra cada centro de custo; Sintético mostra só os totais por subconta e conta.'],
  ['Cores','Receitas: abaixo do previsto é desfavorável (vermelho). Despesas: acima do previsto é desfavorável (vermelho). Provisão: roxo se positiva, vermelho se negativa.'],
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']

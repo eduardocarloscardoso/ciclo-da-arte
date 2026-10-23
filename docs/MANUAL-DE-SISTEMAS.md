@@ -272,6 +272,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mín(3 × n, último mês realizado) — ex.: 4ºT com outubro lançado ÷ 10;
   vermelho quando Receitas abaixo ou Despesas acima do Prev. Mês. Saíram
   Provisão Prev., Saldo Total a Real. e Saldo Mensal a Real.
+- **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
+  Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
+  (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).
 - **Tutorial Informativo**: botão ℹ️ na linha de filtros dos 4 painéis
   Previsto vs. Realizado; popup explica cada coluna, finalidade e fórmula
   (conteúdo em `PA_TUT` no módulo — atualizar junto com qualquer mudança de
