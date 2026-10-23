@@ -276,6 +276,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - **Rótulo** (23/10/2026): no Comparativo Mensal e na Visão Anual a coluna
   "Saldo Mensal a Real." passou a se chamar **Saldo Mensal Anual pendente a
   Real.** (mesmo cálculo).
+- **Visão Anual Acumulada — colunas** (23/10/2026): Prev. Anual · Total Real. ·
+  Provisão Prev. · **Total Real. com Prov.** (Total Real. + Provisão) · % Exec.
+  (Total Real. ÷ Prev. Anual, sem provisão) · Saldo Total a Real. · Saldo
+  Mensal Anual pendente a Real. Tabela compacta sem "R$" nas células.
 - **Cartões do topo** (23/10/2026): sempre mostram o total geral (Receitas,
   Despesas, Resultado); os filtros Conta/Subconta valem só para a tabela
   (antes o filtro "Despesas", lembrado ao recarregar, zerava Receitas).

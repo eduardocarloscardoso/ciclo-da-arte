@@ -905,19 +905,21 @@ async function paVisaoTrimestral(){
 async function paVisaoAnual(){
   var ano=paEstado.ano,d=await paDadosAno(ano);
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'anual'+'\')">ℹ️ Tutorial Informativo</button>'});
-  html+=paInfoUltimo(d,ano,'% Executado = Total Realizado ÷ Previsto Anual');
-  function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
+  html+=paInfoUltimo(d,ano,'Tabela em R$ · Total Real. com Prov. = Total Real. + Provisão Prev. · % Executado = Total Real. ÷ Prev. Anual');
+  function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,realProv:re+pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
   html+=paKpisPrevReal(tot);
   html+=paTabelaHier(d,{
-    cols:[{t:'Prev. Anual'},{t:'Total Real.'},{t:'% Exec.'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo Total a Real.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
-    campos:['prev','real','prov','saldo','saldoMes'],linha:linha,
+    classe:'pa-compacta pa-estreita',
+    cols:[{t:'Prev.<br>Anual'},{t:'Total<br>Real.'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'% Exec.',title:'Total Real. ÷ Prev. Anual (sem provisão)'},{t:'Saldo Total<br>a Real.',title:'Prev. Anual − Total Real. com Prov.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
+    campos:['prev','real','prov','realProv','saldo','saldoMes'],linha:linha,
     celulas:function(l,tipo){
       var pct=l.prev!==0?l.real/l.prev*100:null,w=pct===null?0:Math.min(100,Math.max(0,pct));
       var corBar=pct===null?'var(--muted)':(tipo==='RECEITAS'?(pct>=100?'var(--green)':'var(--gold)'):(pct>100?'var(--red)':'var(--green)'));
-      return paCelula(paBRL(l.prev))+paCelula(paBRL(l.real),'',600)+'<td>'+(pct===null?'—':pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%')+'<span class="pa-bar"><i style="width:'+w+'%;background:'+corBar+'"></i></span></td>'+
-        paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paBRL(l.saldo),paCorSaldo(l.saldo,tipo),600)+paCelula(paBRL(l.saldoMes),'var(--muted2)');
+      return paCelula(paValor(l.prev))+paCelula(paValor(l.real),'',600)+paCelula(l.prov!==0?paValor(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paValor(l.realProv),'',600)+
+        '<td>'+(pct===null?'—':pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%')+'<span class="pa-bar"><i style="width:'+w+'%;background:'+corBar+'"></i></span></td>'+
+        paCelula(paValor(l.saldo),paCorSaldo(l.saldo,tipo),600)+paCelula(paValor(l.saldoMes),'var(--muted2)');
     }
   });
   document.getElementById('pa-root').innerHTML=html;
@@ -1031,9 +1033,10 @@ var PA_TUT={
  anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta.',c:[
   ['Prev. Anual','Valor previsto para o ano inteiro.'],
   ['Total Real.','Soma de todos os meses realizados no ano.'],
-  ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Realizado ÷ Previsto Anual × 100'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
-  ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − (Total Realizado + Provisão)'],
+  ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado — é o valor que o Saldo Total desconta do previsto.','Total Real. + Provisão Prev.'],
+  ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. ÷ Previsto Anual × 100 (não inclui a provisão)'],
+  ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − Total Real. com Prov.'],
   ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
  metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
