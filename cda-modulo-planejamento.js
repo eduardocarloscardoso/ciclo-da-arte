@@ -132,6 +132,7 @@ function paErro(e, padrao){
     '.pa-sel-nat{background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;padding:3px 6px;font-family:var(--ff-b);max-width:170px}.pa-sel-nat option{color:var(--white)}',
     '.pa-orig{font-size:10px;color:var(--muted);font-family:var(--ff-b);white-space:nowrap}.pa-orig.cad{color:var(--gold2)}',
     '.pa-alerta{background:rgba(201,148,58,.15);color:var(--gold2);border:1px solid rgba(201,148,58,.4);border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap;margin-top:2px}',
+    '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
     '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
@@ -1334,19 +1335,29 @@ async function paMargemCanal(){
     if(c.mpReal===null)return c.mcReal<0?'Fora de controle':'Sem Dados';
     return c.mpReal>=meta?'OK':(c.mpReal>=meta-5?'Atenção':'Fora de controle');
   }
+  // Régua da empresa: margem de contribuição de referência (mercado) e meta interna — editáveis (chave 'mc_empresa')
+  var mcRef=metas.mc_empresa||{},mcEmp=pct(tot.mcReal,tot.real),regua=mcRef.meta!==null&&mcRef.meta!==undefined?mcRef.meta:mcRef.mercado;
+  var stEmp=regua===null||regua===undefined||mcEmp===null?'Sem Dados':(mcEmp>=regua?'OK':(mcEmp>=regua-5?'Atenção':'Fora de controle'));
+  var corEmp=stEmp==='OK'?'var(--green)':stEmp==='Atenção'?'var(--gold2)':stEmp==='Fora de controle'?'var(--red)':'var(--blue)';
   var melhor=canais.filter(function(c){return c.real>0&&c.real>=tot.real*0.02;}).sort(function(a,b){return (b.mpReal||-1e9)-(a.mpReal||-1e9);})[0];
   var pior=canais.filter(function(c){return c.real>0&&c.real>=tot.real*0.02;}).sort(function(a,b){return (a.mpReal||1e9)-(b.mpReal||1e9);})[0];
   html+=paInfoUltimo(d,ano,'Realizado = '+periodo+' · Despesas variáveis rateadas pelos <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">vínculos da Tabela Contábil</a> (sem vínculo = todos os canais; sem % = proporcional à receita)');
   html+='<div class="pa-kpis">'+
-    paKpi('Margem de contribuição total','Realizada '+paBRL(tot.mcReal)+' · '+fp(pct(tot.mcReal,tot.real)),'Prevista '+paBRL(tot.mcPrev)+' · '+fp(pct(tot.mcPrev,tot.prev)),'var(--blue)')+
+    paKpi('Margem de contribuição total','Realizada '+paBRL(tot.mcReal)+' · '+fp(mcEmp),'Prevista '+fp(pct(tot.mcPrev,tot.prev))+' · Mercado '+fp(mcRef.mercado)+' · Meta '+fp(mcRef.meta),corEmp)+
     paKpi('Maior margem % (canais ≥ 2% da receita)',melhor?melhor.nome+' · '+fp(melhor.mpReal):'—',melhor?'Contribui '+paBRL(melhor.mcReal):'','var(--green)')+
     paKpi('Menor margem % (canais ≥ 2% da receita)',pior?pior.nome+' · '+fp(pior.mpReal):'—',pior?'Contribui '+paBRL(pior.mcReal):'','var(--red)')+
     paKpi('Resultado ('+periodo+')',paBRL(tot.mcReal-fixos.real),'Margem '+paBRL(tot.mcReal)+' − fixos e financeiros '+paBRL(fixos.real),tot.mcReal-fixos.real>=0?'var(--green)':'var(--red)')+
   '</div>';
+  function campoPctEmp(campo,v){
+    if(!podeEd)return ' '+fp(v);
+    return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="Margem de contribuição empresa — '+(campo==='meta'?'meta interna':'referência de mercado')+'" value="'+(v===null||v===undefined?'':String(v).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\'mc_empresa\',\''+campo+'\')">';
+  }
   function campoMeta(chave,v){
     if(!podeEd)return fp(v);
     return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="Meta de margem '+chave+'" value="'+(v===null||v===undefined?'':String(v).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\'meta\')">';
   }
+  html+='<div class="pa-param"><b>Margem de contribuição de referência (empresa)</b><label>Ref. mercado %'+campoPctEmp('mercado',mcRef.mercado)+'</label><label>Meta interna %'+campoPctEmp('meta',mcRef.meta)+'</label>'+
+    '<span>Realizada <b style="color:'+corEmp+'">'+fp(mcEmp)+'</b> '+paBadgeStatus(stEmp)+'</span><span class="pa-mut" style="font-size:11.5px">Status usa a meta interna; sem meta, a referência de mercado. Faixa estimada para moda/merch: 35% a 45%.</span></div>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita"><thead><tr><th>Canal de receita / despesa variável</th>'+
     '<th>Receita<br>prevista</th><th title="Margem prevista ÷ receita prevista">Margem<br>prev. %</th>'+
     '<th>Receita<br>'+periodo+'</th><th>Custos<br>variáveis</th><th>Margem<br>R$</th><th title="Margem realizada ÷ receita realizada">Margem<br>real. %</th><th title="Margem real. % − Margem prev. %">Var.<br>p.p.</th>'+
@@ -1385,7 +1396,7 @@ async function paMargemCanal(){
   if(!mostrou)html+='<tr><td colspan="11" class="pa-mut" style="text-align:center">Nenhum canal para o filtro escolhido.</td></tr>';
   var res={prev:tot.mcPrev-fixos.prev,real:tot.mcReal-fixos.real};
   if(filtrando)html+='<tr><td colspan="11" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo'+(fTipo==='DESPESAS'&&(fSub||fCc)?' — dentro de cada canal aparecem só as despesas de <b>'+paEsc(fCc?fCc.nome:fSub.nome)+'</b>; a margem do canal continua considerando todas as despesas variáveis':'')+(fTipo==='RECEITAS'&&fCc?' — centro de receita: despesas do canal rateadas <b>proporcionalmente à receita do centro</b>':'')+'. Os totais da empresa abaixo não mudam com o filtro.</td></tr>';
-  html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL (EMPRESA)</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+'<td></td><td></td></tr>';
+  html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL (EMPRESA)</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+paCelula(fp(regua),'',600)+'<td style="text-align:center">'+paBadgeStatus(stEmp)+'</td></tr>';
   html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS + FINANCEIROS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';
   html+='</tbody></table></div>';
@@ -1460,6 +1471,7 @@ var PA_TUT={
   ['Receita / Custos variáveis / Margem R$','Valores realizados de janeiro até o último mês lançado.','Margem = Receita − Custos variáveis rateados'],
   ['Margem real. % / Var. p.p.','Margem realizada em % da receita do canal e a diferença para a prevista.','Margem ÷ Receita do canal × 100'],
   ['Part. na margem','Quanto o canal representa da margem total da empresa.','Margem do canal ÷ Margem total'],
+  ['Margem de referência (empresa)','Parâmetro gravado e editável: Ref. mercado % e Meta interna % da margem de contribuição da empresa. O cartão e a linha de total comparam a margem realizada com a meta interna (ou, sem meta, com a referência de mercado): OK atingida · Atenção até 5 p.p. abaixo · Fora de controle. Faixa estimada para moda/merch com lucro de 5% a 10%: 35% a 45%.'],
   ['Meta margem %','Margem mínima que você quer para o canal (editável).'],
   ['Status','Com meta: OK atingida · Atenção até 5 p.p. abaixo · Fora de controle mais de 5 p.p. abaixo. Sem meta: só acusa margem negativa.'],
   ['Resultado','Margem total − custos fixos e financeiros (os fixos não são rateados entre canais).','Σ Margens − Fixos']]},

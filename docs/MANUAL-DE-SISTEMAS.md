@@ -325,6 +325,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (confere com Receitas − Despesas). Analítico abre as despesas de cada canal.
   Anúncios: vigente corrigido para 40,85% da receita do **E-commerce** (canal
   vinculado), ≈ R$ 7.000/mês.
+- **Margem de contribuição de referência da empresa** (24/10/2026): parâmetro
+  editável na Margem por Canal — Ref. mercado % e Meta interna %
+  (`cda_pa_meta_estrutura`, chave `mc_empresa`, por ano, herda o anterior).
+  Cartão e linha de total comparam a margem realizada com a meta (ou, sem
+  meta, com o mercado): OK · Atenção até 5 p.p. abaixo · Fora de controle.
+  Carga 2026: mercado 40% (ponto médio da faixa estimada 35–45% para
+  moda/merch com lucro de 5–10%; estimativa, não estatística publicada).
 - **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
   Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
   `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /
