@@ -332,6 +332,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   meta, com o mercado): OK · Atenção até 5 p.p. abaixo · Fora de controle.
   Carga 2026: mercado 40% (ponto médio da faixa estimada 35–45% para
   moda/merch com lucro de 5–10%; estimativa, não estatística publicada).
+  Cartões da Margem por Canal (24/10/2026, pedido do Cardoso): Vendas
+  (realizado × previsto proporcional) → Custos variáveis (realizado × ideal =
+  100% − referência; excesso em R$) → Margem (realizada × ideal mercado e
+  meta; falta em R$) → Resultado (realizado × com a margem ideal). Saíram os
+  cartões "Maior/Menor margem %".
 - **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
   Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
   `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /

@@ -1339,14 +1339,21 @@ async function paMargemCanal(){
   var mcRef=metas.mc_empresa||{},mcEmp=pct(tot.mcReal,tot.real),regua=mcRef.meta!==null&&mcRef.meta!==undefined?mcRef.meta:mcRef.mercado;
   var stEmp=regua===null||regua===undefined||mcEmp===null?'Sem Dados':(mcEmp>=regua?'OK':(mcEmp>=regua-5?'Atenção':'Fora de controle'));
   var corEmp=stEmp==='OK'?'var(--green)':stEmp==='Atenção'?'var(--gold2)':stEmp==='Fora de controle'?'var(--red)':'var(--blue)';
-  var melhor=canais.filter(function(c){return c.real>0&&c.real>=tot.real*0.02;}).sort(function(a,b){return (b.mpReal||-1e9)-(a.mpReal||-1e9);})[0];
-  var pior=canais.filter(function(c){return c.real>0&&c.real>=tot.real*0.02;}).sort(function(a,b){return (a.mpReal||1e9)-(b.mpReal||1e9);})[0];
   html+=paInfoUltimo(d,ano,'Realizado = '+periodo+' · Despesas variáveis rateadas pelos <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">vínculos da Tabela Contábil</a> (sem vínculo = todos os canais; sem % = proporcional à receita)');
+  // Cartões: a conta da margem, Realizado × Ideal de mercado (e × Meta interna)
+  var mMerc=mcRef.mercado,mMeta=mcRef.meta,temMerc=mMerc!==null&&mMerc!==undefined,temMeta=mMeta!==null&&mMeta!==undefined;
+  var prevPer=ult?tot.prev*ult/12:0,vPct=pct(tot.varReal,tot.real),resReal=tot.mcReal-fixos.real;
+  function linhaIdeal(rot,valPct,base,extra){return rot+' '+fp(valPct)+' = '+paBRL(valPct/100*base)+(extra||'');}
+  var sub1='Prevista no período (Prev. ano × '+ult+'/12) '+paBRL(prevPer)+(prevPer?' · '+fp(pct(tot.real,prevPer))+' atingido':'');
+  var sub2=(temMerc?linhaIdeal('Ideal mercado',100-mMerc,tot.real,' · excesso '+paBRL(tot.varReal-(100-mMerc)/100*tot.real)):'Ideal mercado: defina a referência abaixo')+(temMeta?' · Meta '+fp(100-mMeta):'');
+  var sub3=(temMerc?linhaIdeal('Ideal mercado',mMerc,tot.real,' · falta '+paBRL(mMerc/100*tot.real-tot.mcReal)):'Ideal mercado: defina a referência abaixo')+(temMeta?' · '+linhaIdeal('Meta',mMeta,tot.real):'');
+  var resIdeal=temMerc?mMerc/100*tot.real-fixos.real:null;
+  var sub4=(resIdeal!==null?'Com a margem ideal ('+fp(mMerc)+'): '+paBRL(resIdeal):'')+' · Fixos e financeiros '+paBRL(fixos.real);
   html+='<div class="pa-kpis">'+
-    paKpi('Margem de contribuição total','Realizada '+paBRL(tot.mcReal)+' · '+fp(mcEmp),'Prevista '+fp(pct(tot.mcPrev,tot.prev))+' · Mercado '+fp(mcRef.mercado)+' · Meta '+fp(mcRef.meta),corEmp)+
-    paKpi('Maior margem % (canais ≥ 2% da receita)',melhor?melhor.nome+' · '+fp(melhor.mpReal):'—',melhor?'Contribui '+paBRL(melhor.mcReal):'','var(--green)')+
-    paKpi('Menor margem % (canais ≥ 2% da receita)',pior?pior.nome+' · '+fp(pior.mpReal):'—',pior?'Contribui '+paBRL(pior.mcReal):'','var(--red)')+
-    paKpi('Resultado ('+periodo+')',paBRL(tot.mcReal-fixos.real),'Margem '+paBRL(tot.mcReal)+' − fixos e financeiros '+paBRL(fixos.real),tot.mcReal-fixos.real>=0?'var(--green)':'var(--red)')+
+    paKpi('Vendas ('+periodo+')','Realizadas '+paBRL(tot.real),sub1,'var(--green)')+
+    paKpi('Custos variáveis','Realizados '+paBRL(tot.varReal)+' · '+fp(vPct),sub2,temMerc&&vPct>100-mMerc?'var(--red)':'var(--gold2)')+
+    paKpi('Margem de contribuição','Realizada '+paBRL(tot.mcReal)+' · '+fp(mcEmp),sub3,corEmp)+
+    paKpi('Resultado ('+periodo+')',paBRL(resReal),sub4,resReal>=0?'var(--green)':'var(--red)')+
   '</div>';
   function campoPctEmp(campo,v){
     if(!podeEd)return ' '+fp(v);
@@ -1471,6 +1478,7 @@ var PA_TUT={
   ['Receita / Custos variáveis / Margem R$','Valores realizados de janeiro até o último mês lançado.','Margem = Receita − Custos variáveis rateados'],
   ['Margem real. % / Var. p.p.','Margem realizada em % da receita do canal e a diferença para a prevista.','Margem ÷ Receita do canal × 100'],
   ['Part. na margem','Quanto o canal representa da margem total da empresa.','Margem do canal ÷ Margem total'],
+  ['Cartões','A conta da margem da empresa no período: Vendas (realizado × previsto proporcional) → Custos variáveis (realizado × ideal de mercado, que é 100% − margem de referência) → Margem de contribuição (realizada × ideal de mercado e meta) → Resultado (realizado × o que seria com a margem ideal, mantidos os fixos).','Ideal R$ = % de referência × Vendas realizadas'],
   ['Margem de referência (empresa)','Parâmetro gravado e editável: Ref. mercado % e Meta interna % da margem de contribuição da empresa. O cartão e a linha de total comparam a margem realizada com a meta interna (ou, sem meta, com a referência de mercado): OK atingida · Atenção até 5 p.p. abaixo · Fora de controle. Faixa estimada para moda/merch com lucro de 5% a 10%: 35% a 45%.'],
   ['Meta margem %','Margem mínima que você quer para o canal (editável).'],
   ['Status','Com meta: OK atingida · Atenção até 5 p.p. abaixo · Fora de controle mais de 5 p.p. abaixo. Sem meta: só acusa margem negativa.'],
