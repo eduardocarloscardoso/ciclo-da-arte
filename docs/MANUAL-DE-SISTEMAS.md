@@ -394,6 +394,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   centro (metas intermediárias, ações); anotações não se editam; exclusão só
   admin. Notas iniciais: Condomínio (repassar 1 de 5 salas a R$ 554,80 →
   R$ 2.219,20) e as metas intermediárias de Pessoal.
+- **Nova matriz da Estrutura de Custos Fixos** (24/10/2026, Cardoso): colunas
+  Orçado Mês (Ano Exerc. ÷ 12) · Mercado (ideal) % e R$/mês · **Realizado Média
+  Ano** (realizado jan–último mês ÷ nº de meses) · **Realizado Mensal
+  Consolidado** (valor vigente cadastrado com data e motivo) · **Meta mensal de
+  redução** (Base − Mercado) · **Plano de ação** (📝 histórico) · Status.
+  Base de comparação = Consolidado quando cadastrado (prevalece), senão Média
+  Ano; status Dentro / Atenção (até 10% acima) / Acima. Saíram a média de 3
+  meses e os campos "A perseguir". Subconta e total: soma (congelada); na
+  subconta, o Consolidado mostra a soma das bases dos centros.
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.

@@ -135,7 +135,7 @@ function paErro(e, padrao){
     '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
     '.pa-param-g{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--white)}',
     '.pa-cong{background:rgba(255,255,255,.025)}',
-    '.pa-reguas.pa-tbl th:first-child{min-width:155px}.pa-mini.pa-tbl td,.pa-mini.pa-tbl th{padding-left:4px;padding-right:4px}.pa-mini.pa-tbl td{font-size:10.5px}.pa-reguas th.pa-c-merc{color:#8fb3ff}.pa-reguas th.pa-c-atual{color:var(--gold2)}.pa-reguas th.pa-c-meta{color:var(--green)}.pa-reguas td.pa-c-merc{background:rgba(74,128,255,.05)}.pa-reguas td.pa-c-atual{background:rgba(201,148,58,.05)}.pa-reguas td.pa-c-meta{background:rgba(62,201,122,.05)}',
+    '.pa-reguas.pa-tbl th:first-child{min-width:155px}.pa-mini.pa-tbl td,.pa-mini.pa-tbl th{padding-left:4px;padding-right:4px}.pa-mini.pa-tbl td{font-size:10.5px}.pa-reguas th.pa-c-merc{color:#8fb3ff}.pa-reguas th.pa-c-cons{color:#e8a87c}.pa-reguas td.pa-c-cons{background:rgba(232,168,124,.05)}.pa-reguas th.pa-c-orc{color:var(--white)}.pa-base{font-weight:700;text-decoration:underline dotted rgba(201,148,58,.7);text-underline-offset:3px}.pa-c-plano{text-align:left!important;white-space:normal!important;min-width:150px;max-width:220px}.pa-mini .pa-c-plano{min-width:96px;max-width:130px}.pa-plano{display:flex;gap:4px;align-items:flex-start;font-size:11px;color:var(--muted2);font-family:var(--ff-b)}.pa-plano-hist{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px}.pa-plano-item{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12.5px}.pa-reguas th.pa-c-atual{color:var(--gold2)}.pa-reguas th.pa-c-meta{color:var(--green)}.pa-reguas td.pa-c-merc{background:rgba(74,128,255,.05)}.pa-reguas td.pa-c-atual{background:rgba(201,148,58,.05)}.pa-reguas td.pa-c-meta{background:rgba(62,201,122,.05)}',
     '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
@@ -897,7 +897,7 @@ function paCorSaldo(saldo,tipo){if(tipo==='RECEITAS')return saldo>0?'var(--red)'
 function paCelula(v,cor,peso){return '<td style="'+(cor?'color:'+cor+';':'')+(peso?'font-weight:'+peso+';':'')+'">'+v+'</td>';}
 function paInfoUltimo(d,ano,extra){return '<div class="pa-info">Último mês realizado em '+ano+': <b>'+(d.ultimo?PA_MESES[d.ultimo-1]:'nenhum')+'</b> · Meses restantes: <b>'+d.restantes+'</b>'+(extra?' · '+extra:'')+'</div>';}
 function paBadgeStatus(st){
-  var c={'OK':'ok','Atenção':'warn','Crítico':'err','Fora de controle':'err','Intervenção':'int','Sem Dados':'mut','—':'mut'}[st]||'mut';
+  var c={'OK':'ok','Dentro':'ok','Atenção':'warn','Crítico':'err','Fora de controle':'err','Acima':'err','Intervenção':'int','Sem Dados':'mut','—':'mut'}[st]||'mut';
   return '<span class="pa-badge pa-st-'+c+'">'+st+'</span>';
 }
 (function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-badge.pa-st-ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.pa-st-warn{background:rgba(201,148,58,.18);color:var(--gold2)}.pa-badge.pa-st-err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.pa-st-int{background:#4c0519;color:#fecdd3;border:1px solid #be123c}.pa-badge.pa-st-mut{background:var(--card2);color:var(--muted2)}\n.pa-bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--card2);vertical-align:middle;margin-left:8px;overflow:hidden}.pa-bar i{display:block;height:100%;border-radius:3px}\n.pa-btn-auto{background:rgba(155,114,207,.15);color:var(--purple);border:1px solid rgba(155,114,207,.35);border-radius:6px;font-size:10.5px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap}.pa-btn-auto:hover{background:rgba(155,114,207,.28)}\n.pa-in.prov{color:var(--purple)}.pa-in.prov.neg{color:var(--red)}\n.pa-tut h3{font-family:var(--ff-d);font-size:16px;margin:18px 0 6px}.pa-tut p,.pa-tut li{font-size:13px;color:var(--muted2);line-height:1.6}.pa-tut ul{padding-left:20px}.pa-tut b{color:var(--white)}.pa-tut code{font-family:var(--ff-m);font-size:12px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--gold2)}';})();
@@ -1167,18 +1167,17 @@ async function paSalvarMetaEstrutura(inp,chave,campo){
 }
 async function paEstruturaCustos(){
   var ano=paEstado.ano;
-  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc')]);
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc')]);
   var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar();
-  paCache.vigentes=r[3];paCache.metasEstr=metas;
+  paCache.vigentes=r[3];paCache.metasEstr=metas;paCache.planos=r[4];
   var hojeD=new Date(),refMes=ano<hojeD.getFullYear()?12:(ano>hojeD.getFullYear()?1:hojeD.getMonth()+1);
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
   var restantes=Math.max(12-ult,0),nAlertas=0;
-  var lucroAlvo=paEstado.lucroAlvo===undefined?5:paEstado.lucroAlvo,soFora=!!paEstado.soFora;
-  var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só fora de controle</button></div>'+
+  var soFora=!!paEstado.soFora;
+  var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só acima do mercado</button></div>'+
     '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\'estrutura\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>';
   var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:acoes});
-  // Filtros (mesmos da Margem por Canal): recortam as linhas da tabela; cartões e total da empresa não mudam
   var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||'');
   var filtrando=!!(fSub||fCc||fBusca||paEstado.tipo);
   function pct(v,base){return base?v/base*100:null;}
@@ -1195,15 +1194,14 @@ async function paEstruturaCustos(){
     if(nat==='variavel'){vari.prev+=p;vari.real+=re;return;}
     if(/^Predial - (Aluguel|Condom|IPTU|Energia)/i.test(cc.nome))ocup.real+=re;
     var chave=nat==='financeira'?'financeira':'sub:'+s.id;
-    if(!linhas[chave]){linhas[chave]={chave:chave,nome:nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome,prev:0,real:0,ant:0,vigM:0,centros:[]};ordem.push(chave);}
-    var vg=paVigenteAtual(cc.id,ano,refMes),med3=0,base3=0;
-    for(var i=ult;i>=1&&base3<3;i--){if(mm[i]){med3+=mm[i];base3++;}}med3=base3?med3/base3:0;
-    var vigM=vg&&vg.tipo==='valor'?Number(vg.valor):med3;
+    if(!linhas[chave]){linhas[chave]={chave:chave,nome:nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome,prev:0,real:0,ant:0,centros:[]};ordem.push(chave);}
+    // Consolidado = valor mensal cadastrado (vigente da Tabela Contábil); sem cadastro, vazio
+    var vg=paVigenteAtual(cc.id,ano,refMes),cons=vg&&vg.tipo==='valor'?Number(vg.valor):null;
     var ultimo=mm[ult]||0,ant3=0;for(var j=Math.max(1,ult-3);j<=ult-1;j++)ant3+=mm[j]||0;ant3=ult>1?ant3/Math.min(3,ult-1):0;
     var alerta=ultimo>0&&ant3>0&&Math.abs(ultimo/ant3-1)>0.2&&!(vg&&vg.ano_inicio===ano&&vg.mes_inicio===ult)?{ultimo:ultimo,media:ant3}:null;
     if(alerta)nAlertas++;
-    var L=linhas[chave];L.prev+=p;L.real+=re;L.ant+=an;L.vigM+=vigM;
-    L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,vigM:vigM,origem:vg?'cad':'med',vg:vg,alerta:alerta});
+    var L=linhas[chave];L.prev+=p;L.real+=re;L.ant+=an;
+    L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,cons:cons,vg:vg,alerta:alerta});
   });});});
   ordem.sort(function(a,b){return a==='financeira'?1:b==='financeira'?-1:linhas[b].prev-linhas[a].prev;});
   // Receita base do período: realizada + receita hipotética do mês em aberto (quando o último mês ainda não tem receita)
@@ -1211,56 +1209,60 @@ async function paEstruturaCustos(){
   var recBase=rec.real+(simula?Number(recAberto):0),recMes=ult?recBase/ult:0;
   paCache.recMesEstr=recMes;
   var temAnt=rec.ant>0;
-  // Avaliação de um centro: mercado (%), meta perseguida (R$/mês) e status do vigente contra a meta
+  var planosPor={};(paCache.planos||[]).forEach(function(p){var k=String(p.centro_custo_id);(planosPor[k]=planosPor[k]||[]).push(p);});
+  // Base de comparação = Consolidado (se preenchido) ou Realizado Média Ano. Status e redução: base × Mercado.
+  function statusDe(base,merc){if(merc===null)return base>0.005?'Sem Dados':'—';var mR=merc/100*recMes;return base<=mR+0.005?'Dentro':(mR>0&&base<=mR*1.10?'Atenção':'Acima');}
   function avaliaCentro(c){
     var mt=metas[c.chave]||{};
+    c.orc=c.prev/12;c.orcP=pct(c.orc,recMes);
     c.pr=pct(c.real,recBase);c.pp=pct(c.prev,rec.prev);c.pa=temAnt?pct(c.ant,rec.ant):null;c.var=c.pr!==null&&c.pa!==null&&(c.ant||c.real)?c.pr-c.pa:null;
-    c.realM=ult?c.real/ult:0;c.proj=c.real+c.vigM*restantes;
-    c.merc=tem(mt.mercado)?mt.mercado:null;c.fonte=mt.fonte||'';
-    c.metaM=tem(mt.valor)?mt.valor:null;c.metaP=c.metaM!==null?pct(c.metaM,recMes):null;
-    c.vigP=pct(c.vigM,recMes);c.dif=c.metaM!==null?c.vigM-c.metaM:null;
-    if(c.metaM!==null)c.st=c.vigM<=c.metaM+0.005?'OK':(c.vigM<=c.metaM*1.10?'Atenção':'Fora de controle');
-    else if(c.pa!==null&&(c.ant||c.vigM)&&c.vigP!==null){var dv=c.vigP-c.pa;c.st=dv>1?'Fora de controle':(dv>0.5?'Atenção':'OK');}
-    else c.st=(c.vigM||c.real)?'Sem Dados':'—';
+    c.media=ult?c.real/ult:0;c.mediaP=pct(c.media,recMes);
+    c.consP=c.cons!==null?pct(c.cons,recMes):null;
+    c.base=c.cons!==null?c.cons:c.media;c.baseP=pct(c.base,recMes);
+    c.merc=tem(mt.mercado)?mt.mercado:null;c.fonte=mt.fonte||'';c.mercRS=c.merc!==null?c.merc/100*recMes:null;
+    c.red=c.mercRS!==null?c.base-c.mercRS:null;
+    c.proj=c.real+c.base*restantes;
+    c.st=statusDe(c.base,c.merc);
+    c.planos=planosPor[String(c.id)]||[];
     return c;
   }
-  // Subconta / grupo: soma dos centros (congelado). Sem nenhum centro definido, mostra a referência antiga da subconta como provisória.
+  // Subconta / grupo: soma dos centros (congelado)
   function avaliaGrupo(L,legado){
-    var cs=L.centros.map(avaliaCentro);
-    var temMerc=cs.some(function(c){return c.merc!==null;}),temMeta=cs.some(function(c){return c.metaM!==null;});
+    var cs=L.centros.map(avaliaCentro),soma=function(f){return cs.reduce(function(a,c){return a+(c[f]||0);},0);};
+    var temMerc=cs.some(function(c){return c.merc!==null;});
+    L.orc=L.prev/12;L.orcP=pct(L.orc,recMes);
     L.pr=pct(L.real,recBase);L.pp=pct(L.prev,rec.prev);L.pa=temAnt?pct(L.ant,rec.ant):null;L.var=L.pr!==null&&L.pa!==null&&(L.ant||L.real)?L.pr-L.pa:null;
-    L.realM=ult?L.real/ult:0;L.proj=L.real+L.vigM*restantes;L.vigP=pct(L.vigM,recMes);
-    L.merc=temMerc?cs.reduce(function(a,c){return a+(c.merc||0);},0):(legado&&tem(legado.mercado)?legado.mercado:null);L.mercProv=!temMerc&&L.merc!==null;
-    L.metaM=temMeta?cs.reduce(function(a,c){return a+(c.metaM||0);},0):(legado&&tem(legado.meta)?legado.meta/100*recMes:null);L.metaProv=!temMeta&&L.metaM!==null;
-    L.metaParcial=temMeta&&cs.some(function(c){return c.metaM===null&&(c.vigM>0.005||c.real>0.005);});
-    L.metaP=L.metaM!==null?pct(L.metaM,recMes):null;L.dif=L.metaM!==null?L.vigM-L.metaM:null;
-    L.st=L.metaM===null?'Sem Dados':(L.vigM<=L.metaM+0.005?'OK':(L.vigM<=L.metaM*1.10?'Atenção':'Fora de controle'));
-    L.cs=cs;return L;
+    L.media=soma('media');L.mediaP=pct(L.media,recMes);
+    L.temCons=cs.some(function(c){return c.cons!==null;});L.cons=L.temCons?soma('cons'):null;L.consP=L.cons!==null?pct(L.cons,recMes):null;
+    L.base=soma('base');L.baseP=pct(L.base,recMes);
+    L.merc=temMerc?soma('merc'):(legado&&tem(legado.mercado)?legado.mercado:null);L.mercProv=!temMerc&&L.merc!==null;
+    L.mercRS=L.merc!==null?L.merc/100*recMes:null;L.red=L.mercRS!==null?L.base-L.mercRS:null;L.proj=L.real+L.base*restantes;
+    L.st=statusDe(L.base,L.merc);L.cs=cs;return L;
   }
-  var T={prev:0,real:0,ant:0,vigM:0,merc:0,metaM:0,temMerc:false,temMeta:false,mercProv:false,metaProv:false};
-  ordem.forEach(function(k){var L=avaliaGrupo(linhas[k],metas[k]);T.prev+=L.prev;T.real+=L.real;T.ant+=L.ant;T.vigM+=L.vigM;
-    if(L.merc!==null){T.merc+=L.merc;T.temMerc=true;if(L.mercProv)T.mercProv=true;}
-    if(L.metaM!==null){T.metaM+=L.metaM;T.temMeta=true;if(L.metaProv)T.metaProv=true;}});
-  T.pr=pct(T.real,recBase);T.pp=pct(T.prev,rec.prev);T.pa=temAnt?pct(T.ant,rec.ant):null;T.var=T.pr!==null&&T.pa!==null?T.pr-T.pa:null;
-  T.realM=ult?T.real/ult:0;T.vigP=pct(T.vigM,recMes);T.merc=T.temMerc?T.merc:null;T.metaM=T.temMeta?T.metaM:null;T.metaP=T.metaM!==null?pct(T.metaM,recMes):null;T.dif=T.metaM!==null?T.vigM-T.metaM:null;
-  T.st=T.metaM===null?'Sem Dados':(T.vigM<=T.metaM+0.005?'OK':(T.vigM<=T.metaM*1.10?'Atenção':'Fora de controle'));
+  var T={prev:0,real:0,ant:0,media:0,cons:0,temCons:false,base:0,merc:0,temMerc:false,mercProv:false};
+  ordem.forEach(function(k){var L=avaliaGrupo(linhas[k],metas[k]);T.prev+=L.prev;T.real+=L.real;T.ant+=L.ant;T.media+=L.media;T.base+=L.base;
+    if(L.cons!==null){T.cons+=L.cons;T.temCons=true;}
+    if(L.merc!==null){T.merc+=L.merc;T.temMerc=true;if(L.mercProv)T.mercProv=true;}});
+  T.orc=T.prev/12;T.orcP=pct(T.orc,recMes);T.pr=pct(T.real,recBase);T.pp=pct(T.prev,rec.prev);T.pa=temAnt?pct(T.ant,rec.ant):null;T.var=T.pr!==null&&T.pa!==null?T.pr-T.pa:null;
+  T.mediaP=pct(T.media,recMes);T.cons=T.temCons?T.cons:null;T.consP=T.cons!==null?pct(T.cons,recMes):null;T.baseP=pct(T.base,recMes);
+  T.merc=T.temMerc?T.merc:null;T.mercRS=T.merc!==null?T.merc/100*recMes:null;T.red=T.mercRS!==null?T.base-T.mercRS:null;T.proj=T.real+T.base*restantes;T.st=statusDe(T.base,T.merc);
   // Réguas da empresa
   var mcR=metas.mc_empresa||{},fxR=metas.fixo_empresa||{};
   var mcPrev=rec.prev?100-vari.prev/rec.prev*100:null,mcReal=rec.real?100-vari.real/rec.real*100:null;
   var fixReal=pct(T.real,recBase),mcRegua=tem(mcR.meta)?mcR.meta:mcR.mercado;
   var fxAlvo=tem(fxR.meta)?fxR.meta:fxR.mercado;
-  var stFx=!tem(fxAlvo)||T.vigP===null?'Sem Dados':(T.vigP<=fxAlvo?'OK':(T.vigP<=fxAlvo+2?'Atenção':'Fora de controle'));
-  var stMc=!tem(mcRegua)||mcReal===null?'Sem Dados':(mcReal>=mcRegua?'OK':(mcReal>=mcRegua-5?'Atenção':'Fora de controle'));
-  function corDe(st){return st==='OK'?'var(--green)':st==='Atenção'?'var(--gold2)':st==='Fora de controle'?'var(--red)':'var(--blue)';}
+  var stFx=!tem(fxAlvo)||T.baseP===null?'Sem Dados':(T.baseP<=fxAlvo?'Dentro':(T.baseP<=fxAlvo+2?'Atenção':'Acima'));
+  var stMc=!tem(mcRegua)||mcReal===null?'Sem Dados':(mcReal>=mcRegua?'Dentro':(mcReal>=mcRegua-5?'Atenção':'Acima'));
+  function corDe(st){return st==='Dentro'?'var(--green)':st==='Atenção'?'var(--gold2)':st==='Acima'?'var(--red)':'var(--blue)';}
   var lucroHoje=mcReal!==null&&fixReal!==null?mcReal-fixReal:null;
   var lucroMerc=tem(mcR.mercado)&&T.merc!==null?mcR.mercado-T.merc:null;
-  var lucroMeta=tem(mcRegua)&&T.metaP!==null?mcRegua-T.metaP:null;
-  html+=paInfoUltimo(d,ano,'Realizado = '+periodo+(simula?' · <b style="color:var(--gold2)">'+PA_MESES[ult-1].toLowerCase()+' sem receita lançada: usando receita hipotética de '+paBRL(Number(recAberto))+'</b> (despesas do mês podem estar parciais)':'')+' · Receita base '+paBRL(recBase)+' = '+paBRL(recMes)+'/mês'+(anoBaseMeta&&anoBaseMeta!==ano?' · Metas herdadas de '+anoBaseMeta:''));
+  var lucroOrc=mcPrev!==null&&T.orcP!==null?mcPrev-pct(T.prev,rec.prev):null;
+  html+=paInfoUltimo(d,ano,'Realizado = '+periodo+(simula?' · <b style="color:var(--gold2)">'+PA_MESES[ult-1].toLowerCase()+' sem receita lançada: usando receita hipotética de '+paBRL(Number(recAberto))+'</b> (despesas do mês podem estar parciais)':'')+' · Receita base '+paBRL(recBase)+' = '+paBRL(recMes)+'/mês'+(anoBaseMeta&&anoBaseMeta!==ano?' · Referências herdadas de '+anoBaseMeta:''));
   html+='<div class="pa-kpis">'+
     paKpi('Receita base ('+periodo+')',paBRL(recBase)+' · '+paBRL(recMes)+'/mês',(simula?'Realizada '+paBRL(rec.real)+' + '+PA_MESES_AB[ult-1].toLowerCase()+' hipotético '+paBRL(Number(recAberto)):'Realizada')+' · Prevista ano '+paBRL(rec.prev),'var(--green)')+
     paKpi('Margem de contribuição','Realizada '+fp(mcReal)+' · Prevista '+fp(mcPrev),'Ref. mercado '+fp(mcR.mercado)+' · Meta '+fp(mcR.meta),corDe(stMc))+
-    paKpi('Fixos + financeiros','Vigente '+paBRL(T.vigM)+'/mês · '+fp(T.vigP),'Mercado '+fp(T.merc)+' · Meta perseguida '+(T.metaM!==null?paBRL(T.metaM)+'/mês · '+fp(T.metaP):'—')+' · Alvo '+fp(fxAlvo),corDe(stFx))+
-    paKpi('Lucro (margem − fixos)','Hoje '+fp(lucroHoje),'No mercado '+fp(lucroMerc)+' · Nas metas perseguidas '+fp(lucroMeta),lucroHoje!==null&&lucroHoje>=0?'var(--green)':'var(--red)')+
+    paKpi('Fixos + financeiros','Base atual '+paBRL(T.base)+'/mês · '+fp(T.baseP),'Orçado '+paBRL(T.orc)+' · Mercado '+(T.mercRS!==null?paBRL(T.mercRS)+' · '+fp(T.merc):'—')+' · Alvo '+fp(fxAlvo),corDe(stFx))+
+    paKpi('Lucro (margem − fixos)','Hoje '+fp(lucroHoje),'No mercado '+fp(lucroMerc)+' · No orçamento '+fp(lucroOrc),lucroHoje!==null&&lucroHoje>=0?'var(--green)':'var(--red)')+
   '</div>';
   function campoRef(chave,campo,v,rot){
     if(!podeEd)return ' '+fp(v);
@@ -1272,69 +1274,95 @@ async function paEstruturaCustos(){
     '<span class="pa-param-g">Margem de contribuição<label>Mercado %'+campoRef('mc_empresa','mercado',mcR.mercado,'Margem de contribuição')+'</label><label>Meta %'+campoRef('mc_empresa','meta',mcR.meta,'Margem de contribuição')+'</label></span>'+
     '<span class="pa-param-g">Alvo de custos fixos<label>Mercado %'+campoRef('fixo_empresa','mercado',fxR.mercado,'Custos fixos')+'</label><label>Meta %'+campoRef('fixo_empresa','meta',fxR.meta,'Custos fixos')+'</label></span>'+
     '<span class="pa-mut" style="font-size:11.5px">Mercado somado dos centros: <b>'+fp(T.merc)+'</b>'+(difAlvo===null?'':(Math.abs(difAlvo)<0.05?' — bate com o alvo.':' — '+(difAlvo>0?'<b style="color:var(--red)">'+fp(difAlvo)+' acima</b>':fp(-difAlvo)+' abaixo')+' do alvo de mercado.'))+
-      (T.mercProv||T.metaProv?' Linhas com <i>provisório</i> ainda usam a referência antiga da subconta (abra por centro para substituir).':'')+'</span></div>';
-  if(nAlertas||ocup.real)html+='<div class="pa-info">'+(nAlertas?'<b style="color:var(--gold2)">⚠ '+nAlertas+' mudança(s) detectada(s)</b> — confirme o novo valor vigente na linha · ':'')+'Ocupação (aluguel + condomínio + IPTU + energia): <b>'+fp(pct(ocup.real,recBase))+'</b> da receita — mercado (moda, loja de rua) 6% a 10%</div>';
-  function corSt(st){return st==='Fora de controle'?'var(--red)':st==='Atenção'?'var(--gold2)':st==='OK'?'var(--green)':'';}
-  function inp(chave,campo,valor,rot,larg){
-    var mostra=valor===null||valor===undefined?'':(campo==='valor'?paValor(valor):String(Math.round(valor*100)/100).replace('.',','));
-    return '<input class="pa-in pa-in-pct" style="width:'+(larg||54)+'px!important" inputmode="decimal" aria-label="'+rot+'" value="'+mostra+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+campo+'\')">';
+      (T.mercProv?' Linhas com <i>provisório</i> ainda usam a referência antiga da subconta.':'')+'</span></div>';
+  if(nAlertas||ocup.real)html+='<div class="pa-info">'+(nAlertas?'<b style="color:var(--gold2)">⚠ '+nAlertas+' mudança(s) detectada(s)</b> — confirme o valor consolidado na linha · ':'')+'Ocupação (aluguel + condomínio + IPTU + energia): <b>'+fp(pct(ocup.real,recBase))+'</b> da receita — mercado (moda, loja de rua) 6% a 10%</div>';
+  function corSt(st){return st==='Acima'?'var(--red)':st==='Atenção'?'var(--gold2)':st==='Dentro'?'var(--green)':'';}
+  function inpMerc(c){
+    return '<input class="pa-in pa-in-pct" style="width:50px!important" inputmode="decimal" aria-label="Mercado % '+paEsc(c.nome)+'" value="'+(c.merc===null?'':String(Math.round(c.merc*100)/100).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+c.chave+'\',\'mercado\')">';
   }
-  function prov(t){return '<span class="pa-orig" title="Referência antiga da subconta — defina por centro de custo">provisório</span>';}
   var verEstat=!!paEstado.verEstat,nCol=verEstat?10:8;
   function celulas(o,tipo){
-    var centro=tipo==='cc',ed=centro&&podeEd;
-    var tipReal=' title="% em '+(ano-1)+': '+fp(o.pa)+' · Var. '+fpp(o.var)+' p.p."';
-    var orig=centro?(o.origem==='cad'?'<span class="pa-orig cad" title="'+paEsc((o.vg&&o.vg.motivo)||'')+'">desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+'</span>':'<span class="pa-orig">média 3m</span>'):'';
-    var alerta=centro&&o.alerta?'<button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para confirmar como novo valor vigente." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
-    var tipVig=' title="Projeção '+ano+': '+paBRL(o.proj)+' (realizado + atual × '+restantes+' meses)"';
-    var forte=tipo!=='cc'?'font-weight:600;':'';
-    var mercRS=o.merc!==null?o.merc/100*recMes:null;
-    var cMerc=(ed?inp(o.chave,'mercado',o.merc,'Mercado % '+o.nome)+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):(fp2(o.merc)+(o.mercProv?' '+prov():'')))+
-      (mercRS!==null?'<br><span class="pa-orig">'+paValor(mercRS)+'/mês</span>':'');
-    var cAtual=paValor(o.vigM)+'<br><span class="pa-orig">'+fp2(o.vigP)+'</span>'+(orig?'<br>'+orig:'')+(alerta?'<br>'+alerta:'');
-    var cMetaRS=ed?inp(o.chave,'valor',o.metaM,'A perseguir R$/mês '+o.nome,84):((o.metaM!==null?paValor(o.metaM):'—')+(o.metaProv?'<br>'+prov():'')+(o.metaParcial?'<br><span class="pa-orig" title="Há centros com gasto e sem meta">parcial</span>':''));
-    var cMetaP=ed?inp(o.chave,'metapct',o.metaP,'A perseguir % '+o.nome):fp2(o.metaP);
-    var difMerc=o.metaM!==null&&mercRS!==null?o.metaM-mercRS:null;
+    var centro=tipo==='cc',forte=centro?'':'font-weight:600;',cong=centro?'':' pa-cong';
+    var cOrc=paValor(o.orc)+'<br><span class="pa-orig">'+fp2(o.orcP)+'</span>';
+    var cMerc=(centro&&podeEd?inpMerc(o)+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):(fp2(o.merc)+(o.mercProv?' <span class="pa-orig">provisório</span>':'')))+
+      (o.mercRS!==null?'<br><span class="pa-orig">'+paValor(o.mercRS)+'/mês</span>':'');
+    var usaMedia=o.cons===null||(!centro&&o.cons!==null&&Math.abs(o.cons-o.base)>0.005);
+    var cMedia='<span'+(centro&&o.cons===null?' class="pa-base"':'')+'>'+paValor(o.media)+'</span><br><span class="pa-orig">'+fp2(o.mediaP)+'</span>';
+    var alerta=centro&&o.alerta?'<br><button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para registrar como valor consolidado." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
+    var cCons;
+    if(centro){
+      cCons=(o.cons!==null?'<span class="pa-base">'+paValor(o.cons)+'</span><br><span class="pa-orig">'+fp2(o.consP)+' · desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+'</span>':'<span class="pa-mut">—</span>')+
+        '<button class="pa-btn-ico" title="'+(podeEd?'Cadastrar / ver histórico do consolidado':'Ver histórico')+'" aria-label="Consolidado de '+paEsc(o.nome)+'" onclick="paAbrirVigente('+o.id+',\'DESPESAS\')">'+(o.cons!==null?'🕘':(podeEd?'＋':'🕘'))+'</button>'+alerta;
+    }else cCons=o.cons!==null?'<span title="Soma das bases dos centros: consolidado onde cadastrado, Média Ano nos demais">'+paValor(o.base)+'<br><span class="pa-orig">'+fp2(o.baseP)+' · base</span></span>':'<span class="pa-mut">—</span>';
+    var tipRed=' title="Base usada: '+(o.cons!==null&&centro?'Consolidado':(centro?'Realizado Média Ano':'soma das bases dos centros'))+' '+paBRL(o.base)+'/mês · Projeção '+ano+': '+paBRL(o.proj)+'"';
+    var cRed=o.red===null?'—':(o.red<=0.005?'<span style="color:var(--green)">dentro</span><br><span class="pa-orig">'+paValor(o.red)+'</span>':'<b style="color:var(--red)">'+paValor(o.red)+'</b><br><span class="pa-orig">'+fpp(pct(o.red,recMes))+' p.p.</span>');
+    var cPlano='';
+    if(centro){var ult1=o.planos[0];
+      cPlano='<div class="pa-plano">'+(ult1?'<span title="'+paEsc(ult1.texto)+'">'+paEsc(ult1.texto.length>70?ult1.texto.slice(0,70)+'…':ult1.texto)+'</span>':'')+
+        '<button class="pa-btn-ico" title="Plano de ação — histórico'+(o.planos.length?' ('+o.planos.length+')':'')+'" aria-label="Plano de ação de '+paEsc(o.nome)+'" onclick="paAbrirPlano('+o.id+')">'+(o.planos.length?'📝'+(o.planos.length>1?'<sup>'+o.planos.length+'</sup>':''):(podeEd?'＋':''))+'</button></div>';}
     var estat=verEstat?('<td style="'+forte+'">'+paValor(o.prev)+'<br><span class="pa-orig">'+fp(o.pp)+'</span></td>'+
-      '<td'+tipReal+' style="'+forte+'">'+paValor(o.real)+'<br><span class="pa-orig">'+fp(o.pr)+' · média '+paValor(o.realM)+'/mês</span></td>'):'';
-    return estat+
-      '<td class="pa-c-merc'+(centro?'':' pa-cong')+'">'+cMerc+'</td>'+
-      '<td class="pa-c-atual"'+tipVig+' style="'+forte+'">'+cAtual+'</td>'+
-      '<td class="pa-c-meta'+(centro?'':' pa-cong')+'" style="'+forte+'">'+cMetaRS+'</td>'+
-      '<td class="pa-c-meta'+(centro?'':' pa-cong')+'" style="'+forte+'">'+cMetaP+'</td>'+
-      paCelula(o.dif===null?'—':(o.dif>0?'+':'')+paValor(o.dif),o.dif===null?'':(o.dif>0.005?'var(--red)':'var(--green)'),600)+
-      paCelula(difMerc===null?'—':(difMerc>0?'+':'')+paValor(difMerc),difMerc===null?'':(difMerc>0.005?'var(--gold2)':'var(--green)'))+
+      '<td title="% em '+(ano-1)+': '+fp(o.pa)+' · Var. '+fpp(o.var)+' p.p." style="'+forte+'">'+paValor(o.real)+'<br><span class="pa-orig">'+fp(o.pr)+'</span></td>'):'';
+    return '<td class="pa-c-orc'+cong+'" style="'+forte+'">'+cOrc+'</td>'+estat+
+      '<td class="pa-c-merc'+cong+'">'+cMerc+'</td>'+
+      '<td class="pa-c-atual'+cong+'" style="'+forte+'">'+cMedia+'</td>'+
+      '<td class="pa-c-cons'+cong+'" style="'+forte+'">'+cCons+'</td>'+
+      '<td'+tipRed+' style="'+forte+'">'+cRed+'</td>'+
+      '<td class="pa-c-plano">'+cPlano+'</td>'+
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>';
   }
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
-    (verEstat?'<th title="Valor previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th>'+
-      '<th title="Realizado no período, % sobre a Receita base e média mensal. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % · média</th>':'')+
+    '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
+    (verEstat?'<th title="Previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>':'')+
     '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>% · R$/mês</th>'+
-    '<th class="pa-c-atual" title="Quanto se gasta hoje por mês: valor cadastrado na Tabela Contábil ou média dos últimos 3 meses — e o % da receita. Passe o mouse para ver a projeção do ano.">Atual<br>R$/mês · %</th>'+
-    '<th class="pa-c-meta" title="Quanto você quer gastar por mês (editável no centro; subconta e total = soma)">A perseguir<br>R$/mês</th>'+
-    '<th class="pa-c-meta" title="A perseguir em % da receita base mensal — digite o % e o sistema calcula o R$">A perseguir<br>%</th>'+
-    '<th title="Atual − A perseguir: positivo = quanto falta cortar por mês">Atual −<br>A perseguir</th>'+
-    '<th title="A perseguir − Mercado: positivo = a sua meta ainda está acima do mercado">A perseguir<br>− Mercado</th><th style="text-align:center">Status</th></tr></thead><tbody>';
+    '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses — e % da receita base mensal">Realizado<br>Média Ano</th>'+
+    '<th class="pa-c-cons" title="Valor mensal consolidado que vale hoje, cadastrado (com data e motivo). Quando preenchido, prevalece sobre a Média Ano na comparação com o mercado.">Realizado Mensal<br>Consolidado</th>'+
+    '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Média Ano): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th>'+
+    '<th class="pa-c-plano" style="text-align:left" title="Histórico em texto livre: ações, metas intermediárias, decisões">Plano de ação</th><th style="text-align:center">Status</th></tr></thead><tbody>';
   var mostrou=0;
   ordem.forEach(function(k){
-    var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Fora de controle';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.metaM!==null;});
+    var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Acima'||c.st==='Atenção';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.planos.length;});
     if(paEstado.tipo==='RECEITAS')return;
     if(fSub||fCc||fBusca){
       var nomeOk=fBusca&&paNorm(L.nome).indexOf(fBusca)>=0;
       vis=vis.filter(function(c){return (!fSub||String(c.subId)===fSub)&&(!fCc||String(c.id)===fCc)&&(!fBusca||nomeOk||paNorm(c.nome).indexOf(fBusca)>=0);});
       if(!vis.length&&!(nomeOk&&!fSub&&!fCc))return;
     }
-    if(soFora&&L.st!=='Fora de controle'&&!vis.length)return;
+    if(soFora&&L.st!=='Acima'&&L.st!=='Atenção'&&!vis.length)return;
     mostrou++;
-    L.chave=k;html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
-    if(!paEstado.sintetico)vis.sort(function(a,b){return b.vigM-a.vigM;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
+    html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
+    if(!paEstado.sintetico)vis.sort(function(a,b){return b.base-a.base;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
   });
-  if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo fora de controle.'))+'</td></tr>';
+  if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo acima do mercado.'))+'</td></tr>';
   if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
-  T.nome='TOTAL';html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
+  html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. <b>Mercado %</b> e <b>Meta perseguida</b> são definidos no <b>centro de custo</b> (digite a meta em R$/mês ou em % — o outro é calculado); subcontas e total mostram a soma, congelada. Status do vigente contra a meta perseguida: dentro = <b>OK</b> · até 10% acima = <b>Atenção</b> · mais de 10% acima = <b>Fora de controle</b>; sem meta, compara com '+(ano-1)+'. Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Média Ano. <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % editável no centro de custo; subcontas e total somam (congelados). Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
   document.getElementById('pa-root').innerHTML=html;
+}
+
+// ─── Plano de ação: histórico em texto livre por centro de custo ─────
+function paAbrirPlano(ccId){
+  var h=paCache.hier,cc=h.centros.find(function(x){return String(x.id)===String(ccId);});if(!cc)return;
+  var podeEd=paPodeEditar(),adm=paIsAdmin();
+  var lista=(paCache.planos||[]).filter(function(p){return String(p.centro_custo_id)===String(ccId);});
+  var hist=lista.length?'<div class="pa-plano-hist">'+lista.map(function(p){
+    return '<div class="pa-plano-item"><div class="pa-orig">'+new Date(p.criado_em).toLocaleDateString('pt-BR')+' · '+paEsc((p.criado_por||'').split('@')[0])+(adm?' <button class="pa-btn-ico" title="Excluir anotação (administrador)" onclick="paExcluirPlano('+p.id+','+ccId+')">🗑</button>':'')+'</div><div>'+paEsc(p.texto)+'</div></div>';}).join('')+'</div>':'<p class="pa-mut" style="font-size:12.5px">Nenhuma anotação ainda.</p>';
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">📝 Plano de ação — '+paEsc(cc.nome)+'</div>'+
+    '<p class="pa-info" style="margin:6px 0 12px">Histórico em texto livre: metas intermediárias, ações e decisões. Cada anotação fica registrada com data e autor; uma nova anotação não apaga as anteriores.</p>'+hist+
+    (podeEd?'<label style="display:block;margin-top:12px;font-size:12px;color:var(--muted2)">Nova anotação<textarea id="pa-pl-txt" rows="3" maxlength="1000" style="width:100%;margin-top:4px" placeholder="Ex.: Meta intermediária R$ 1.800/mês até mar/27 — renegociar na renovação do contrato"></textarea></label><div id="pa-pl-erro" class="pa-info" style="color:var(--red);min-height:16px" aria-live="polite"></div>':'')+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button>'+(podeEd?'<button class="btn btn-primary" onclick="paSalvarPlano('+ccId+')">Registrar</button>':'')+'</div></div>');
+}
+async function paSalvarPlano(ccId){
+  var t=document.getElementById('pa-pl-txt').value.trim(),err=document.getElementById('pa-pl-erro');err.textContent='';
+  if(!t){err.textContent='Escreva a anotação.';return;}
+  try{await sb.post('cda_pa_plano_acao',[{ano:paEstado.ano,centro_custo_id:ccId,texto:t,criado_por:(window.cu&&cu.email)||null}]);
+    paCache.planos=await sb.get('cda_pa_plano_acao','ano=eq.'+paEstado.ano+'&order=criado_em.desc');showToast('Anotação registrada','success');paAbrirPlano(ccId);paAtualizarCelulaVigente();}
+  catch(e){err.textContent=paErro(e,'Não foi possível registrar.');}
+}
+async function paExcluirPlano(id,ccId){
+  if(!confirm('Excluir esta anotação do histórico?'))return;
+  try{await sb.del('cda_pa_plano_acao',id);paCache.planos=await sb.get('cda_pa_plano_acao','ano=eq.'+paEstado.ano+'&order=criado_em.desc');showToast('Anotação excluída','success');paAbrirPlano(ccId);paAtualizarCelulaVigente();}
+  catch(e){showToast(paErro(e,'Não foi possível excluir.'),'error');}
 }
 
 // ─── 11) ANÁLISES ESTRATÉGICAS · MARGEM POR CANAL ────────────────────
@@ -1542,20 +1570,19 @@ var PA_TUT={
   ['Meta margem %','Margem mínima que você quer para o canal (editável).'],
   ['Status','Com meta: OK atingida · Atenção até 5 p.p. abaixo · Fora de controle mais de 5 p.p. abaixo. Sem meta: só acusa margem negativa.'],
   ['Resultado','Margem total − custos fixos e financeiros (os fixos não são rateados entre canais).','Σ Margens − Fixos']]},
- estrutura:{t:'Estrutura de Custos Fixos',d:'Monta e acompanha os custos fixos e financeiros contra a receita da empresa: referência de mercado e meta perseguida definidas por centro de custo, somadas (congeladas) por subconta e no total, comparadas com o valor vigente de cada mês.',c:[
-  ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas da tabela; cartões e total da empresa não mudam.'],
-  ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)" informada na caixa de referências. Receita base ÷ meses = receita base mensal, usada para converter % em R$/mês.','Receita realizada + receita hipotética do mês em aberto'],
-  ['Previsto / Realizado','Valor previsto no ano (e % da receita prevista) e realizado no período (e % da receita base). Passe o mouse no Realizado para ver a variação contra o ano anterior.'],
-  ['Realizado média/mês','Quanto foi gasto, em média, por mês no período.','Realizado ÷ meses do período'],
-  ['Vigente / mês','O valor mensal que vale hoje: cadastrado na Tabela Contábil (com data e motivo) ou, sem cadastro, a média dos últimos 3 meses com lançamento. "⚠ mudou?" aparece quando o último mês importado fugiu mais de 20% da média — clique para confirmar. Passe o mouse para ver a projeção do ano.'],
-  ['Mercado % · R$/mês','Referência de mercado em % da receita, digitada no centro de custo (ⓘ mostra a fonte). Subconta e total mostram a soma, congelada. "provisório" = a subconta ainda usa a referência antiga, até ser aberta por centro.','Mercado % × receita base mensal'],
-  ['Meta perseguida R$/mês · Meta %','O valor que você quer atingir, digitado no centro de custo em R$/mês ou em % (o outro é calculado). Subconta e total = soma, congelada.','Meta % = Meta R$/mês ÷ receita base mensal'],
-  ['As três réguas','Mercado (ideal) — quanto o mercado gasta; Atual — quanto se gasta hoje por mês (vigente); A perseguir — quanto você quer gastar. Cada uma em % da receita e em R$/mês. Previsto anual, realizado e médias ficam no botão "Mostrar estatísticas".'],
-  ['Atual − A perseguir','Quanto o custo atual está acima (vermelho, quanto falta cortar por mês) ou abaixo (verde) da meta a perseguir.','Atual/mês − A perseguir/mês'],
-  ['A perseguir − Mercado','Se a sua meta ainda fica acima do mercado (dourado) ou já está dentro (verde).','A perseguir/mês − Mercado R$/mês'],
-  ['Status','Vigente contra a meta perseguida: OK dentro · Atenção até 10% acima · Fora de controle mais de 10% acima. Sem meta: compara com o próprio ano anterior. "Só fora de controle" filtra a tabela.'],
-  ['Referências da empresa','Receita do mês em aberto (simulação), Margem de contribuição (mercado/meta, a mesma da Margem por Canal) e Alvo de custos fixos (mercado/meta). A caixa mostra se o mercado somado dos centros bate com o alvo.'],
-  ['Lucro (margem − fixos)','Hoje, no mercado (margem de mercado − fixos de mercado somados) e nas metas perseguidas.','Margem % − Fixos %']]},
+ estrutura:{t:'Estrutura de Custos Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
+  ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; cartões e total da empresa não mudam.'],
+  ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],
+  ['Orçado Mês','Previsto do exercício (Orçamento Anual) dividido por 12.','Ano Exerc. ÷ 12'],
+  ['Mercado (ideal)','Referência de mercado em % da receita, digitada no centro de custo (ⓘ mostra a fonte). Subconta e total mostram a soma, congelada.','Mercado % × receita base mensal'],
+  ['Realizado Média Ano','O que de fato se gastou, em média, por mês no ano.','Realizado jan–último mês ÷ nº de meses'],
+  ['Realizado Mensal Consolidado','Valor mensal que vale hoje, cadastrado (＋/🕘) com data e motivo — ex.: contrato renegociado. Quando preenchido, prevalece sobre a Média Ano (valor sublinhado = base usada). Despesa eventual: cadastre 0.'],
+  ['Meta mensal de redução','Quanto reduzir por mês para chegar ao mercado. "dentro" quando a base já está abaixo do mercado. Passe o mouse para ver a base usada e a projeção do ano.','Base − Mercado R$/mês'],
+  ['Plano de ação','Histórico em texto livre por centro (📝): metas intermediárias, ações, decisões. Cada anotação guarda data e autor; exclusão só pelo administrador.'],
+  ['Status','Base × Mercado: Dentro · Atenção até 10% acima · Acima. "Só acima do mercado" filtra a tabela.'],
+  ['Estatísticas','O botão "Mostrar estatísticas" exibe Previsto anual e Realizado do período (com a variação contra o ano anterior).'],
+  ['Referências da empresa','Receita do mês em aberto, Margem de contribuição (mercado/meta, a mesma da Margem por Canal) e Alvo de custos fixos (mercado/meta).'],
+  ['Lucro (margem − fixos)','Hoje, no mercado e no orçamento.','Margem % − Fixos %']]},
  metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
