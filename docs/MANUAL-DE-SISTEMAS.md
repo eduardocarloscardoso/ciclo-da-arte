@@ -385,6 +385,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   0,5 · Transporte 0,3 · Limpeza 0,3 · Locação 0,2 · Telefonia 0,15 · Internet
   0,15 · TI Compra 0,1 · Material 0,1 · demais 0). Manutenção de veículos
   mantida (tem realizado 2025).
+- **Ajustes de 24/10/2026 (Administrativas, pedido do Cardoso):** jul/26 —
+  R$ 1.600 movidos de TI Licenças para TI Compra de software; jul–set/26 —
+  3 × R$ 1.139,05 de IPTU que estavam em Abertura Telas (apelido "Produção
+  Varejo - Montagem Coleções") movidos para Predial - IPTU (totais mensais
+  conferidos). Mercado: Transporte 0,30% → 0,50%; Energia 0,90% → 0,70%.
+  **Plano de ação** (`cda_pa_plano_acao`, SQL 07): histórico em texto livre por
+  centro (metas intermediárias, ações); anotações não se editam; exclusão só
+  admin. Notas iniciais: Condomínio (repassar 1 de 5 salas a R$ 554,80 →
+  R$ 2.219,20) e as metas intermediárias de Pessoal.
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
