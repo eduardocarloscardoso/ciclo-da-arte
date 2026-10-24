@@ -337,6 +337,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   100% − referência; excesso em R$) → Margem (realizada × ideal mercado e
   meta; falta em R$) → Resultado (realizado × com a margem ideal). Saíram os
   cartões "Maior/Menor margem %".
+- **Referências da empresa na Estrutura de Custos Fixos** (24/10/2026): caixa
+  com Margem de contribuição (mercado/meta, chave `mc_empresa`, a mesma da
+  Margem por Canal) e **Custos fixos + financeiros** (mercado/meta, chave
+  `fixo_empresa`). Carga 2026: fixos mercado 30% (ponto médio da faixa
+  estimada 25–35% para moda/merch com lucro de 5–10%). Cartões: Margem
+  (realizada × mercado × meta), Fixos (realizado e vigente × mercado × meta,
+  em % e R$), **Lucro = margem − fixos** (hoje · nas referências de mercado ·
+  nas metas). Total da tabela usa a régua de fixos da empresa; a caixa avisa
+  se a soma das metas por linha passar da meta total.
 - **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
   Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
   `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /

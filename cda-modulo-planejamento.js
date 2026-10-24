@@ -133,6 +133,7 @@ function paErro(e, padrao){
     '.pa-orig{font-size:10px;color:var(--muted);font-family:var(--ff-b);white-space:nowrap}.pa-orig.cad{color:var(--gold2)}',
     '.pa-alerta{background:rgba(201,148,58,.15);color:var(--gold2);border:1px solid rgba(201,148,58,.4);border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap;margin-top:2px}',
     '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
+    '.pa-param-g{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--white)}',
     '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
@@ -1205,6 +1206,17 @@ async function paEstruturaCustos(){
   var mcPrev=rec.prev?100-vari.prev/rec.prev*100:null,mcReal=rec.real?100-vari.real/rec.real*100:null;
   var fixPrev=pct(tot.prev,rec.prev),fixReal=pct(tot.real,rec.real);
   var mcBase=mcReal!==null?mcReal:mcPrev,teto=mcBase===null?null:mcBase-lucroAlvo,resMeta=mcBase===null||!tot.temMeta?null:mcBase-tot.meta;
+  // Réguas da empresa (editáveis): margem de contribuição (compartilhada com a Margem por Canal) e custos fixos + financeiros
+  var mcR=metas.mc_empresa||{},fxR=metas.fixo_empresa||{};
+  var fxRegua=tem(fxR.meta)?fxR.meta:(tem(fxR.mercado)?fxR.mercado:(tot.temMeta?tot.meta:null));
+  var mcRegua=tem(mcR.meta)?mcR.meta:mcR.mercado;
+  var vigPctTot=pct(tot.vigM*12,rec.prev);
+  var stFx=fxRegua===null||vigPctTot===null?'Sem Dados':(vigPctTot<=fxRegua?'OK':(vigPctTot<=fxRegua+2?'Atenção':'Fora de controle'));
+  var stMc=!tem(mcRegua)||mcReal===null?'Sem Dados':(mcReal>=mcRegua?'OK':(mcReal>=mcRegua-5?'Atenção':'Fora de controle'));
+  function corDe(st){return st==='OK'?'var(--green)':st==='Atenção'?'var(--gold2)':st==='Fora de controle'?'var(--red)':'var(--blue)';}
+  var lucroHoje=mcReal!==null&&fixReal!==null?mcReal-fixReal:null;
+  var lucroMerc=tem(mcR.mercado)&&tem(fxR.mercado)?mcR.mercado-fxR.mercado:null;
+  var lucroMeta=tem(mcR.meta)&&(tem(fxR.meta)||tot.temMeta)?mcR.meta-(tem(fxR.meta)?fxR.meta:tot.meta):null;
   var temAnt=rec.ant>0;
   // Avaliação de uma linha: meta (se houver) manda; senão, crescimento sobre o próprio histórico (ano anterior)
   function avalia(o,mt){
@@ -1225,9 +1237,9 @@ async function paEstruturaCustos(){
   html+=paInfoUltimo(d,ano,'Realizado = '+periodo+' · % sobre a <b>receita total</b> · R$ de Mercado e Meta = % × Receita Prevista ('+paBRL(rec.prev)+')'+(anoBaseMeta&&anoBaseMeta!==ano?' · Metas herdadas de '+anoBaseMeta+' (ao editar, gravam para '+ano+')':''));
   html+='<div class="pa-kpis">'+
     paKpi('Receita total','Prevista '+paBRL(rec.prev),'Realizada ('+periodo+') '+paBRL(rec.real),'var(--green)')+
-    paKpi('Margem de contribuição','Prevista '+fp(mcPrev)+' · Realizada '+fp(mcReal),'Receita − custos variáveis ('+fp(pct(vari.real,rec.real))+' realizado)','var(--blue)')+
-    paKpi('Fixos + financeiros','Previsto '+fp(fixPrev)+' · Realizado '+fp(fixReal)+' · Vigente '+fp(pct(tot.vigM*12,rec.prev)),'Meta '+(tot.temMeta?fp(tot.meta)+' = '+paBRL(tot.meta/100*rec.prev):'—')+' · Mercado '+(tot.temMercado?fp(tot.mercado):'—'),fixReal!==null&&tot.temMeta&&fixReal>tot.meta?'var(--red)':'var(--gold2)')+
-    paKpi('Fechamento das metas','Resultado na meta '+fp(resMeta),'Teto de fixos p/ lucro de '+lucroAlvo+'%: '+fp(teto)+(teto!==null?' = '+paBRL(teto/100*rec.prev):''),resMeta!==null&&resMeta>=lucroAlvo?'var(--green)':'var(--red)')+
+    paKpi('Margem de contribuição','Realizada '+fp(mcReal)+' · Prevista '+fp(mcPrev),'Ref. mercado '+fp(mcR.mercado)+' · Meta '+fp(mcR.meta)+' · Variáveis '+fp(pct(vari.real,rec.real))+' da receita',corDe(stMc))+
+    paKpi('Fixos + financeiros','Realizado '+fp(fixReal)+' · Vigente '+fp(vigPctTot),'Ref. mercado '+fp(fxR.mercado)+(tem(fxR.mercado)?' = '+paBRL(fxR.mercado/100*rec.prev):'')+' · Meta '+fp(fxR.meta)+(tem(fxR.meta)?' = '+paBRL(fxR.meta/100*rec.prev):''),corDe(stFx))+
+    paKpi('Lucro (margem − fixos)','Hoje '+fp(lucroHoje),'Nas referências de mercado '+fp(lucroMerc)+' · Nas metas internas '+fp(lucroMeta),lucroHoje!==null&&lucroHoje>=0?'var(--green)':'var(--red)')+
   '</div>';
   html+='<div class="pa-info">Fechamento = Margem de contribuição realizada ('+fp(mcBase)+') − soma das metas internas ('+(tot.temMeta?fp(tot.meta):'—')+'). Lucro desejado: '+
     '<select aria-label="Lucro desejado" onchange="paEstado.lucroAlvo=+this.value;navigatePlanejamento(\'estrutura\')">'+[0,5,8,10,15].map(function(x){return '<option value="'+x+'" '+(x===lucroAlvo?'selected':'')+'>'+x+'%</option>';}).join('')+'</select>'+
@@ -1251,6 +1263,17 @@ async function paEstruturaCustos(){
       paCelula(o.exc===null?'—':paValor(o.exc),o.exc===null?'':(o.exc>0?'var(--red)':'var(--green)'),600)+
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>';
   }
+  function campoRef(chave,campo,v,rot){
+    if(!podeEd)return ' '+fp(v);
+    return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="'+rot+' — '+(campo==='meta'?'meta interna':'referência de mercado')+'" value="'+(tem(v)?String(v).replace('.',','):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+campo+'\')">';
+  }
+  var difMetas=tem(fxR.meta)&&tot.temMeta?tot.meta-fxR.meta:null;
+  html+='<div class="pa-param"><b>Referências da empresa</b>'+
+    '<span class="pa-param-g">Margem de contribuição<label>Mercado %'+campoRef('mc_empresa','mercado',mcR.mercado,'Margem de contribuição')+'</label><label>Meta %'+campoRef('mc_empresa','meta',mcR.meta,'Margem de contribuição')+'</label></span>'+
+    '<span class="pa-param-g">Custos fixos + financeiros<label>Mercado %'+campoRef('fixo_empresa','mercado',fxR.mercado,'Custos fixos')+'</label><label>Meta %'+campoRef('fixo_empresa','meta',fxR.meta,'Custos fixos')+'</label></span>'+
+    '<span>Fixos vigentes <b style="color:'+corDe(stFx)+'">'+fp(vigPctTot)+'</b> '+paBadgeStatus(stFx)+'</span>'+
+    '<span class="pa-mut" style="font-size:11.5px">Faixas estimadas para moda/merch: margem 35–45% · fixos 25–35% (lucro de 5–10%). Soma das metas por linha: '+(tot.temMeta?fp(tot.meta):'—')+
+      (difMetas===null?'':(Math.abs(difMetas)<0.05?' — bate com a meta total.':(difMetas>0?' — <b style="color:var(--red)">'+fp(difMetas)+' acima</b> da meta total (reduza as metas por linha).':' — '+fp(-difMetas)+' abaixo da meta total.')))+'</span></div>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita"><thead><tr><th>Custo fixo / financeiro</th>'+
     '<th title="Valor previsto e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Valor realizado e % sobre a Receita Realizada no mesmo período">Realizado '+periodo+'<br>R$ · % rec.</th>'+
     '<th title="% realizado '+ano+' − % '+(ano-1)+', em pontos percentuais (histórico próprio). Passe o mouse para ver o % de '+(ano-1)+' e a variação em R$.">Var. p.p.<br>vs '+(ano-1)+'</th>'+
@@ -1268,10 +1291,11 @@ async function paEstruturaCustos(){
     if(!paEstado.sintetico)visiveis.forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,metas[c.chave]||{},c.chave,false)+'</tr>';});
   });
   if(!mostrou)html+='<tr><td colspan="11" class="pa-mut" style="text-align:center">Nenhum custo fora de controle.</td></tr>';
-  var T=avalia({prev:tot.prev,real:tot.real,ant:tot.ant,vigM:tot.vigM,origem:'soma'},{mercado:tot.temMercado?tot.mercado:null,meta:tot.temMeta?tot.meta:null});
+  var tMerc=tem(fxR.mercado)?fxR.mercado:(tot.temMercado?tot.mercado:null),tMeta=tem(fxR.meta)?fxR.meta:(tot.temMeta?tot.meta:null);
+  var T=avalia({prev:tot.prev,real:tot.real,ant:tot.ant,vigM:tot.vigM,origem:'soma'},{mercado:tMerc,meta:tMeta});
   html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+'<td>'+paValor(T.prev)+'<br><span class="pa-orig">'+fp(T.pp)+'</span></td><td>'+paValor(T.real)+'<br><span class="pa-orig">'+fp(T.pr)+'</span></td>'+paCelula(fpp(T.var))+
     paCelula(paValor(T.vigM))+paCelula(fp(T.vigP),corSt(T.st),600)+paCelula(paValor(T.proj),'',600)+
-    paCelula(tot.temMercado?fp(tot.mercado):'—')+paCelula(tot.temMeta?fp(tot.meta):'—','',600)+paCelula(T.metaRS===null?'—':paValor(T.metaRS),'',600)+
+    paCelula(fp(tMerc))+paCelula(fp(tMeta),'',600)+paCelula(T.metaRS===null?'—':paValor(T.metaRS),'',600)+
     paCelula(T.exc===null?'—':paValor(T.exc),T.exc===null?'':(T.exc>0?'var(--red)':'var(--green)'),600)+'<td style="text-align:center">'+paBadgeStatus(T.st)+'</td></tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. A natureza de cada despesa (variável, fixa ou financeira) é definida na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>. Status usa o <b>Vigente % anual</b> (olha para frente): com meta interna — dentro = <b>OK</b> · até 2 p.p. acima = <b>Atenção</b> · mais de 2 p.p. acima = <b>Fora de controle</b>; sem meta — compara com o próprio '+(ano-1)+': mais de 0,5 p.p. acima = <b>Atenção</b> · mais de 1 p.p. = <b>Fora de controle</b>. Vigente = valor cadastrado na Tabela Contábil ou média dos últimos 3 meses. Linhas de subconta usam a meta da subconta; centros de custo podem ter meta própria.</p>';
@@ -1496,6 +1520,8 @@ var PA_TUT={
   ['Previsto − Meta','Quanto o orçamento da linha está acima (vermelho, quanto cortar) ou abaixo (verde) da meta interna.','Previsto − Meta R$'],
   ['Status','Usa o Vigente % anual. Com meta interna: OK dentro · Atenção até 2 p.p. acima · Fora de controle mais de 2 p.p. acima. Sem meta: compara com o próprio ano anterior — Atenção se mais de 0,5 p.p. acima, Fora de controle se mais de 1 p.p. O botão "Só fora de controle" filtra a tabela.'],
   ['Margem de contribuição','O que sobra da receita depois dos custos variáveis — é o que paga a estrutura.','100% − Custos variáveis ÷ Receita × 100'],
+  ['Referências da empresa','Duas réguas editáveis, gravadas por ano: Margem de contribuição (mercado e meta — a mesma da Margem por Canal) e Custos fixos + financeiros (mercado e meta). Faixas estimadas para moda/merch com lucro de 5% a 10%: margem 35–45% e fixos 25–35%. O total da tabela usa a régua de fixos; a caixa avisa se a soma das metas por linha passar da meta total.'],
+  ['Lucro (margem − fixos)','Hoje: margem realizada − fixos realizados. Nas referências: o lucro que a empresa teria com margem e fixos no padrão de mercado — e nas suas metas internas.','Margem % − Fixos %'],
   ['Fechamento das metas','Mostra o resultado (% da receita) se todas as metas internas forem cumpridas. Negativo = mesmo cumprindo as metas, a empresa ainda dá prejuízo.','Margem de contribuição realizada − soma das metas internas'],
   ['Teto de fixos','Quanto os fixos + financeiros podem somar para atingir o lucro desejado (escolha o % na linha de informação).','Margem de contribuição − lucro desejado']]},
  metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
