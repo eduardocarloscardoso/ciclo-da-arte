@@ -1175,8 +1175,10 @@ async function paEstruturaCustos(){
   var lucroAlvo=paEstado.lucroAlvo===undefined?5:paEstado.lucroAlvo,soFora=!!paEstado.soFora;
   var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só fora de controle</button></div>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>';
-  var html=paFiltroHTML({contas:[],subcontas:[]},{anos:d.anos,acoes:acoes});
-  html=html.replace(/<label>Conta<select[\s\S]*?<\/select><\/label>/,'').replace(/<label>Subconta<select[\s\S]*?<\/select><\/label>/,'');
+  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:acoes});
+  // Filtros (mesmos da Margem por Canal): recortam as linhas da tabela; cartões e total da empresa não mudam
+  var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||'');
+  var filtrando=!!(fSub||fCc||fBusca||paEstado.tipo);
   function pct(v,base){return base?v/base*100:null;}
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';}
   function fp2(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
@@ -1199,7 +1201,7 @@ async function paEstruturaCustos(){
     var alerta=ultimo>0&&ant3>0&&Math.abs(ultimo/ant3-1)>0.2&&!(vg&&vg.ano_inicio===ano&&vg.mes_inicio===ult)?{ultimo:ultimo,media:ant3}:null;
     if(alerta)nAlertas++;
     var L=linhas[chave];L.prev+=p;L.real+=re;L.ant+=an;L.vigM+=vigM;
-    L.centros.push({id:cc.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,vigM:vigM,origem:vg?'cad':'med',vg:vg,alerta:alerta});
+    L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,vigM:vigM,origem:vg?'cad':'med',vg:vg,alerta:alerta});
   });});});
   ordem.sort(function(a,b){return a==='financeira'?1:b==='financeira'?-1:linhas[b].prev-linhas[a].prev;});
   // Receita base do período: realizada + receita hipotética do mês em aberto (quando o último mês ainda não tem receita)
@@ -1309,12 +1311,19 @@ async function paEstruturaCustos(){
   var mostrou=0;
   ordem.forEach(function(k){
     var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Fora de controle';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.metaM!==null;});
+    if(paEstado.tipo==='RECEITAS')return;
+    if(fSub||fCc||fBusca){
+      var nomeOk=fBusca&&paNorm(L.nome).indexOf(fBusca)>=0;
+      vis=vis.filter(function(c){return (!fSub||String(c.subId)===fSub)&&(!fCc||String(c.id)===fCc)&&(!fBusca||nomeOk||paNorm(c.nome).indexOf(fBusca)>=0);});
+      if(!vis.length&&!(nomeOk&&!fSub&&!fCc))return;
+    }
     if(soFora&&L.st!=='Fora de controle'&&!vis.length)return;
     mostrou++;
     L.chave=k;html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
     if(!paEstado.sintetico)vis.sort(function(a,b){return b.vigM-a.vigM;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
   });
-  if(!mostrou)html+='<tr><td colspan="10" class="pa-mut" style="text-align:center">Nenhum custo fora de controle.</td></tr>';
+  if(!mostrou)html+='<tr><td colspan="10" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo fora de controle.'))+'</td></tr>';
+  if(filtrando)html+='<tr><td colspan="10" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
   T.nome='TOTAL';html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. <b>Mercado %</b> e <b>Meta perseguida</b> são definidos no <b>centro de custo</b> (digite a meta em R$/mês ou em % — o outro é calculado); subcontas e total mostram a soma, congelada. Status do vigente contra a meta perseguida: dentro = <b>OK</b> · até 10% acima = <b>Atenção</b> · mais de 10% acima = <b>Fora de controle</b>; sem meta, compara com '+(ano-1)+'. Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
@@ -1527,6 +1536,7 @@ var PA_TUT={
   ['Status','Com meta: OK atingida · Atenção até 5 p.p. abaixo · Fora de controle mais de 5 p.p. abaixo. Sem meta: só acusa margem negativa.'],
   ['Resultado','Margem total − custos fixos e financeiros (os fixos não são rateados entre canais).','Σ Margens − Fixos']]},
  estrutura:{t:'Estrutura de Custos Fixos',d:'Monta e acompanha os custos fixos e financeiros contra a receita da empresa: referência de mercado e meta perseguida definidas por centro de custo, somadas (congeladas) por subconta e no total, comparadas com o valor vigente de cada mês.',c:[
+  ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas da tabela; cartões e total da empresa não mudam.'],
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)" informada na caixa de referências. Receita base ÷ meses = receita base mensal, usada para converter % em R$/mês.','Receita realizada + receita hipotética do mês em aberto'],
   ['Previsto / Realizado','Valor previsto no ano (e % da receita prevista) e realizado no período (e % da receita base). Passe o mouse no Realizado para ver a variação contra o ano anterior.'],
   ['Realizado média/mês','Quanto foi gasto, em média, por mês no período.','Realizado ÷ meses do período'],

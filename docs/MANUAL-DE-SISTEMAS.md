@@ -360,6 +360,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (15,78%). Apelido "Vale transporte → Salários CLT" (herdado do Manus)
   apagado em 24/10: VT de jan–out está dentro do CLT; reimportar os meses
   para separar.
+- **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
+  por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
+  Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
 - **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
   Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
   `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /
