@@ -407,6 +407,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mês; antes "Realizado Média Ano") · Realizado Mensal Consolidado · Mercado
   (ideal, R$/mês e % em linhas separadas) · Meta mensal de redução · Plano de
   ação · Status.
+  Depois: Status logo após a Meta mensal de redução e Plano de ação por último.
+  Filtro Centro de Custo: na Estrutura só centros fixos/financeiros de despesa;
+  na Margem por Canal só centros de receita e despesas variáveis.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro

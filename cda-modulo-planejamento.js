@@ -247,7 +247,7 @@ function paFiltroHTML(h, opts){
   html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
   html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
   if(opts.centro){
-    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;(s.centros||[]).forEach(function(x){ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
+    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;var ct=h.contas.find(function(c){return c.id===s.conta_id;})||{};(s.centros||[]).forEach(function(x){if(opts.centroNat&&!opts.centroNat(x.natureza||s.natureza||'fixa',ct.tipo))return;ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
     html+='<label>Centro de Custo<select onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
   }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
@@ -1177,7 +1177,7 @@ async function paEstruturaCustos(){
   var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só acima do mercado</button></div>'+
     '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\'estrutura\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>';
-  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:acoes});
+  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='DESPESAS'&&n!=='variavel';},acoes:acoes});
   var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||'');
   var filtrando=!!(fSub||fCc||fBusca||paEstado.tipo);
   function pct(v,base){return base?v/base*100:null;}
@@ -1307,8 +1307,8 @@ async function paEstruturaCustos(){
       '<td class="pa-c-cons'+cong+'" style="'+forte+'">'+cCons+'</td>'+
       '<td class="pa-c-merc'+cong+'">'+cMerc+'</td>'+
       '<td'+tipRed+' style="'+forte+'">'+cRed+'</td>'+
-      '<td class="pa-c-plano">'+cPlano+'</td>'+
-      '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>';
+      '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>'+
+      '<td class="pa-c-plano">'+cPlano+'</td>';
   }
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
     '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
@@ -1316,8 +1316,8 @@ async function paEstruturaCustos(){
     '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses ('+(ult||0)+') — e % da receita base mensal">Realizado Mês<br>Média '+periodo+'</th>'+
     '<th class="pa-c-cons" title="Valor mensal consolidado que vale hoje, cadastrado (com data e motivo). Quando preenchido, prevalece sobre o Realizado Mês na comparação com o mercado.">Realizado Mensal<br>Consolidado</th>'+
     '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>R$/mês · %</th>'+
-    '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Realizado Mês): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th>'+
-    '<th class="pa-c-plano" style="text-align:left" title="Histórico em texto livre: ações, metas intermediárias, decisões">Plano de ação</th><th style="text-align:center">Status</th></tr></thead><tbody>';
+    '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Realizado Mês): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th><th style="text-align:center">Status</th>'+
+    '<th class="pa-c-plano" style="text-align:left" title="Histórico em texto livre: ações, metas intermediárias, decisões">Plano de ação</th></tr></thead><tbody>';
   var mostrou=0;
   ordem.forEach(function(k){
     var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Acima'||c.st==='Atenção';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.planos.length;});
@@ -1375,7 +1375,7 @@ async function paMargemCanal(){
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_vinculo','order=id')]);
   var d=r[0],metas=r[1].m,podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
-  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
+  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='RECEITAS'||n==='variavel';},acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
   function pct(v,b){return b?v/b*100:null;}
   // Filtros: Receitas (canal / centro de receita) recortam os canais; Despesas (subconta / centro) recortam as despesas dentro de cada canal
   var fSub=paEstado.subcontaId?d.h.subcontas.find(function(x){return String(x.id)===String(paEstado.subcontaId);}):null;
