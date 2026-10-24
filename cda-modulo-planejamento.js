@@ -1335,7 +1335,7 @@ async function paEstruturaCustos(){
     if(k==='financeira'&&(fSub||fCc||fBusca)){
       var Lf={chave:k,nome:L.nome+' — da seleção',prev:0,real:0,ant:0,centros:vis};
       vis.forEach(function(c){Lf.prev+=c.prev;Lf.real+=c.real;Lf.ant+=c.ant;});
-      L=avaliaGrupo(Lf,metas[k]);
+      L=avaliaGrupo(Lf,null); // sem a referência provisória do grupo inteiro (5% valeria para todas as financeiras, não só a seleção)
     }
     html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
     if(!paEstado.sintetico)vis.sort(function(a,b){return b.base-a.base;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
