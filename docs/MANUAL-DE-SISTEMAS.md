@@ -346,6 +346,20 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   em % e R$), **Lucro = margem − fixos** (hoje · nas referências de mercado ·
   nas metas). Total da tabela usa a régua de fixos da empresa; a caixa avisa
   se a soma das metas por linha passar da meta total.
+- **Matriz de meta perseguida** (24/10/2026, SQL
+  `planejamento_anual_06_meta_perseguida.sql`): `cda_pa_meta_estrutura` ganhou
+  `valor_mensal` e `fonte`. Por centro (`cc:<id>`): Mercado % (com fonte) e
+  **Meta perseguida R$/mês** (digita R$ ou %, o outro é calculado sobre a
+  receita base mensal). Subconta e total = soma, congelados ("provisório"
+  enquanto a subconta não for aberta por centro). Receita base = realizada +
+  `receita_mes_aberto` (receita hipotética do mês sem receita lançada; 2026:
+  out = R$ 100.000). Status: vigente × meta (OK · Atenção até +10% · Fora).
+  Pessoal definido com o Cardoso (mercado / meta R$/mês): Terceiros – Gerencial
+  5% / 6.500; Pró-labore 4% / 6.000; CLT 5% / 3.712,17; Encargos 1% / 607,01;
+  Vale transporte 1% / 841,80; Rescisão 0% / 0 → Pessoal 16% / 17.660,98
+  (15,78%). Apelido "Vale transporte → Salários CLT" (herdado do Manus)
+  apagado em 24/10: VT de jan–out está dentro do CLT; reimportar os meses
+  para separar.
 - **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
   Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
   `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /
