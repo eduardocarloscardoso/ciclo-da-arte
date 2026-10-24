@@ -1278,14 +1278,14 @@ async function paEstruturaCustos(){
   if(nAlertas||ocup.real)html+='<div class="pa-info">'+(nAlertas?'<b style="color:var(--gold2)">⚠ '+nAlertas+' mudança(s) detectada(s)</b> — confirme o valor consolidado na linha · ':'')+'Ocupação (aluguel + condomínio + IPTU + energia): <b>'+fp(pct(ocup.real,recBase))+'</b> da receita — mercado (moda, loja de rua) 6% a 10%</div>';
   function corSt(st){return st==='Acima'?'var(--red)':st==='Atenção'?'var(--gold2)':st==='Dentro'?'var(--green)':'';}
   function inpMerc(c){
-    return '<input class="pa-in pa-in-pct" style="width:50px!important" inputmode="decimal" aria-label="Mercado % '+paEsc(c.nome)+'" value="'+(c.merc===null?'':String(Math.round(c.merc*100)/100).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+c.chave+'\',\'mercado\')">';
+    return '<input class="pa-in pa-in-pct" style="width:46px!important;margin-top:2px" inputmode="decimal" aria-label="Mercado % '+paEsc(c.nome)+'" value="'+(c.merc===null?'':String(Math.round(c.merc*100)/100).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+c.chave+'\',\'mercado\')">';
   }
   var verEstat=!!paEstado.verEstat,nCol=verEstat?10:8;
   function celulas(o,tipo){
     var centro=tipo==='cc',forte=centro?'':'font-weight:600;',cong=centro?'':' pa-cong';
     var cOrc=paValor(o.orc)+'<br><span class="pa-orig">'+fp2(o.orcP)+'</span>';
-    var cMerc=(centro&&podeEd?inpMerc(o)+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):(fp2(o.merc)+(o.mercProv?' <span class="pa-orig">provisório</span>':'')))+
-      (o.mercRS!==null?'<br><span class="pa-orig">'+paValor(o.mercRS)+'/mês</span>':'');
+    var cMerc=(o.mercRS!==null?paValor(o.mercRS):'—')+'<br>'+
+      (centro&&podeEd?inpMerc(o)+'<span class="pa-orig">%</span>'+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):'<span class="pa-orig">'+fp2(o.merc)+(o.mercProv?' provisório':'')+'</span>');
     var usaMedia=o.cons===null||(!centro&&o.cons!==null&&Math.abs(o.cons-o.base)>0.005);
     var cMedia='<span'+(centro&&o.cons===null?' class="pa-base"':'')+'>'+paValor(o.media)+'</span><br><span class="pa-orig">'+fp2(o.mediaP)+'</span>';
     var alerta=centro&&o.alerta?'<br><button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para registrar como valor consolidado." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
@@ -1313,7 +1313,7 @@ async function paEstruturaCustos(){
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
     '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
     (verEstat?'<th title="Previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>':'')+
-    '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>% · R$/mês</th>'+
+    '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>R$/mês · %</th>'+
     '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses — e % da receita base mensal">Realizado<br>Média Ano</th>'+
     '<th class="pa-c-cons" title="Valor mensal consolidado que vale hoje, cadastrado (com data e motivo). Quando preenchido, prevalece sobre a Média Ano na comparação com o mercado.">Realizado Mensal<br>Consolidado</th>'+
     '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Média Ano): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th>'+
