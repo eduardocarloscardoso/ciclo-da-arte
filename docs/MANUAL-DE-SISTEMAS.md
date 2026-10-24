@@ -403,6 +403,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Ano; status Dentro / Atenção (até 10% acima) / Acima. Saíram a média de 3
   meses e os campos "A perseguir". Subconta e total: soma (congelada); na
   subconta, o Consolidado mostra a soma das bases dos centros.
+  24/10 (Cardoso): nova ordem — Orçado Mês · Realizado Mês (Média jan–último
+  mês; antes "Realizado Média Ano") · Realizado Mensal Consolidado · Mercado
+  (ideal, R$/mês e % em linhas separadas) · Meta mensal de redução · Plano de
+  ação · Status.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro

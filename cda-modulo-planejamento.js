@@ -1210,7 +1210,7 @@ async function paEstruturaCustos(){
   paCache.recMesEstr=recMes;
   var temAnt=rec.ant>0;
   var planosPor={};(paCache.planos||[]).forEach(function(p){var k=String(p.centro_custo_id);(planosPor[k]=planosPor[k]||[]).push(p);});
-  // Base de comparação = Consolidado (se preenchido) ou Realizado Média Ano. Status e redução: base × Mercado.
+  // Base de comparação = Consolidado (se preenchido) ou Realizado Mês (média). Status e redução: base × Mercado.
   function statusDe(base,merc){if(merc===null)return base>0.005?'Sem Dados':'—';var mR=merc/100*recMes;return base<=mR+0.005?'Dentro':(mR>0&&base<=mR*1.10?'Atenção':'Acima');}
   function avaliaCentro(c){
     var mt=metas[c.chave]||{};
@@ -1293,8 +1293,8 @@ async function paEstruturaCustos(){
     if(centro){
       cCons=(o.cons!==null?'<span class="pa-base">'+paValor(o.cons)+'</span><br><span class="pa-orig">'+fp2(o.consP)+' · desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+'</span>':'<span class="pa-mut">—</span>')+
         '<button class="pa-btn-ico" title="'+(podeEd?'Cadastrar / ver histórico do consolidado':'Ver histórico')+'" aria-label="Consolidado de '+paEsc(o.nome)+'" onclick="paAbrirVigente('+o.id+',\'DESPESAS\')">'+(o.cons!==null?'🕘':(podeEd?'＋':'🕘'))+'</button>'+alerta;
-    }else cCons=o.cons!==null?'<span title="Soma das bases dos centros: consolidado onde cadastrado, Média Ano nos demais">'+paValor(o.base)+'<br><span class="pa-orig">'+fp2(o.baseP)+' · base</span></span>':'<span class="pa-mut">—</span>';
-    var tipRed=' title="Base usada: '+(o.cons!==null&&centro?'Consolidado':(centro?'Realizado Média Ano':'soma das bases dos centros'))+' '+paBRL(o.base)+'/mês · Projeção '+ano+': '+paBRL(o.proj)+'"';
+    }else cCons=o.cons!==null?'<span title="Soma das bases dos centros: consolidado onde cadastrado, Realizado Mês nos demais">'+paValor(o.base)+'<br><span class="pa-orig">'+fp2(o.baseP)+' · base</span></span>':'<span class="pa-mut">—</span>';
+    var tipRed=' title="Base usada: '+(o.cons!==null&&centro?'Consolidado':(centro?'Realizado Mês (média)':'soma das bases dos centros'))+' '+paBRL(o.base)+'/mês · Projeção '+ano+': '+paBRL(o.proj)+'"';
     var cRed=o.red===null?'—':(o.red<=0.005?'<span style="color:var(--green)">dentro</span><br><span class="pa-orig">'+paValor(o.red)+'</span>':'<b style="color:var(--red)">'+paValor(o.red)+'</b><br><span class="pa-orig">'+fpp(pct(o.red,recMes))+' p.p.</span>');
     var cPlano='';
     if(centro){var ult1=o.planos[0];
@@ -1303,9 +1303,9 @@ async function paEstruturaCustos(){
     var estat=verEstat?('<td style="'+forte+'">'+paValor(o.prev)+'<br><span class="pa-orig">'+fp(o.pp)+'</span></td>'+
       '<td title="% em '+(ano-1)+': '+fp(o.pa)+' · Var. '+fpp(o.var)+' p.p." style="'+forte+'">'+paValor(o.real)+'<br><span class="pa-orig">'+fp(o.pr)+'</span></td>'):'';
     return '<td class="pa-c-orc'+cong+'" style="'+forte+'">'+cOrc+'</td>'+estat+
-      '<td class="pa-c-merc'+cong+'">'+cMerc+'</td>'+
       '<td class="pa-c-atual'+cong+'" style="'+forte+'">'+cMedia+'</td>'+
       '<td class="pa-c-cons'+cong+'" style="'+forte+'">'+cCons+'</td>'+
+      '<td class="pa-c-merc'+cong+'">'+cMerc+'</td>'+
       '<td'+tipRed+' style="'+forte+'">'+cRed+'</td>'+
       '<td class="pa-c-plano">'+cPlano+'</td>'+
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>';
@@ -1313,10 +1313,10 @@ async function paEstruturaCustos(){
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
     '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
     (verEstat?'<th title="Previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>':'')+
+    '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses ('+(ult||0)+') — e % da receita base mensal">Realizado Mês<br>Média '+periodo+'</th>'+
+    '<th class="pa-c-cons" title="Valor mensal consolidado que vale hoje, cadastrado (com data e motivo). Quando preenchido, prevalece sobre o Realizado Mês na comparação com o mercado.">Realizado Mensal<br>Consolidado</th>'+
     '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>R$/mês · %</th>'+
-    '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses — e % da receita base mensal">Realizado<br>Média Ano</th>'+
-    '<th class="pa-c-cons" title="Valor mensal consolidado que vale hoje, cadastrado (com data e motivo). Quando preenchido, prevalece sobre a Média Ano na comparação com o mercado.">Realizado Mensal<br>Consolidado</th>'+
-    '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Média Ano): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th>'+
+    '<th title="Base − Mercado (base = Consolidado, se preenchido; senão, Realizado Mês): quanto reduzir por mês para chegar ao mercado">Meta mensal<br>de redução</th>'+
     '<th class="pa-c-plano" style="text-align:left" title="Histórico em texto livre: ações, metas intermediárias, decisões">Plano de ação</th><th style="text-align:center">Status</th></tr></thead><tbody>';
   var mostrou=0;
   ordem.forEach(function(k){
@@ -1336,7 +1336,7 @@ async function paEstruturaCustos(){
   if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
   html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Média Ano. <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % editável no centro de custo; subcontas e total somam (congelados). Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % editável no centro de custo; subcontas e total somam (congelados). Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 
@@ -1575,8 +1575,8 @@ var PA_TUT={
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],
   ['Orçado Mês','Previsto do exercício (Orçamento Anual) dividido por 12.','Ano Exerc. ÷ 12'],
   ['Mercado (ideal)','Referência de mercado em % da receita, digitada no centro de custo (ⓘ mostra a fonte). Subconta e total mostram a soma, congelada.','Mercado % × receita base mensal'],
-  ['Realizado Média Ano','O que de fato se gastou, em média, por mês no ano.','Realizado jan–último mês ÷ nº de meses'],
-  ['Realizado Mensal Consolidado','Valor mensal que vale hoje, cadastrado (＋/🕘) com data e motivo — ex.: contrato renegociado. Quando preenchido, prevalece sobre a Média Ano (valor sublinhado = base usada). Despesa eventual: cadastre 0.'],
+  ['Realizado Mês — Média jan–último mês','O que de fato se gastou, em média, por mês no ano. O rótulo acompanha o fechamento: jan–out ÷ 10, jan–nov ÷ 11, jan–dez ÷ 12.','Realizado jan–último mês ÷ nº de meses'],
+  ['Realizado Mensal Consolidado','Valor mensal que vale hoje, cadastrado (＋/🕘) com data e motivo — ex.: contrato renegociado. Quando preenchido, prevalece sobre o Realizado Mês (valor sublinhado = base usada). Despesa eventual: cadastre 0.'],
   ['Meta mensal de redução','Quanto reduzir por mês para chegar ao mercado. "dentro" quando a base já está abaixo do mercado. Passe o mouse para ver a base usada e a projeção do ano.','Base − Mercado R$/mês'],
   ['Plano de ação','Histórico em texto livre por centro (📝): metas intermediárias, ações, decisões. Cada anotação guarda data e autor; exclusão só pelo administrador.'],
   ['Status','Base × Mercado: Dentro · Atenção até 10% acima · Acima. "Só acima do mercado" filtra a tabela.'],
