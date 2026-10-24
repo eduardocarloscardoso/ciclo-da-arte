@@ -362,6 +362,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   para separar.
 - **Pendente (decidido em 24/10/2026):** ao final da estruturação, congelar
   o Mercado % e permitir a troca só ao administrador.
+- **Aluguel separado: matriz × lojas** (24/10/2026): nova subconta e centro
+  **"Aluguel - Espaços em Lojas"** (Despesas, natureza variável, vínculo →
+  REVENDAS; lojas Bafu e Trama). Realizado jan–out/2026 separado a partir da
+  planilha do Cardoso: matriz R$ 1.823,07/mês (aluguel + garagem, fixo);
+  lojas 900,00 (jan, fev, abr, jul), 1.758,00 (mar), 2.897,98 (mai), 3.191,30
+  (ago), 1.880,65 (jun, set, out). Totais de jan–set inalterados; outubro
+  gravado conforme a planilha (+R$ 2.473,72), será sobreposto na importação
+  do fechamento. Vigentes: matriz R$ 1.823,07/mês (out/26); lojas 8,19% da
+  receita de Revendas (≈ R$ 1.880,65/mês, desde jun/26). Atenção: reimportar
+  meses já separados exige a linha "Aluguel - Espaços em Lojas" na planilha.
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
