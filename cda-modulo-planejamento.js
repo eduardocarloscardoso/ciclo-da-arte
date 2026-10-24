@@ -37,7 +37,8 @@ var paEstado = {
   tipo: '',                // '' | RECEITAS | DESPESAS
   subcontaId: '',
   sintetico: false,
-  busca: ''
+  busca: '',
+  centroId: ''           // filtro por centro de custo (Tabela Contábil e Margem por Canal)
 };
 var paCache = {hier: null};
 
@@ -239,8 +240,12 @@ function paFiltroHTML(h, opts){
   var html='<div class="pa-filtros">';
   if(opts.anos)html+='<label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+opts.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label>';
   if(opts.mes)html+='<label>Mês<select onchange="paEstado.mes=+this.value;navigatePlanejamento(paEstado.page)">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-  html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
-  html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
+  html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
+  html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
+  if(opts.centro){
+    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;(s.centros||[]).forEach(function(x){ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
+    html+='<label>Centro de Custo<select onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
+  }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
   html+='<div class="pa-toggle" role="group" aria-label="Modo de exibição"><button class="'+(!paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=false;navigatePlanejamento(paEstado.page)">Analítico</button><button class="'+(paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=true;navigatePlanejamento(paEstado.page)">Sintético</button></div>';
   if(opts.acoes)html+='<div class="pa-acoes">'+opts.acoes+'</div>';
@@ -594,7 +599,7 @@ async function paTabelaContabil(){
   var aliases=extra[0];paCache.vigentes=extra[1];paCache.vinculos=extra[2];
   var podeEd=paPodeEditar(),adm=paIsAdmin();
   var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paFormCadastro()">＋ Novo cadastro</button>':'';
-  var html=paFiltroHTML(h,{busca:true,acoes:acoes});
+  var html=paFiltroHTML(h,{busca:true,centro:true,acoes:acoes});
   html+='<div id="pa-form"></div>';
   var b=paNorm(paEstado.busca);
   var tot=h.centros.length,ativos=h.centros.filter(function(x){return x.ativo;}).length;
@@ -602,10 +607,12 @@ async function paTabelaContabil(){
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
+    if(paEstado.centroId&&!g.subcontas.some(function(s){return s.centros.some(function(x){return String(x.id)===String(paEstado.centroId);});}))return;
     html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td><td></td></tr>';
     g.subcontas.forEach(function(s){
-      var centros=s.centros.filter(function(x){return !b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0;});
+      var centros=s.centros.filter(function(x){return (!b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0)&&(!paEstado.centroId||String(x.id)===String(paEstado.centroId));});
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
+      if(paEstado.centroId&&!centros.length)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
         '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td><td></td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
@@ -1280,15 +1287,22 @@ async function paMargemCanal(){
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_vinculo','order=id')]);
   var d=r[0],metas=r[1].m,podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
-  var html=paFiltroHTML({contas:[],subcontas:[]},{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
-  html=html.replace(/<label>Conta<select[\s\S]*?<\/select><\/label>/,'').replace(/<label>Subconta<select[\s\S]*?<\/select><\/label>/,'');
+  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
   function pct(v,b){return b?v/b*100:null;}
+  // Filtros: Receitas (canal / centro de receita) recortam os canais; Despesas (subconta / centro) recortam as despesas dentro de cada canal
+  var fSub=paEstado.subcontaId?d.h.subcontas.find(function(x){return String(x.id)===String(paEstado.subcontaId);}):null;
+  var fCc=paEstado.centroId?d.h.centros.find(function(x){return String(x.id)===String(paEstado.centroId);}):null;
+  var fTipoSub=fSub?(fSub.conta||d.h.contas.find(function(c){return String(c.id)===String(fSub.conta_id);})||{}).tipo:null;
+  var fTipoCc=fCc?(fCc.conta||{}).tipo:null;
+  var fTipo=fTipoCc||fTipoSub||paEstado.tipo||'';
+  var busca=paNorm(paEstado.busca||'');
+  var filtrando=!!(fSub||fCc||busca||paEstado.tipo);
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';}
   function fpp(v){return v===null||!isFinite(v)?'—':(v>0?'+':'')+v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});}
   // Canais (subcontas de receita ativas) e despesas, sempre sem filtro de conta
   var canais=[],porId={},variaveis=[],fixos={prev:0,real:0};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){var s=gs.sub;
-    if(g.conta.tipo==='RECEITAS'){var c={id:s.id,nome:s.nome,prev:0,real:0,itens:{},varPrev:0,varReal:0};gs.centros.forEach(function(cc){c.prev+=d.prev[cc.id]||0;c.real+=paRealAte(d,cc.id,ult);});canais.push(c);porId[String(s.id)]=c;return;}
+    if(g.conta.tipo==='RECEITAS'){var c={id:s.id,nome:s.nome,prev:0,real:0,itens:{},varPrev:0,varReal:0,centros:{}};gs.centros.forEach(function(cc){var p0=d.prev[cc.id]||0,r0=paRealAte(d,cc.id,ult);c.prev+=p0;c.real+=r0;c.centros[String(cc.id)]={nome:cc.nome,prev:p0,real:r0};});canais.push(c);porId[String(s.id)]=c;return;}
     gs.centros.forEach(function(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,ult);
       if(paNaturezaCentro(cc)==='variavel')variaveis.push({cc:cc,sub:s,prev:p,real:re});else{fixos.prev+=p;fixos.real+=re;}});
   });});
@@ -1306,7 +1320,7 @@ async function paMargemCanal(){
   variaveis.forEach(function(x){
     var vs=alvos(x.cc),wp=pesos(vs,'prev'),wr=pesos(vs,'real');
     vs.forEach(function(v,i){var c=porId[String(v.receita_subconta_id)],k=String(x.cc.id);
-      if(!c.itens[k])c.itens[k]={nome:x.sub.nome+' › '+x.cc.nome,prev:0,real:0};
+      if(!c.itens[k])c.itens[k]={nome:x.sub.nome+' › '+x.cc.nome,subId:x.sub.id,ccId:x.cc.id,prev:0,real:0};
       c.itens[k].prev+=x.prev*wp[i];c.itens[k].real+=x.real*wr[i];c.varPrev+=x.prev*wp[i];c.varReal+=x.real*wr[i];});
   });
   var tot={prev:0,real:0,varPrev:0,varReal:0};
@@ -1337,18 +1351,41 @@ async function paMargemCanal(){
     '<th>Receita<br>prevista</th><th title="Margem prevista ÷ receita prevista">Margem<br>prev. %</th>'+
     '<th>Receita<br>'+periodo+'</th><th>Custos<br>variáveis</th><th>Margem<br>R$</th><th title="Margem realizada ÷ receita realizada">Margem<br>real. %</th><th title="Margem real. % − Margem prev. %">Var.<br>p.p.</th>'+
     '<th title="Participação do canal na margem total realizada">Part. na<br>margem</th><th title="Margem mínima desejada para o canal (%)">Meta<br>margem %</th><th style="text-align:center">Status</th></tr></thead><tbody>';
-  canais.forEach(function(c){
+  var visiveis=canais.filter(function(c){
+    if(fTipo==='RECEITAS'&&fSub&&String(c.id)!==String(fSub.id))return false;
+    if(fTipo==='RECEITAS'&&fCc&&!c.centros[String(fCc.id)])return false;
+    return true;
+  }).map(function(c){
+    // Centro de receita: recorta o canal para o centro, despesas proporcionais à receita do centro
+    if(fTipo==='RECEITAS'&&fCc){var ce=c.centros[String(fCc.id)],kp=c.prev?ce.prev/c.prev:0,kr=c.real?ce.real/c.real:0,n={id:c.id,nome:c.nome+' › '+ce.nome,prev:ce.prev,real:ce.real,itens:{},varPrev:c.varPrev*kp,varReal:c.varReal*kr};
+      Object.keys(c.itens).forEach(function(k){var i=c.itens[k];n.itens[k]={nome:i.nome,subId:i.subId,ccId:i.ccId,prev:i.prev*kp,real:i.real*kr};});
+      n.mcPrev=n.prev-n.varPrev;n.mcReal=n.real-n.varReal;n.mpPrev=pct(n.mcPrev,n.prev);n.mpReal=pct(n.mcReal,n.real);n.proporcional=true;return n;}
+    return c;
+  });
+  function itemPassa(i){
+    if(fTipo==='DESPESAS'&&fCc&&String(i.ccId)!==String(fCc.id))return false;
+    if(fTipo==='DESPESAS'&&fSub&&String(i.subId)!==String(fSub.id))return false;
+    return true;
+  }
+  var mostrou=0;
+  visiveis.forEach(function(c){
+    var itens=Object.keys(c.itens).map(function(k){return c.itens[k];}).filter(itemPassa);
+    if(fTipo==='DESPESAS'&&(fSub||fCc)&&!itens.some(function(i){return Math.abs(i.real)>=0.005||Math.abs(i.prev)>=0.005;}))return;
+    if(busca){var nomeOk=paNorm(c.nome).indexOf(busca)>=0;itens=nomeOk?itens:itens.filter(function(i){return paNorm(i.nome).indexOf(busca)>=0;});if(!nomeOk&&!itens.length)return;}
+    mostrou++;
     var mt=(metas['canal:'+c.id]||{}).meta,st=status(c,mt),cor=st==='Fora de controle'?'var(--red)':st==='Atenção'?'var(--gold2)':st==='OK'?'var(--green)':'';
     html+='<tr class="sub"><td>'+paEsc(c.nome)+'</td>'+paCelula(paValor(c.prev))+paCelula(fp(c.mpPrev),'var(--muted2)')+paCelula(paValor(c.real),'',600)+paCelula(paValor(c.varReal))+
       paCelula(paValor(c.mcReal),c.mcReal<0?'var(--red)':'',600)+paCelula(fp(c.mpReal),cor,600)+paCelula(fpp(c.mpReal!==null&&c.mpPrev!==null?c.mpReal-c.mpPrev:null),(c.mpReal||0)<(c.mpPrev||0)?'var(--red)':'var(--green)')+
       paCelula(fp(pct(c.mcReal,tot.mcReal)),'var(--muted2)')+'<td>'+campoMeta('canal:'+c.id,mt)+'</td><td style="text-align:center">'+paBadgeStatus(st)+'</td></tr>';
     if(paEstado.sintetico)return;
-    Object.keys(c.itens).map(function(k){return c.itens[k];}).filter(function(i){return Math.abs(i.real)>=0.005||Math.abs(i.prev)>=0.005;}).sort(function(a,b){return b.real-a.real;}).forEach(function(i){
+    itens.filter(function(i){return Math.abs(i.real)>=0.005||Math.abs(i.prev)>=0.005;}).sort(function(a,b){return b.real-a.real;}).forEach(function(i){
       html+='<tr class="cc"><td>(−) '+paEsc(i.nome)+'</td>'+paCelula(paValor(i.prev),'var(--muted2)')+paCelula(fp(pct(i.prev,c.prev)),'var(--muted2)')+'<td></td>'+paCelula(paValor(i.real))+'<td></td>'+paCelula(fp(pct(i.real,c.real)),'var(--muted2)')+'<td></td><td></td><td></td><td></td></tr>';
     });
   });
+  if(!mostrou)html+='<tr><td colspan="11" class="pa-mut" style="text-align:center">Nenhum canal para o filtro escolhido.</td></tr>';
   var res={prev:tot.mcPrev-fixos.prev,real:tot.mcReal-fixos.real};
-  html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+'<td></td><td></td></tr>';
+  if(filtrando)html+='<tr><td colspan="11" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo'+(fTipo==='DESPESAS'&&(fSub||fCc)?' — dentro de cada canal aparecem só as despesas de <b>'+paEsc(fCc?fCc.nome:fSub.nome)+'</b>; a margem do canal continua considerando todas as despesas variáveis':'')+(fTipo==='RECEITAS'&&fCc?' — centro de receita: despesas do canal rateadas <b>proporcionalmente à receita do centro</b>':'')+'. Os totais da empresa abaixo não mudam com o filtro.</td></tr>';
+  html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL (EMPRESA)</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+'<td></td><td></td></tr>';
   html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS + FINANCEIROS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';
   html+='</tbody></table></div>';
@@ -1417,6 +1454,7 @@ var PA_TUT={
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − Total Real. com Prov.'],
   ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
  margem:{t:'Margem por Canal',d:'Mostra quanto cada canal de receita deixa de margem de contribuição depois das despesas variáveis que ele gera. A soma das margens paga os custos fixos; o que sobra é o resultado.',c:[
+  ['Filtros','Conta / Subconta / Centro de Custo / Buscar. Em Receitas, recortam os canais (um centro de receita mostra o canal recortado para aquele centro, com as despesas proporcionais à receita dele). Em Despesas, mostram dentro de cada canal só a despesa escolhida — útil para ver como uma despesa se distribui entre os canais; a margem do canal continua com todas as despesas. Os totais da empresa não mudam com filtro.'],
   ['Rateio','Cada despesa variável vai para os canais vinculados na Tabela Contábil (vínculo do centro de custo; se não houver, o da subconta; se não houver, todos os canais). Entre os canais, divide pelos % informados ou, sem %, proporcionalmente à receita de cada canal no período.'],
   ['Receita prevista / Margem prev. %','Receita prevista do canal e a margem prevista em % (receita − variáveis previstas rateadas).','(Receita prevista − Variáveis previstas) ÷ Receita prevista'],
   ['Receita / Custos variáveis / Margem R$','Valores realizados de janeiro até o último mês lançado.','Margem = Receita − Custos variáveis rateados'],

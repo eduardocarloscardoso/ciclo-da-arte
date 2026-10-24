@@ -325,6 +325,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (confere com Receitas − Despesas). Analítico abre as despesas de cada canal.
   Anúncios: vigente corrigido para 40,85% da receita do **E-commerce** (canal
   vinculado), ≈ R$ 7.000/mês.
+- **Filtro por Centro de Custo** (24/10/2026): depois de Subconta, na Tabela
+  Contábil e na Margem por Canal (`paEstado.centroId`, opção `centro` do
+  `paFiltroHTML`; lembrado ao recarregar). Margem por Canal ganhou Conta /
+  Subconta / Centro / Buscar: Receitas recortam canais (centro de receita =
+  canal recortado, despesas proporcionais); Despesas mostram só a despesa
+  escolhida dentro de cada canal; totais da empresa fixos. Comissões
+  Vendedores vinculada a Revendas, Shows, Feiras e Bazares, Shows Multimarcas
+  (24/10, Cardoso: Private Label, E-commerce, Vendas sem Vendedor, Ciclo em
+  Casa, Colaboradores e Market Place não pagam comissão de vendedor).
 - **Estrutura de Custos com Vigente** (23/10/2026): colunas Previsto e
   Realizado (R$ · % rec.), Var. p.p. vs ano anterior (tooltip com % e R$),
   **Vigente / mês** (cadastrado ou média dos últimos 3 meses *com lançamento*),
