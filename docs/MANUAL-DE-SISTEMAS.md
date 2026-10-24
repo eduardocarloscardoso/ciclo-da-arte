@@ -354,12 +354,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   enquanto a subconta não for aberta por centro). Receita base = realizada +
   `receita_mes_aberto` (receita hipotética do mês sem receita lançada; 2026:
   out = R$ 100.000). Status: vigente × meta (OK · Atenção até +10% · Fora).
-  Pessoal definido com o Cardoso (mercado / meta R$/mês): Terceiros – Gerencial
-  5% / 6.500; Pró-labore 4% / 6.000; CLT 5% / 3.712,17; Encargos 1% / 607,01;
+  Pessoal **finalizado** com o Cardoso (mercado / meta R$/mês): Terceiros –
+  Gerencial 5% / 6.500; Pró-labore 5% / 6.000; CLT 4% / 3.712,17; Encargos 1% / 607,01;
   Vale transporte 1% / 841,80; Rescisão 0% / 0 → Pessoal 16% / 17.660,98
   (15,78%). Apelido "Vale transporte → Salários CLT" (herdado do Manus)
   apagado em 24/10: VT de jan–out está dentro do CLT; reimportar os meses
   para separar.
+- **Pendente (decidido em 24/10/2026):** ao final da estruturação, congelar
+  o Mercado % e permitir a troca só ao administrador.
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
