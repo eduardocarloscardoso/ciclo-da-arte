@@ -411,6 +411,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Filtro Centro de Custo: na Estrutura só centros fixos/financeiros de despesa;
   na Margem por Canal só centros de receita e despesas variáveis. A lista de
   Subconta segue a mesma regra (só subcontas com algum centro da natureza).
+  Linha "Financeiras" com filtro: soma só os centros da seleção (antes somava
+  também Bancos/Empréstimos de Comerciais ao filtrar Administrativas).
+  Mercado: Compra Ativos 0,20%; Carro, Manutenção de veículos e Taxas
+  Governamentais 0% (Cardoso, 24/10) → Administrativas 8,20%.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro

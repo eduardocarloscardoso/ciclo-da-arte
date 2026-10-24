@@ -1331,6 +1331,12 @@ async function paEstruturaCustos(){
     }
     if(soFora&&L.st!=='Acima'&&L.st!=='Atenção'&&!vis.length)return;
     mostrou++;
+    // Financeiras reúne centros de várias subcontas: com filtro, a linha soma só os centros da seleção
+    if(k==='financeira'&&(fSub||fCc||fBusca)){
+      var Lf={chave:k,nome:L.nome+' — da seleção',prev:0,real:0,ant:0,centros:vis};
+      vis.forEach(function(c){Lf.prev+=c.prev;Lf.real+=c.real;Lf.ant+=c.ant;});
+      L=avaliaGrupo(Lf,metas[k]);
+    }
     html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
     if(!paEstado.sintetico)vis.sort(function(a,b){return b.base-a.base;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
   });
