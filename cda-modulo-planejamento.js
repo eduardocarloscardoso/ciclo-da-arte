@@ -240,7 +240,9 @@ async function paUltimoMes(ano){
 // ─── Filtros comuns ──────────────────────────────────────────────────
 function paFiltroHTML(h, opts){
   opts=opts||{};
-  var subs=h.subcontas.filter(function(s){var c=h.contas.find(function(x){return x.id===s.conta_id;});return !paEstado.tipo||(c&&c.tipo===paEstado.tipo);});
+  var subs=h.subcontas.filter(function(s){var c=h.contas.find(function(x){return x.id===s.conta_id;});
+    if(opts.centroNat&&!(s.centros||[]).some(function(x){return opts.centroNat(x.natureza||s.natureza||'fixa',c&&c.tipo);}))return false;
+    return !paEstado.tipo||(c&&c.tipo===paEstado.tipo);});
   var html='<div class="pa-filtros">';
   if(opts.anos)html+='<label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+opts.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label>';
   if(opts.mes)html+='<label>Mês<select onchange="paEstado.mes=+this.value;navigatePlanejamento(paEstado.page)">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';

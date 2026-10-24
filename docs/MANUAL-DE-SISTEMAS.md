@@ -409,7 +409,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   ação · Status.
   Depois: Status logo após a Meta mensal de redução e Plano de ação por último.
   Filtro Centro de Custo: na Estrutura só centros fixos/financeiros de despesa;
-  na Margem por Canal só centros de receita e despesas variáveis.
+  na Margem por Canal só centros de receita e despesas variáveis. A lista de
+  Subconta segue a mesma regra (só subcontas com algum centro da natureza).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
