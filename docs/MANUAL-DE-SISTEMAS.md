@@ -403,6 +403,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Ano; status Dentro / Atenção (até 10% acima) / Acima. Saíram a média de 3
   meses e os campos "A perseguir". Subconta e total: soma (congelada); na
   subconta, o Consolidado mostra a soma das bases dos centros.
+  24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
+  Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
+  1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
+  próprio)".
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
