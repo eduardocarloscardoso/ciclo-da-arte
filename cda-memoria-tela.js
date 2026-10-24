@@ -13,7 +13,7 @@
 (function () {
   var PREFIXO = 'cda_ultima_tela_v1:';
   var FUNCOES = ['openProject', 'navigateCRM', 'navigateMkt', 'navigate', 'navigateOrcamento', 'navigatePlanejamento'];
-  var CAMPOS_PA = ['ano', 'mes', 'tipo', 'subcontaId', 'centroId', 'sintetico', 'busca', 'mesComp', 'trim', 'statusMeta', 'grupoAberto', 'soFora', 'lucroAlvo'];
+  var CAMPOS_PA = ['ano', 'mes', 'tipo', 'subcontaId', 'centroId', 'sintetico', 'busca', 'mesComp', 'trim', 'statusMeta', 'grupoAberto', 'soFora', 'lucroAlvo', 'verEstat'];
   var restaurando = false;
 
   function chave() { return PREFIXO + ((window.cu && cu.email) || '').toLowerCase(); }

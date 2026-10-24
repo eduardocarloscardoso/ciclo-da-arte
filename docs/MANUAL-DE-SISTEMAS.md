@@ -372,6 +372,19 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   do fechamento. Vigentes: matriz R$ 1.823,07/mês (out/26); lojas 8,19% da
   receita de Revendas (≈ R$ 1.880,65/mês, desde jun/26). Atenção: reimportar
   meses já separados exige a linha "Aluguel - Espaços em Lojas" na planilha.
+- **Três réguas** (24/10/2026, pedido do Cardoso): a Estrutura de Custos
+  mostra, por centro/subconta/total, **Mercado (ideal)** % · R$/mês →
+  **Atual** (vigente) R$/mês · % → **A perseguir** R$/mês · %, mais Atual −
+  A perseguir e A perseguir − Mercado. Previsto anual, realizado e média
+  mensal ficam no botão "Mostrar estatísticas" (`paEstado.verEstat`).
+  **Administrativas definida**: a perseguir = Previsto 2026 ÷ 12 (Previsto
+  revisado pelo Cardoso: Aluguel 22.000, Condomínio 33.000, Contábeis 16.000,
+  Transporte 12.000, IPTU 11.500, TI Compra 2.000, Limpeza 7.000, Internet
+  1.200, Taxas 300; Aluguel - Espaços em Lojas 18.000); mercado 8% (Aluguel
+  1,6 · Condomínio 2,0 · Contábeis 1,0 · TI Licenças 0,7 · Energia 0,9 · IPTU
+  0,5 · Transporte 0,3 · Limpeza 0,3 · Locação 0,2 · Telefonia 0,15 · Internet
+  0,15 · TI Compra 0,1 · Material 0,1 · demais 0). Manutenção de veículos
+  mantida (tem realizado 2025).
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.

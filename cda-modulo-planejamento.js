@@ -135,6 +135,7 @@ function paErro(e, padrao){
     '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
     '.pa-param-g{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--white)}',
     '.pa-cong{background:rgba(255,255,255,.025)}',
+    '.pa-reguas.pa-tbl th:first-child{min-width:155px}.pa-mini.pa-tbl td,.pa-mini.pa-tbl th{padding-left:4px;padding-right:4px}.pa-mini.pa-tbl td{font-size:10.5px}.pa-reguas th.pa-c-merc{color:#8fb3ff}.pa-reguas th.pa-c-atual{color:var(--gold2)}.pa-reguas th.pa-c-meta{color:var(--green)}.pa-reguas td.pa-c-merc{background:rgba(74,128,255,.05)}.pa-reguas td.pa-c-atual{background:rgba(201,148,58,.05)}.pa-reguas td.pa-c-meta{background:rgba(62,201,122,.05)}',
     '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
@@ -1174,6 +1175,7 @@ async function paEstruturaCustos(){
   var restantes=Math.max(12-ult,0),nAlertas=0;
   var lucroAlvo=paEstado.lucroAlvo===undefined?5:paEstado.lucroAlvo,soFora=!!paEstado.soFora;
   var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só fora de controle</button></div>'+
+    '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\'estrutura\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>';
   var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,acoes:acoes});
   // Filtros (mesmos da Margem por Canal): recortam as linhas da tabela; cartões e total da empresa não mudam
@@ -1278,36 +1280,41 @@ async function paEstruturaCustos(){
     return '<input class="pa-in pa-in-pct" style="width:'+(larg||54)+'px!important" inputmode="decimal" aria-label="'+rot+'" value="'+mostra+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+campo+'\')">';
   }
   function prov(t){return '<span class="pa-orig" title="Referência antiga da subconta — defina por centro de custo">provisório</span>';}
+  var verEstat=!!paEstado.verEstat,nCol=verEstat?10:8;
   function celulas(o,tipo){
     var centro=tipo==='cc',ed=centro&&podeEd;
     var tipReal=' title="% em '+(ano-1)+': '+fp(o.pa)+' · Var. '+fpp(o.var)+' p.p."';
     var orig=centro?(o.origem==='cad'?'<span class="pa-orig cad" title="'+paEsc((o.vg&&o.vg.motivo)||'')+'">desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+'</span>':'<span class="pa-orig">média 3m</span>'):'';
     var alerta=centro&&o.alerta?'<button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para confirmar como novo valor vigente." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
-    var tipVig=' title="Projeção '+ano+': '+paBRL(o.proj)+' (realizado + vigente × '+restantes+' meses)"';
+    var tipVig=' title="Projeção '+ano+': '+paBRL(o.proj)+' (realizado + atual × '+restantes+' meses)"';
     var forte=tipo!=='cc'?'font-weight:600;':'';
-    var cMerc=ed?inp(o.chave,'mercado',o.merc,'Mercado % '+o.nome)+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):(fp2(o.merc)+(o.mercProv?'<br>'+prov():''));
-    var cMercRS=o.merc!==null?'<br><span class="pa-orig">'+paValor(o.merc/100*recMes)+'/mês</span>':'';
-    var cMetaRS=ed?inp(o.chave,'valor',o.metaM,'Meta perseguida R$/mês '+o.nome,84):((o.metaM!==null?paValor(o.metaM):'—')+(o.metaProv?'<br>'+prov():'')+(o.metaParcial?'<br><span class="pa-orig" title="Há centros com gasto e sem meta">parcial</span>':''));
-    var cMetaP=ed?inp(o.chave,'metapct',o.metaP,'Meta % '+o.nome):fp2(o.metaP);
-    return '<td style="'+forte+'">'+paValor(o.prev)+'<br><span class="pa-orig">'+fp(o.pp)+'</span></td>'+
-      '<td'+tipReal+' style="'+forte+'">'+paValor(o.real)+'<br><span class="pa-orig">'+fp(o.pr)+'</span></td>'+
-      paCelula(paValor(o.realM),'var(--muted2)')+
-      '<td'+tipVig+' style="'+forte+'">'+paValor(o.vigM)+(orig?'<br>'+orig:'')+(alerta?'<br>'+alerta:'')+'</td>'+
-      '<td'+(centro?'':' class="pa-cong"')+'>'+cMerc+cMercRS+'</td>'+
-      '<td'+(centro?'':' class="pa-cong"')+' style="'+forte+'">'+cMetaRS+'</td>'+
-      '<td'+(centro?'':' class="pa-cong"')+' style="'+forte+'">'+cMetaP+'</td>'+
+    var mercRS=o.merc!==null?o.merc/100*recMes:null;
+    var cMerc=(ed?inp(o.chave,'mercado',o.merc,'Mercado % '+o.nome)+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):(fp2(o.merc)+(o.mercProv?' '+prov():'')))+
+      (mercRS!==null?'<br><span class="pa-orig">'+paValor(mercRS)+'/mês</span>':'');
+    var cAtual=paValor(o.vigM)+'<br><span class="pa-orig">'+fp2(o.vigP)+'</span>'+(orig?'<br>'+orig:'')+(alerta?'<br>'+alerta:'');
+    var cMetaRS=ed?inp(o.chave,'valor',o.metaM,'A perseguir R$/mês '+o.nome,84):((o.metaM!==null?paValor(o.metaM):'—')+(o.metaProv?'<br>'+prov():'')+(o.metaParcial?'<br><span class="pa-orig" title="Há centros com gasto e sem meta">parcial</span>':''));
+    var cMetaP=ed?inp(o.chave,'metapct',o.metaP,'A perseguir % '+o.nome):fp2(o.metaP);
+    var difMerc=o.metaM!==null&&mercRS!==null?o.metaM-mercRS:null;
+    var estat=verEstat?('<td style="'+forte+'">'+paValor(o.prev)+'<br><span class="pa-orig">'+fp(o.pp)+'</span></td>'+
+      '<td'+tipReal+' style="'+forte+'">'+paValor(o.real)+'<br><span class="pa-orig">'+fp(o.pr)+' · média '+paValor(o.realM)+'/mês</span></td>'):'';
+    return estat+
+      '<td class="pa-c-merc'+(centro?'':' pa-cong')+'">'+cMerc+'</td>'+
+      '<td class="pa-c-atual"'+tipVig+' style="'+forte+'">'+cAtual+'</td>'+
+      '<td class="pa-c-meta'+(centro?'':' pa-cong')+'" style="'+forte+'">'+cMetaRS+'</td>'+
+      '<td class="pa-c-meta'+(centro?'':' pa-cong')+'" style="'+forte+'">'+cMetaP+'</td>'+
       paCelula(o.dif===null?'—':(o.dif>0?'+':'')+paValor(o.dif),o.dif===null?'':(o.dif>0.005?'var(--red)':'var(--green)'),600)+
+      paCelula(difMerc===null?'—':(difMerc>0?'+':'')+paValor(difMerc),difMerc===null?'':(difMerc>0.005?'var(--gold2)':'var(--green)'))+
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>';
   }
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita"><thead><tr><th>Custo fixo / financeiro</th>'+
-    '<th title="Valor previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th>'+
-    '<th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>'+
-    '<th title="Realizado ÷ meses do período">Realizado<br>média/mês</th>'+
-    '<th title="Valor mensal que vale hoje (cadastrado na Tabela Contábil ou média dos últimos 3 meses). Passe o mouse para ver a projeção do ano.">Vigente<br>/ mês</th>'+
-    '<th title="Referência de mercado em % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado<br>% · R$/mês</th>'+
-    '<th title="Valor mensal que você quer atingir (editável no centro; subconta e total = soma)">Meta perseguida<br>R$/mês</th>'+
-    '<th title="Meta perseguida em % da receita base mensal — digite o % e o sistema calcula o R$">Meta<br>%</th>'+
-    '<th title="Vigente − Meta perseguida: positivo = quanto falta cortar por mês">Vigente<br>− Meta</th><th style="text-align:center">Status</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
+    (verEstat?'<th title="Valor previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th>'+
+      '<th title="Realizado no período, % sobre a Receita base e média mensal. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % · média</th>':'')+
+    '<th class="pa-c-merc" title="Quanto o mercado gasta: % da receita (editável no centro; subconta e total = soma) e o equivalente em R$/mês">Mercado (ideal)<br>% · R$/mês</th>'+
+    '<th class="pa-c-atual" title="Quanto se gasta hoje por mês: valor cadastrado na Tabela Contábil ou média dos últimos 3 meses — e o % da receita. Passe o mouse para ver a projeção do ano.">Atual<br>R$/mês · %</th>'+
+    '<th class="pa-c-meta" title="Quanto você quer gastar por mês (editável no centro; subconta e total = soma)">A perseguir<br>R$/mês</th>'+
+    '<th class="pa-c-meta" title="A perseguir em % da receita base mensal — digite o % e o sistema calcula o R$">A perseguir<br>%</th>'+
+    '<th title="Atual − A perseguir: positivo = quanto falta cortar por mês">Atual −<br>A perseguir</th>'+
+    '<th title="A perseguir − Mercado: positivo = a sua meta ainda está acima do mercado">A perseguir<br>− Mercado</th><th style="text-align:center">Status</th></tr></thead><tbody>';
   var mostrou=0;
   ordem.forEach(function(k){
     var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Fora de controle';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.metaM!==null;});
@@ -1322,8 +1329,8 @@ async function paEstruturaCustos(){
     L.chave=k;html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
     if(!paEstado.sintetico)vis.sort(function(a,b){return b.vigM-a.vigM;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
   });
-  if(!mostrou)html+='<tr><td colspan="10" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo fora de controle.'))+'</td></tr>';
-  if(filtrando)html+='<tr><td colspan="10" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
+  if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo fora de controle.'))+'</td></tr>';
+  if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
   T.nome='TOTAL';html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. <b>Mercado %</b> e <b>Meta perseguida</b> são definidos no <b>centro de custo</b> (digite a meta em R$/mês ou em % — o outro é calculado); subcontas e total mostram a soma, congelada. Status do vigente contra a meta perseguida: dentro = <b>OK</b> · até 10% acima = <b>Atenção</b> · mais de 10% acima = <b>Fora de controle</b>; sem meta, compara com '+(ano-1)+'. Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
@@ -1543,7 +1550,9 @@ var PA_TUT={
   ['Vigente / mês','O valor mensal que vale hoje: cadastrado na Tabela Contábil (com data e motivo) ou, sem cadastro, a média dos últimos 3 meses com lançamento. "⚠ mudou?" aparece quando o último mês importado fugiu mais de 20% da média — clique para confirmar. Passe o mouse para ver a projeção do ano.'],
   ['Mercado % · R$/mês','Referência de mercado em % da receita, digitada no centro de custo (ⓘ mostra a fonte). Subconta e total mostram a soma, congelada. "provisório" = a subconta ainda usa a referência antiga, até ser aberta por centro.','Mercado % × receita base mensal'],
   ['Meta perseguida R$/mês · Meta %','O valor que você quer atingir, digitado no centro de custo em R$/mês ou em % (o outro é calculado). Subconta e total = soma, congelada.','Meta % = Meta R$/mês ÷ receita base mensal'],
-  ['Vigente − Meta','Quanto o custo vigente está acima (vermelho, quanto falta cortar por mês) ou abaixo (verde) da meta perseguida.','Vigente/mês − Meta/mês'],
+  ['As três réguas','Mercado (ideal) — quanto o mercado gasta; Atual — quanto se gasta hoje por mês (vigente); A perseguir — quanto você quer gastar. Cada uma em % da receita e em R$/mês. Previsto anual, realizado e médias ficam no botão "Mostrar estatísticas".'],
+  ['Atual − A perseguir','Quanto o custo atual está acima (vermelho, quanto falta cortar por mês) ou abaixo (verde) da meta a perseguir.','Atual/mês − A perseguir/mês'],
+  ['A perseguir − Mercado','Se a sua meta ainda fica acima do mercado (dourado) ou já está dentro (verde).','A perseguir/mês − Mercado R$/mês'],
   ['Status','Vigente contra a meta perseguida: OK dentro · Atenção até 10% acima · Fora de controle mais de 10% acima. Sem meta: compara com o próprio ano anterior. "Só fora de controle" filtra a tabela.'],
   ['Referências da empresa','Receita do mês em aberto (simulação), Margem de contribuição (mercado/meta, a mesma da Margem por Canal) e Alvo de custos fixos (mercado/meta). A caixa mostra se o mercado somado dos centros bate com o alvo.'],
   ['Lucro (margem − fixos)','Hoje, no mercado (margem de mercado − fixos de mercado somados) e nas metas perseguidas.','Margem % − Fixos %']]},
