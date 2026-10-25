@@ -444,6 +444,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   equilíbrio. Margem calculada sobre a mesma receita base (corrige a margem
   dos cartões antigos, que usava receita sem o mês hipotético e despesas com
   ele). Subconta sem valores (SEM CATEGORIA zerada) não aparece.
+  25/10: Resultado anual — colunas Orçado · Realizado · Mercado (ideal, com a
+  receita base) · Diferença Mercado × Realizado (meta a perseguir: ↓ reduzir
+  custos / ↑ aumentar margem e lucro, em R$ e p.p.).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
