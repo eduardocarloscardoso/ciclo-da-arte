@@ -447,6 +447,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   25/10: Resultado anual — colunas Orçado · Realizado · Mercado (ideal, com a
   receita base) · Diferença Mercado × Realizado (meta a perseguir: ↓ reduzir
   custos / ↑ aumentar margem e lucro, em R$ e p.p.).
+  25/10 (Cardoso): VT 2026 separado do CLT (cc 54 → cc 53), jan–out: 349,20 ·
+  288,00 · 999,40 · 1.022,20 · 315,00 · 1.414,60 · 938,40 · 841,80 · 856,80 ·
+  856,80 (total 7.882,20). Totais mensais CLT+VT conferidos (inalterados).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
