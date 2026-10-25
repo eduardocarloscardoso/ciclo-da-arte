@@ -428,7 +428,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Comissões Vendedores 175,00; fev: Escritório Material 232,37; mai: Abertura
   Telas 390,10; jul: Comissões Vendedores 250,00; ago: VJ - Embalagens 157,86;
   set: Eventos Transp. Aéreo/Rod. 819,00; out: Eventos Alim.+Estadia 48,89.
-  Restam em SEM CATEGORIA: jan 0,02 (diferença) e fev 64,15 (tecidos — VJ ou AT?).
+  Depois: fev 64,15 → VJ - Matéria Prima - Tecidos; jan 0,02 → Eventos Alim.+
+  Estadia. SEM CATEGORIA 2026 zerado.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
