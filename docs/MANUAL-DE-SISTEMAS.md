@@ -415,6 +415,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   também Bancos/Empréstimos de Comerciais ao filtrar Administrativas).
   Mercado: Compra Ativos 0,20%; Carro, Manutenção de veículos e Taxas
   Governamentais 0% (Cardoso, 24/10) → Administrativas 8,20%.
+  25/10 (Cardoso): "Financeiras - Tarifas bancárias + IOF + Juros" (cc 39)
+  natureza financeira → fixa (independe das vendas); Mercado 0,10%. Backup:
+  natureza anterior = 'financeira'. "Bancos/Empréstimos" (cc 30017, Comerciais)
+  = só parcelas de empréstimo → segue no bloco Financeiras (custo fixo).
+  Carro (cc 44) Mercado 0,25%.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
