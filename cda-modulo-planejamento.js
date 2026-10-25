@@ -1210,7 +1210,7 @@ async function paAbrirResultado(){
   // Diferença Mercado × Realizado = meta a perseguir (custos: reduzir; margem e lucro: aumentar)
   function dif(k,custo){
     if(!merc)return '<td>—</td>';
-    if(k==='rec')return '<td><span class="pa-mut">mesma base</span><small>&nbsp;</small></td>';
+    if(k==='rec')return '<td></td>';
     var d=merc[k]-real[k],pp=m?d/m*100:0;
     if(Math.abs(d)<0.005)return '<td style="color:var(--green)">no mercado<small>&nbsp;</small></td>';
     var bom=custo?d>0:d<0; // já melhor que o mercado
@@ -1219,7 +1219,7 @@ async function paAbrirResultado(){
   }
   function linha(rot,exp,k,res){
     var cR=res&&merc?(real[k]/(real.rec||1)<merc[k]/(m||1)-0.0005?'var(--red)':'var(--green)'):(res&&real[k]<0?'var(--red)':'');
-    return '<tr'+(res?' class="pa-res-tot"':'')+'><td class="pa-res-l">'+rot+'<small>'+exp+'</small></td>'+cel(orc[k],orc.rec,res&&orc[k]<0?'var(--red)':'')+cel(real[k],real.rec,cR)+(merc?cel(merc[k],m,res?'var(--green)':''):'<td>—</td>')+dif(k,k==='vari'||k==='fix')+'</tr>';}
+    return '<tr'+(res?' class="pa-res-tot"':'')+'><td class="pa-res-l">'+rot+'<small>'+exp+'</small></td>'+cel(orc[k],orc.rec,res&&orc[k]<0?'var(--red)':'')+cel(real[k],real.rec,cR)+(k==='rec'?'<td></td>':(merc?cel(merc[k],m,res?'var(--green)':''):'<td>—</td>'))+dif(k,k==='vari'||k==='fix')+'</tr>';}
   var html='<div class="modal-box pa-modal-res"><div class="modal-title">📊 Resultado anual '+R.ano+'</div>'+
     '<p class="pa-info" style="margin:4px 0 14px">Valores por mês, em R$ e em % da receita. O Mercado (ideal) usa a mesma receita base do Realizado — mostra como a mesma venda deveria se distribuir. Diferença = meta a perseguir. Realizado = '+R.periodo+(R.simula?' com '+PA_MESES_AB[ult-1].toLowerCase()+' hipotético de '+paBRL(Number(R.recAberto))+' (despesas do mês podem estar parciais)':'')+'; custos fixos pelo valor consolidado quando cadastrado, senão pela média.</p>'+
     '<table class="pa-res-tbl"><thead><tr><th>Linha do resultado</th><th>Orçado '+R.ano+'</th><th class="pa-res-r">Realizado</th><th class="pa-res-m">Mercado (ideal)</th><th class="pa-res-d">Diferença<br>Mercado × Realizado</th></tr></thead><tbody>'+
