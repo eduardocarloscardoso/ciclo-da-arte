@@ -1170,7 +1170,7 @@ async function paSalvarMetaEstrutura(inp,chave,campo){
 async function paEstruturaCustos(){
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc')]);
-  var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar();
+  var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar(),podeMerc=podeEd&&paIsAdmin();
   paCache.vigentes=r[3];paCache.metasEstr=metas;paCache.planos=r[4];
   var hojeD=new Date(),refMes=ano<hojeD.getFullYear()?12:(ano>hojeD.getFullYear()?1:hojeD.getMonth()+1);
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
@@ -1267,7 +1267,7 @@ async function paEstruturaCustos(){
     paKpi('Lucro (margem − fixos)','Hoje '+fp(lucroHoje),'No mercado '+fp(lucroMerc)+' · No orçamento '+fp(lucroOrc),lucroHoje!==null&&lucroHoje>=0?'var(--green)':'var(--red)')+
   '</div>';
   function campoRef(chave,campo,v,rot){
-    if(!podeEd)return ' '+fp(v);
+    if(!podeEd||(campo==='mercado'&&!podeMerc))return ' <b title="'+(campo==='mercado'?'Mercado congelado — só o administrador altera':'')+'">'+fp(v)+(campo==='mercado'?' 🔒':'')+'</b>';
     return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="'+rot+' — '+(campo==='meta'?'meta interna':'referência de mercado')+'" value="'+(tem(v)?String(v).replace('.',','):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+campo+'\')">';
   }
   var difAlvo=T.merc!==null&&tem(fxR.mercado)?T.merc-fxR.mercado:null;
@@ -1287,7 +1287,7 @@ async function paEstruturaCustos(){
     var centro=tipo==='cc',forte=centro?'':'font-weight:600;',cong=centro?'':' pa-cong';
     var cOrc=paValor(o.orc)+'<br><span class="pa-orig">'+fp2(o.orcP)+'</span>';
     var cMerc=(o.mercRS!==null?paValor(o.mercRS):'—')+'<br>'+
-      (centro&&podeEd?inpMerc(o)+'<span class="pa-orig">%</span>'+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):'<span class="pa-orig">'+fp2(o.merc)+(o.mercProv?' provisório':'')+'</span>');
+      (centro&&podeMerc?inpMerc(o)+'<span class="pa-orig">%</span>'+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):'<span class="pa-orig"'+(centro?' title="Mercado congelado — só o administrador altera.'+(o.fonte?' Fonte: '+paEsc(o.fonte):'')+'"':'')+'>'+fp2(o.merc)+(o.mercProv?' provisório':'')+(centro&&o.merc!==null?' 🔒':'')+'</span>');
     var usaMedia=o.cons===null||(!centro&&o.cons!==null&&Math.abs(o.cons-o.base)>0.005);
     var cMedia='<span'+(centro&&o.cons===null?' class="pa-base"':'')+'>'+paValor(o.media)+'</span><br><span class="pa-orig">'+fp2(o.mediaP)+'</span>';
     var alerta=centro&&o.alerta?'<br><button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para registrar como valor consolidado." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
@@ -1344,7 +1344,7 @@ async function paEstruturaCustos(){
   if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
   html+='<tr class="conta desp"><td>TOTAL FIXOS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % editável no centro de custo; subcontas e total somam (congelados). Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % congelado: só o administrador altera (no centro de custo); subcontas e total somam. Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 
@@ -1451,7 +1451,7 @@ async function paMargemCanal(){
     paKpi('Resultado ('+periodo+')',paBRL(resReal),sub4,resReal>=0?'var(--green)':'var(--red)')+
   '</div>';
   function campoPctEmp(campo,v){
-    if(!podeEd)return ' '+fp(v);
+    if(!podeEd||(campo==='mercado'&&!paIsAdmin()))return ' <b title="'+(campo==='mercado'?'Mercado congelado — só o administrador altera':'')+'">'+fp(v)+(campo==='mercado'?' 🔒':'')+'</b>';
     return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="Margem de contribuição empresa — '+(campo==='meta'?'meta interna':'referência de mercado')+'" value="'+(v===null||v===undefined?'':String(v).replace('.',','))+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\'mc_empresa\',\''+campo+'\')">';
   }
   function campoMeta(chave,v){

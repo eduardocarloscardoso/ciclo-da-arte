@@ -432,6 +432,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Estadia. SEM CATEGORIA 2026 zerado.
   25/10 (Cardoso): Marketing fixo — Mercado Agências 2,2% e Brindes 0,3% (total
   2,5%). Anúncios segue variável (Margem por Canal).
+  25/10: **Mercado % congelado** — só o administrador edita (centros, margem
+  de contribuição e alvo de custos fixos, na Estrutura e na Margem por Canal);
+  demais usuários veem o valor com 🔒. Trava no banco: SQL 08 (trigger
+  cda_pa_trava_mercado).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
