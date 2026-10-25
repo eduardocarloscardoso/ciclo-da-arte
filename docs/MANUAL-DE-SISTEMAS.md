@@ -450,6 +450,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   25/10 (Cardoso): VT 2026 separado do CLT (cc 54 → cc 53), jan–out: 349,20 ·
   288,00 · 999,40 · 1.022,20 · 315,00 · 1.414,60 · 938,40 · 841,80 · 856,80 ·
   856,80 (total 7.882,20). Totais mensais CLT+VT conferidos (inalterados).
+  25/10 (Cardoso) — **Metodologia das despesas variáveis**: % sobre a receita
+  dos canais vinculados; colunas Orçado % · Realizado % (meses com receita
+  fechada) · Consolidado % · Mercado % · Meta de redução (p.p. e R$) · Status ·
+  Plano de ação. Marketing variável: Anúncios Mercado 25% do E-commerce (ROAS
+  4); Market Place - Repasse ao Parceiro = 70% da venda do Market Place
+  (Mercado e consolidado 70%; Ciclo retém 30%). VT consolidado 856,80 desde
+  set/26.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
