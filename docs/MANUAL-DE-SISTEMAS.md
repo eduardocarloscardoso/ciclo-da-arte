@@ -422,6 +422,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso, 25/10: ligado às despesas comerciais). Backup: natureza anterior =
   'financeira'. Sem vínculo → rateado em todos os canais pela receita.
   Carro (cc 44) Mercado 0,25%.
+  25/10 (Cardoso): SEM CATEGORIA 2026 reclassificado (cc 450003; antes: jan
+  763,52 · fev 296,52 · mai 390,10 · jul 250,00 · ago 157,86 · set 819,00 · out
+  48,89) → jan: Eventos Alim.+Estadia 356,13, Escritório Material 232,37,
+  Comissões Vendedores 175,00; fev: Escritório Material 232,37; mai: Abertura
+  Telas 390,10; jul: Comissões Vendedores 250,00; ago: VJ - Embalagens 157,86;
+  set: Eventos Transp. Aéreo/Rod. 819,00; out: Eventos Alim.+Estadia 48,89.
+  Restam em SEM CATEGORIA: jan 0,02 (diferença) e fev 64,15 (tecidos — VJ ou AT?).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
