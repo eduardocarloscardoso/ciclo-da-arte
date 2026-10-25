@@ -430,6 +430,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   set: Eventos Transp. Aéreo/Rod. 819,00; out: Eventos Alim.+Estadia 48,89.
   Depois: fev 64,15 → VJ - Matéria Prima - Tecidos; jan 0,02 → Eventos Alim.+
   Estadia. SEM CATEGORIA 2026 zerado.
+  25/10 (Cardoso): Marketing fixo — Mercado Agências 2,2% e Brindes 0,3% (total
+  2,5%). Anúncios segue variável (Margem por Canal).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
