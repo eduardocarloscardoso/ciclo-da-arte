@@ -436,6 +436,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   de contribuição e alvo de custos fixos, na Estrutura e na Margem por Canal);
   demais usuários veem o valor com 🔒. Trava no banco: SQL 08 (trigger
   cda_pa_trava_mercado).
+  25/10: **Painel Resultado anual (📊)** e **Referências (⚙)** na Estrutura e na
+  Margem por Canal — saem os cartões e a faixa de parâmetros; fica uma linha
+  "Base: jan–out · Receita base R$/mês" com selo de mudanças. Painel em cascata
+  (Receita → Variáveis → Margem → Fixos → Lucro) × Realizado / Mercado / Orçado,
+  com explicação de cada linha, distância ao lucro de mercado e ponto de
+  equilíbrio. Margem calculada sobre a mesma receita base (corrige a margem
+  dos cartões antigos, que usava receita sem o mês hipotético e despesas com
+  ele). Subconta sem valores (SEM CATEGORIA zerada) não aparece.
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
