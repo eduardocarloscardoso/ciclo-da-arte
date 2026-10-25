@@ -1263,7 +1263,7 @@ async function paEstruturaCustos(){
   html+='<div class="pa-kpis">'+
     paKpi('Receita base ('+periodo+')',paBRL(recBase)+' · '+paBRL(recMes)+'/mês',(simula?'Realizada '+paBRL(rec.real)+' + '+PA_MESES_AB[ult-1].toLowerCase()+' hipotético '+paBRL(Number(recAberto)):'Realizada')+' · Prevista ano '+paBRL(rec.prev),'var(--green)')+
     paKpi('Margem de contribuição','Realizada '+fp(mcReal)+' · Prevista '+fp(mcPrev),'Ref. mercado '+fp(mcR.mercado)+' · Meta '+fp(mcR.meta),corDe(stMc))+
-    paKpi('Fixos + financeiros','Base atual '+paBRL(T.base)+'/mês · '+fp(T.baseP),'Orçado '+paBRL(T.orc)+' · Mercado '+(T.mercRS!==null?paBRL(T.mercRS)+' · '+fp(T.merc):'—')+' · Alvo '+fp(fxAlvo),corDe(stFx))+
+    paKpi('Custos fixos','Base atual '+paBRL(T.base)+'/mês · '+fp(T.baseP),'Orçado '+paBRL(T.orc)+' · Mercado '+(T.mercRS!==null?paBRL(T.mercRS)+' · '+fp(T.merc):'—')+' · Alvo '+fp(fxAlvo),corDe(stFx))+
     paKpi('Lucro (margem − fixos)','Hoje '+fp(lucroHoje),'No mercado '+fp(lucroMerc)+' · No orçamento '+fp(lucroOrc),lucroHoje!==null&&lucroHoje>=0?'var(--green)':'var(--red)')+
   '</div>';
   function campoRef(chave,campo,v,rot){
@@ -1312,7 +1312,7 @@ async function paEstruturaCustos(){
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>'+
       '<td class="pa-c-plano">'+cPlano+'</td>';
   }
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo / financeiro</th>'+
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo</th>'+
     '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
     (verEstat?'<th title="Previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>':'')+
     '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses ('+(ult||0)+') — e % da receita base mensal">Realizado Mês<br>Média '+periodo+'</th>'+
@@ -1342,7 +1342,7 @@ async function paEstruturaCustos(){
   });
   if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo acima do mercado.'))+'</td></tr>';
   if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
-  html+='<tr class="conta desp"><td>TOTAL FIXOS + FINANCEIROS</td>'+celulas(T,'total')+'</tr>';
+  html+='<tr class="conta desp"><td>TOTAL FIXOS</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % editável no centro de custo; subcontas e total somam (congelados). Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
   document.getElementById('pa-root').innerHTML=html;
@@ -1499,7 +1499,7 @@ async function paMargemCanal(){
   var res={prev:tot.mcPrev-fixos.prev,real:tot.mcReal-fixos.real};
   if(filtrando)html+='<tr><td colspan="11" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo'+(fTipo==='DESPESAS'&&(fSub||fCc)?' — dentro de cada canal aparecem só as despesas de <b>'+paEsc(fCc?fCc.nome:fSub.nome)+'</b>; a margem do canal continua considerando todas as despesas variáveis':'')+(fTipo==='RECEITAS'&&fCc?' — centro de receita: despesas do canal rateadas <b>proporcionalmente à receita do centro</b>':'')+'. Os totais da empresa abaixo não mudam com o filtro.</td></tr>';
   html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL (EMPRESA)</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+paCelula(fp(regua),'',600)+'<td style="text-align:center">'+paBadgeStatus(stEmp)+'</td></tr>';
-  html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS + FINANCEIROS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
+  html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. Margem do canal = Receita do canal − despesas variáveis rateadas para ele. Status: com meta de margem — atingida = <b>OK</b> · até 5 p.p. abaixo = <b>Atenção</b> · mais de 5 p.p. abaixo = <b>Fora de controle</b>; sem meta, só acusa margem negativa. Canais ordenados pela margem em R$. Os custos fixos não são rateados entre canais (veja a <a class="pa-link" onclick="navigatePlanejamento(\'estrutura\')">Estrutura de Custos Fixos</a>).</p>';
