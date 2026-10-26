@@ -457,6 +457,21 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   4); Market Place - Repasse ao Parceiro = 70% da venda do Market Place
   (Mercado e consolidado 70%; Ciclo retém 30%). VT consolidado 856,80 desde
   set/26.
+  26/10 (Cardoso) — **Análises Estratégicas dividida em Receitas e Despesas.**
+  Receitas: **Mix de Vendas e Custo Ideal** (canais com Tipo Direta/Atacado-B2B,
+  orçado × meses/12 e realizado do período só com meses de receita fechada,
+  Part., Orçado Mês, Realizado Mês, Saldo Mês (Real − Orç), Meta Mês até Fim
+  Exerc. = (orçamento anual − realizado) ÷ meses restantes; bloco do custo ideal
+  da Produção = Part. direta × 25% + Part. atacado × 50%, padrão "keystone").
+  Revendas = venda direta (comissionadas). SQL 09: cda_pa_subconta.tipo_venda
+  e referências custo_ideal_direta/atacado (em ⚙ Referências, admin).
+  Despesas: Estrutura de Custos Fixos · **Estrutura de Custos Variáveis** (mesmo
+  layout e cálculos dos fixos; Produção VJ+AT somada por tipo de custo, Mercado
+  🔗 = custo ideal do Mix distribuído pelo peso atual; consolidados em % de
+  canal convertidos em R$ pela receita média dos canais vinculados; grupo/total
+  com Mercado "parcial" não mostram redução/status) · Margem por Canal.
+  Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
+  Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro

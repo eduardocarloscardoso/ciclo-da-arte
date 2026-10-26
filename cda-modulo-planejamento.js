@@ -21,8 +21,10 @@ var PA_PAGES = {
   trimestral:  {icon:'📅', label:'Visão Trimestral Acumulada', grupo:'pxr'},
   anual:       {icon:'📈', label:'Visão Anual Acumulada', grupo:'pxr'},
   metas:       {icon:'🏁', label:'Comparativo de Metas', grupo:'pxr'},
-  estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae'},
-  margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae'},
+  mix:         {icon:'🧩', label:'Mix de Vendas e Custo Ideal', grupo:'ae', sec:'Receitas'},
+  estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae', sec:'Despesas'},
+  variaveis:   {icon:'⚖️', label:'Estrutura de Custos Variáveis', grupo:'ae', sec:'Despesas'},
+  margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae', sec:'Despesas'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
 var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}, ae:{icon:'🧭', label:'Análises Estratégicas'}};
@@ -135,7 +137,7 @@ function paErro(e, padrao){
     '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
     '.pa-param-g{display:inline-flex;align-items:center;gap:8px;padding:4px 10px;border:1px solid var(--border);border-radius:8px;font-size:11.5px;color:var(--white)}',
     '.pa-cong{background:rgba(255,255,255,.025)}',
-    '.pa-reguas.pa-tbl th:first-child{min-width:155px}.pa-mini.pa-tbl td,.pa-mini.pa-tbl th{padding-left:4px;padding-right:4px}.pa-mini.pa-tbl td{font-size:10.5px}.pa-reguas th.pa-c-merc{color:#8fb3ff}.pa-reguas th.pa-c-cons{color:#e8a87c}.pa-reguas td.pa-c-cons{background:rgba(232,168,124,.05)}.pa-reguas th.pa-c-orc{color:var(--white)}.pa-base{font-weight:700;text-decoration:underline dotted rgba(201,148,58,.7);text-underline-offset:3px}.pa-c-plano{text-align:left!important;white-space:normal!important;min-width:150px;max-width:220px}.pa-mini .pa-c-plano{min-width:96px;max-width:130px}.pa-plano{display:flex;gap:4px;align-items:flex-start;font-size:11px;color:var(--muted2);font-family:var(--ff-b)}.pa-plano-hist{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px}.pa-plano-item{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12.5px}.pa-barra-res{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted2);margin:4px 0 12px}.pa-selo{background:rgba(201,148,58,.15);color:var(--gold2);border:0;border-radius:12px;padding:3px 10px;font-size:11.5px;cursor:pointer;font-family:inherit}.pa-modal-res{width:1000px!important;max-width:96vw}.pa-res-tbl{width:100%;border-collapse:collapse}.pa-res-tbl th{font-size:10.5px;color:var(--muted2);letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:6px 10px;border-bottom:1px solid var(--border)}.pa-res-tbl th:first-child{text-align:left}.pa-res-tbl th.pa-res-r{color:var(--gold2)}.pa-res-tbl th.pa-res-m{color:#8fb3ff}.pa-res-tbl th.pa-res-d{color:var(--gold2)}.pa-res-tbl td{padding:10px;border-bottom:1px solid var(--border);text-align:right;font-size:14.5px;font-variant-numeric:tabular-nums;vertical-align:top;font-family:var(--ff-m,inherit)}.pa-res-tbl td small{display:block;color:var(--muted2);font-size:11px;margin-top:2px}.pa-res-tbl td.pa-res-l{text-align:left;font-weight:700;font-size:13.5px;font-family:inherit}.pa-res-tbl td.pa-res-l small{font-weight:400;max-width:340px;line-height:1.35;white-space:normal}.pa-res-tot td{background:rgba(255,255,255,.03)}.pa-res-concl{margin-top:14px;background:rgba(201,148,58,.1);border-left:3px solid var(--gold2);border-radius:6px;padding:11px 13px;font-size:13px;line-height:1.5}.pa-ref-grid{display:grid;gap:12px}.pa-ref-grid>div{border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px}.pa-ref-grid small{display:block;color:var(--muted2);font-size:11.5px;margin:3px 0 8px}.pa-reguas th.pa-c-atual{color:var(--gold2)}.pa-reguas th.pa-c-meta{color:var(--green)}.pa-reguas td.pa-c-merc{background:rgba(74,128,255,.05)}.pa-reguas td.pa-c-atual{background:rgba(201,148,58,.05)}.pa-reguas td.pa-c-meta{background:rgba(62,201,122,.05)}',
+    '.pa-reguas.pa-tbl th:first-child{min-width:155px}.pa-mini.pa-tbl td,.pa-mini.pa-tbl th{padding-left:4px;padding-right:4px}.pa-mini.pa-tbl td{font-size:10.5px}.pa-reguas th.pa-c-merc{color:#8fb3ff}.pa-reguas th.pa-c-cons{color:#e8a87c}.pa-reguas td.pa-c-cons{background:rgba(232,168,124,.05)}.pa-reguas th.pa-c-orc{color:var(--white)}.pa-base{font-weight:700;text-decoration:underline dotted rgba(201,148,58,.7);text-underline-offset:3px}.pa-c-plano{text-align:left!important;white-space:normal!important;min-width:150px;max-width:220px}.pa-mini .pa-c-plano{min-width:96px;max-width:130px}.pa-reguas td.pa-c-cons{white-space:normal;max-width:150px}.pa-mini.pa-tbl td.pa-c-cons{max-width:112px}.pa-mini.pa-tbl td:first-child{min-width:140px;max-width:165px}.pa-plano{display:flex;gap:4px;align-items:flex-start;font-size:11px;color:var(--muted2);font-family:var(--ff-b)}.pa-plano-hist{max-height:320px;overflow:auto;border:1px solid var(--border);border-radius:8px}.pa-plano-item{padding:8px 10px;border-bottom:1px solid var(--border);font-size:12.5px}.pa-h3{font-family:var(--ff-h,inherit);font-size:15px;margin:18px 0 8px;color:var(--white)}.pa-barra-res{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:12.5px;color:var(--muted2);margin:4px 0 12px}.pa-selo{background:rgba(201,148,58,.15);color:var(--gold2);border:0;border-radius:12px;padding:3px 10px;font-size:11.5px;cursor:pointer;font-family:inherit}.pa-modal-res{width:1000px!important;max-width:96vw}.pa-res-tbl{width:100%;border-collapse:collapse}.pa-res-tbl th{font-size:10.5px;color:var(--muted2);letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:6px 10px;border-bottom:1px solid var(--border)}.pa-res-tbl th:first-child{text-align:left}.pa-res-tbl th.pa-res-r{color:var(--gold2)}.pa-res-tbl th.pa-res-m{color:#8fb3ff}.pa-res-tbl th.pa-res-d{color:var(--gold2)}.pa-res-tbl td{padding:10px;border-bottom:1px solid var(--border);text-align:right;font-size:14.5px;font-variant-numeric:tabular-nums;vertical-align:top;font-family:var(--ff-m,inherit)}.pa-res-tbl td small{display:block;color:var(--muted2);font-size:11px;margin-top:2px}.pa-res-tbl td.pa-res-l{text-align:left;font-weight:700;font-size:13.5px;font-family:inherit}.pa-res-tbl td.pa-res-l small{font-weight:400;max-width:340px;line-height:1.35;white-space:normal}.pa-res-tot td{background:rgba(255,255,255,.03)}.pa-res-concl{margin-top:14px;background:rgba(201,148,58,.1);border-left:3px solid var(--gold2);border-radius:6px;padding:11px 13px;font-size:13px;line-height:1.5}.pa-ref-grid{display:grid;gap:12px}.pa-ref-grid>div{border:1px solid var(--border);border-radius:10px;padding:12px 14px;font-size:13px}.pa-ref-grid small{display:block;color:var(--muted2);font-size:11.5px;margin:3px 0 8px}.pa-reguas th.pa-c-atual{color:var(--gold2)}.pa-reguas th.pa-c-meta{color:var(--green)}.pa-reguas td.pa-c-merc{background:rgba(74,128,255,.05)}.pa-reguas td.pa-c-atual{background:rgba(201,148,58,.05)}.pa-reguas td.pa-c-meta{background:rgba(62,201,122,.05)}',
     '.pa-chip{display:inline-block;font-size:11px;padding:2px 8px;border-radius:10px;background:var(--card2);border:1px solid var(--border);margin:1px 2px;white-space:nowrap}',
     '.pa-in-pct{width:72px!important;padding-right:18px!important}.pa-estreita .pa-in-pct{width:54px!important;padding-right:4px!important;background-image:none}.pa-estreita.pa-tbl th:first-child{min-width:170px}.pa-estreita.pa-tbl th,.pa-estreita.pa-tbl td{padding-left:5px;padding-right:5px}',
     '.pa-badge.ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.mut{background:var(--card2);color:var(--muted2)}',
@@ -168,7 +170,10 @@ function paRenderSidebar(nav){
     var dentro=PA_PAGES[paEstado.page]&&PA_PAGES[paEstado.page].grupo===g;
     var aberto=paEstado.grupoAberto[g]||dentro;
     nav.innerHTML+='<div class="nav-item'+(dentro?' active':'')+'" id="nav-pa-grupo-'+g+'" onclick="paAlternarGrupo(\''+g+'\')" style="padding-left:32px;font-size:11.5px" role="button" aria-expanded="'+aberto+'"><span class="nav-icon">'+PA_GRUPOS[g].icon+'</span>'+PA_GRUPOS[g].label+'<span style="margin-left:auto;font-size:10px;opacity:.7">'+(aberto?'▾':'▸')+'</span></div>';
-    if(aberto)Object.keys(PA_PAGES).forEach(function(sid){if(PA_PAGES[sid].grupo===g)nav.innerHTML+=item(sid,48);});
+    var secAtual=null;
+    if(aberto)Object.keys(PA_PAGES).forEach(function(sid){if(PA_PAGES[sid].grupo!==g)return;
+      var sc=PA_PAGES[sid].sec;if(sc&&sc!==secAtual){secAtual=sc;nav.innerHTML+='<div class="pa-nav-sec" style="padding:8px 0 2px 52px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);opacity:.8">'+sc+'</div>';}
+      nav.innerHTML+=item(sid,48);});
   });
 }
 function paAlternarGrupo(g){paEstado.grupoAberto[g]=!paEstado.grupoAberto[g];renderSidebarNav();}
@@ -196,7 +201,9 @@ async function navigatePlanejamento(page){
     else if(page==='trimestral')await paVisaoTrimestral();
     else if(page==='anual')await paVisaoAnual();
     else if(page==='metas')await paComparativoMetas();
-    else if(page==='estrutura')await paEstruturaCustos();
+    else if(page==='estrutura')await paEstruturaCustos('fixa');
+    else if(page==='variaveis')await paEstruturaCustos('variavel');
+    else if(page==='mix')await paMixVendas();
     else if(page==='margem')await paMargemCanal();
     else if(page==='tutorial')paTutorial();
   }catch(e){
@@ -719,7 +726,7 @@ async function paExcluirVigente(id,ccId,tipoConta){
   try{await sb.del('cda_pa_valor_vigente',id);paCache.vigentes=await sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc');showToast('Registro excluído','success');paAbrirVigente(ccId,tipoConta);paAtualizarCelulaVigente();}
   catch(e){showToast(paErro(e,'Não foi possível excluir.'),'error');}
 }
-function paAtualizarCelulaVigente(){var y=window.scrollY,fn=paEstado.page==='tabela'?paTabelaContabil:(paEstado.page==='estrutura'?paEstruturaCustos:null);if(fn)fn().then(function(){window.scrollTo(0,y);});}
+function paAtualizarCelulaVigente(){var y=window.scrollY,fn=paEstado.page==='tabela'?paTabelaContabil:(paEstado.page==='estrutura'?function(){return paEstruturaCustos('fixa');}:(paEstado.page==='variaveis'?function(){return paEstruturaCustos('variavel');}:null));if(fn)fn().then(function(){window.scrollTo(0,y);});}
 
 // ─── Vínculos Receita × Despesa (despesas variáveis → canais de receita) ──
 function paCanaisReceita(h){var c=h.contas.find(function(x){return x.tipo==='RECEITAS';});return c?c.subcontas.filter(function(s){return s.ativo;}):[];}
@@ -1254,24 +1261,123 @@ async function paAbrirReferencias(){
     '<div class="pa-ref-grid">'+
     '<div><b>Receita do mês em aberto (simulação)</b><small>Usada quando o último mês ainda não tem receita lançada.</small>R$ '+(podeEd?'<input class="pa-in" style="width:120px" inputmode="decimal" aria-label="Receita do mês em aberto" value="'+(tem(ra)?paValor(ra):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\'receita_mes_aberto\',\'valor\')">':'<b>'+(tem(ra)?paValor(ra):'—')+'</b>')+'</div>'+
     '<div><b>Margem de contribuição</b><small>Referência de mercado para moda/merch: 35% a 45%.</small>Mercado '+campo('mc_empresa','mercado',mc.mercado,'Margem de contribuição — referência de mercado')+' · Meta '+campo('mc_empresa','meta',mc.meta,'Margem de contribuição — meta interna')+'</div>'+
+    '<div><b>Custo ideal do produto (Mix de Vendas)</b><small>Padrão do setor: venda direta ≈ 25% do preço (markup 4×); atacado/B2B ≈ 50% do preço de atacado (markup 2×).</small>Venda direta '+campo('custo_ideal_direta','mercado',(M.custo_ideal_direta||{}).mercado,'Custo ideal venda direta — referência de mercado')+' · Atacado/B2B '+campo('custo_ideal_atacado','mercado',(M.custo_ideal_atacado||{}).mercado,'Custo ideal atacado — referência de mercado')+'</div>'+
     '<div><b>Alvo de custos fixos</b><small>Mercado somado dos centros hoje: '+(R.fix.temMerc?String(Math.round(R.fix.merc*100)/100).replace('.',',')+'%':'—')+'.</small>Mercado '+campo('fixo_empresa','mercado',fx.mercado,'Custos fixos — referência de mercado')+' · Meta '+campo('fixo_empresa','meta',fx.meta,'Custos fixos — meta interna')+'</div>'+
     '</div><div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
 
-async function paEstruturaCustos(){
+// ─── Mix de Vendas e Custo Ideal (Análises Estratégicas › Receitas) ─────
+// Produção = subcontas "Produção Varejo" / "Produção Atacado" (custo do produto)
+function paNumOu(v,padrao){return v===null||v===undefined||v===''||isNaN(v)?padrao:Number(v);}
+function paEhProducao(s){return /^Produção (Varejo|Atacado)/i.test((s&&s.nome)||'');}
+// Custo ideal do produto pelo mix: venda direta × custo_ideal_direta + atacado × custo_ideal_atacado
+function paCalcMix(d,metas){
+  var ult=d.ultimo||0,recMesTot={},canais=[],prod={prev:0,real:0,porMes:{}};
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){var s=gs.sub;
+    if(g.conta.tipo==='RECEITAS'){
+      var c={id:s.id,nome:s.nome,tipo:s.tipo_venda==='atacado'?'atacado':'direta',prev:0,mes:{}};
+      gs.centros.forEach(function(cc){c.prev+=d.prev[cc.id]||0;var mm=d.mes[cc.id]||{};for(var m=1;m<=12;m++){if(mm[m]){c.mes[m]=(c.mes[m]||0)+mm[m];recMesTot[m]=(recMesTot[m]||0)+mm[m];}}});
+      canais.push(c);
+    }else if(paEhProducao(s)){
+      gs.centros.forEach(function(cc){prod.prev+=d.prev[cc.id]||0;var mm=d.mes[cc.id]||{};for(var m=1;m<=12;m++)if(mm[m])prod.porMes[m]=(prod.porMes[m]||0)+mm[m];});
+    }
+  });});
+  // Período = meses com receita fechada (até o último mês lançado)
+  var ultRec=0;for(var m=1;m<=ult;m++)if((recMesTot[m]||0)>0)ultRec=m;
+  var R={ult:ult,ultRec:ultRec,periodo:ultRec?'jan–'+PA_MESES_AB[ultRec-1].toLowerCase():'—',canais:canais,
+    cd:paNumOu((metas.custo_ideal_direta||{}).mercado,25),ca:paNumOu((metas.custo_ideal_atacado||{}).mercado,50)};
+  var T={prev:0,real:0},G={direta:{prev:0,real:0},atacado:{prev:0,real:0}};
+  canais.forEach(function(c){c.real=0;for(var m=1;m<=ultRec;m++)c.real+=c.mes[m]||0;c.orcPer=c.prev*ultRec/12;T.prev+=c.prev;T.real+=c.real;G[c.tipo].prev+=c.prev;G[c.tipo].real+=c.real;});
+  T.orcPer=T.prev*ultRec/12;G.direta.orcPer=G.direta.prev*ultRec/12;G.atacado.orcPer=G.atacado.prev*ultRec/12;
+  R.T=T;R.G=G;
+  // Participações (orçado e realizado) e custo ideal ponderado
+  R.partOrc={direta:T.prev?G.direta.prev/T.prev*100:0,atacado:T.prev?G.atacado.prev/T.prev*100:0};
+  R.partReal={direta:T.real?G.direta.real/T.real*100:0,atacado:T.real?G.atacado.real/T.real*100:0};
+  R.idealOrc=R.partOrc.direta*R.cd/100+R.partOrc.atacado*R.ca/100;
+  R.idealReal=R.partReal.direta*R.cd/100+R.partReal.atacado*R.ca/100;
+  prod.real=0;for(var k=1;k<=ultRec;k++)prod.real+=prod.porMes[k]||0;prod.orcPer=prod.prev*ultRec/12;
+  R.prod=prod;R.prodPctOrc=T.orcPer?prod.orcPer/T.orcPer*100:null;R.prodPctReal=T.real?prod.real/T.real*100:null;
+  return R;
+}
+async function paMixVendas(){
   var ano=paEstado.ano;
-  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc')]);
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano)]);
+  var d=r[0],metas=r[1].m,podeEd=paPodeEditar(),adm=paIsAdmin();paCache.metasEstr=metas;
+  var M=paCalcMix(d,metas),T=M.T,ult=M.ultRec,rest=Math.max(12-ult,0);
+  function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+  function fpp(v){return (v>0?'+':v<0?'−':'')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' p.p.';}
+  function saldo(v){return '<td style="color:'+(v>=0?'var(--green)':'var(--red)')+';font-weight:600">'+(v>0?'+':v<0?'−':'')+paValor(Math.abs(v))+'</td>';}
+  function meta(c){if(!rest)return '<td class="pa-mut">—</td>';var f=c.prev-c.real;return f<=0.005?'<td style="color:var(--green)">atingido</td>':'<td style="font-weight:600">'+paValor(f/rest)+'</td>';}
+  function selTipo(c){
+    if(!adm)return c.tipo==='atacado'?'Atacado/B2B':'Direta';
+    return '<select class="pa-in" style="width:auto;min-width:0;padding:2px 4px" aria-label="Tipo de venda de '+paEsc(c.nome)+'" onchange="paSalvarTipoVenda('+c.id+',this.value)"><option value="direta"'+(c.tipo==='direta'?' selected':'')+'>Direta</option><option value="atacado"'+(c.tipo==='atacado'?' selected':'')+'>Atacado/B2B</option></select>';
+  }
+  function linha(c,cls,nome,tipoHtml){
+    var om=c.prev/12,rm=ult?c.real/ult:0;
+    return '<tr class="'+cls+'"><td>'+nome+'</td><td>'+tipoHtml+'</td>'+
+      '<td>'+paValor(c.orcPer)+'</td><td class="pa-mut">'+fp(T.orcPer?c.orcPer/T.orcPer*100:null)+'</td>'+
+      '<td class="pa-c-atual">'+paValor(c.real)+'</td><td class="pa-c-atual pa-mut">'+fp(T.real?c.real/T.real*100:null)+'</td>'+
+      '<td>'+paValor(om)+'</td><td class="pa-c-atual">'+paValor(rm)+'</td>'+saldo(rm-om)+meta(c)+'</tr>';
+  }
+  var acoes='<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(podeEd?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
+    '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'mix\')">ℹ️ Tutorial Informativo</button>';
+  var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
+  html+='<div class="pa-barra-res"><span>Período: <b>'+M.periodo+'</b> ('+ult+' '+(ult===1?'mês':'meses')+' com receita fechada) · Orçado do período = orçamento anual × '+ult+'/12 · Restam <b>'+rest+'</b> '+(rest===1?'mês':'meses')+' no exercício</span></div>';
+  html+='<h3 class="pa-h3">1. Mix de vendas por canal</h3>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas"><thead><tr><th>Canal</th><th style="text-align:left">Tipo</th>'+
+    '<th title="Orçamento anual × meses do período ÷ 12">Orçado<br>'+M.periodo+'</th><th>Part.</th><th class="pa-c-atual">Realizado<br>'+M.periodo+'</th><th class="pa-c-atual">Part.</th>'+
+    '<th title="Orçamento anual ÷ 12">Orçado Mês</th><th class="pa-c-atual" title="Realizado do período ÷ meses">Realizado Mês</th><th title="Realizado Mês − Orçado Mês">Saldo Mês<br>(Real − Orç)</th>'+
+    '<th title="(Orçamento anual − Realizado do período) ÷ meses restantes: quanto vender por mês para fechar o orçamento do ano">Meta Mês até<br>Fim Exerc.</th></tr></thead><tbody>';
+  ['direta','atacado'].forEach(function(tp){
+    var cs=M.canais.filter(function(c){return c.tipo===tp&&(c.prev||c.real);}).sort(function(a,b){return b.real-a.real;});
+    cs.forEach(function(c){html+=linha(c,'cc',paEsc(c.nome),selTipo(c));});
+    html+=linha(M.G[tp],'sub','Subtotal '+(tp==='direta'?'Venda direta':'Atacado / B2B'),'');
+  });
+  html+=linha(T,'conta rec','TOTAL RECEITA','');
+  html+='</tbody></table></div>';
+  // Bloco 2: alvo ideal da Produção
+  var P=M.prod,difOrc=M.prodPctOrc-M.idealOrc,difReal=M.prodPctReal-M.idealReal,excesso=P.real-M.idealReal/100*T.real;
+  html+='<h3 class="pa-h3">2. Custo ideal da Produção pelo mix</h3>';
+  html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th>Referência (padrão do setor)</th><th>Custo ideal</th><th>Sobre o orçado</th><th class="pa-c-atual">Sobre o realizado</th></tr></thead><tbody>'+
+    '<tr class="cc"><td>Venda direta × custo ideal</td><td>'+fp(M.cd)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partOrc.direta*M.cd/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partReal.direta*M.cd/100)+'</b></td></tr>'+
+    '<tr class="cc"><td>Atacado / B2B × custo ideal</td><td>'+fp(M.ca)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partOrc.atacado*M.ca/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partReal.atacado*M.ca/100)+'</b></td></tr>'+
+    '<tr class="sub"><td>Produção ideal (custo do produto ÷ receita)</td><td></td><td><b>'+fp(M.idealOrc)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealReal)+'</b></td></tr>'+
+    '<tr class="cc"><td>Custo de produção (Varejo + Atacado) no período</td><td></td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
+    '<tr class="cc"><td>÷ Receita do período</td><td></td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
+    '<tr class="conta '+(difReal>0?'desp':'rec')+'"><td>'+(difReal>0?'Acima do ideal':'Dentro do ideal')+'</td><td></td><td>'+fpp(difOrc)+'</td><td>'+fpp(difReal)+(ult?'<br><span class="pa-orig">'+(excesso>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(excesso)/ult)+'/mês</span>':'')+'</td></tr>'+
+    '</tbody></table></div>';
+  html+='<p class="pa-info" style="margin-top:10px">Tipo do canal: <b>Direta</b> = consumidor final (inclui Revendas, comissionadas como vendedores e artistas) · <b>Atacado/B2B</b> = Private Label. '+(adm?'Altere o tipo na coluna Tipo; os % de custo ideal ficam em ⚙ Referências.':'Tipo e % de custo ideal: só o administrador altera.')+' O custo ideal da Produção também é o Mercado da Produção na Estrutura de Custos Variáveis. Período só com meses de receita fechada (a receita hipotética do mês em aberto não entra, porque não se divide por canal).</p>';
+  document.getElementById('pa-root').innerHTML=html;
+}
+async function paSalvarTipoVenda(id,tipo){
+  try{await sb.patch('cda_pa_subconta',id,{tipo_venda:tipo});await paCarregarHierarquia(true);showToast('Tipo de venda atualizado','success');navigatePlanejamento(paEstado.page);}
+  catch(e){showToast(paErro(e,'Não foi possível salvar o tipo de venda.'),'error');}
+}
+
+async function paEstruturaCustos(modo){
+  modo=modo==='variavel'?'variavel':'fixa';var VAR=modo==='variavel',pg=VAR?'variaveis':'estrutura';
+  var ano=paEstado.ano;
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc'),sb.get('cda_pa_vinculo','select=*')]);
   var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar(),podeMerc=podeEd&&paIsAdmin();
+  paCache.vinculos=r[5];
+  // Variáveis: mix de vendas (custo ideal da Produção) e receita mensal por canal (para converter consolidados em % de canal)
+  var MIX=VAR?paCalcMix(d,metas):null,chanMes={};
+  if(MIX)MIX.canais.forEach(function(c){chanMes[String(c.id)]=MIX.ultRec?c.real/MIX.ultRec:0;});
+  function recCanaisDe(cc){
+    var lv=paVinculosDe('despesa_centro_id',cc.id);if(!lv.length)lv=paVinculosDe('despesa_subconta_id',cc.subconta_id);
+    if(!lv.length)return Object.keys(chanMes).reduce(function(a,k){return a+chanMes[k];},0);
+    return lv.reduce(function(a,v){return a+(chanMes[String(v.receita_subconta_id)]||0);},0);
+  }
   paCache.vigentes=r[3];paCache.metasEstr=metas;paCache.planos=r[4];
   var hojeD=new Date(),refMes=ano<hojeD.getFullYear()?12:(ano>hojeD.getFullYear()?1:hojeD.getMonth()+1);
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
   var restantes=Math.max(12-ult,0),nAlertas=0;
   var soFora=!!paEstado.soFora;
-  var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\'estrutura\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\'estrutura\')">Só acima do mercado</button></div>'+
+  var acoes='<div class="pa-toggle" role="group" aria-label="Exibição"><button class="'+(soFora?'':'on')+'" onclick="paEstado.soFora=false;navigatePlanejamento(\''+pg+'\')">Todos</button><button class="'+(soFora?'on':'')+'" onclick="paEstado.soFora=true;navigatePlanejamento(\''+pg+'\')">Só acima do mercado</button></div>'+
     '<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(podeEd?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
-    '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\'estrutura\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
-    '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'estrutura\')">ℹ️ Tutorial Informativo</button>';
-  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='DESPESAS'&&n!=='variavel';},acoes:acoes});
+    '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\''+pg+'\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
+    '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+pg+'\')">ℹ️ Tutorial Informativo</button>';
+  var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='DESPESAS'&&(VAR?n==='variavel':n!=='variavel');},acoes:acoes});
   var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||'');
   var filtrando=!!(fSub||fCc||fBusca||paEstado.tipo);
   function pct(v,base){return base?v/base*100:null;}
@@ -1285,19 +1391,33 @@ async function paEstruturaCustos(){
     var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,ult),an=ant[cc.id]||0,mm=d.mes[cc.id]||{};
     if(g.conta.tipo==='RECEITAS'){rec.prev+=p;rec.real+=re;rec.ant+=an;rec.ultMes+=mm[ult]||0;return;}
     var nat=paNaturezaCentro(cc);
-    if(nat==='variavel'){vari.prev+=p;vari.real+=re;return;}
-    if(/^Predial - (Aluguel|Condom|IPTU|Energia)/i.test(cc.nome))ocup.real+=re;
-    var chave=nat==='financeira'?'financeira':'sub:'+s.id;
-    if(!linhas[chave]){linhas[chave]={chave:chave,nome:nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome,prev:0,real:0,ant:0,centros:[]};ordem.push(chave);}
-    // Consolidado = valor mensal cadastrado (vigente da Tabela Contábil); sem cadastro, vazio
-    var vg=paVigenteAtual(cc.id,ano,refMes),cons=vg&&vg.tipo==='valor'?Number(vg.valor):null;
-    var ultimo=mm[ult]||0,ant3=0;for(var j=Math.max(1,ult-3);j<=ult-1;j++)ant3+=mm[j]||0;ant3=ult>1?ant3/Math.min(3,ult-1):0;
-    var alerta=ultimo>0&&ant3>0&&Math.abs(ultimo/ant3-1)>0.2&&!(vg&&vg.ano_inicio===ano&&vg.mes_inicio===ult)?{ultimo:ultimo,media:ant3}:null;
+    if(nat==='variavel'){vari.prev+=p;vari.real+=re;}
+    if(VAR!==(nat==='variavel'))return;
+    if(!VAR&&/^Predial - (Aluguel|Condom|IPTU|Energia)/i.test(cc.nome))ocup.real+=re;
+    var prodG=VAR&&paEhProducao(s);
+    var chave=prodG?'producao':(nat==='financeira'?'financeira':'sub:'+s.id);
+    if(!linhas[chave]){linhas[chave]={chave:chave,nome:prodG?'Produção (Varejo + Atacado)':(nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome),prev:0,real:0,ant:0,centros:[]};ordem.push(chave);}
+    // Consolidado = valor mensal cadastrado (vigente da Tabela Contábil); em % do canal → convertido em R$ pela receita média dos canais vinculados
+    var vg=paVigenteAtual(cc.id,ano,refMes),cons=vg&&vg.tipo==='valor'?Number(vg.valor):null,consPctCanal=null;
+    if(VAR&&vg&&vg.tipo==='percentual'){consPctCanal=Number(vg.valor);cons=consPctCanal/100*recCanaisDe(cc);}
+    var alerta=null;
+    if(!VAR){var ultimo=mm[ult]||0,ant3=0;for(var j=Math.max(1,ult-3);j<=ult-1;j++)ant3+=mm[j]||0;ant3=ult>1?ant3/Math.min(3,ult-1):0;
+      alerta=ultimo>0&&ant3>0&&Math.abs(ultimo/ant3-1)>0.2&&!(vg&&vg.ano_inicio===ano&&vg.mes_inicio===ult)?{ultimo:ultimo,media:ant3}:null;}
     if(alerta)nAlertas++;
     var L=linhas[chave];L.prev+=p;L.real+=re;L.ant+=an;
-    L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,cons:cons,vg:vg,alerta:alerta});
+    if(prodG){ // Produção: VJ e AT somados por tipo de custo (tecidos, fábricas, facção…)
+      var nomeT=cc.nome.replace(/^(VJ|AT)\s*-\s*/i,''),kT='prod:'+paNorm(nomeT),ex=L.centros.find(function(x){return x.chave===kT;});
+      var orig=/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':'');
+      var temValor=p||re||an;
+      if(ex){ex.prev+=p;ex.real+=re;ex.ant+=an;ex.ids.push(cc.id);if(orig&&temValor&&ex.origens.indexOf(orig)<0)ex.origens.push(orig);}
+      else L.centros.push({id:cc.id,ids:[cc.id],origens:orig&&temValor?[orig]:[],nomeBase:nomeT,subId:s.id,chave:kT,tipoProd:true,prev:p,real:re,ant:an,cons:null,vg:null,alerta:null});
+      return;
+    }
+    L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:(nat==='financeira'?s.nome+' › ':'')+cc.nome,prev:p,real:re,ant:an,cons:cons,vg:vg,consPctCanal:consPctCanal,alerta:alerta});
   });});});
   ordem.sort(function(a,b){return a==='financeira'?1:b==='financeira'?-1:linhas[b].prev-linhas[a].prev;});
+  var prodRealTot=0;
+  if(linhas.producao)linhas.producao.centros.forEach(function(c){c.nome=c.nomeBase+(c.origens.length>1?' (VJ + AT)':(c.origens.length?' ('+c.origens[0]+')':''));prodRealTot+=c.real;});
   // Receita base do período: realizada + receita hipotética do mês em aberto (quando o último mês ainda não tem receita)
   var recAberto=(metas.receita_mes_aberto||{}).valor,simula=tem(recAberto)&&ult>0&&rec.ultMes===0;
   var recBase=rec.real+(simula?Number(recAberto):0),recMes=ult?recBase/ult:0;
@@ -1308,6 +1428,8 @@ async function paEstruturaCustos(){
   function statusDe(base,merc){if(merc===null)return base>0.005?'Sem Dados':'—';var mR=merc/100*recMes;return base<=mR+0.005?'Dentro':(mR>0&&base<=mR*1.10?'Atenção':'Acima');}
   function avaliaCentro(c){
     var mt=metas[c.chave]||{};
+    if(c.tipoProd&&MIX){ // Mercado da Produção = custo ideal do Mix de Vendas, distribuído pelo peso atual de cada tipo de custo
+      mt={mercado:prodRealTot?MIX.idealReal*c.real/prodRealTot:null,fonte:'Custo ideal do Mix de Vendas: '+String(Math.round(MIX.idealReal*100)/100).replace('.',',')+'% da receita (venda direta × '+MIX.cd+'% + atacado × '+MIX.ca+'%), distribuído pelo peso atual deste custo'};c.mercAuto=true;}
     c.orc=c.prev/12;c.orcP=pct(c.orc,recMes);
     c.pr=pct(c.real,recBase);c.pp=pct(c.prev,rec.prev);c.pa=temAnt?pct(c.ant,rec.ant):null;c.var=c.pr!==null&&c.pa!==null&&(c.ant||c.real)?c.pr-c.pa:null;
     c.media=ult?c.real/ult:0;c.mediaP=pct(c.media,recMes);
@@ -1331,15 +1453,21 @@ async function paEstruturaCustos(){
     L.base=soma('base');L.baseP=pct(L.base,recMes);
     L.merc=temMerc?soma('merc'):(legado&&tem(legado.mercado)?legado.mercado:null);L.mercProv=!temMerc&&L.merc!==null;
     L.mercRS=L.merc!==null?L.merc/100*recMes:null;L.red=L.mercRS!==null?L.base-L.mercRS:null;L.proj=L.real+L.base*restantes;
-    L.st=statusDe(L.base,L.merc);L.cs=cs;return L;
+    L.st=statusDe(L.base,L.merc);L.cs=cs;
+    // Mercado parcial: algum centro com valor ainda sem Mercado → soma não é comparável (sem redução/status no grupo)
+    L.parcial=temMerc&&cs.some(function(c){return c.merc===null&&(c.base>0.005||c.prev>0.005);});
+    if(L.parcial){L.red=null;L.st='Sem Dados';}
+    return L;
   }
   var T={prev:0,real:0,ant:0,media:0,cons:0,temCons:false,base:0,merc:0,temMerc:false,mercProv:false};
-  ordem.forEach(function(k){var L=avaliaGrupo(linhas[k],metas[k]);T.prev+=L.prev;T.real+=L.real;T.ant+=L.ant;T.media+=L.media;T.base+=L.base;
+  ordem.forEach(function(k){var L=avaliaGrupo(linhas[k],VAR?null:metas[k]);T.prev+=L.prev;T.real+=L.real;T.ant+=L.ant;T.media+=L.media;T.base+=L.base;
     if(L.cons!==null){T.cons+=L.cons;T.temCons=true;}
-    if(L.merc!==null){T.merc+=L.merc;T.temMerc=true;if(L.mercProv)T.mercProv=true;}});
+    if(L.merc!==null){T.merc+=L.merc;T.temMerc=true;if(L.mercProv)T.mercProv=true;}
+    if(L.parcial||(L.merc===null&&(L.base>0.005||L.prev>0.005)))T.parcial=true;});
   T.orc=T.prev/12;T.orcP=pct(T.orc,recMes);T.pr=pct(T.real,recBase);T.pp=pct(T.prev,rec.prev);T.pa=temAnt?pct(T.ant,rec.ant):null;T.var=T.pr!==null&&T.pa!==null?T.pr-T.pa:null;
   T.mediaP=pct(T.media,recMes);T.cons=T.temCons?T.cons:null;T.consP=T.cons!==null?pct(T.cons,recMes):null;T.baseP=pct(T.base,recMes);
   T.merc=T.temMerc?T.merc:null;T.mercRS=T.merc!==null?T.merc/100*recMes:null;T.red=T.mercRS!==null?T.base-T.mercRS:null;T.proj=T.real+T.base*restantes;T.st=statusDe(T.base,T.merc);
+  if(T.parcial&&T.temMerc){T.red=null;T.st='Sem Dados';}
   // Réguas da empresa
   var mcR=metas.mc_empresa||{},fxR=metas.fixo_empresa||{};
   var mcPrev=rec.prev?100-vari.prev/rec.prev*100:null,mcReal=rec.real?100-vari.real/rec.real*100:null;
@@ -1362,13 +1490,13 @@ async function paEstruturaCustos(){
     var centro=tipo==='cc',forte=centro?'':'font-weight:600;',cong=centro?'':' pa-cong';
     var cOrc=paValor(o.orc)+'<br><span class="pa-orig">'+fp2(o.orcP)+'</span>';
     var cMerc=(o.mercRS!==null?paValor(o.mercRS):'—')+'<br>'+
-      (centro&&podeMerc?inpMerc(o)+'<span class="pa-orig">%</span>'+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):'<span class="pa-orig"'+(centro?' title="Mercado congelado — só o administrador altera.'+(o.fonte?' Fonte: '+paEsc(o.fonte):'')+'"':'')+'>'+fp2(o.merc)+(o.mercProv?' provisório':'')+(centro&&o.merc!==null?' 🔒':'')+'</span>');
+      (centro&&podeMerc&&!o.mercAuto?inpMerc(o)+'<span class="pa-orig">%</span>'+(o.fonte?'<span class="pa-orig" title="'+paEsc(o.fonte)+'"> ⓘ</span>':''):'<span class="pa-orig"'+(centro?' title="'+(o.mercAuto?'Calculado pelo Mix de Vendas e Custo Ideal.':'Mercado congelado — só o administrador altera.')+(o.fonte?' Fonte: '+paEsc(o.fonte):'')+'"':'')+'>'+fp2(o.merc)+(o.mercProv?' prov.':'')+(!centro&&(o.parcial||(tipo==='total'&&T.parcial&&T.temMerc))?' <span title="Mercado parcial: há centros com valor e ainda sem Mercado — a soma não é comparável">parcial</span>':'')+(centro&&o.merc!==null?(o.mercAuto?' 🔗':' 🔒'):'')+'</span>');
     var usaMedia=o.cons===null||(!centro&&o.cons!==null&&Math.abs(o.cons-o.base)>0.005);
     var cMedia='<span'+(centro&&o.cons===null?' class="pa-base"':'')+'>'+paValor(o.media)+'</span><br><span class="pa-orig">'+fp2(o.mediaP)+'</span>';
     var alerta=centro&&o.alerta?'<br><button class="pa-alerta" title="Último mês ('+PA_MESES_AB[ult-1]+') R$ '+paValor(o.alerta.ultimo)+' × média anterior R$ '+paValor(o.alerta.media)+'. Clique para registrar como valor consolidado." onclick="paConfirmarMudanca('+o.id+','+Math.round(o.alerta.ultimo*100)/100+','+ult+','+ano+')">⚠ mudou?</button>':'';
     var cCons;
     if(centro){
-      cCons=(o.cons!==null?'<span class="pa-base">'+paValor(o.cons)+'</span><br><span class="pa-orig">'+fp2(o.consP)+' · desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+'</span>':'<span class="pa-mut">—</span>')+
+      cCons=(o.cons!==null?'<span class="pa-base">'+paValor(o.cons)+'</span><br><span class="pa-orig">'+fp2(o.consP)+' · desde '+paMesAno(o.vg.ano_inicio,o.vg.mes_inicio)+(o.consPctCanal!==null&&o.consPctCanal!==undefined?' · '+fp2(o.consPctCanal)+' do canal':'')+'</span>':'<span class="pa-mut">—</span>')+
         '<button class="pa-btn-ico" title="'+(podeEd?'Cadastrar / ver histórico do consolidado':'Ver histórico')+'" aria-label="Consolidado de '+paEsc(o.nome)+'" onclick="paAbrirVigente('+o.id+',\'DESPESAS\')">'+(o.cons!==null?'🕘':(podeEd?'＋':'🕘'))+'</button>'+alerta;
     }else cCons=o.cons!==null?'<span title="Soma das bases dos centros: consolidado onde cadastrado, Realizado Mês nos demais">'+paValor(o.base)+'<br><span class="pa-orig">'+fp2(o.baseP)+' · base</span></span>':'<span class="pa-mut">—</span>';
     var tipRed=' title="Base usada: '+(o.cons!==null&&centro?'Consolidado':(centro?'Realizado Mês (média)':'soma das bases dos centros'))+' '+paBRL(o.base)+'/mês · Projeção '+ano+': '+paBRL(o.proj)+'"';
@@ -1387,7 +1515,7 @@ async function paEstruturaCustos(){
       '<td style="text-align:center">'+paBadgeStatus(o.st)+'</td>'+
       '<td class="pa-c-plano">'+cPlano+'</td>';
   }
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>Custo fixo</th>'+
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas'+(verEstat?' pa-mini':'')+'"><thead><tr><th>'+(VAR?'Custo variável':'Custo fixo')+'</th>'+
     '<th class="pa-c-orc" title="Previsto do exercício (Orçamento Anual) ÷ 12, e % da receita base mensal">Orçado Mês<br>Ano Exerc. / 12</th>'+
     (verEstat?'<th title="Previsto no ano e % sobre a Receita Prevista">Previsto '+ano+'<br>R$ · % rec.</th><th title="Realizado no período e % sobre a Receita base. Passe o mouse para ver a variação contra '+(ano-1)+'.">Realizado '+periodo+'<br>R$ · % rec.</th>':'')+
     '<th class="pa-c-atual" title="Realizado de jan até o último mês ÷ nº de meses ('+(ult||0)+') — e % da receita base mensal">Realizado Mês<br>Média '+periodo+'</th>'+
@@ -1416,11 +1544,11 @@ async function paEstruturaCustos(){
     html+='<tr class="sub"><td>'+paEsc(L.nome)+'</td>'+celulas(L,'sub')+'</tr>';
     if(!paEstado.sintetico)vis.sort(function(a,b){return b.base-a.base;}).forEach(function(c){html+='<tr class="cc"><td>'+paEsc(c.nome)+'</td>'+celulas(c,'cc')+'</tr>';});
   });
-  if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos fixos e financeiros — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo fixo ou financeiro para o filtro escolhido (despesas variáveis ficam na Margem por Canal).':'Nenhum custo acima do mercado.'))+'</td></tr>';
+  if(!mostrou)html+='<tr><td colspan="'+nCol+'" class="pa-mut" style="text-align:center">'+(paEstado.tipo==='RECEITAS'?'Esta tela mostra custos '+(VAR?'variáveis':'fixos')+' — escolha Conta: Despesas ou Todas.':(filtrando?'Nenhum custo '+(VAR?'variável':'fixo')+' para o filtro escolhido.':'Nenhum custo acima do mercado.'))+'</td></tr>';
   if(filtrando)html+='<tr><td colspan="'+nCol+'" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo — a subconta mostra a soma de todos os seus centros; o total da empresa abaixo não muda com o filtro.</td></tr>';
-  html+='<tr class="conta desp"><td>TOTAL FIXOS</td>'+celulas(T,'total')+'</tr>';
+  html+='<tr class="conta desp"><td>'+(VAR?'TOTAL VARIÁVEIS':'TOTAL FIXOS')+'</td>'+celulas(T,'total')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % congelado: só o administrador altera (no centro de custo); subcontas e total somam. Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$/mês. <b>Base de comparação</b> = Realizado Mensal Consolidado (quando cadastrado — valor em destaque) ou, sem cadastro, Realizado Mês (média). <b>Meta mensal de redução</b> = Base − Mercado. Status: <b>Dentro</b> do mercado · <b>Atenção</b> até 10% acima · <b>Acima</b>. Mercado % congelado: só o administrador altera (no centro de custo); subcontas e total somam.'+(VAR?' <b>Produção</b>: Varejo e Atacado somados por tipo de custo; Mercado 🔗 calculado pelo <a class="pa-link" onclick="navigatePlanejamento(\'mix\')">Mix de Vendas e Custo Ideal</a>. Consolidados em % de canal convertidos em R$ pela receita média dos canais vinculados.':'')+' Natureza das despesas na <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil</a>.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 
@@ -1646,6 +1774,22 @@ var PA_TUT={
   ['Meta margem %','Margem mínima que você quer para o canal (editável).'],
   ['Status','Com meta: OK atingida · Atenção até 5 p.p. abaixo · Fora de controle mais de 5 p.p. abaixo. Sem meta: só acusa margem negativa.'],
   ['Resultado','Margem total − custos fixos e financeiros (os fixos não são rateados entre canais).','Σ Margens − Fixos']]},
+ mix:{t:'Mix de Vendas e Custo Ideal',d:'Mostra de onde vem a venda (canais de venda direta e de atacado/B2B), o orçado e o realizado de cada canal no período, quanto falta por mês para fechar o orçamento do ano e qual deveria ser o custo do produto (Produção) para esse mix, pelo padrão do setor.',c:[
+  ['Período','Meses com receita fechada (de janeiro até o último mês com receita lançada). A receita hipotética do mês em aberto não entra, porque não se divide por canal.'],
+  ['Tipo','Direta = venda ao consumidor final (inclui Revendas, comissionadas como vendedores e artistas). Atacado/B2B = Private Label. Só o administrador altera.'],
+  ['Orçado / Realizado do período e Part.','Orçado do período = orçamento anual × meses ÷ 12. Part. = participação do canal na receita do período.','Part. = Receita do canal ÷ Receita total'],
+  ['Orçado Mês / Realizado Mês','Orçamento anual ÷ 12 e realizado do período ÷ nº de meses.'],
+  ['Saldo Mês','Quanto o canal vende acima (verde) ou abaixo (vermelho) do orçado, em média por mês.','Realizado Mês − Orçado Mês'],
+  ['Meta Mês até Fim Exerc.','Quanto o canal precisa vender por mês, nos meses que faltam, para fechar o orçamento do ano.','(Orçamento anual − Realizado do período) ÷ meses restantes'],
+  ['Custo ideal da Produção','Padrão do setor ("keystone"): venda direta ≈ 25% do preço; atacado ≈ 50% do preço de atacado. Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos Variáveis.','Part. direta × 25% + Part. atacado × 50%'],
+  ['Acima / Dentro do ideal','Custo de produção (Varejo + Atacado) do período ÷ receita, comparado com o ideal. Em R$/mês: quanto reduzir o custo do produto (ou subir preço) para chegar ao padrão.']]},
+ variaveis:{t:'Estrutura de Custos Variáveis',d:'Mesmo layout e cálculos da Estrutura de Custos Fixos, para as despesas de natureza variável, sobre a receita total: orçado, realizado médio, consolidado, mercado (ideal), meta mensal de redução, status e plano de ação.',c:[
+  ['Base','Receita base mensal da empresa (a mesma dos fixos e do Resultado anual). Todos os % são sobre ela.'],
+  ['Produção (Varejo + Atacado)','Os centros VJ e AT são somados por tipo de custo (tecidos, fábricas, facção, silk…), porque o custo é o mesmo para varejo e atacado. O cadastro na Tabela Contábil continua separado.'],
+  ['Mercado da Produção 🔗','Calculado pelo Mix de Vendas e Custo Ideal (venda direta × 25% + atacado × 50%) e distribuído pelo peso atual de cada tipo de custo. Não se digita.'],
+  ['Consolidado em % de canal','Quando o consolidado é um % do canal (ex.: Anúncios = 40,85% do E-commerce), a tela converte em R$ pela receita média dos canais vinculados e mostra o % original.'],
+  ['Mercado (ideal)','% da receita total por centro (admin). Para custos de um canal, converta: % do canal × participação do canal (ex.: 25% do E-commerce × 16,2% = 4,05%).'],
+  ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
  estrutura:{t:'Estrutura de Custos Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
   ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; o total da empresa e o Resultado anual não mudam.'],
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],
