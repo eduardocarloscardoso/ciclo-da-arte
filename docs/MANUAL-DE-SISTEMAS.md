@@ -477,6 +477,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   R$ 530.800, −R$ 5.800), corte só em Tecidos e Fábricas (Cardoso, 26/10).
   Backup (antes → depois): VJ Tecidos 180.000 → 176.974 · AT Tecidos 40.000 →
   39.328 · VJ Fábricas 100.000 → 98.319 · AT Fábricas 25.000 → 24.579.
+  **Saldo de Compras de Produção** (Despesas, 26/10): resumo do Mix; teto ideal
+  de produção = custo ideal × receita do ano em dois cenários (pelo orçamento:
+  realizado + orçado dos meses restantes; pelo ritmo atual: realizado + média
+  mensal × meses restantes); Saldo pelo ideal = teto − realizado − Provisões;
+  Saldo pelo orçamento = orçado − realizado − Provisões; Pode comprar = o menor
+  dos dois, e por mês restante; por tipo de custo (VJ + AT), teto distribuído
+  pelo peso atual no realizado.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
