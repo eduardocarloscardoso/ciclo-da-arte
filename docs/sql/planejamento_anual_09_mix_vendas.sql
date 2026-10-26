@@ -14,6 +14,6 @@ update public.cda_pa_subconta s set tipo_venda = case when s.nome ilike 'private
 -- Referências do custo ideal do produto (padrão do setor, "keystone"):
 -- chave 'custo_ideal_direta' / 'custo_ideal_atacado' → pct_mercado (% do preço)
 insert into public.cda_pa_meta_estrutura (ano, chave, pct_mercado, fonte) values
- (2026, 'custo_ideal_direta', 25, 'Venda direta: custo do produto ≈ 25% do preço (markup 4×) — padrão do setor (RepSpark)'),
+ (2026, 'custo_ideal_direta', 30, 'Venda direta: custo do produto 30% do preço (meta da Ciclo; padrão do setor ≈ 25%, markup 4×)'),
  (2026, 'custo_ideal_atacado', 50, 'Atacado/B2B: custo ≈ 50% do preço de atacado (markup 2×) — padrão do setor (RepSpark)')
 on conflict (ano, chave) do nothing;

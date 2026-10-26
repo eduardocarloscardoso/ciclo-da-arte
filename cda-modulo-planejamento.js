@@ -1261,7 +1261,7 @@ async function paAbrirReferencias(){
     '<div class="pa-ref-grid">'+
     '<div><b>Receita do mês em aberto (simulação)</b><small>Usada quando o último mês ainda não tem receita lançada.</small>R$ '+(podeEd?'<input class="pa-in" style="width:120px" inputmode="decimal" aria-label="Receita do mês em aberto" value="'+(tem(ra)?paValor(ra):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\'receita_mes_aberto\',\'valor\')">':'<b>'+(tem(ra)?paValor(ra):'—')+'</b>')+'</div>'+
     '<div><b>Margem de contribuição</b><small>Referência de mercado para moda/merch: 35% a 45%.</small>Mercado '+campo('mc_empresa','mercado',mc.mercado,'Margem de contribuição — referência de mercado')+' · Meta '+campo('mc_empresa','meta',mc.meta,'Margem de contribuição — meta interna')+'</div>'+
-    '<div><b>Custo ideal do produto (Mix de Vendas)</b><small>Padrão do setor: venda direta ≈ 25% do preço (markup 4×); atacado/B2B ≈ 50% do preço de atacado (markup 2×).</small>Venda direta '+campo('custo_ideal_direta','mercado',(M.custo_ideal_direta||{}).mercado,'Custo ideal venda direta — referência de mercado')+' · Atacado/B2B '+campo('custo_ideal_atacado','mercado',(M.custo_ideal_atacado||{}).mercado,'Custo ideal atacado — referência de mercado')+'</div>'+
+    '<div><b>Custo ideal do produto (Mix de Vendas)</b><small>Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, markup 4×); atacado/B2B 50% do preço de atacado (markup 2×).</small>Venda direta '+campo('custo_ideal_direta','mercado',(M.custo_ideal_direta||{}).mercado,'Custo ideal venda direta — referência de mercado')+' · Atacado/B2B '+campo('custo_ideal_atacado','mercado',(M.custo_ideal_atacado||{}).mercado,'Custo ideal atacado — referência de mercado')+'</div>'+
     '<div><b>Alvo de custos fixos</b><small>Mercado somado dos centros hoje: '+(R.fix.temMerc?String(Math.round(R.fix.merc*100)/100).replace('.',',')+'%':'—')+'.</small>Mercado '+campo('fixo_empresa','mercado',fx.mercado,'Custos fixos — referência de mercado')+' · Meta '+campo('fixo_empresa','meta',fx.meta,'Custos fixos — meta interna')+'</div>'+
     '</div><div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
@@ -1313,10 +1313,11 @@ async function paMixVendas(){
     return '<select class="pa-in" style="width:auto;min-width:0;padding:2px 4px" aria-label="Tipo de venda de '+paEsc(c.nome)+'" onchange="paSalvarTipoVenda('+c.id+',this.value)"><option value="direta"'+(c.tipo==='direta'?' selected':'')+'>Direta</option><option value="atacado"'+(c.tipo==='atacado'?' selected':'')+'>Atacado/B2B</option></select>';
   }
   function linha(c,cls,nome,tipoHtml){
-    var om=c.prev/12,rm=ult?c.real/ult:0;
+    var om=c.prev/12,rm=ult?c.real/ult:0,po=T.orcPer?c.orcPer/T.orcPer*100:null,pr=T.real?c.real/T.real*100:null;
+    var corP=cls==='conta rec'||po===null||pr===null||Math.abs(pr-po)<0.005?'':(pr>po?'var(--green)':'var(--red)');
     return '<tr class="'+cls+'"><td>'+nome+'</td><td>'+tipoHtml+'</td>'+
       '<td>'+paValor(c.orcPer)+'</td><td class="pa-mut">'+fp(T.orcPer?c.orcPer/T.orcPer*100:null)+'</td>'+
-      '<td class="pa-c-atual">'+paValor(c.real)+'</td><td class="pa-c-atual pa-mut">'+fp(T.real?c.real/T.real*100:null)+'</td>'+
+      '<td class="pa-c-atual">'+paValor(c.real)+'</td><td class="pa-c-atual'+(corP?'':' pa-mut')+'"'+(corP?' style="color:'+corP+';font-weight:600" title="Participação realizada '+(pr>po?'maior':'menor')+' que a orçada ('+fp(po)+')"':'')+'>'+fp(pr)+'</td>'+
       '<td>'+paValor(om)+'</td><td class="pa-c-atual">'+paValor(rm)+'</td>'+saldo(rm-om)+meta(c)+'</tr>';
   }
   var acoes='<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(podeEd?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
@@ -1338,7 +1339,7 @@ async function paMixVendas(){
   // Bloco 2: alvo ideal da Produção
   var P=M.prod,difOrc=M.prodPctOrc-M.idealOrc,difReal=M.prodPctReal-M.idealReal,excesso=P.real-M.idealReal/100*T.real;
   html+='<h3 class="pa-h3">2. Custo ideal da Produção pelo mix</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th>Referência (padrão do setor)</th><th>Custo ideal</th><th>Sobre o orçado</th><th class="pa-c-atual">Sobre o realizado</th></tr></thead><tbody>'+
+  html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th>Referência (meta da Ciclo)</th><th>Custo ideal</th><th title="Se o mix de vendas saísse como orçado: qual seria o custo ideal do produto, comparado ao custo de produção que foi orçado. Mostra se o orçamento já nasceu acima do ideal.">No orçamento<br><span style="font-weight:400;text-transform:none">o que planejamos</span></th><th class="pa-c-atual" title="Com o mix de vendas que de fato aconteceu: qual seria o custo ideal do produto, comparado ao custo de produção realizado. Mostra onde estamos hoje.">No realizado<br><span style="font-weight:400;text-transform:none">o que aconteceu</span></th></tr></thead><tbody>'+
     '<tr class="cc"><td>Venda direta × custo ideal</td><td>'+fp(M.cd)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partOrc.direta*M.cd/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partReal.direta*M.cd/100)+'</b></td></tr>'+
     '<tr class="cc"><td>Atacado / B2B × custo ideal</td><td>'+fp(M.ca)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partOrc.atacado*M.ca/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partReal.atacado*M.ca/100)+'</b></td></tr>'+
     '<tr class="sub"><td>Produção ideal (custo do produto ÷ receita)</td><td></td><td><b>'+fp(M.idealOrc)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealReal)+'</b></td></tr>'+
@@ -1781,12 +1782,13 @@ var PA_TUT={
   ['Orçado Mês / Realizado Mês','Orçamento anual ÷ 12 e realizado do período ÷ nº de meses.'],
   ['Saldo Mês','Quanto o canal vende acima (verde) ou abaixo (vermelho) do orçado, em média por mês.','Realizado Mês − Orçado Mês'],
   ['Meta Mês até Fim Exerc.','Quanto o canal precisa vender por mês, nos meses que faltam, para fechar o orçamento do ano.','(Orçamento anual − Realizado do período) ÷ meses restantes'],
-  ['Custo ideal da Produção','Padrão do setor ("keystone"): venda direta ≈ 25% do preço; atacado ≈ 50% do preço de atacado. Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos Variáveis.','Part. direta × 25% + Part. atacado × 50%'],
+  ['Custo ideal da Produção','Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, "keystone"); atacado 50% do preço de atacado. Ajustável em ⚙ Referências (admin). Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos Variáveis.','Part. direta × 30% + Part. atacado × 50%'],
+  ['No orçamento × No realizado','No orçamento: com o mix de vendas planejado, qual seria o custo ideal do produto, comparado ao custo de produção orçado (o orçamento já nasceu acima do ideal?). No realizado: com o mix que de fato aconteceu, comparado ao custo de produção gasto (onde estamos hoje).'],
   ['Acima / Dentro do ideal','Custo de produção (Varejo + Atacado) do período ÷ receita, comparado com o ideal. Em R$/mês: quanto reduzir o custo do produto (ou subir preço) para chegar ao padrão.']]},
  variaveis:{t:'Estrutura de Custos Variáveis',d:'Mesmo layout e cálculos da Estrutura de Custos Fixos, para as despesas de natureza variável, sobre a receita total: orçado, realizado médio, consolidado, mercado (ideal), meta mensal de redução, status e plano de ação.',c:[
   ['Base','Receita base mensal da empresa (a mesma dos fixos e do Resultado anual). Todos os % são sobre ela.'],
   ['Produção (Varejo + Atacado)','Os centros VJ e AT são somados por tipo de custo (tecidos, fábricas, facção, silk…), porque o custo é o mesmo para varejo e atacado. O cadastro na Tabela Contábil continua separado.'],
-  ['Mercado da Produção 🔗','Calculado pelo Mix de Vendas e Custo Ideal (venda direta × 25% + atacado × 50%) e distribuído pelo peso atual de cada tipo de custo. Não se digita.'],
+  ['Mercado da Produção 🔗','Calculado pelo Mix de Vendas e Custo Ideal (venda direta × 30% + atacado × 50%) e distribuído pelo peso atual de cada tipo de custo. Não se digita.'],
   ['Consolidado em % de canal','Quando o consolidado é um % do canal (ex.: Anúncios = 40,85% do E-commerce), a tela converte em R$ pela receita média dos canais vinculados e mostra o % original.'],
   ['Mercado (ideal)','% da receita total por centro (admin). Para custos de um canal, converta: % do canal × participação do canal (ex.: 25% do E-commerce × 16,2% = 4,05%).'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
