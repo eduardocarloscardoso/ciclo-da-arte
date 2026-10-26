@@ -22,9 +22,9 @@ var PA_PAGES = {
   anual:       {icon:'📈', label:'Visão Anual Acumulada', grupo:'pxr'},
   metas:       {icon:'🏁', label:'Comparativo de Metas', grupo:'pxr'},
   mix:         {icon:'🧩', label:'Mix de Vendas e Custo Ideal', grupo:'ae', sec:'Receitas'},
+  compras:     {icon:'🛒', label:'Saldo de Compras de Produção', grupo:'ae', sec:'Receitas'},
   estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae', sec:'Despesas'},
   variaveis:   {icon:'⚖️', label:'Estrutura de Custos Variáveis', grupo:'ae', sec:'Despesas'},
-  compras:     {icon:'🛒', label:'Saldo de Compras de Produção', grupo:'ae', sec:'Despesas'},
   margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae', sec:'Despesas'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
