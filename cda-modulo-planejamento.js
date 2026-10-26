@@ -252,6 +252,8 @@ function paFiltroHTML(h, opts){
   var subs=h.subcontas.filter(function(s){var c=h.contas.find(function(x){return x.id===s.conta_id;});
     if(opts.centroNat&&!(s.centros||[]).some(function(x){return opts.centroNat(x.natureza||s.natureza||'fixa',c&&c.tipo);}))return false;
     return !paEstado.tipo||(c&&c.tipo===paEstado.tipo);});
+  // Filtro herdado de outra tela que não existe nesta lista (ex.: centro fixo ao abrir os Variáveis) → limpa, para não esconder tudo
+  if(paEstado.subcontaId&&!subs.some(function(s){return String(s.id)===String(paEstado.subcontaId);})){paEstado.subcontaId='';paEstado.centroId='';}
   var html='<div class="pa-filtros">';
   if(opts.anos)html+='<label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+opts.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label>';
   if(opts.mes)html+='<label>Mês<select onchange="paEstado.mes=+this.value;navigatePlanejamento(paEstado.page)">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
@@ -259,6 +261,7 @@ function paFiltroHTML(h, opts){
   html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
   if(opts.centro){
     var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;var ct=h.contas.find(function(c){return c.id===s.conta_id;})||{};(s.centros||[]).forEach(function(x){if(opts.centroNat&&!opts.centroNat(x.natureza||s.natureza||'fixa',ct.tipo))return;ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
+    if(paEstado.centroId&&!ccs.some(function(x){return String(x.id)===String(paEstado.centroId);}))paEstado.centroId='';
     html+='<label>Centro de Custo<select onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
   }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
