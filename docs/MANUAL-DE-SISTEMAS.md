@@ -473,6 +473,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Ajustes 26/10: Part. realizada em verde/vermelho contra a orçada; custo ideal
   da venda direta = 30% (meta da Ciclo; setor ≈ 25%); colunas "No orçamento —
   o que planejamos" e "No realizado — o que aconteceu".
+  Orçamento 2026 da Produção ajustado ao custo ideal do mix orçado (36,96% →
+  R$ 530.800, −R$ 5.800), corte só em Tecidos e Fábricas (Cardoso, 26/10).
+  Backup (antes → depois): VJ Tecidos 180.000 → 176.974 · AT Tecidos 40.000 →
+  39.328 · VJ Fábricas 100.000 → 98.319 · AT Fábricas 25.000 → 24.579.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
