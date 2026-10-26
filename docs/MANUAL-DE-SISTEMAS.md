@@ -484,6 +484,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Saldo pelo orçamento = orçado − realizado − Provisões; Pode comprar = o menor
   dos dois, e por mês restante; por tipo de custo (VJ + AT), teto distribuído
   pelo peso atual no realizado.
+  Comissões Vendedores (26/10): vínculo = Feiras e Bazares, Shows, E-commerce,
+  Vendas sem Vendedor (provisório — o correto são só os centros E-COMMERCE SAC e
+  REVENDA CICLO - SHOWROOM / SAC além de Shows e Feiras; o vínculo ainda não
+  aceita centro de receita). Acordo: diária de R$ 300 por evento (comissão +
+  transporte + alimentação). Meta Cardoso: diária R$ 250 → Mercado 4,07% da
+  receita total; plano de ação com regra de escala (R$ 2.500 de venda/vendedor).
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
