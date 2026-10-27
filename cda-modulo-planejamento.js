@@ -26,6 +26,7 @@ var PA_PAGES = {
   estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae', sec:'Despesas'},
   variaveis:   {icon:'⚖️', label:'Estrutura de Custos Variáveis', grupo:'ae', sec:'Despesas'},
   margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae', sec:'Despesas'},
+  modelo:      {icon:'⚖', label:'Comparativo de Modelo — Ciclo × Mercado', grupo:'ae', sec:'Modelo'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
 var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}, ae:{icon:'🧭', label:'Análises Estratégicas'}};
@@ -149,6 +150,7 @@ function paErro(e, padrao){var m=paMsgErro(e,padrao);showToast(m,'error');return
     '.pa-btn-ico{background:none;border:0;color:var(--muted2);cursor:pointer;font-size:13px;padding:2px 5px;border-radius:5px}',
     '.pa-btn-ico:hover{color:var(--white);background:var(--card2)}',
     '.pa-compacta th{padding:7px 8px;font-size:9.5px;line-height:1.25}.pa-compacta th:first-child{min-width:230px}',
+    '.pa-modelo td.pa-mot{text-align:left;white-space:normal;font-size:10.5px;color:var(--muted2);max-width:230px;min-width:160px;line-height:1.3}'+'.pa-modelo td.pa-mot div{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
     '.pa-compacta td{padding:4px 8px;font-size:11.5px}.pa-compacta td:first-child{font-size:12px}',
     '.pa-compacta .pa-in{width:112px;font-size:11.5px;padding:3px 20px 3px 5px;background-position:right 5px center}',
     '.pa-compacta tr.sub td:first-child{padding-left:16px}.pa-compacta tr.cc td:first-child{padding-left:28px}',
@@ -206,6 +208,7 @@ async function navigatePlanejamento(page){
     else if(page==='metas')await paComparativoMetas();
     else if(page==='estrutura')await paEstruturaCustos('fixa');
     else if(page==='variaveis')await paEstruturaCustos('variavel');
+    else if(page==='modelo')await paComparativoModelo();
     else if(page==='mix')await paMixVendas();
     else if(page==='compras')await paSaldoCompras();
     else if(page==='margem')await paMargemCanal();
@@ -1549,7 +1552,100 @@ async function paSaldoCompras(){
   document.getElementById('pa-root').innerHTML=html;
 }
 
-async function paEstruturaCustos(modo){
+// ─── Comparativo de Modelo — Ciclo × Mercado (Análises Estratégicas › Modelo) — 27/10/2026 ─────
+// Por grupo do ecossistema e centro: Realizado (base da Estrutura: consolidado ou média), Mercado (meta Ciclo),
+// Marca comum (referência). Diferença total = Realizado − Marca = (Mercado − Marca: escolha do modelo, já aceita
+// na meta) + (Realizado − Mercado: acima da própria meta, a reduzir).
+async function paComparativoModelo(){
+  var aba=paEstado.modeloAba==='fixa'||paEstado.modeloAba==='global'?paEstado.modeloAba:'variavel';
+  if(aba!=='variavel')aba='variavel'; // Fixas (1.4) e Globais (1.5) nas próximas subetapas
+  var r=await Promise.all([paEstruturaCustos(aba,{soDados:true}),paCarregarHierarquia(),sb.get('cda_grupo','order=tipo,ordem,id').catch(function(){return [];})]);
+  var E=r[0],h=r[1];paCache.grupos=r[2]||[];
+  var metas=E.metas,recMes=E.recMes,d=E.d;
+  function tem(v){return v!==null&&v!==undefined&&!isNaN(v);}
+  function pct(v){return recMes?v/recMes*100:null;}
+  function fp2(v){return tem(v)?(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':'—';}
+  function fpp(v){if(!tem(v))return '—';if(Math.abs(v)<0.005)return '0,00';return (v>0?'+':'−')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+  var porId={};h.centros.forEach(function(cc){porId[String(cc.id)]=cc;});
+  // Centros (Produção vem somada VJ+AT por tipo de custo, como na Estrutura)
+  var b=paNorm(paEstado.busca||''),fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'';
+  var itens=[];
+  E.ordem.forEach(function(k){(E.linhas[k].cs||[]).forEach(function(c){
+    var ids=(c.ids||[c.id]).map(String),ccs=ids.map(function(i){return porId[i];}).filter(Boolean);
+    var marca=null,motivos=[];
+    ids.forEach(function(i){var mt=metas['cc:'+i]||{};if(tem(mt.marca))marca=(marca||0)+mt.marca;if(mt.motivo&&motivos.indexOf(mt.motivo)<0)motivos.push(mt.motivo);});
+    var g=null;ccs.some(function(cc){g=paGrupoDe(cc);return !!g;});
+    var it={nome:c.nome,ids:ids,subs:ccs.map(function(cc){return String(cc.subconta_id);}),grupo:g,real:c.base,realP:pct(c.base),merc:c.merc,mercAuto:!!c.mercAuto,marca:marca,motivo:motivos.join(' · '),usaCons:c.cons!==null&&c.cons!==undefined};
+    if(fSub&&it.subs.indexOf(fSub)<0)return;
+    if(fCc&&it.ids.indexOf(fCc)<0)return;
+    if(b&&paNorm(it.nome).indexOf(b)<0&&paNorm(g?g.nome:'').indexOf(b)<0)return;
+    if(!(Math.abs(it.real)>0.005||tem(it.merc)&&it.merc>0.0001||tem(it.marca)&&it.marca>0.0001))return; // sem valor, sem meta e sem referência
+    itens.push(it);
+  });});
+  function calc(o){o.dif=tem(o.realP)&&tem(o.marca)?o.realP-o.marca:null;o.modelo=tem(o.merc)&&tem(o.marca)?o.merc-o.marca:null;o.reduzir=tem(o.realP)&&tem(o.merc)?o.realP-o.merc:null;return o;}
+  itens.forEach(calc);
+  // Agrupa pelos grupos do ecossistema (ordem do cadastro); sem grupo por último
+  var grupos=paCache.grupos.filter(function(g){return g.tipo==='Despesa'&&g.natureza===aba;}).sort(function(a,b){return (a.ordem||0)-(b.ordem||0);});
+  var blocos=grupos.map(function(g){return {g:g,nome:g.nome,itens:itens.filter(function(i){return i.grupo&&i.grupo.id===g.id;})};});
+  var sem=itens.filter(function(i){return !i.grupo||i.grupo.natureza!==aba;});if(sem.length)blocos.push({g:null,nome:'Sem grupo',itens:sem});
+  blocos=blocos.filter(function(x){return x.itens.length;});
+  function soma(lista){var o={real:0,merc:0,marca:0,temM:false,temK:false};lista.forEach(function(i){o.real+=i.real||0;if(tem(i.merc)){o.merc+=i.merc;o.temM=true;}if(tem(i.marca)){o.marca+=i.marca;o.temK=true;}});
+    o.realP=pct(o.real);if(!o.temM)o.merc=null;if(!o.temK)o.marca=null;return calc(o);}
+  blocos.forEach(function(x){x.s=soma(x.itens);x.itens.sort(function(a,b){return b.real-a.real;});});
+  var T=soma(itens);
+  // Células
+  function cReal(o){return paValor(o.real)+'<br><span class="pa-orig">'+fp2(o.realP)+'</span>';}
+  function cDif(o){if(!tem(o.dif))return '—';var rs=o.dif/100*recMes;return '<b style="color:'+(o.dif>0.005?'var(--red)':'var(--green)')+'">'+fpp(o.dif)+'</b><br><span class="pa-orig">'+(o.dif>0?'+':'−')+paValor(Math.abs(rs))+'</span>';}
+  function cModelo(o,motivo){if(!tem(o.modelo))return '—';var cor=o.modelo>0.005?'var(--gold2)':(o.modelo<-0.005?'var(--green)':'');
+    return '<span style="color:'+cor+';font-weight:600"'+(motivo?' title="'+paEsc(motivo)+'"':'')+'>'+fpp(o.modelo)+(motivo?' ⓘ':'')+'</span>';}
+  function cReduzir(o){if(!tem(o.reduzir))return '<span class="pa-mut" title="Sem Mercado (meta) cadastrado">sem meta</span>';var rs=o.reduzir/100*recMes;
+    if(o.reduzir<=0.005)return '<span style="color:var(--green)">dentro</span><br><span class="pa-orig">'+paValor(Math.abs(rs))+' de folga</span>';
+    return '<b style="color:var(--red)">↓ '+paValor(rs)+'</b><br><span class="pa-orig">'+fpp(o.reduzir)+' p.p.</span>';}
+  var linhasHtml='';
+  blocos.forEach(function(x){
+    var s=x.s;
+    linhasHtml+='<tr class="sub"><td>'+paEsc(x.nome)+' <span class="pa-mut" style="font-size:10.5px">'+x.itens.length+' centro'+(x.itens.length===1?'':'s')+'</span></td><td>'+cReal(s)+'</td><td>'+fp2(s.merc)+'</td><td>'+fp2(s.marca)+'</td><td>'+cDif(s)+'</td><td>'+cModelo(s)+'</td><td>'+cReduzir(s)+'</td><td></td></tr>';
+    if(paEstado.sintetico)return;
+    x.itens.forEach(function(i){
+      linhasHtml+='<tr class="cc"><td>'+paEsc(i.nome)+'</td><td>'+cReal(i)+(i.usaCons?'<br><span class="pa-orig" title="Base = valor consolidado cadastrado">consolidado</span>':'')+'</td><td>'+fp2(i.merc)+(i.mercAuto?' <span title="Calculado pelo Mix de Vendas">🔗</span>':'')+'</td><td>'+fp2(i.marca)+'</td><td>'+cDif(i)+'</td><td>'+cModelo(i,i.motivo)+'</td><td>'+cReduzir(i)+'</td>'+
+        '<td class="pa-mot" title="'+paEsc(i.motivo||'')+'">'+(i.motivo?'<div>'+paEsc(i.motivo)+'</div>':'<span class="pa-mut">—</span>')+'</td></tr>';
+    });
+  });
+  var filtrando=!!(b||fSub||fCc);
+  function linhaTot(rot,o,cls){return '<tr class="'+cls+'"><td>'+rot+'</td><td>'+cReal(o)+'</td><td>'+fp2(o.merc)+'</td><td>'+fp2(o.marca)+'</td><td>'+cDif(o)+'</td><td>'+cModelo(o)+'</td><td>'+cReduzir(o)+'</td><td></td></tr>';}
+  linhasHtml+=linhaTot(filtrando?'TOTAL VARIÁVEIS (filtrado)':'TOTAL VARIÁVEIS',T,'conta desp');
+  if(!filtrando){
+    var mc={realP:100-T.realP,merc:tem(T.merc)?100-T.merc:null,marca:tem(T.marca)?100-T.marca:null};
+    linhasHtml+='<tr class="conta rec"><td>MARGEM DE CONTRIBUIÇÃO<br><span class="pa-orig" style="font-weight:400">100% − variáveis · quanto maior, melhor</span></td><td>'+paValor(recMes-T.real)+'<br><span class="pa-orig">'+fp2(mc.realP)+'</span></td><td>'+fp2(mc.merc)+'</td><td>'+fp2(mc.marca)+'</td><td></td><td></td><td></td><td></td></tr>';
+  }
+  // Abas, filtros e resumo
+  function aba_(id,rot,ativo,dica){return '<button class="'+(aba===id?'on':'')+'"'+(ativo?' onclick="paEstado.modeloAba=\''+id+'\';navigatePlanejamento(\'modelo\')"':' disabled style="opacity:.45;cursor:not-allowed"')+' title="'+dica+'">'+rot+'</button>';}
+  var abas='<div class="pa-toggle" role="tablist" aria-label="Comparativo">'+aba_('fixa','Despesas Fixas',false,'Próxima subetapa (1.4)')+aba_('variavel','Despesas Variáveis',true,'')+aba_('global','Despesas Globais',false,'Próxima subetapa (1.5)')+'</div>';
+  var acoes='<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(paPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
+    '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'modelo\')">ℹ️ Tutorial Informativo</button>';
+  var html='<div style="margin-bottom:12px">'+abas+'</div>'+paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t!=='RECEITAS'&&n===aba;},acoes:acoes});
+  html+=paBarraResultado({periodo:E.periodo,recMes:recMes,simula:E.simula,recAberto:E.recAberto,ult:E.ult},'');
+  // Conclusão
+  var rsDif=tem(T.dif)?T.dif/100*recMes:null,rsMod=tem(T.modelo)?T.modelo/100*recMes:null,rsRed=tem(T.reduzir)?T.reduzir/100*recMes:null;
+  var top=itens.filter(function(i){return tem(i.reduzir)&&i.reduzir>0.005;}).sort(function(a,b){return b.reduzir-a.reduzir;}).slice(0,5);
+  html+='<div class="pa-res-concl" style="margin:0 0 12px">'+(tem(T.dif)?(T.dif>0.005?'<b>A Ciclo gasta '+fpp(T.dif).replace('+','')+' p.p. da receita a mais que a marca comum (≈ '+paBRL(rsDif)+'/mês).</b> ':'<b>A Ciclo gasta '+fpp(-T.dif).replace('+','')+' p.p. a menos que a marca comum.</b> ')+
+    (tem(T.modelo)?'Desses, <b style="color:var(--gold2)">'+fpp(T.modelo)+' p.p. ('+(rsMod>=0?'':'−')+paBRL(Math.abs(rsMod))+')</b> são escolhas do modelo da Ciclo, já aceitas na meta (Mercado − Marca, ver Motivo); ':'')+
+    (tem(T.reduzir)?'<b style="color:'+(T.reduzir>0.005?'var(--red)':'var(--green)')+'">'+fpp(T.reduzir)+' p.p. ('+(rsRed>=0?'':'−')+paBRL(Math.abs(rsRed))+')</b> '+(T.reduzir>0.005?'estão acima da própria meta — a reduzir.':'de folga em relação à meta.'):'')
+    :'Sem referência de marca comum para comparar.')+
+    (function(){var ac=0,fo=0;itens.forEach(function(i){if(!tem(i.reduzir))return;if(i.reduzir>0)ac+=i.reduzir;else fo-=i.reduzir;});
+      return ac>0.005||fo>0.005?'<br><span style="font-size:12px">O "a reduzir" do total é líquido: centros <b style="color:var(--red)">acima da meta somam '+paBRL(ac/100*recMes)+'/mês</b> e centros <b style="color:var(--green)">abaixo da meta (folga) somam '+paBRL(fo/100*recMes)+'/mês</b> — a redução se faz centro a centro.</span>':'';})()+
+    (top.length?'<br><span style="font-size:12px">Maiores valores a reduzir: '+top.map(function(i){return paEsc(i.nome)+' <b>'+paBRL(i.reduzir/100*recMes)+'</b>';}).join(' · ')+'</span>':'')+'</div>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-modelo"><thead><tr><th>Grupo / centro de custo</th>'+
+    '<th title="Base de comparação da Estrutura: valor consolidado quando cadastrado, senão a média jan–último mês">Realizado Ciclo<br>R$/mês · %</th>'+
+    '<th title="Meta da Ciclo (Mercado %), definida na Estrutura de Custos. Produção 🔗 = custo ideal do Mix de Vendas">Mercado<br>(meta Ciclo)</th>'+
+    '<th title="Referência: marca saudável do mesmo porte, sem loja própria (Tabelas Contábeis › Grupos)">Marca<br>comum</th>'+
+    '<th title="Realizado − Marca comum, em p.p. da receita e R$/mês">Diferença total<br>Ciclo − Marca</th>'+
+    '<th title="Mercado − Marca comum: parte da diferença que é escolha do modelo da Ciclo, já aceita na meta (ver Motivo)">Parte do<br>modelo (p.p.)</th>'+
+    '<th title="Realizado − Mercado: quanto a Ciclo está acima da própria meta">A reduzir<br>(acima da meta)</th>'+
+    '<th style="text-align:left">Motivo da diferença<br>Mercado × Marca</th></tr></thead><tbody>'+(linhasHtml||'<tr><td colspan="8" class="pa-mut">Nenhum centro com valores para os filtros escolhidos.</td></tr>')+'</tbody></table></div>';
+  document.getElementById('pa-root').innerHTML=html;
+}
+async function paEstruturaCustos(modo,opts){
   modo=modo==='variavel'?'variavel':'fixa';var VAR=modo==='variavel',pg=VAR?'variaveis':'estrutura';
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc'),sb.get('cda_pa_vinculo','select=*')]);
@@ -1663,6 +1759,7 @@ async function paEstruturaCustos(modo){
   T.mediaP=pct(T.media,recMes);T.cons=T.temCons?T.cons:null;T.consP=T.cons!==null?pct(T.cons,recMes):null;T.baseP=pct(T.base,recMes);
   T.merc=T.temMerc?T.merc:null;T.mercRS=T.merc!==null?T.merc/100*recMes:null;T.red=T.mercRS!==null?T.base-T.mercRS:null;T.proj=T.real+T.base*restantes;T.st=statusDe(T.base,T.merc);
   if(T.parcial&&T.temMerc){T.red=null;T.st='Sem Dados';}
+  if(opts&&opts.soDados)return {d:d,metas:metas,linhas:linhas,ordem:ordem,T:T,recMes:recMes,recBase:recBase,periodo:periodo,ult:ult,simula:simula,recAberto:recAberto};
   // Réguas da empresa
   var mcR=metas.mc_empresa||{},fxR=metas.fixo_empresa||{};
   var mcPrev=rec.prev?100-vari.prev/rec.prev*100:null,mcReal=rec.real?100-vari.real/rec.real*100:null;
@@ -1928,6 +2025,18 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
+ modelo:{t:'Comparativo de Modelo — Ciclo × Mercado',d:'Compara, por grupo e centro de custo, quanto a Ciclo gasta (Realizado) com a sua própria meta (Mercado) e com uma marca saudável do mesmo porte, sem loja própria (Marca comum). Separa a diferença em duas partes: o que é escolha do modelo da Ciclo (já aceito na meta) e o que está acima da meta (a reduzir). Tudo em % da receita base e em R$ por mês.',c:[
+  ['Abas','Despesas Variáveis (disponível), Despesas Fixas e Despesas Globais (próximas subetapas).'],
+  ['Grupo','Grupo do ecossistema ao qual o centro está ligado (Tabelas Contábeis › coluna Grupo). Os valores do grupo são a soma dos centros.'],
+  ['Realizado Ciclo','Mesma base da Estrutura de Custos: valor consolidado quando cadastrado, senão a média de janeiro até o último mês lançado.','Base ÷ receita base do mês'],
+  ['Mercado (meta Ciclo)','Meta definida pela Ciclo para o centro (Estrutura de Custos). Produção 🔗 = custo ideal do Mix de Vendas, distribuído pelo peso de cada tipo de custo.'],
+  ['Marca comum','Referência de uma marca saudável do mesmo porte, sem loja própria, que vende em feiras, shows, casas de show e lojas parceiras. Definida por centro em Tabelas Contábeis › Grupos.'],
+  ['Diferença total','Quanto a Ciclo gasta a mais (vermelho) ou a menos (verde) que a marca comum.','Realizado % − Marca comum %'],
+  ['Parte do modelo','Parte da diferença que a própria meta da Ciclo já aceita — escolhas do modelo de negócio, explicadas no Motivo (ⓘ).','Mercado % − Marca comum %'],
+  ['A reduzir','Quanto a Ciclo está acima da própria meta, em R$/mês e p.p. "dentro" = abaixo da meta (folga).','Realizado % − Mercado %'],
+  ['Conta da diferença','A diferença total é sempre a soma das duas partes.','Diferença total = Parte do modelo + A reduzir'],
+  ['Margem de contribuição','O que sobra da receita depois dos custos variáveis, nas três visões (Ciclo, meta e marca comum).','100% − Total variáveis'],
+  ['Filtros','Ano, Conta, Subconta, Centro, Buscar (nome do centro ou do grupo) e Analítico/Sintético (Sintético mostra só os grupos).']]},
  comparativo:{t:'Comparativo Mensal',d:'Compara, centro a centro, o previsto e o realizado de um mês (ou do total de meses já realizados) e mostra quanto falta realizar por mês até o fim do ano.',c:[
   ['Mês','Mês analisado nas colunas Previsto Mês, Realizado, Variação e Status. "Total Meses" soma de janeiro até o último mês com lançamentos.'],
   ['Previsto Ano','Valor previsto para o ano inteiro no Orçamento Anual.'],

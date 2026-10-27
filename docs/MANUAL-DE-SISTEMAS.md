@@ -591,6 +591,22 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Comparativo de Modelo — Ciclo × Mercado** (27/10/2026, subetapa 1.3;
+  Análises Estratégicas › Modelo, página `modelo`, função
+  `paComparativoModelo`). Abas Despesas Fixas / Variáveis / Globais (só
+  Variáveis ativa; Fixas = 1.4, Globais = 1.5). Usa os mesmos números da
+  Estrutura (`paEstruturaCustos(modo,{soDados:true})` devolve os dados sem
+  desenhar): Realizado = base (consolidado ou média), Mercado (meta; Produção
+  🔗 pelo Mix, VJ+AT por tipo), Marca comum (soma dos centros), agrupados
+  pelos grupos do ecossistema. Colunas: Diferença total (Realizado − Marca,
+  p.p. e R$/mês) = **Parte do modelo** (Mercado − Marca, com Motivo ⓘ) +
+  **A reduzir** (Realizado − Mercado). Total Variáveis e Margem de
+  contribuição nas três visões. Resumo no topo: diferença total, quanto é
+  modelo e quanto é a reduzir (líquido, com excesso e folga brutos) e os 5
+  maiores valores a reduzir. Filtros da Estrutura + Analítico/Sintético
+  (Sintético = só grupos); busca também pelo nome do grupo. Tutorial
+  Informativo (`PA_TUT.modelo`). Junto: correção do menu lateral que não
+  abria (nome de função repetido, `paAlternarGrupo`).
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
