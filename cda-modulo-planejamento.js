@@ -77,13 +77,15 @@ async function paUpsert(tabela, conflito, linhas){
   var r = await axios.post(SUPABASE_URL+'/rest/v1/'+tabela+'?on_conflict='+conflito, linhas, {headers: h});
   return r.data;
 }
-function paErro(e, padrao){
+// Mensagem de erro amigável (sem exibir) — usada em showToast(...) e em textos de formulário
+function paMsgErro(e, padrao){
   var m = e&&e.response&&e.response.data&&(e.response.data.message||e.response.data.hint||e.response.data.details);
   if(m&&/foreign key|violates/i.test(m))m='Este item possui lançamentos vinculados e não pode ser excluído. Inative-o.';
   if(m&&/duplicate key|unique/i.test(m))m='Já existe um cadastro com esse nome.';
-  showToast(m||padrao||'Não foi possível concluir a operação','error');
   console.error('[Planejamento]', e);
+  return m||padrao||'Não foi possível concluir a operação';
 }
+function paErro(e, padrao){var m=paMsgErro(e,padrao);showToast(m,'error');return m;}
 
 // ─── Estilos do módulo (prefixo pa-) ─────────────────────────────────
 (function paEstilos(){
@@ -613,31 +615,35 @@ async function paLimparConfirmar(){
 // ════════════════════════════════════════════════════════════════════
 async function paTabelaContabil(){
   var h=await paCarregarHierarquia(true);
-  var extra=await Promise.all([sb.get('cda_pa_alias_importacao','order=alias'),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_vinculo','order=id')]);
-  var aliases=extra[0];paCache.vigentes=extra[1];paCache.vinculos=extra[2];
+  var extra=await Promise.all([sb.get('cda_pa_alias_importacao','order=alias'),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_vinculo','order=id'),sb.get('cda_grupo','order=tipo,ordem,id').catch(function(){return [];}),paDadosAno(paEstado.ano),paMetasEstrutura(paEstado.ano)]);
+  var aliases=extra[0];paCache.vigentes=extra[1];paCache.vinculos=extra[2];paCache.grupos=extra[3]||[];
+  var metasG=paMercadoSomado(extra[4],extra[5].m);paCache.metasEstr=metasG;
   var podeEd=paPodeEditar(),adm=paIsAdmin();
   var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paFormCadastro()">＋ Novo cadastro</button>':'';
   var html=paFiltroHTML(h,{busca:true,centro:true,acoes:acoes});
   html+='<div id="pa-form"></div>';
   var b=paNorm(paEstado.busca);
   var tot=h.centros.length,ativos=h.centros.filter(function(x){return x.ativo;}).length;
+  var semG=0,confG=0;h.centros.forEach(function(x){if(!x.conta||x.conta.tipo!=='DESPESAS')return;var g=paGrupoDe(x);if(!g)semG++;else if(g.natureza&&g.natureza!==paNaturezaCentro(x))confG++;});
+  if(semG||confG)html+='<div class="pa-info" style="color:var(--gold2)">⚠ '+(semG?semG+' centro(s) de despesa sem grupo':'')+(semG&&confG?' · ':'')+(confG?confG+' centro(s) com natureza diferente do grupo':'')+' — ajuste na coluna Grupo.</div>';
   html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · <b>✏️ Clique no nome</b> para renomear · <b>⏸</b> inativa / <b>▶</b> reativa · <b>🗑</b> exclui (só sem lançamentos) · <b>＋ Novo cadastro</b> inclui conta, subconta ou centro':'')+'</div>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda), fixa (estrutura) ou financeira (bancos, juros, empréstimos). O centro de custo herda da subconta, salvo exceção.">Natureza</th><th style="text-align:center" title="Grupo do ecossistema (Tabelas Contábeis › Grupos). A natureza do centro precisa ser a mesma do grupo.">Grupo</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
     if(paEstado.centroId&&!g.subcontas.some(function(s){return s.centros.some(function(x){return String(x.id)===String(paEstado.centroId);});}))return;
-    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td><td></td></tr>';
+    html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td><td></td><td></td></tr>';
     g.subcontas.forEach(function(s){
       var centros=s.centros.filter(function(x){return (!b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0)&&(!paEstado.centroId||String(x.id)===String(paEstado.centroId));});
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
       if(paEstado.centroId&&!centros.length)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
-        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td><td></td>'+
+        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td><td></td><td></td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
       if(paEstado.sintetico)return;
       centros.forEach(function(x){
         html+='<tr class="cc'+(x.ativo?'':' inativo')+'"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(x.nome)+'" data-orig="'+paEsc(x.nome)+'" aria-label="Nome do centro de custo" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_centro_custo\','+x.id+')">':paEsc(x.nome))+'</td>'+
           '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_centro_custo',x.id,x.natureza,s.natureza,podeEd):'')+'</td>'+
+          '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoGrupo(x,podeEd):'')+'</td>'+
           '<td style="text-align:center">'+paCampoVigente(x,c.tipo,podeEd)+'</td>'+
           '<td style="text-align:center">'+paBadgeAtivo(x.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_centro_custo',x.id,x.ativo,podeEd,adm)+'</td></tr>';
       });
@@ -645,6 +651,7 @@ async function paTabelaContabil(){
   });
   html+='</tbody></table></div>';
 
+  html+=paSecaoGrupos(h,extra[4],metasG,podeEd,adm);
   html+=paSecaoVinculos(h,podeEd);
   // Apelidos de importação
   html+='<div class="card" style="margin-top:18px"><div class="card-title">🔁 Apelidos de importação</div><p class="pa-info" style="margin:4px 0 10px">Quando a planilha usa um nome diferente do cadastro, o apelido indica a qual centro de custo o valor pertence. O apelido tem prioridade sobre o nome.</p>';
@@ -668,7 +675,7 @@ function paCampoNatureza(tabela,id,valor,herdada,podeEd){
 async function paSalvarNatureza(sel,tabela,id){
   if(!paPodeEditar())return;
   try{await sb.patch(tabela,id,{natureza:sel.value||null});paCache.hier=null;showToast('Natureza atualizada','success');navigatePlanejamento('tabela');}
-  catch(e){showToast(paErro(e,'Não foi possível salvar a natureza.'),'error');}
+  catch(e){var m=paMsgErro(e,'Não foi possível salvar a natureza.');showToast(m+(/natureza do grupo/i.test(m)?' Troque antes o grupo do centro (coluna Grupo).':''),'error');navigatePlanejamento('tabela');}
 }
 // ─── Valor vigente (reprevisão) ─────────────────────────────────────
 function paTipoVigente(cc,tipoConta){return tipoConta==='DESPESAS'&&paNaturezaCentro(cc)==='variavel'?'percentual':'valor';}
@@ -724,12 +731,12 @@ async function paSalvarVigente(ccId,tipo,tipoConta){
     await paUpsert('cda_pa_valor_vigente','centro_custo_id,ano_inicio,mes_inicio',[{centro_custo_id:ccId,ano_inicio:ano,mes_inicio:mes,tipo:tipo,valor:valor,motivo:motivo,criado_por:(window.cu&&cu.email)||null,criado_em:new Date().toISOString()}]);
     paCache.vigentes=await sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc');
     showToast('Valor vigente salvo','success');paAbrirVigente(ccId,tipoConta);paAtualizarCelulaVigente();
-  }catch(e){err.textContent=paErro(e,'Não foi possível salvar.');}
+  }catch(e){err.textContent=paMsgErro(e,'Não foi possível salvar.');}
 }
 async function paExcluirVigente(id,ccId,tipoConta){
   if(!confirm('Excluir este registro do histórico?'))return;
   try{await sb.del('cda_pa_valor_vigente',id);paCache.vigentes=await sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc');showToast('Registro excluído','success');paAbrirVigente(ccId,tipoConta);paAtualizarCelulaVigente();}
-  catch(e){showToast(paErro(e,'Não foi possível excluir.'),'error');}
+  catch(e){showToast(paMsgErro(e,'Não foi possível excluir.'),'error');}
 }
 function paAtualizarCelulaVigente(){var y=window.scrollY,fn=paEstado.page==='tabela'?paTabelaContabil:(paEstado.page==='estrutura'?function(){return paEstruturaCustos('fixa');}:(paEstado.page==='variaveis'?function(){return paEstruturaCustos('variavel');}:null));if(fn)fn().then(function(){window.scrollTo(0,y);});}
 
@@ -741,6 +748,91 @@ function paTextoVinculos(h,lista){
   var manual=lista.some(function(v){return v.pct_rateio!==null;});
   return lista.map(function(v){var s=h.subcontas.find(function(x){return String(x.id)===String(v.receita_subconta_id);});return '<span class="pa-chip">'+paEsc(s?s.nome:'?')+(manual&&v.pct_rateio!==null?' · '+String(v.pct_rateio).replace('.',',')+'%':'')+'</span>';}).join(' ')+
     (manual?'':' <span class="pa-mut" style="font-size:11px">(rateio automático pela receita)</span>');
+}
+// ─── Grupos do ecossistema (cda_grupo) — 27/10/2026 ─────────────────
+// Só estrutura: % de grupo = soma dos centros. Marca comum e Motivo ficam por centro (cda_pa_meta_estrutura).
+function paGrupoDe(cc){return cc&&cc.grupo_id?(paCache.grupos||[]).find(function(g){return String(g.id)===String(cc.grupo_id);})||null:null;}
+function paCampoGrupo(cc,podeEd){
+  var g=paGrupoDe(cc),nat=paNaturezaCentro(cc),conf=g&&g.natureza&&g.natureza!==nat;
+  var aviso=conf?' <span class="pa-badge err" title="Natureza do centro ('+PA_NATUREZAS[nat]+') diferente da natureza do grupo ('+PA_NATUREZAS[g.natureza]+'). Troque o grupo ou a natureza.">⚠ natureza</span>':(!g?' <span class="pa-badge pa-st-warn">sem grupo</span>':'');
+  if(!podeEd)return '<span style="font-size:11.5px">'+(g?paEsc(g.nome):'—')+'</span>'+aviso;
+  var ops=(paCache.grupos||[]).filter(function(x){return x.tipo==='Despesa'&&(x.ativo||(g&&x.id===g.id))&&(!x.natureza||x.natureza===nat||(g&&x.id===g.id));});
+  return '<select class="pa-sel-nat" aria-label="Grupo de '+paEsc(cc.nome)+'" onchange="paSalvarGrupoCentro(this,'+cc.id+')"><option value="">— sem grupo —</option>'+
+    ops.map(function(x){return '<option value="'+x.id+'" '+(g&&x.id===g.id?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select>'+aviso;
+}
+async function paSalvarGrupoCentro(sel,ccId){
+  if(!paPodeEditar())return;
+  try{await sb.patch('cda_pa_centro_custo',ccId,{grupo_id:sel.value?+sel.value:null});paCache.hier=null;showToast('Grupo atualizado','success');paAtualizarCelulaVigente();}
+  catch(e){showToast(paMsgErro(e,'Não foi possível salvar o grupo.'),'error');paAtualizarCelulaVigente();}
+}
+var paGruposAbertos={};
+function paSecaoGrupos(h,d,metas,podeEd,adm){
+  function tem(v){return v!==null&&v!==undefined&&!isNaN(v);}
+  function f2(v){return tem(v)?(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':'—';}
+  function fdif(v){if(!tem(v))return '—';if(Math.abs(v)<0.005)return '0,00';return '<span style="color:'+(v>0?'var(--red)':'var(--green)')+';font-weight:700">'+(v>0?'+':'−')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'</span>';}
+  // Mercado da Produção = custo ideal do Mix distribuído pelo peso realizado de cada centro
+  var MIX=paCalcMix(d,metas),ult=d.ultimo||0,prodReal={},prodTot=0;
+  h.centros.forEach(function(cc){if(cc.conta&&cc.conta.tipo==='DESPESAS'&&paNaturezaCentro(cc)==='variavel'&&paEhProducao(cc.subconta)){var r=paRealAte(d,cc.id,ult);prodReal[cc.id]=r;prodTot+=r;}});
+  function mercDe(cc){if(cc.id in prodReal)return {v:prodTot&&tem(MIX.idealReal)?MIX.idealReal*prodReal[cc.id]/prodTot:null,auto:true};var mt=metas['cc:'+cc.id]||{};return {v:tem(mt.mercado)?mt.mercado:null,auto:false};}
+  var grupos=(paCache.grupos||[]).filter(function(g){return g.tipo==='Despesa';});
+  var tot={fixa:{m:0,k:0},variavel:{m:0,k:0}},linhas='',pend=0;
+  grupos.forEach(function(g){
+    var cs=h.centros.filter(function(cc){return String(cc.grupo_id)===String(g.id);});
+    var gm=0,gk=0,temM=false;
+    var rows=cs.map(function(cc){
+      var m=mercDe(cc),mt=metas['cc:'+cc.id]||{},k=tem(mt.marca)?mt.marca:null,dif=tem(m.v)&&tem(k)?m.v-k:null;
+      if(tem(m.v)){gm+=m.v;temM=true;}if(tem(k))gk+=k;
+      var precisa=tem(dif)&&Math.abs(dif)>=0.5-0.0001&&!(mt.motivo||'').trim();if(precisa)pend++;
+      var inpK=adm?'<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="Marca comum de '+paEsc(cc.nome)+'" value="'+(tem(k)?String(Math.round(k*10000)/10000).replace('.',','):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMarcaComum(this,'+cc.id+',\'marca\')">%':'<b>'+f2(k)+'</b> 🔒';
+      var inpM=podeEd?'<input class="pa-in pa-in-txt" style="min-width:260px;width:100%" maxlength="300" aria-label="Motivo da diferença de '+paEsc(cc.nome)+'" title="'+paEsc(mt.motivo||'')+'" placeholder="'+(precisa?'Obrigatório: diferença ≥ 0,5 p.p.':'')+'" value="'+paEsc(mt.motivo||'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMarcaComum(this,'+cc.id+',\'motivo\')">':'<span style="font-size:11px">'+paEsc(mt.motivo||'—')+'</span>';
+      return '<tr class="cc'+(cc.ativo?'':' inativo')+'"><td>'+paEsc(cc.nome)+' <span class="pa-mut" style="font-size:10.5px">'+paEsc(cc.subconta.nome)+'</span></td><td>'+f2(m.v)+(m.auto?' <span title="Calculado pelo Mix de Vendas (custo ideal × peso realizado)">🔗</span>':'')+'</td><td style="white-space:nowrap">'+inpK+'</td><td>'+fdif(dif)+'</td><td style="text-align:left">'+inpM+(precisa?' <span class="pa-badge pa-st-warn">motivo obrigatório</span>':'')+'</td></tr>';
+    }).join('');
+    if(g.natureza&&tot[g.natureza]){tot[g.natureza].m+=gm;tot[g.natureza].k+=gk;}
+    var aberto=!!paGruposAbertos[g.id],nomeG=adm?'<input class="pa-in pa-in-txt" value="'+paEsc(g.nome)+'" data-orig="'+paEsc(g.nome)+'" aria-label="Nome do grupo" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomearGrupo(this,'+g.id+')">':paEsc(g.nome);
+    linhas+='<tr class="sub" style="cursor:pointer" onclick="paGruposAbertos['+g.id+']=!paGruposAbertos['+g.id+'];paAtualizarCelulaVigente()"><td>'+(aberto?'▾ ':'▸ ')+nomeG+' <span class="pa-mut" style="font-size:11px">'+(PA_NATUREZAS[g.natureza]||'')+' · '+cs.length+' centro'+(cs.length===1?'':'s')+'</span>'+(g.ativo?'':' <span class="pa-badge mut">inativo</span>')+'</td><td>'+(temM?f2(gm)+' Σ':'—')+'</td><td>'+f2(gk)+' Σ</td><td>'+fdif(temM?gm-gk:null)+'</td><td style="text-align:center" onclick="event.stopPropagation()">'+(adm?'<button class="pa-btn-ico" title="'+(g.ativo?'Inativar':'Reativar')+'" onclick="paAlternarGrupo('+g.id+','+(!g.ativo)+')">'+(g.ativo?'⏸':'▶')+'</button>'+(cs.length?'':'<button class="pa-btn-ico" title="Excluir grupo (sem centros)" onclick="paExcluirGrupo('+g.id+')">🗑</button>'):'')+'</td></tr>'+(aberto?rows:'');
+  });
+  var mk=metas._marca||{},minOk=!tem(mk.minimo)||mk.lucro>=mk.minimo-0.005;
+  var resumo='<tr class="conta desp"><td>TOTAL FIXOS</td><td>'+f2(tot.fixa.m)+' Σ</td><td>'+f2(tot.fixa.k)+' Σ</td><td>'+fdif(tot.fixa.m-tot.fixa.k)+'</td><td></td></tr>'+
+    '<tr class="conta desp"><td>TOTAL VARIÁVEIS</td><td>'+f2(tot.variavel.m)+' Σ</td><td>'+f2(tot.variavel.k)+' Σ</td><td>'+fdif(tot.variavel.m-tot.variavel.k)+'</td><td></td></tr>'+
+    '<tr class="conta"><td>RESULTADO (100% − variáveis − fixos)</td><td><b style="color:'+(100-tot.fixa.m-tot.variavel.m<0?'var(--red)':'var(--green)')+'">'+f2(100-tot.fixa.m-tot.variavel.m)+'</b></td><td><b style="color:'+(minOk?'var(--green)':'var(--red)')+'">'+f2(100-tot.fixa.k-tot.variavel.k)+'</b>'+(tem(mk.minimo)?' <span class="pa-mut" style="font-size:10.5px">mín. '+f2(mk.minimo)+'</span>':'')+'</td><td></td><td style="text-align:left">'+(minOk?'':'<span class="pa-badge err">Marca comum abaixo do lucro mínimo — revise os centros</span>')+'</td></tr>';
+  var form=adm?'<div class="pa-filtros" style="margin-top:10px"><label>Novo grupo<input id="pa-gr-nome" placeholder="Ex.: Logística" maxlength="80"></label><label>Natureza<select id="pa-gr-nat"><option value="fixa">Fixa</option><option value="variavel">Variável</option></select></label><button class="btn btn-primary btn-sm" onclick="paNovoGrupo()">＋ Criar grupo</button></div>':'';
+  return '<div class="card" style="margin-top:18px"><div class="card-title">🧩 Grupos de Despesa — Mercado × Marca comum</div>'+
+    '<p class="pa-info" style="margin:4px 0 10px">Grupos do ecossistema (usados no Comparativo de Modelo). O grupo <b>não guarda percentual</b>: Mercado e Marca comum do grupo são a <b>soma dos centros</b> (Σ). <b>Mercado</b> = meta da Ciclo (🔒, editado na Estrutura de Custos; Produção 🔗 pelo Mix). <b>Marca comum</b> = marca saudável do mesmo porte, sem loja própria — só o administrador altera. Diferença ≥ 0,5 p.p. exige <b>motivo</b>. Clique no grupo para ver os centros; o grupo de cada centro se escolhe na coluna Grupo acima.'+(pend?' <b style="color:var(--gold2)">⚠ '+pend+' centro(s) sem motivo obrigatório.</b>':'')+'</p>'+
+    '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Grupo / centro de custo</th><th>Mercado %<br>(meta Ciclo)</th><th>Marca comum</th><th>Diferença<br>Mercado − Marca</th><th style="text-align:left">Motivo da diferença</th></tr></thead><tbody>'+linhas+resumo+'</tbody></table></div>'+form+'</div>';
+}
+async function paSalvarMarcaComum(inp,ccId,campo){
+  if(campo==='marca'&&!paIsAdmin()){showToast('Somente o administrador altera a Marca comum.','error');return;}
+  if(!paPodeEditar())return;
+  var linha={ano:paEstado.ano,chave:'cc:'+ccId,atualizado_por:(window.cu&&cu.email)||null,atualizado_em:new Date().toISOString()};
+  if(campo==='marca'){var t=String(inp.value).trim(),n=t===''?null:paParseDigitado(t);if(n!==null&&(!isFinite(n)||n<0||n>100)){showToast('Informe um percentual entre 0 e 100.','error');return;}linha.pct_marca_comum=n;}
+  else linha.motivo_diferenca=String(inp.value).trim()||null;
+  try{
+    await paUpsert('cda_pa_meta_estrutura','ano,chave',[linha]);
+    showToast(campo==='marca'?'Marca comum salva':'Motivo salvo','success');
+    await paAtualizarCelulaVigente();
+    var mk=(paCache.metasEstr||{})._marca;if(campo==='marca'&&mk&&mk.minimo!==null&&mk.lucro<mk.minimo-0.005)showToast('Atenção: a Marca comum agora fecha com lucro de '+mk.lucro.toLocaleString('pt-BR',{maximumFractionDigits:2})+'%, abaixo do mínimo de '+mk.minimo.toLocaleString('pt-BR')+'%.','error');
+  }catch(e){showToast(paMsgErro(e,'Não foi possível salvar.'),'error');}
+}
+async function paNovoGrupo(){
+  var nome=(document.getElementById('pa-gr-nome').value||'').trim(),nat=document.getElementById('pa-gr-nat').value;
+  if(!nome){showToast('Informe o nome do grupo.','info');return;}
+  var ordem=(paCache.grupos||[]).reduce(function(a,g){return Math.max(a,g.ordem||0);},0)+10;
+  try{await sb.post('cda_grupo',[{tipo:'Despesa',natureza:nat,nome:nome,ordem:ordem,atualizado_por:(window.cu&&cu.email)||null}]);showToast('Grupo criado','success');paAtualizarCelulaVigente();}
+  catch(e){showToast(paMsgErro(e,'Não foi possível criar o grupo.'),'error');}
+}
+async function paRenomearGrupo(inp,id){
+  var n=inp.value.trim();if(!n){inp.value=inp.dataset.orig;showToast('O nome não pode ficar vazio','info');return;}
+  try{await sb.patch('cda_grupo',id,{nome:n,atualizado_em:new Date().toISOString(),atualizado_por:(window.cu&&cu.email)||null});showToast('Grupo renomeado','success');paAtualizarCelulaVigente();}
+  catch(e){inp.value=inp.dataset.orig;showToast(paMsgErro(e,'Não foi possível renomear.'),'error');}
+}
+async function paAlternarGrupo(id,ativo){
+  try{await sb.patch('cda_grupo',id,{ativo:ativo,atualizado_em:new Date().toISOString()});showToast(ativo?'Grupo reativado':'Grupo inativado','success');paAtualizarCelulaVigente();}
+  catch(e){showToast(paMsgErro(e,'Não foi possível alterar.'),'error');}
+}
+async function paExcluirGrupo(id){
+  if(!confirm('Excluir este grupo? (só é possível sem centros ligados)'))return;
+  try{await sb.del('cda_grupo',id);showToast('Grupo excluído','success');paAtualizarCelulaVigente();}
+  catch(e){showToast(paMsgErro(e,'Não foi possível excluir.'),'error');}
 }
 function paSecaoVinculos(h,podeEd){
   var desp=h.contas.find(function(x){return x.tipo==='DESPESAS';});if(!desp)return '';
@@ -785,7 +877,7 @@ async function paSalvarVinculo(nivel,id){
     if(marcados.length)await sb.post('cda_pa_vinculo',marcados.map(function(m){var o={receita_subconta_id:m.id,pct_rateio:m.pct,criado_por:(window.cu&&cu.email)||null};o[campo]=id;return o;}));
     paCache.vinculos=await sb.get('cda_pa_vinculo','order=id');
     closeModal();showToast('Vínculo salvo','success');paAtualizarCelulaVigente();
-  }catch(e){err.textContent=paErro(e,'Não foi possível salvar o vínculo.');}
+  }catch(e){err.textContent=paMsgErro(e,'Não foi possível salvar o vínculo.');}
 }
 
 function paBadgeAtivo(a){return a?'<span class="pa-badge ok">ativo</span>':'<span class="pa-badge mut">inativo</span>';}
@@ -1197,7 +1289,7 @@ async function paSalvarMetaEstrutura(inp,chave,campo){
   if(atual.calc&&campo==='mercado'){showToast('Este Mercado é a soma dos centros — altere o Mercado de cada centro.','error');return;}
   var linha={ano:paEstado.ano,chave:chave,pct_mercado:campo==='mercado'?n:(atual.calc||atual.mercado===undefined?null:atual.mercado),pct_meta:campo==='meta'?n:(atual.meta===undefined?null:atual.meta),valor_mensal:valor,fonte:atual.fonte||null,atualizado_por:(window.cu&&cu.email)||null,atualizado_em:new Date().toISOString()};
   try{await paUpsert('cda_pa_meta_estrutura','ano,chave',[linha]);showToast('Meta salva','success');navigatePlanejamento(paEstado.page);}
-  catch(e){showToast(paErro(e,'Não foi possível salvar a meta.'),'error');}
+  catch(e){showToast(paMsgErro(e,'Não foi possível salvar a meta.'),'error');}
 }
 // ─── Resultado anual (painel) e Referências da empresa — comuns à Estrutura e à Margem por Canal ─────
 async function paCalcResultado(ano){
@@ -1380,7 +1472,7 @@ async function paMixVendas(){
 }
 async function paSalvarTipoVenda(id,tipo){
   try{await sb.patch('cda_pa_subconta',id,{tipo_venda:tipo});await paCarregarHierarquia(true);showToast('Tipo de venda atualizado','success');navigatePlanejamento(paEstado.page);}
-  catch(e){showToast(paErro(e,'Não foi possível salvar o tipo de venda.'),'error');}
+  catch(e){showToast(paMsgErro(e,'Não foi possível salvar o tipo de venda.'),'error');}
 }
 
 // ─── Saldo de Compras de Produção (Análises Estratégicas › Despesas) ─────
@@ -1672,12 +1764,12 @@ async function paSalvarPlano(ccId){
   if(!t){err.textContent='Escreva a anotação.';return;}
   try{await sb.post('cda_pa_plano_acao',[{ano:paEstado.ano,centro_custo_id:ccId,texto:t,criado_por:(window.cu&&cu.email)||null}]);
     paCache.planos=await sb.get('cda_pa_plano_acao','ano=eq.'+paEstado.ano+'&order=criado_em.desc');showToast('Anotação registrada','success');paAbrirPlano(ccId);paAtualizarCelulaVigente();}
-  catch(e){err.textContent=paErro(e,'Não foi possível registrar.');}
+  catch(e){err.textContent=paMsgErro(e,'Não foi possível registrar.');}
 }
 async function paExcluirPlano(id,ccId){
   if(!confirm('Excluir esta anotação do histórico?'))return;
   try{await sb.del('cda_pa_plano_acao',id);paCache.planos=await sb.get('cda_pa_plano_acao','ano=eq.'+paEstado.ano+'&order=criado_em.desc');showToast('Anotação excluída','success');paAbrirPlano(ccId);paAtualizarCelulaVigente();}
-  catch(e){showToast(paErro(e,'Não foi possível excluir.'),'error');}
+  catch(e){showToast(paMsgErro(e,'Não foi possível excluir.'),'error');}
 }
 
 // ─── 11) ANÁLISES ESTRATÉGICAS · MARGEM POR CANAL ────────────────────

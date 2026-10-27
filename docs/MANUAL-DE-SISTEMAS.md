@@ -578,6 +578,19 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
     Mercado fixos 27,05% · variáveis 79,41% → margem 20,59% → lucro da meta
     −6,46% (metas a revisar). Backup: `cda_pa_meta_estrutura_backup_20261027`
     (57 linhas; apagar após validação, ~30 dias).
+- **Tela de Grupos** (27/10/2026, subetapa 1.2) em Tabelas Contábeis:
+  coluna **Grupo** na Tabela Contábil (só despesas; a lista mostra só grupos
+  da mesma natureza do centro; selos "sem grupo" e "⚠ natureza" + aviso no
+  topo). Natureza conflitante com o grupo é recusada pelo banco e a tela pede
+  para trocar o grupo antes. Card **🧩 Grupos de Despesa — Mercado × Marca
+  comum**: grupos recolhíveis com Mercado Σ, Marca comum Σ e Diferença;
+  centros com Mercado (🔒; Produção 🔗 = custo ideal do Mix × peso realizado
+  do centro), Marca comum (input só admin) e Motivo (editável; selo "motivo
+  obrigatório" quando |diferença| ≥ 0,5 p.p. sem texto); totais fixos,
+  variáveis e Resultado com lucro mínimo. Admin cria, renomeia, inativa e
+  exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
+  erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
+  mensagem sem exibir.
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
