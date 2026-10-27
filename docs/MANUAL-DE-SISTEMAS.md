@@ -593,8 +593,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mensagem sem exibir.
 - **Comparativo de Modelo — Ciclo × Mercado** (27/10/2026, subetapa 1.3;
   Análises Estratégicas › Modelo, página `modelo`, função
-  `paComparativoModelo`). Abas Despesas Fixas / Variáveis / Globais (só
-  Variáveis ativa; Fixas = 1.4, Globais = 1.5). Usa os mesmos números da
+  `paComparativoModelo`). Abas Despesas Fixas / Variáveis / Globais (as
+  três ativas desde 27/10, subetapas 1.4 e 1.5: Globais junta variáveis e fixos
+  com Total Global, Margem de contribuição e Resultado operacional nas três
+  visões). Usa os mesmos números da
   Estrutura (`paEstruturaCustos(modo,{soDados:true})` devolve os dados sem
   desenhar): Realizado = base (consolidado ou média), Mercado (meta; Produção
   🔗 pelo Mix, VJ+AT por tipo), Marca comum (soma dos centros), agrupados
