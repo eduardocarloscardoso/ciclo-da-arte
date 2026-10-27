@@ -494,6 +494,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   da venda de Revendas (realizado menor por comissões atrasadas não lançadas).
   Mercado 6,15% da receita total (= 30% de Revendas); consolidado 30% (percentual,
   desde jan/26).
+  Provisão Comissões Revendas 2026 = R$ 9.000 (comissão atrasada Circo Voador abr–set;
+  antes 0,00).
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
