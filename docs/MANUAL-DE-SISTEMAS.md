@@ -501,6 +501,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Norte 0% (operação específica); ponderada jan–set 22,65% (27/10).
   Provisão Comissões Revendas 2026 = R$ 9.000 (comissão atrasada Circo Voador abr–set;
   antes 0,00).
+  Provisão Comissões Artistas Collabs 2026 = R$ 25.000 (royalties pendentes jan–set;
+  antes 0,00) — Cardoso 27/10.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
