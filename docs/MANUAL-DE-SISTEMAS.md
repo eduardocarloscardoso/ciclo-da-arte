@@ -528,6 +528,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   até separar na origem. Mercado Eventos Uber 0,66% (R$ 40/vendedor/evento).
   Mercados Eventos: Royalties/Taxas 1,95% · Aéreo 0,84% · Custos Shows 0,56%.
   Registrado também no Tutorial Informativo (Fixos e Variáveis).
+  Comerciais fechado (27/10): Bancos/Empréstimos 5,00% · Fretes e Seguros 1,60% ·
+  Devoluções 0,30% (metas do Cardoso).
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
