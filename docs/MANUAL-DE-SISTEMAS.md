@@ -494,6 +494,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   da venda de Revendas (realizado menor por comissões atrasadas não lançadas).
   Mercado 6,15% da receita total (= 30% de Revendas); consolidado 30% (percentual,
   desde jan/26).
+  Mercado Comissões Revendas → 25% de Revendas = 5,13% da receita total (meta
+  da Ciclo; antes 30% = 6,15%).
   Consolidado Comissões Revendas → 25% (antes 30%): cadastro de Canais — Circo
   Voador 20%, Bafu 31,03%, Hotel Jo & Joe 30%, Showroom/SAC 5%, Longboard 20%,
   Norte 0% (operação específica); ponderada jan–set 22,65% (27/10).
