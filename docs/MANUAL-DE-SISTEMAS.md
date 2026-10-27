@@ -601,7 +601,7 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   pelos grupos do ecossistema. Colunas: Diferença total (Realizado − Marca,
   p.p. e R$/mês) = **Parte do modelo** (Mercado − Marca, com Motivo ⓘ) +
   **A reduzir** (Realizado − Mercado). Total Variáveis e Margem de
-  contribuição nas três visões. Resumo no topo: diferença total, quanto é
+  contribuição nas três visões. Popup **💡 Informações importantes** (botão antes do Resultado anual; pedido do Cardoso para limpar a tela): base do período, diferença total, quanto é
   modelo e quanto é a reduzir (líquido, com excesso e folga brutos) e os 5
   maiores valores a reduzir. Filtros da Estrutura + Analítico/Sintético
   (Sintético = só grupos); busca também pelo nome do grupo. Tutorial

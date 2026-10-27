@@ -1621,14 +1621,14 @@ async function paComparativoModelo(){
   // Abas, filtros e resumo
   function aba_(id,rot,ativo,dica){return '<button class="'+(aba===id?'on':'')+'"'+(ativo?' onclick="paEstado.modeloAba=\''+id+'\';navigatePlanejamento(\'modelo\')"':' disabled style="opacity:.45;cursor:not-allowed"')+' title="'+dica+'">'+rot+'</button>';}
   var abas='<div class="pa-toggle" role="tablist" aria-label="Comparativo">'+aba_('fixa','Despesas Fixas',false,'Próxima subetapa (1.4)')+aba_('variavel','Despesas Variáveis',true,'')+aba_('global','Despesas Globais',false,'Próxima subetapa (1.5)')+'</div>';
-  var acoes='<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(paPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
+  var acoes='<button class="btn btn-ghost btn-sm" onclick="paAbrirInfoModelo()">💡 Informações importantes</button><button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(paPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'modelo\')">ℹ️ Tutorial Informativo</button>';
   var html='<div style="margin-bottom:12px">'+abas+'</div>'+paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t!=='RECEITAS'&&n===aba;},acoes:acoes});
-  html+=paBarraResultado({periodo:E.periodo,recMes:recMes,simula:E.simula,recAberto:E.recAberto,ult:E.ult},'');
+  var info=paBarraResultado({periodo:E.periodo,recMes:recMes,simula:E.simula,recAberto:E.recAberto,ult:E.ult},'');
   // Conclusão
   var rsDif=tem(T.dif)?T.dif/100*recMes:null,rsMod=tem(T.modelo)?T.modelo/100*recMes:null,rsRed=tem(T.reduzir)?T.reduzir/100*recMes:null;
   var top=itens.filter(function(i){return tem(i.reduzir)&&i.reduzir>0.005;}).sort(function(a,b){return b.reduzir-a.reduzir;}).slice(0,5);
-  html+='<div class="pa-res-concl" style="margin:0 0 12px">'+(tem(T.dif)?(T.dif>0.005?'<b>A Ciclo gasta '+fpp(T.dif).replace('+','')+' p.p. da receita a mais que a marca comum (≈ '+paBRL(rsDif)+'/mês).</b> ':'<b>A Ciclo gasta '+fpp(-T.dif).replace('+','')+' p.p. a menos que a marca comum.</b> ')+
+  info+='<div class="pa-res-concl" style="margin:10px 0 0">'+(tem(T.dif)?(T.dif>0.005?'<b>A Ciclo gasta '+fpp(T.dif).replace('+','')+' p.p. da receita a mais que a marca comum (≈ '+paBRL(rsDif)+'/mês).</b> ':'<b>A Ciclo gasta '+fpp(-T.dif).replace('+','')+' p.p. a menos que a marca comum.</b> ')+
     (tem(T.modelo)?'Desses, <b style="color:var(--gold2)">'+fpp(T.modelo)+' p.p. ('+(rsMod>=0?'':'−')+paBRL(Math.abs(rsMod))+')</b> são escolhas do modelo da Ciclo, já aceitas na meta (Mercado − Marca, ver Motivo); ':'')+
     (tem(T.reduzir)?'<b style="color:'+(T.reduzir>0.005?'var(--red)':'var(--green)')+'">'+fpp(T.reduzir)+' p.p. ('+(rsRed>=0?'':'−')+paBRL(Math.abs(rsRed))+')</b> '+(T.reduzir>0.005?'estão acima da própria meta — a reduzir.':'de folga em relação à meta.'):'')
     :'Sem referência de marca comum para comparar.')+
@@ -1643,7 +1643,12 @@ async function paComparativoModelo(){
     '<th title="Mercado − Marca comum: parte da diferença que é escolha do modelo da Ciclo, já aceita na meta (ver Motivo)">Parte do<br>modelo (p.p.)</th>'+
     '<th title="Realizado − Mercado: quanto a Ciclo está acima da própria meta">A reduzir<br>(acima da meta)</th>'+
     '<th style="text-align:left">Motivo da diferença<br>Mercado × Marca</th></tr></thead><tbody>'+(linhasHtml||'<tr><td colspan="8" class="pa-mut">Nenhum centro com valores para os filtros escolhidos.</td></tr>')+'</tbody></table></div>';
+  paCache.infoModelo=info;
   document.getElementById('pa-root').innerHTML=html;
+}
+function paAbrirInfoModelo(){
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">💡 Informações importantes — Comparativo de Modelo</div>'+(paCache.infoModelo||'<p class="pa-info">Sem dados.</p>')+
+    '<p class="pa-info" style="margin-top:10px">Os valores seguem os filtros aplicados na tela.</p><div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
 async function paEstruturaCustos(modo,opts){
   modo=modo==='variavel'?'variavel':'fixa';var VAR=modo==='variavel',pg=VAR?'variaveis':'estrutura';
