@@ -42,7 +42,8 @@ var paEstado = {
   subcontaId: '',
   sintetico: false,
   busca: '',
-  centroId: ''           // filtro por centro de custo (Tabela Contábil e Margem por Canal)
+  centroId: '',          // filtro por centro de custo (Tabela Contábil e Margem por Canal)
+  grupoId: ''            // filtro por grupo do ecossistema (todas as telas com filtro) — 27/10/2026
 };
 var paCache = {hier: null};
 
@@ -225,12 +226,13 @@ async function paCarregarHierarquia(forcar){
   var r=await Promise.all([
     sb.get('cda_pa_conta','order=ordem,id'),
     sb.get('cda_pa_subconta','order=ordem,id'),
-    sb.get('cda_pa_centro_custo','order=ordem,id')
+    sb.get('cda_pa_centro_custo','order=ordem,id'),
+    sb.get('cda_grupo','order=tipo,ordem,id').catch(function(){return [];})
   ]);
-  var contas=r[0],subs=r[1],ccs=r[2];
+  var contas=r[0],subs=r[1],ccs=r[2];paCache.grupos=r[3]||[];
   contas.forEach(function(c){c.subcontas=subs.filter(function(s){return s.conta_id===c.id;});
     c.subcontas.forEach(function(s){s.conta=c;s.centros=ccs.filter(function(x){return x.subconta_id===s.id;});s.centros.forEach(function(x){x.subconta=s;x.conta=c;});});});
-  paCache.hier={contas:contas,subcontas:subs,centros:ccs};
+  paCache.hier={contas:contas,subcontas:subs,centros:ccs,grupos:paCache.grupos};
   return paCache.hier;
 }
 // Realizado anual por centro (mensal 1–12 ou legado) — view cda_pa_v_realizado_anual
@@ -252,20 +254,30 @@ async function paUltimoMes(ano){
 }
 
 // ─── Filtros comuns ──────────────────────────────────────────────────
+// Filtro por Grupo: o centro passa se não há grupo escolhido ou se pertence a ele
+function paNoGrupo(cc){return !paEstado.grupoId||(cc&&String(cc.grupo_id)===String(paEstado.grupoId));}
+function paNoGrupoId(id){if(!paEstado.grupoId)return true;var cc=paCache.hier&&paCache.hier.centros.find(function(x){return String(x.id)===String(id);});return paNoGrupo(cc);}
 function paFiltroHTML(h, opts){
   opts=opts||{};
   var subs=h.subcontas.filter(function(s){var c=h.contas.find(function(x){return x.id===s.conta_id;});
     if(opts.centroNat&&!(s.centros||[]).some(function(x){return opts.centroNat(x.natureza||s.natureza||'fixa',c&&c.tipo);}))return false;
     return !paEstado.tipo||(c&&c.tipo===paEstado.tipo);});
+  // Grupos disponíveis: de despesa, ativos, com algum centro que passa no filtro de natureza da tela
+  var natOk=function(x,s){var c=h.contas.find(function(k){return k.id===s.conta_id;});return !opts.centroNat||opts.centroNat(x.natureza||s.natureza||'fixa',c&&c.tipo);};
+  var gruposF=(paCache.grupos||[]).filter(function(g){return g.tipo==='Despesa'&&g.ativo&&h.centros.some(function(x){return String(x.grupo_id)===String(g.id)&&x.subconta&&natOk(x,x.subconta);});});
+  if(paEstado.grupoId&&(paEstado.tipo==='RECEITAS'||!gruposF.some(function(g){return String(g.id)===String(paEstado.grupoId);})))paEstado.grupoId='';
+  if(paEstado.grupoId)subs=subs.filter(function(s){return (s.centros||[]).some(function(x){return paNoGrupo(x)&&natOk(x,s);});});
   // Filtro herdado de outra tela que não existe nesta lista (ex.: centro fixo ao abrir os Variáveis) → limpa, para não esconder tudo
   if(paEstado.subcontaId&&!subs.some(function(s){return String(s.id)===String(paEstado.subcontaId);})){paEstado.subcontaId='';paEstado.centroId='';}
   var html='<div class="pa-filtros">';
   if(opts.anos)html+='<label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+opts.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label>';
   if(opts.mes)html+='<label>Mês<select onchange="paEstado.mes=+this.value;navigatePlanejamento(paEstado.page)">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-  html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
+  html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';paEstado.grupoId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
+  if(gruposF.length&&paEstado.tipo!=='RECEITAS')html+='<label>Grupo<select aria-label="Filtrar por grupo" onchange="paEstado.grupoId=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todos</option>'+
+    gruposF.map(function(g){return '<option value="'+g.id+'" '+(String(g.id)===String(paEstado.grupoId)?'selected':'')+'>'+paEsc(g.nome)+(g.natureza?' ('+(g.natureza==='variavel'?'var.':'fixo')+')':'')+'</option>';}).join('')+'</select></label>';
   html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
   if(opts.centro){
-    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;var ct=h.contas.find(function(c){return c.id===s.conta_id;})||{};(s.centros||[]).forEach(function(x){if(opts.centroNat&&!opts.centroNat(x.natureza||s.natureza||'fixa',ct.tipo))return;ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
+    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;var ct=h.contas.find(function(c){return c.id===s.conta_id;})||{};(s.centros||[]).forEach(function(x){if(opts.centroNat&&!opts.centroNat(x.natureza||s.natureza||'fixa',ct.tipo))return;if(!paNoGrupo(x))return;ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
     if(paEstado.centroId&&!ccs.some(function(x){return String(x.id)===String(paEstado.centroId);}))paEstado.centroId='';
     html+='<label>Centro de Custo<select onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
   }
@@ -276,14 +288,14 @@ function paFiltroHTML(h, opts){
 }
 function paContasFiltradas(h){
   return h.contas.filter(function(c){return !paEstado.tipo||c.tipo===paEstado.tipo;}).map(function(c){
-    var subs=c.subcontas.filter(function(s){return !paEstado.subcontaId||String(s.id)===String(paEstado.subcontaId);});
+    var subs=c.subcontas.filter(function(s){return (!paEstado.subcontaId||String(s.id)===String(paEstado.subcontaId))&&(!paEstado.grupoId||s.centros.some(paNoGrupo));});
     return {conta:c,subcontas:subs};
   }).filter(function(x){return x.subcontas.length;});
 }
 // Cartões (KPIs) sempre mostram o total geral; Conta/Subconta filtram só a tabela (23/10/2026)
 function paGruposCartoes(h){
-  var t=paEstado.tipo,sc=paEstado.subcontaId;paEstado.tipo='';paEstado.subcontaId='';
-  try{return paGruposAtivos(h);}finally{paEstado.tipo=t;paEstado.subcontaId=sc;}
+  var t=paEstado.tipo,sc=paEstado.subcontaId,gr=paEstado.grupoId;paEstado.tipo='';paEstado.subcontaId='';paEstado.grupoId='';
+  try{return paGruposAtivos(h);}finally{paEstado.tipo=t;paEstado.subcontaId=sc;paEstado.grupoId=gr;}
 }
 function paSoma(lista, f){return lista.reduce(function(a,x){return a+(Number(f(x))||0);},0);}
 
@@ -636,9 +648,9 @@ async function paTabelaContabil(){
     if(paEstado.centroId&&!g.subcontas.some(function(s){return s.centros.some(function(x){return String(x.id)===String(paEstado.centroId);});}))return;
     html+='<tr class="conta '+(c.tipo==='RECEITAS'?'rec':'desp')+'"><td>'+paEsc(c.nome)+' <span class="pa-badge mut">'+c.tipo+'</span></td><td></td><td></td><td></td><td></td><td></td></tr>';
     g.subcontas.forEach(function(s){
-      var centros=s.centros.filter(function(x){return (!b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0)&&(!paEstado.centroId||String(x.id)===String(paEstado.centroId));});
+      var centros=s.centros.filter(function(x){return paNoGrupo(x)&&(!b||paNorm(x.nome).indexOf(b)>=0||paNorm(s.nome).indexOf(b)>=0)&&(!paEstado.centroId||String(x.id)===String(paEstado.centroId));});
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
-      if(paEstado.centroId&&!centros.length)return;
+      if((paEstado.centroId||paEstado.grupoId)&&!centros.length)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
         '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paCampoNatureza('cda_pa_subconta',s.id,s.natureza,null,podeEd):'')+'</td><td></td><td></td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
@@ -995,7 +1007,7 @@ function paSaldoMensal(d,saldo){return d.restantes>0?saldo/d.restantes:saldo;}
 function paGruposAtivos(h){
   return paContasFiltradas(h).filter(function(g){return g.conta.ativo;}).map(function(g){
     return {conta:g.conta,subcontas:g.subcontas.filter(function(s){return s.ativo;}).map(function(s){
-      return {sub:s,centros:s.centros.filter(function(c){return c.ativo;})};
+      return {sub:s,centros:s.centros.filter(function(c){return c.ativo&&paNoGrupo(c);})};
     }).filter(function(x){return x.centros.length;})};
   }).filter(function(g){return g.subcontas.length;});
 }
@@ -1569,7 +1581,7 @@ async function paComparativoModelo(){
   function fpp(v){if(!tem(v))return '—';if(Math.abs(v)<0.005)return '0,00';return (v>0?'+':'−')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
   var porId={};h.centros.forEach(function(cc){porId[String(cc.id)]=cc;});
   // Centros (Produção vem somada VJ+AT por tipo de custo, como na Estrutura)
-  var b=paNorm(paEstado.busca||''),fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'';
+  var b=paNorm(paEstado.busca||''),fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fGr=paEstado.grupoId?String(paEstado.grupoId):'';
   var itens=[];
   Es.forEach(function(E,ix){var natE=modos[ix];E.ordem.forEach(function(k){(E.linhas[k].cs||[]).forEach(function(c){
     var ids=(c.ids||[c.id]).map(String),ccs=ids.map(function(i){return porId[i];}).filter(Boolean);
@@ -1579,6 +1591,7 @@ async function paComparativoModelo(){
     var it={nat:natE,nome:c.nome,ids:ids,subs:ccs.map(function(cc){return String(cc.subconta_id);}),grupo:g,real:c.base,realP:pct(c.base),merc:c.merc,mercAuto:!!c.mercAuto,marca:marca,motivo:motivos.join(' · '),usaCons:c.cons!==null&&c.cons!==undefined};
     if(fSub&&it.subs.indexOf(fSub)<0)return;
     if(fCc&&it.ids.indexOf(fCc)<0)return;
+    if(fGr&&!(g&&String(g.id)===fGr))return;
     if(b&&paNorm(it.nome).indexOf(b)<0&&paNorm(g?g.nome:'').indexOf(b)<0)return;
     if(!(Math.abs(it.real)>0.005||tem(it.merc)&&it.merc>0.0001||tem(it.marca)&&it.marca>0.0001))return; // sem valor, sem meta e sem referência
     itens.push(it);
@@ -1618,7 +1631,7 @@ async function paComparativoModelo(){
         '<td class="pa-mot" title="'+paEsc(i.motivo||'')+'">'+(i.motivo?'<div>'+paEsc(i.motivo)+'</div>':'<span class="pa-mut">—</span>')+'</td></tr>';
     });
   });
-  var filtrando=!!(b||fSub||fCc);
+  var filtrando=!!(b||fSub||fCc||fGr);
   function linhaTot(rot,o,cls){return '<tr class="'+cls+'"><td>'+rot+'</td><td>'+cReal(o)+'</td><td>'+fp2(o.merc)+'</td><td>'+fp2(o.marca)+'</td><td>'+cDif(o)+'</td><td>'+cModelo(o)+'</td><td>'+cReduzir(o)+'</td><td></td></tr>';}
   function linhaRes(rot,sub,real,merc,marca){var rp=pct(real);
     return '<tr class="conta rec"><td>'+rot+'<br><span class="pa-orig" style="font-weight:400">'+sub+'</span></td><td><span style="color:'+(real<0?'var(--red)':'')+'">'+paValor(real)+'</span><br><span class="pa-orig">'+fp2(rp)+'</span></td><td>'+fp2(merc)+'</td><td>'+fp2(marca)+'</td>'+
@@ -1693,8 +1706,8 @@ async function paEstruturaCustos(modo,opts){
     '<button class="btn btn-ghost btn-sm" onclick="paEstado.verEstat=!paEstado.verEstat;navigatePlanejamento(\''+pg+'\')">'+(paEstado.verEstat?'📊 Ocultar estatísticas':'📊 Mostrar estatísticas')+'</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+pg+'\')">ℹ️ Tutorial Informativo</button>';
   var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='DESPESAS'&&(VAR?n==='variavel':n!=='variavel');},acoes:acoes});
-  var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||'');
-  var filtrando=!!(fSub||fCc||fBusca||paEstado.tipo);
+  var fSub=paEstado.subcontaId?String(paEstado.subcontaId):'',fCc=paEstado.centroId?String(paEstado.centroId):'',fBusca=paNorm(paEstado.busca||''),fGr=paEstado.grupoId?String(paEstado.grupoId):'';
+  var filtrando=!!(fSub||fCc||fBusca||fGr||paEstado.tipo);
   function pct(v,base){return base?v/base*100:null;}
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';}
   function fp2(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
@@ -1843,16 +1856,16 @@ async function paEstruturaCustos(modo,opts){
   ordem.forEach(function(k){
     var L=linhas[k],vis=soFora?L.cs.filter(function(c){return c.st==='Acima'||c.st==='Atenção';}):L.cs.filter(function(c){return c.prev||c.real||c.ant||c.vg||c.merc!==null||c.planos.length;});
     if(paEstado.tipo==='RECEITAS')return;
-    if(fSub||fCc||fBusca){
+    if(fSub||fCc||fBusca||fGr){
       var nomeOk=fBusca&&paNorm(L.nome).indexOf(fBusca)>=0;
-      vis=vis.filter(function(c){return (!fSub||String(c.subId)===fSub)&&(!fCc||String(c.id)===fCc)&&(!fBusca||nomeOk||paNorm(c.nome).indexOf(fBusca)>=0);});
-      if(!vis.length&&!(nomeOk&&!fSub&&!fCc))return;
+      vis=vis.filter(function(c){return (!fSub||String(c.subId)===fSub)&&(!fCc||String(c.id)===fCc||(c.ids||[]).map(String).indexOf(fCc)>=0)&&(!fGr||(c.ids||[c.id]).some(paNoGrupoId))&&(!fBusca||nomeOk||paNorm(c.nome).indexOf(fBusca)>=0);});
+      if(!vis.length&&!(nomeOk&&!fSub&&!fCc&&!fGr))return;
     }
     if(soFora&&L.st!=='Acima'&&L.st!=='Atenção'&&!vis.length)return;
     if(!vis.length&&!L.prev&&!L.real&&!L.ant&&!L.base)return; // subconta sem valores (ex.: SEM CATEGORIA zerada)
     mostrou++;
     // Financeiras reúne centros de várias subcontas: com filtro, a linha soma só os centros da seleção
-    if(k==='financeira'&&(fSub||fCc||fBusca)){
+    if(k==='financeira'&&(fSub||fCc||fBusca||fGr)){
       var Lf={chave:k,nome:L.nome+' — da seleção',prev:0,real:0,ant:0,centros:vis};
       vis.forEach(function(c){Lf.prev+=c.prev;Lf.real+=c.real;Lf.ant+=c.ant;});
       L=avaliaGrupo(Lf,null); // sem a referência provisória do grupo inteiro (5% valeria para todas as financeiras, não só a seleção)
@@ -1910,9 +1923,10 @@ async function paMargemCanal(){
   var fCc=paEstado.centroId?d.h.centros.find(function(x){return String(x.id)===String(paEstado.centroId);}):null;
   var fTipoSub=fSub?(fSub.conta||d.h.contas.find(function(c){return String(c.id)===String(fSub.conta_id);})||{}).tipo:null;
   var fTipoCc=fCc?(fCc.conta||{}).tipo:null;
-  var fTipo=fTipoCc||fTipoSub||paEstado.tipo||'';
+  var fGr=paEstado.grupoId?(paCache.grupos||[]).find(function(g){return String(g.id)===String(paEstado.grupoId);}):null;
+  var fTipo=fTipoCc||fTipoSub||(fGr?'DESPESAS':'')||paEstado.tipo||'';
   var busca=paNorm(paEstado.busca||'');
-  var filtrando=!!(fSub||fCc||busca||paEstado.tipo);
+  var filtrando=!!(fSub||fCc||fGr||busca||paEstado.tipo);
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1})+'%';}
   function fpp(v){return v===null||!isFinite(v)?'—':(v>0?'+':'')+v.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});}
   // Canais (subcontas de receita ativas) e despesas, sempre sem filtro de conta
@@ -1990,12 +2004,13 @@ async function paMargemCanal(){
   function itemPassa(i){
     if(fTipo==='DESPESAS'&&fCc&&String(i.ccId)!==String(fCc.id))return false;
     if(fTipo==='DESPESAS'&&fSub&&String(i.subId)!==String(fSub.id))return false;
+    if(fGr&&!paNoGrupoId(i.ccId))return false;
     return true;
   }
   var mostrou=0;
   visiveis.forEach(function(c){
     var itens=Object.keys(c.itens).map(function(k){return c.itens[k];}).filter(itemPassa);
-    if(fTipo==='DESPESAS'&&(fSub||fCc)&&!itens.some(function(i){return Math.abs(i.real)>=0.005||Math.abs(i.prev)>=0.005;}))return;
+    if(fTipo==='DESPESAS'&&(fSub||fCc||fGr)&&!itens.some(function(i){return Math.abs(i.real)>=0.005||Math.abs(i.prev)>=0.005;}))return;
     if(busca){var nomeOk=paNorm(c.nome).indexOf(busca)>=0;itens=nomeOk?itens:itens.filter(function(i){return paNorm(i.nome).indexOf(busca)>=0;});if(!nomeOk&&!itens.length)return;}
     mostrou++;
     var mt=(metas['canal:'+c.id]||{}).meta,st=status(c,mt),cor=st==='Fora de controle'?'var(--red)':st==='Atenção'?'var(--gold2)':st==='OK'?'var(--green)':'';
@@ -2009,7 +2024,7 @@ async function paMargemCanal(){
   });
   if(!mostrou)html+='<tr><td colspan="11" class="pa-mut" style="text-align:center">Nenhum canal para o filtro escolhido.</td></tr>';
   var res={prev:tot.mcPrev-fixos.prev,real:tot.mcReal-fixos.real};
-  if(filtrando)html+='<tr><td colspan="11" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo'+(fTipo==='DESPESAS'&&(fSub||fCc)?' — dentro de cada canal aparecem só as despesas de <b>'+paEsc(fCc?fCc.nome:fSub.nome)+'</b>; a margem do canal continua considerando todas as despesas variáveis':'')+(fTipo==='RECEITAS'&&fCc?' — centro de receita: despesas do canal rateadas <b>proporcionalmente à receita do centro</b>':'')+'. Os totais da empresa abaixo não mudam com o filtro.</td></tr>';
+  if(filtrando)html+='<tr><td colspan="11" class="pa-info" style="text-align:left;white-space:normal">Filtro ativo'+(fTipo==='DESPESAS'&&(fSub||fCc||fGr)?' — dentro de cada canal aparecem só as despesas de <b>'+paEsc(fCc?fCc.nome:(fSub?fSub.nome:'grupo '+fGr.nome))+'</b>; a margem do canal continua considerando todas as despesas variáveis':'')+(fTipo==='RECEITAS'&&fCc?' — centro de receita: despesas do canal rateadas <b>proporcionalmente à receita do centro</b>':'')+'. Os totais da empresa abaixo não mudam com o filtro.</td></tr>';
   html+='<tr class="conta rec"><td>= MARGEM DE CONTRIBUIÇÃO TOTAL (EMPRESA)</td>'+paCelula(paValor(tot.prev))+paCelula(fp(pct(tot.mcPrev,tot.prev)))+paCelula(paValor(tot.real))+paCelula(paValor(tot.varReal))+paCelula(paValor(tot.mcReal),'',600)+paCelula(fp(pct(tot.mcReal,tot.real)),'',600)+paCelula(fpp(pct(tot.mcReal,tot.real)-pct(tot.mcPrev,tot.prev)))+paCelula('100%')+paCelula(fp(regua),'',600)+'<td style="text-align:center">'+paBadgeStatus(stEmp)+'</td></tr>';
   html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';

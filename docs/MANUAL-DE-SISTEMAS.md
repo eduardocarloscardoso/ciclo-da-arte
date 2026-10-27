@@ -591,6 +591,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Filtro por Grupo** (27/10/2026, pedido do Cardoso): select **Grupo** em
+  todos os relatórios com filtro (Tabela Contábil, Orçamento, Realizado,
+  Provisão, Previsto vs. Realizado, Estrutura Fixos/Variáveis, Margem por
+  Canal, Comparativo de Modelo), entre Conta e Subconta. Lista só grupos de
+  despesa ativos com centros compatíveis com a tela; ao escolher, Subconta e
+  Centro passam a listar só o que pertence ao grupo. Some quando Conta =
+  Receitas. Estado em `paEstado.grupoId`; filtro aplicado em
+  `paContasFiltradas`/`paGruposAtivos` (`paNoGrupo`) e nos filtros próprios
+  da Estrutura, Margem e Comparativo. Cartões do topo continuam no total geral.
 - **Comparativo de Modelo — Ciclo × Mercado** (27/10/2026, subetapa 1.3;
   Análises Estratégicas › Modelo, página `modelo`, função
   `paComparativoModelo`). Abas Despesas Fixas / Variáveis / Globais (as
