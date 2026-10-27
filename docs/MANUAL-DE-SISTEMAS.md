@@ -507,6 +507,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   é venda via e-commerce. Mercado = meta 15% da venda dos canais de artista =
   4,20% da receita total (praticado ≈ 20%). Consolidado R$ 6.554,78/mês (valor:
   lançado jan–set + R$ 25 mil pendentes ÷ 9).
+  27/10 (Cardoso): **Eventos - Hospedagem** criado (cc 510005, Comerciais,
+  variável, mesmos vínculos de 30013). 2026 movido de "Eventos - Alimentação +
+  Estadia" (cc 30013, renomeado **Eventos - Alimentação**; alias de importação do
+  nome antigo → 30013): jan 1.150,00 (hotel Salvador, feira Rosembaum) · abr
+  1.227,33 (Hotel Erik Manaus) · mai 1.823,75 (Booking 564,00 + Gran Hotel
+  1.015,75 + hotel Gilsons Natal 244,00) · jul 347,65 (Mar Hotel 139,65 + Ibis
+  208,00) · ago 139,65 (Mar Hotel 2/2). Total 4.688,38. Valores antes em 30013:
+  jan 5.163,01 · abr 2.037,82 · mai 4.502,24 · jul 3.410,43 · ago 624,48.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
