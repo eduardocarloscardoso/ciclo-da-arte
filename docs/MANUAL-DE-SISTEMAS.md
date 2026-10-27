@@ -515,6 +515,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   1.015,75 + hotel Gilsons Natal 244,00) · jul 347,65 (Mar Hotel 139,65 + Ibis
   208,00) · ago 139,65 (Mar Hotel 2/2). Total 4.688,38. Valores antes em 30013:
   jan 5.163,01 · abr 2.037,82 · mai 4.502,24 · jul 3.410,43 · ago 624,48.
+  Orçado 2026 separado: Eventos - Alimentação 25.000 → 21.000; Eventos -
+  Hospedagem 4.000 (novo). Mercado: Alimentação 0,81% (R$ 50 por vendedor/evento);
+  Hospedagem 0,84% (até 3% da venda do evento da viagem). Plano de ação em
+  Alimentação: realizado 2026 distorcido por gastos de cartão sem identificação.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
