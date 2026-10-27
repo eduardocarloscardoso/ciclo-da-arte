@@ -530,6 +530,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Registrado também no Tutorial Informativo (Fixos e Variáveis).
   Comerciais fechado (27/10): Bancos/Empréstimos 5,00% · Fretes e Seguros 1,60% ·
   Devoluções 0,30% (metas do Cardoso).
+  Variáveis completos (27/10): Montagem Coleções 2,50% (Telas 1,10 · Designer 0,60 ·
+  Foto 0,40 · Pilotagem 0,20 · Modelos 0,15 · Locação 0,05); Aluguel - Espaços em
+  Lojas 1,68% (contrato 8,19% de Revendas). Soma do Mercado dos variáveis: 42,63%
+  + Produção 36,78% (Mix) = 79,41% da receita.
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
