@@ -789,7 +789,7 @@ function paSecaoGrupos(h,d,metas,podeEd,adm){
     }).join('');
     if(g.natureza&&tot[g.natureza]){tot[g.natureza].m+=gm;tot[g.natureza].k+=gk;}
     var aberto=!!paGruposAbertos[g.id],nomeG=adm?'<input class="pa-in pa-in-txt" value="'+paEsc(g.nome)+'" data-orig="'+paEsc(g.nome)+'" aria-label="Nome do grupo" onclick="event.stopPropagation()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomearGrupo(this,'+g.id+')">':paEsc(g.nome);
-    linhas+='<tr class="sub" style="cursor:pointer" onclick="paGruposAbertos['+g.id+']=!paGruposAbertos['+g.id+'];paAtualizarCelulaVigente()"><td>'+(aberto?'▾ ':'▸ ')+nomeG+' <span class="pa-mut" style="font-size:11px">'+(PA_NATUREZAS[g.natureza]||'')+' · '+cs.length+' centro'+(cs.length===1?'':'s')+'</span>'+(g.ativo?'':' <span class="pa-badge mut">inativo</span>')+'</td><td>'+(temM?f2(gm)+' Σ':'—')+'</td><td>'+f2(gk)+' Σ</td><td>'+fdif(temM?gm-gk:null)+'</td><td style="text-align:center" onclick="event.stopPropagation()">'+(adm?'<button class="pa-btn-ico" title="'+(g.ativo?'Inativar':'Reativar')+'" onclick="paAlternarGrupo('+g.id+','+(!g.ativo)+')">'+(g.ativo?'⏸':'▶')+'</button>'+(cs.length?'':'<button class="pa-btn-ico" title="Excluir grupo (sem centros)" onclick="paExcluirGrupo('+g.id+')">🗑</button>'):'')+'</td></tr>'+(aberto?rows:'');
+    linhas+='<tr class="sub" style="cursor:pointer" onclick="paGruposAbertos['+g.id+']=!paGruposAbertos['+g.id+'];paAtualizarCelulaVigente()"><td>'+(aberto?'▾ ':'▸ ')+nomeG+' <span class="pa-mut" style="font-size:11px">'+(PA_NATUREZAS[g.natureza]||'')+' · '+cs.length+' centro'+(cs.length===1?'':'s')+'</span>'+(g.ativo?'':' <span class="pa-badge mut">inativo</span>')+'</td><td>'+(temM?f2(gm)+' Σ':'—')+'</td><td>'+f2(gk)+' Σ</td><td>'+fdif(temM?gm-gk:null)+'</td><td style="text-align:center" onclick="event.stopPropagation()">'+(adm?'<button class="pa-btn-ico" title="'+(g.ativo?'Inativar':'Reativar')+'" onclick="paAlternarAtivoGrupo('+g.id+','+(!g.ativo)+')">'+(g.ativo?'⏸':'▶')+'</button>'+(cs.length?'':'<button class="pa-btn-ico" title="Excluir grupo (sem centros)" onclick="paExcluirGrupo('+g.id+')">🗑</button>'):'')+'</td></tr>'+(aberto?rows:'');
   });
   var mk=metas._marca||{},minOk=!tem(mk.minimo)||mk.lucro>=mk.minimo-0.005;
   var resumo='<tr class="conta desp"><td>TOTAL FIXOS</td><td>'+f2(tot.fixa.m)+' Σ</td><td>'+f2(tot.fixa.k)+' Σ</td><td>'+fdif(tot.fixa.m-tot.fixa.k)+'</td><td></td></tr>'+
@@ -825,7 +825,7 @@ async function paRenomearGrupo(inp,id){
   try{await sb.patch('cda_grupo',id,{nome:n,atualizado_em:new Date().toISOString(),atualizado_por:(window.cu&&cu.email)||null});showToast('Grupo renomeado','success');paAtualizarCelulaVigente();}
   catch(e){inp.value=inp.dataset.orig;showToast(paMsgErro(e,'Não foi possível renomear.'),'error');}
 }
-async function paAlternarGrupo(id,ativo){
+async function paAlternarAtivoGrupo(id,ativo){
   try{await sb.patch('cda_grupo',id,{ativo:ativo,atualizado_em:new Date().toISOString()});showToast(ativo?'Grupo reativado':'Grupo inativado','success');paAtualizarCelulaVigente();}
   catch(e){showToast(paMsgErro(e,'Não foi possível alterar.'),'error');}
 }
