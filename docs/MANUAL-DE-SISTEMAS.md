@@ -490,6 +490,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   aceita centro de receita). Acordo: diária de R$ 300 por evento (comissão +
   transporte + alimentação). Meta Cardoso: diária R$ 250 → Mercado 4,07% da
   receita total; plano de ação com regra de escala (R$ 2.500 de venda/vendedor).
+  Comissões Revendas (27/10): consignação nas lojas parceiras; comissão real ≈ 30%
+  da venda de Revendas (realizado menor por comissões atrasadas não lançadas).
+  Mercado 6,15% da receita total (= 30% de Revendas); consolidado 30% (percentual,
+  desde jan/26).
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
