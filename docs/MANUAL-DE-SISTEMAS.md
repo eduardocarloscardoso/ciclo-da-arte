@@ -519,6 +519,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Hospedagem 4.000 (novo). Mercado: Alimentação 0,81% (R$ 50 por vendedor/evento);
   Hospedagem 0,84% (até 3% da venda do evento da viagem). Plano de ação em
   Alimentação: realizado 2026 distorcido por gastos de cartão sem identificação.
+  **Rateio do Uber** (27/10, Cardoso): conta única cai em Eventos - Transporte
+  Uber/Outros (cc 30016). Regra: por mês, mín(R$ 500; valor do mês) vai para
+  Produção - Transporte (Combustíveis, Uber) (cc 390001, Administrativas); o resto
+  fica em Eventos. Aplicado jan–out/26 (4.915 movidos; antes 30016: jan 4.251,59 ·
+  fev 1.210,85 · mar 610,96 · abr 414,85 · mai 1.327,80 · jun 3.882,50 · jul
+  2.346,82 · ago 3.036,24 · set 3.796,58 · out 1.824,48). Aplicar a cada importação
+  até separar na origem. Mercado Eventos Uber 0,66% (R$ 40/vendedor/evento).
+  Mercados Eventos: Royalties/Taxas 1,95% · Aéreo 0,84% · Custos Shows 0,56%.
+  Registrado também no Tutorial Informativo (Fixos e Variáveis).
   Mercado gravado: Impostos 8,36% (Simples; parte parcelada em 60 meses),
   Anúncios 4,05% (= 25% do E-commerce), Repasse Market Place 0,08% (= 70%).
   24/10 (Cardoso): excluído o Consolidado do Aluguel matriz (era igual à Média
