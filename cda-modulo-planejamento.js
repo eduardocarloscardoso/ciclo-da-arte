@@ -1163,8 +1163,27 @@ async function paComparativoMetas(){
 async function paMetasEstrutura(ano){
   var rows=await sb.get('cda_pa_meta_estrutura','ano=lte.'+ano+'&order=ano.desc');
   var m={},anoBase=null;
-  rows.forEach(function(r){if(anoBase===null)anoBase=r.ano;if(r.ano===anoBase)m[r.chave]={mercado:r.pct_mercado===null?null:Number(r.pct_mercado),meta:r.pct_meta===null?null:Number(r.pct_meta),valor:r.valor_mensal===null||r.valor_mensal===undefined?null:Number(r.valor_mensal),fonte:r.fonte||null};});
+  rows.forEach(function(r){if(anoBase===null)anoBase=r.ano;if(r.ano===anoBase)m[r.chave]={marca:r.pct_marca_comum===null||r.pct_marca_comum===undefined?null:Number(r.pct_marca_comum),motivo:r.motivo_diferenca||null,mercado:r.pct_mercado===null?null:Number(r.pct_mercado),meta:r.pct_meta===null?null:Number(r.pct_meta),valor:r.valor_mensal===null||r.valor_mensal===undefined?null:Number(r.valor_mensal),fonte:r.fonte||null};});
   return {m:m,anoBase:anoBase};
+}
+// Mercado da empresa = SOMA dos centros (27/10/2026 — sem totais gravados):
+// fixos = Σ Mercado dos centros fixos; margem = 100 − (Σ variáveis + custo ideal da Produção pelo Mix)
+function paMercadoSomado(d,metas){
+  function tem(v){return v!==null&&v!==undefined&&!isNaN(v);}
+  var MIX=paCalcMix(d,metas),v=0,f=0,mv=0,mf=0,temV=false,temF=false;
+  paGruposCartoes(d.h).forEach(function(g){if(g.conta.tipo==='RECEITAS')return;g.subcontas.forEach(function(gs){gs.centros.forEach(function(cc){
+    var mt=metas['cc:'+cc.id]||{},vari=paNaturezaCentro(cc)==='variavel';
+    if(tem(mt.marca)){if(vari)mv+=mt.marca;else mf+=mt.marca;}
+    if(vari&&paEhProducao(gs.sub))return;
+    if(!tem(mt.mercado))return;
+    if(vari){v+=mt.mercado;temV=true;}else{f+=mt.mercado;temF=true;}
+  });});});
+  if(tem(MIX.idealReal)){v+=MIX.idealReal;temV=true;}
+  var mc=metas.mc_empresa||{},fx=metas.fixo_empresa||{};
+  metas.mc_empresa={mercado:temV?100-v:null,meta:tem(mc.meta)?mc.meta:null,calc:true};
+  metas.fixo_empresa={mercado:temF?f:null,meta:tem(fx.meta)?fx.meta:null,calc:true};
+  metas._marca={vari:mv,fix:mf,lucro:100-mv-mf,minimo:tem((metas.lucro_minimo_marca||{}).mercado)?metas.lucro_minimo_marca.mercado:null};
+  return metas;
 }
 async function paSalvarMetaEstrutura(inp,chave,campo){
   if(!paPodeEditar())return;
@@ -1175,14 +1194,15 @@ async function paSalvarMetaEstrutura(inp,chave,campo){
   var valor=atual.valor===undefined?null:atual.valor;
   if(campo==='valor')valor=n;
   if(campo==='metapct'){if(!(paCache.recMesEstr>0)){showToast('Sem receita base para converter o %.','error');return;}valor=n===null?null:Math.round(n/100*paCache.recMesEstr*100)/100;}
-  var linha={ano:paEstado.ano,chave:chave,pct_mercado:campo==='mercado'?n:(atual.mercado===undefined?null:atual.mercado),pct_meta:campo==='meta'?n:(atual.meta===undefined?null:atual.meta),valor_mensal:valor,fonte:atual.fonte||null,atualizado_por:(window.cu&&cu.email)||null,atualizado_em:new Date().toISOString()};
+  if(atual.calc&&campo==='mercado'){showToast('Este Mercado é a soma dos centros — altere o Mercado de cada centro.','error');return;}
+  var linha={ano:paEstado.ano,chave:chave,pct_mercado:campo==='mercado'?n:(atual.calc||atual.mercado===undefined?null:atual.mercado),pct_meta:campo==='meta'?n:(atual.meta===undefined?null:atual.meta),valor_mensal:valor,fonte:atual.fonte||null,atualizado_por:(window.cu&&cu.email)||null,atualizado_em:new Date().toISOString()};
   try{await paUpsert('cda_pa_meta_estrutura','ano,chave',[linha]);showToast('Meta salva','success');navigatePlanejamento(paEstado.page);}
   catch(e){showToast(paErro(e,'Não foi possível salvar a meta.'),'error');}
 }
 // ─── Resultado anual (painel) e Referências da empresa — comuns à Estrutura e à Margem por Canal ─────
 async function paCalcResultado(ano){
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc')]);
-  var d=r[0],metas=r[1].m;paCache.vigentes=r[2];paCache.metasEstr=metas;
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m);paCache.vigentes=r[2];paCache.metasEstr=metas;
   var hojeD=new Date(),refMes=ano<hojeD.getFullYear()?12:(ano>hojeD.getFullYear()?1:hojeD.getMonth()+1),ult=d.ultimo||0;
   var R={ano:ano,ult:ult,periodo:ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—',rec:{prev:0,real:0,ultMes:0},vari:{prev:0,real:0},fix:{prev:0,real:0,base:0,merc:0,temMerc:false},ocup:0,nAlertas:0,metas:metas};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){gs.centros.forEach(function(cc){
@@ -1248,7 +1268,7 @@ async function paAbrirResultado(){
   var mcP=m?real.mc/m:0;
   html+='<p class="pa-info" style="margin-top:10px">'+(mcP>0?'Ponto de equilíbrio com a margem atual ('+fp(mcP*100)+'): receita de ≈ <b>'+paBRL(real.fix/mcP)+'/mês</b> para cobrir '+paBRL(real.fix)+' de custos fixos.':'Margem atual negativa: não há ponto de equilíbrio.')+
     (R.ocup?' · Ocupação (aluguel + condomínio + IPTU + energia): <b>'+fp(R.ocup/R.recBase*100)+'</b> da receita — mercado 6% a 10%.':'')+
-    (tem(R.fxAlvo)&&R.fix.temMerc?' · Mercado dos fixos somado dos centros: '+fp(R.fix.merc)+' (alvo '+fp(R.fxAlvo)+').':'')+'</p>'+
+    ' · Mercado = soma das metas dos centros (Σ).</p>'+
     '<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
   openModal(html);
 }
@@ -1256,18 +1276,21 @@ async function paAbrirReferencias(){
   var R=await paCalcResultado(paEstado.ano),M=R.metas,podeEd=paPodeEditar(),adm=paIsAdmin();
   function tem(v){return v!==null&&v!==undefined&&!isNaN(v);}
   function campo(chave,c,v,rot){
+    if(c==='mercado'&&(chave==='mc_empresa'||chave==='fixo_empresa'))return '<b title="Soma do Mercado % dos centros (não é digitado)">'+(tem(v)?(Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%':'—')+' Σ</b>';
     var trav=c==='mercado'&&!adm;
     if(!podeEd||trav)return '<b>'+(tem(v)?String(v).replace('.',',')+'%':'—')+(trav?' 🔒':'')+'</b>';
     return '<input class="pa-in pa-in-pct" inputmode="decimal" aria-label="'+rot+'" value="'+(tem(v)?String(v).replace('.',','):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\''+chave+'\',\''+c+'\')"> %';
   }
   var mc=M.mc_empresa||{},fx=M.fixo_empresa||{},ra=R.recAberto;
   openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">⚙ Referências da empresa — '+R.ano+'</div>'+
-    '<p class="pa-info" style="margin:4px 0 14px">Parâmetros usados na Estrutura de Custos Fixos, na Margem por Canal e no Resultado anual. Mercado % só o administrador altera (🔒).</p>'+
+    '<p class="pa-info" style="margin:4px 0 14px">Parâmetros usados na Estrutura de Custos, na Margem por Canal e no Resultado anual. Mercado % e Marca comum só o administrador altera (🔒). Σ = soma dos centros, calculada (não é digitada).</p>'+
     '<div class="pa-ref-grid">'+
     '<div><b>Receita do mês em aberto (simulação)</b><small>Usada quando o último mês ainda não tem receita lançada.</small>R$ '+(podeEd?'<input class="pa-in" style="width:120px" inputmode="decimal" aria-label="Receita do mês em aberto" value="'+(tem(ra)?paValor(ra):'')+'" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarMetaEstrutura(this,\'receita_mes_aberto\',\'valor\')">':'<b>'+(tem(ra)?paValor(ra):'—')+'</b>')+'</div>'+
-    '<div><b>Margem de contribuição</b><small>Referência de mercado para moda/merch: 35% a 45%.</small>Mercado '+campo('mc_empresa','mercado',mc.mercado,'Margem de contribuição — referência de mercado')+' · Meta '+campo('mc_empresa','meta',mc.meta,'Margem de contribuição — meta interna')+'</div>'+
+    '<div><b>Margem de contribuição</b><small>Mercado Σ = 100% − soma do Mercado dos centros variáveis (Produção pelo custo ideal do Mix).</small>Mercado '+campo('mc_empresa','mercado',mc.mercado,'Margem de contribuição — referência de mercado')+' · Meta '+campo('mc_empresa','meta',mc.meta,'Margem de contribuição — meta interna')+'</div>'+
     '<div><b>Custo ideal do produto (Mix de Vendas)</b><small>Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, markup 4×); atacado/B2B 50% do preço de atacado (markup 2×).</small>Venda direta '+campo('custo_ideal_direta','mercado',(M.custo_ideal_direta||{}).mercado,'Custo ideal venda direta — referência de mercado')+' · Atacado/B2B '+campo('custo_ideal_atacado','mercado',(M.custo_ideal_atacado||{}).mercado,'Custo ideal atacado — referência de mercado')+'</div>'+
-    '<div><b>Alvo de custos fixos</b><small>Mercado somado dos centros hoje: '+(R.fix.temMerc?String(Math.round(R.fix.merc*100)/100).replace('.',',')+'%':'—')+'.</small>Mercado '+campo('fixo_empresa','mercado',fx.mercado,'Custos fixos — referência de mercado')+' · Meta '+campo('fixo_empresa','meta',fx.meta,'Custos fixos — meta interna')+'</div>'+
+    '<div><b>Custos fixos</b><small>Mercado Σ = soma do Mercado dos centros fixos.</small>Mercado '+campo('fixo_empresa','mercado',fx.mercado,'Custos fixos — referência de mercado')+' · Meta '+campo('fixo_empresa','meta',fx.meta,'Custos fixos — meta interna')+'</div>'+
+    (function(){var mk=M._marca||{},minOk=!tem(mk.minimo)||mk.lucro>=mk.minimo-0.005,f2=function(v){return (Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';};
+      return '<div><b>Marca comum (referência)</b><small>Marca saudável do mesmo porte, sem loja própria. Valores por centro de custo; aqui, a soma.</small>Variáveis <b>'+f2(mk.vari||0)+' Σ</b> · Fixos <b>'+f2(mk.fix||0)+' Σ</b> · Lucro <b style="color:'+(minOk?'var(--green)':'var(--red)')+'">'+f2(mk.lucro||0)+'</b>'+(tem(mk.minimo)?' <small style="display:inline">(mínimo '+campo('lucro_minimo_marca','mercado',mk.minimo,'Lucro mínimo da Marca comum')+(minOk?'':' — <b style="color:var(--red)">abaixo do mínimo: revise a Marca comum dos centros</b>')+')</small>':'')+'</div>';})()+
     '</div><div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
 
@@ -1307,7 +1330,7 @@ function paCalcMix(d,metas){
 async function paMixVendas(){
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano)]);
-  var d=r[0],metas=r[1].m,podeEd=paPodeEditar(),adm=paIsAdmin();paCache.metasEstr=metas;
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar(),adm=paIsAdmin();paCache.metasEstr=metas;
   var M=paCalcMix(d,metas),T=M.T,ult=M.ultRec,rest=Math.max(12-ult,0);
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   function fpp(v){if(Math.abs(v)<0.005)v=0;return (v>0?'+':v<0?'−':'')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' p.p.';}
@@ -1366,7 +1389,7 @@ async function paSalvarTipoVenda(id,tipo){
 async function paSaldoCompras(){
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano)]);
-  var d=r[0],metas=r[1].m,podeEd=paPodeEditar();paCache.metasEstr=metas;
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar();paCache.metasEstr=metas;
   var M=paCalcMix(d,metas),T=M.T,ultRec=M.ultRec,ultDesp=d.ultimo||0,restRec=Math.max(12-ultRec,0),restCompra=Math.max(12-ultDesp,0);
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   function fpp(v){if(Math.abs(v)<0.005)v=0;return (v>0?'+':v<0?'−':'')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' p.p.';}
@@ -1438,7 +1461,7 @@ async function paEstruturaCustos(modo){
   modo=modo==='variavel'?'variavel':'fixa';var VAR=modo==='variavel',pg=VAR?'variaveis':'estrutura';
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),paRealizadoAnualMapa(ano-1),sb.get('cda_pa_valor_vigente','order=ano_inicio.desc,mes_inicio.desc'),sb.get('cda_pa_plano_acao','ano=eq.'+ano+'&order=criado_em.desc'),sb.get('cda_pa_vinculo','select=*')]);
-  var d=r[0],metas=r[1].m,anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar(),podeMerc=podeEd&&paIsAdmin();
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),anoBaseMeta=r[1].anoBase,ant=r[2],podeEd=paPodeEditar(),podeMerc=podeEd&&paIsAdmin();
   paCache.vinculos=r[5];
   // Variáveis: mix de vendas (custo ideal da Produção) e receita mensal por canal (para converter consolidados em % de canal)
   var MIX=VAR?paCalcMix(d,metas):null,chanMes={};
@@ -1665,7 +1688,7 @@ async function paExcluirPlano(id,ccId){
 async function paMargemCanal(){
   var ano=paEstado.ano;
   var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_vinculo','order=id')]);
-  var d=r[0],metas=r[1].m,podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
   var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='RECEITAS'||n==='variavel';},acoes:'<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(paPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
   function pct(v,b){return b?v/b*100:null;}

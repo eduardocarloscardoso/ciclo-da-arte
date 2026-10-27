@@ -540,6 +540,44 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Ano). Backup do registro: cda_pa_valor_vigente id 9, cc 40, 2026/10, valor
   1.823,07, motivo "Aluguel + garagem da matriz (lojas separadas em centro
   próprio)".
+- **Grupos do ecossistema e Marca comum** (27/10/2026, SQL
+  `planejamento_anual_10_grupos_marca_comum.sql`, aprovado pelo Cardoso):
+  - `cda_grupo` (tabela do ECOSSISTEMA, sem prefixo de módulo): tipo
+    Receita/Despesa, natureza fixa/variável, nome, ordem. **Só estrutura,
+    nenhum %**: valor de grupo = sempre a soma dos centros. Leitura: membros da
+    equipe; gravação: admin. 13 grupos de Despesa — fixos: Pessoal, Ocupação
+    (Aluguel, Condomínio, Energia, IPTU — inclui showrooms RJ/SP em prédio),
+    Administrativas (inclui Tarifas bancárias, Produção - Transporte, Sem
+    Categoria), Marketing fixo; variáveis: Produção, Impostos, Comissões,
+    Eventos (inclui Shows Grande Porte), Financeiro, Logística e pós-venda,
+    Marketing, Desenvolvimento de coleção, Ocupação em parceiros.
+  - `cda_pa_centro_custo.grupo_id`: os 76 centros de despesa ligados. Trigger
+    `cda_pa_valida_grupo_centro` recusa centro com natureza (própria ou
+    herdada) diferente da do grupo.
+  - **Mercado % (meta da Ciclo)** e **Marca comum** ficam SÓ no centro
+    (`cda_pa_meta_estrutura`, chave `cc:<id>`, colunas `pct_mercado`,
+    `pct_marca_comum`, `motivo_diferenca`). Ambos só o admin altera (trigger
+    `cda_pa_trava_mercado`). Produção: Marca comum por tipo de custo dividida
+    entre VJ e AT pelo peso realizado jan–out.
+  - **Marca comum** = marca saudável do mesmo porte, **sem loja própria**
+    (vende em feiras, shows, casas de show e lojas parceiras — conceito A).
+    Totais aprovados: fixos 28,00% (Pessoal 16,70 · Ocupação 4,50 ·
+    Administrativas 4,50 · Marketing fixo 2,30) · variáveis 70,36% (Produção
+    35,00 · Impostos 8,36 · Comissões 10,00 · Eventos 4,40 · Financeiro 2,00 ·
+    Logística 2,30 · Marketing 4,30 · Desenv. coleção 2,50 · Ocupação em
+    parceiros 1,50) → **lucro de referência +1,64%**. Cada ajuste do Cardoso
+    tem no Motivo o % proposto antes. Diferença Mercado × Marca ≥ 0,5 p.p.
+    exige motivo.
+  - **Regra de coerência**: chave `lucro_minimo_marca` = 0% (a referência não
+    pode dar prejuízo; subir para 5% quando a Ciclo se aproximar do equilíbrio).
+    ⚙ Referências mostra a soma e avisa se ficar abaixo.
+  - **Totais antigos removidos** (passam a ser a soma dos centros, função
+    `paMercadoSomado`): `sub:8` Marketing 7,5% (meta 3,5) · `sub:10`
+    Administrativas 10% (meta 10) · `sub:11` Pessoal 18% (meta 15) ·
+    `mc_empresa` 40% · `fixo_empresa` 30% · `financeira` 5% (meta 5). Hoje:
+    Mercado fixos 27,05% · variáveis 79,41% → margem 20,59% → lucro da meta
+    −6,46% (metas a revisar). Backup: `cda_pa_meta_estrutura_backup_20261027`
+    (57 linhas; apagar após validação, ~30 dias).
 - **Filtros da Estrutura de Custos Fixos** (24/10/2026): os mesmos da Margem
   por Canal — Ano · Conta · Subconta · Centro de Custo · Buscar ·
   Analítico/Sintético. Recortam as linhas; cartões e total da empresa fixos.
