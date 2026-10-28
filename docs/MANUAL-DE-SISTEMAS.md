@@ -591,6 +591,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Impostos por competência + parcelamento** (28/10/2026, Cardoso): jan–set/26
+  imposto devido 8,36% × receita ≈ 85,2 mil × pago 30,8 mil (3,0%) → ≈ 54,4 mil
+  foram para parcelamento (outubro também; novembro deve voltar a ser pago).
+  (1) `cda_pa_valor_vigente` id 18: consolidado **8,36% da receita** em Impostos
+  sobre vendas (cc 30018) desde jan/2026 → Estrutura/Comparativo/Resultado usam
+  o imposto devido. (2) Centro novo **Impostos - Parcelamento** (cc 510010,
+  Comerciais, variável, grupo Financeiro) para as parcelas de impostos
+  parcelados (dívida), para não contar o mesmo imposto duas vezes. Pendente:
+  Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
+  a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
+  valor/prazo do parcelamento para o orçamento 2027.
 - **Provisão Comissões Artistas** (28/10/2026, Cardoso): `cda_pa_provisao` id 71
   (cc 60001, 2026) de **25.000,00 → 15.559,22** = contratado pelos canais
   (53.175,85) − lançado (37.616,63). Revisar ao fechar outubro.
