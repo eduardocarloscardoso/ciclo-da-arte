@@ -606,6 +606,8 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
   soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
   no lugar fica "Período do exercício: Janeiro a <último mês> de <ano>".
+  Cartões do topo (todas as telas com `paKpi`) mais compactos: padding 9px 14px,
+  valor 14,5px (antes 18px), "Previsto R$ …" numa linha só.
 - **Brindes / Permutas é DESPESA variável** (28/10/2026, Cardoso; SQL
   `planejamento_anual_15_brindes_despesa.sql`): desfeito o lado de receita criado
   na 2.2 (centro 510009, subconta de receita 150004 e grupo de receita "Brindes /
