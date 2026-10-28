@@ -591,6 +591,31 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Comissões contratado × lançado** (28/10/2026, subetapa 2.2, SQL
+  `planejamento_anual_12_canal_centro_comissao.sql`, aprovado pelo Cardoso):
+  `canais.centro_custo_id` (centro de RECEITA onde a venda do canal é lançada;
+  40/40 ligados) e `canais.comissao_centro_id` (centro de DESPESA da comissão:
+  artista/e-commerce → Comissões Artistas Collabs; revenda → Comissões
+  Revendas; Feiras e Bazares 20% → Eventos - Royalties/Taxas de Feiras
+  (organizador da feira); Showroom/SAC 5% → Comissões Vendedores; canais sem
+  comissão = nulo; 23 com destino). Trigger `cda_valida_canal_centros`.
+  Novos: grupo de receita **Canais inativos** (Revenda Cybervolt, E-commerce/Shows
+  Jonathan Ferr); subconta de receita **BRINDES / PERMUTAS**; centros SHOWS
+  CICLO 360 GRAUS (510006), E-COMMERCE CICLO 360 GRAUS (510007), REVENDAS /
+  E-COMMERCES INATIVOS (510008), BRINDES / PERMUTAS (510009). Tianastacia →
+  E-commerce Multimarcas. Regras do Cardoso: venda subsidiada (Operacional
+  100%) e canal com Comissão em branco = sem direito a comissão.
+  **Fórmula** (glossário do Financeiro): Total Venda Bruta = (Qtde × Preço −
+  Desconto) + Frete; deduções = Frete + Imposto + Operacional + Royalties
+  (estes três × Venda Bruta); Base = Bruta − deduções; Comissão = Base ×
+  Comissão %. % efetivo usado no Planejamento = Comissão × (1 − Imposto − Op −
+  Royalties) sobre a venda líquida (o frete se anula). Na **Margem por Canal**,
+  card **🤝 Comissões — contratado × lançado**: por destino (contratado,
+  lançado, Provisão Prevista, diferença; Vendedores e Royalties/Taxas sem
+  diferença porque misturam outros custos) e por grupo de receita → centro
+  com os canais e o % efetivo. Primeira leitura (28/10): Artistas contratado
+  ≈ R$ 53,2 mil × lançado 37,6 mil + provisão 25 mil; Revendas contratado
+  ≈ 44,1 mil × lançado 35,4 mil + provisão 9 mil.
 - **Grupos de Receita** (28/10/2026, subetapa 2.1, SQL
   `planejamento_anual_11_grupos_receita.sql`, aprovado pelo Cardoso): 10 grupos
   `tipo='Receita'` (sem natureza) por tipo de canal — Atacado / Private Label ·

@@ -1940,8 +1940,8 @@ async function paExcluirPlano(id,ccId){
 // proporcional à receita de cada canal no mesmo período (previsto ou realizado).
 async function paMargemCanal(){
   var ano=paEstado.ano;
-  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_vinculo','order=id')]);
-  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_pa_vinculo','order=id'),sb.get('canais','select=id,nome,grupo_id,centro_custo_id,comissao_centro_id,comissao,pct_imp,pct_op,pct_cs&order=nome').catch(function(){return [];})]);
+  var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar();paCache.metasEstr=metas;paCache.vinculos=r[2];var canaisFin=r[3]||[];
   var ult=d.ultimo||0,periodo=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—';
   var html=paFiltroHTML(d.h,{anos:d.anos,busca:true,centro:true,centroNat:function(n,t){return t==='RECEITAS'||n==='variavel';},acoes:'<button class="btn btn-ghost btn-sm" onclick="paAbrirResultado()">📊 Resultado anual</button>'+(paPodeEditar()?'<button class="btn btn-ghost btn-sm" onclick="paAbrirReferencias()">⚙ Referências</button>':'')+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'margem\')">ℹ️ Tutorial Informativo</button>'});
   function pct(v,b){return b?v/b*100:null;}
@@ -2065,7 +2065,44 @@ async function paMargemCanal(){
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. Margem do canal = Receita do canal − despesas variáveis rateadas para ele. Status: com meta de margem — atingida = <b>OK</b> · até 5 p.p. abaixo = <b>Atenção</b> · mais de 5 p.p. abaixo = <b>Fora de controle</b>; sem meta, só acusa margem negativa. Canais ordenados pela margem em R$. Os custos fixos não são rateados entre canais (veja a <a class="pa-link" onclick="navigatePlanejamento(\'estrutura\')">Estrutura de Custos Fixos</a>).</p>';
+  html+=paBlocoComissoes(d,canaisFin,ult,fGr);
   document.getElementById('pa-root').innerHTML=html;
+}
+// ─── Comissões: contratado (canais do Financeiro) × lançado (Planejamento) — subetapa 2.2, 28/10/2026 ─────
+// % efetivo = Comissão × (1 − Imposto − Operacional − Royalties) sobre a venda líquida (glossário do Financeiro;
+// o frete entra e sai da base, então não muda a comissão). Contratado = receita realizada do centro × % efetivo.
+function paPctEfetivo(k){var n=function(v){return v===null||v===undefined||v===''||isNaN(v)?0:Number(v);};return n(k.comissao)*(1-(n(k.pct_imp)+n(k.pct_op)+n(k.pct_cs))/100);}
+function paBlocoComissoes(d,canais,ult,fGr){
+  if(!canais.length||!canais.some(function(k){return k.centro_custo_id;}))return '';
+  var h=d.h,porCc={};h.centros.forEach(function(cc){porCc[String(cc.id)]=cc;});
+  function fp(v){return (Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+  var centros={};
+  canais.forEach(function(k){if(!k.centro_custo_id)return;var id=String(k.centro_custo_id),cc=porCc[id];if(!cc)return;
+    var c=centros[id]||(centros[id]={cc:cc,canais:[],pct:0,destino:null,diverge:false,real:paRealAte(d,cc.id,ult)});
+    c.canais.push(k);var pe=paPctEfetivo(k);
+    if(pe>0){if(c.pct>0&&Math.abs(c.pct-pe)>0.005)c.diverge=true;if(pe>c.pct){c.pct=pe;c.destino=k.comissao_centro_id;}}});
+  var lista=Object.keys(centros).map(function(k){var c=centros[k];c.contr=c.real*c.pct/100;c.grupo=paGrupoDe(c.cc);return c;});
+  if(fGr&&fGr.tipo==='Receita')lista=lista.filter(function(c){return c.grupo&&String(c.grupo.id)===String(fGr.id);});
+  var dest={};lista.forEach(function(c){if(!c.destino||c.contr<=0)return;var k=String(c.destino);(dest[k]=dest[k]||{id:k,contr:0}).contr+=c.contr;});
+  var soContrato={'60001':1,'30011':1}; // Artistas e Revendas: o centro só recebe comissão de canal → comparação direta
+  var T={contr:0,lanc:0,prov:0};
+  var resumo=Object.keys(dest).sort(function(a,b){return dest[b].contr-dest[a].contr;}).map(function(k){var x=dest[k],cc=porCc[k]||{nome:'centro '+k},lanc=paRealAte(d,+k,ult),prov=d.prov[k]||0,dir=!!soContrato[k];
+    var dif=lanc+prov-x.contr;if(dir){T.contr+=x.contr;T.lanc+=lanc;T.prov+=prov;}
+    return '<tr class="sub"><td>'+paEsc(cc.nome)+(dir?'':' <span class="pa-mut" style="font-size:10.5px" title="Este centro também recebe outros custos (diárias, taxas fixas): o lançado não é só comissão de canal">· inclui outros custos</span>')+'</td><td>'+paValor(x.contr)+'</td><td>'+paValor(lanc)+'</td><td>'+(prov?paValor(prov):'—')+'</td>'+
+      '<td>'+(dir?'<b style="color:'+(Math.abs(dif)<1?'':(dif<0?'var(--red)':'var(--gold2)'))+'">'+(dif<0?'−':'+')+paValor(Math.abs(dif))+'</b><br><span class="pa-orig">'+(dif<-0.5?'falta lançar/provisionar':(dif>0.5?'lançado acima do contrato':'em dia'))+'</span>':'<span class="pa-mut" title="Comparação não direta: o centro mistura outros custos">—</span>')+'</td></tr>';}).join('');
+  if(T.contr){var dT=T.lanc+T.prov-T.contr;resumo+='<tr class="conta desp"><td>ARTISTAS + REVENDAS</td><td>'+paValor(T.contr)+'</td><td>'+paValor(T.lanc)+'</td><td>'+paValor(T.prov)+'</td><td><b>'+(dT<0?'−':'+')+paValor(Math.abs(dT))+'</b></td></tr>';}
+  var grupos={};lista.forEach(function(c){var g=c.grupo?c.grupo.nome:'Sem grupo';(grupos[g]=grupos[g]||{ordem:c.grupo?c.grupo.ordem:999,itens:[]}).itens.push(c);});
+  var det='';Object.keys(grupos).sort(function(a,b){return grupos[a].ordem-grupos[b].ordem;}).forEach(function(g){
+    var it=grupos[g].itens.sort(function(a,b){return b.contr-a.contr||b.real-a.real;}),rt=0,ct=0;it.forEach(function(c){rt+=c.real;ct+=c.contr;});
+    det+='<tr class="sub"><td>'+paEsc(g)+'</td><td>'+paValor(rt)+'</td><td>'+(rt?fp(ct/rt*100):'—')+'</td><td>'+(ct?paValor(ct):'—')+'</td><td></td></tr>';
+    if(paEstado.sintetico)return;
+    it.forEach(function(c){var dcc=c.destino?porCc[String(c.destino)]:null;
+      det+='<tr class="cc"><td>'+paEsc(c.cc.nome)+'<br><span class="pa-orig" style="white-space:normal">'+c.canais.map(function(k){var pe=paPctEfetivo(k);return paEsc(k.nome)+(Number(k.comissao)?' ('+String(Number(k.comissao)).replace('.',',')+'%'+(Math.abs(pe-Number(k.comissao))>0.005?' → '+fp(pe):'')+')':'');}).join(' · ')+'</span></td><td>'+paValor(c.real)+'</td><td>'+(c.pct?fp(c.pct):'<span class="pa-mut">sem comissão</span>')+(c.diverge?' <span class="pa-badge pa-st-warn" title="Os canais deste centro têm % diferentes; usado o maior">⚠</span>':'')+'</td><td>'+(c.contr?paValor(c.contr):'—')+'</td><td style="text-align:left;font-size:11px">'+(dcc?paEsc(dcc.nome):'—')+'</td></tr>';});
+  });
+  return '<div class="card" style="margin-top:18px"><div class="card-title">🤝 Comissões — contratado × lançado</div>'+
+    '<p class="pa-info" style="margin:4px 0 10px">Comissão <b>contratada</b> = receita realizada ('+(ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—')+') do centro × <b>% efetivo</b> do canal do Financeiro, onde % efetivo = Comissão × (1 − Imposto − Operacional − Royalties). <b>Lançada</b> = realizado do centro de despesa de destino; <b>Provisão</b> = Provisão Prevista. Diferença = lançado + provisão − contratado (negativo = falta lançar ou provisionar). Vendedores e Royalties/Taxas recebem também outros custos, por isso não têm diferença.</p>'+
+    '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Destino da comissão</th><th>Contratado R$</th><th>Lançado R$</th><th>Provisão R$</th><th>Diferença</th></tr></thead><tbody>'+(resumo||'<tr><td colspan="5" class="pa-mut">Nenhuma comissão contratada no filtro.</td></tr>')+'</tbody></table></div>'+
+    '<div class="pa-tbl-wrap" style="margin-top:12px"><table class="pa-tbl pa-compacta"><thead><tr><th>Grupo / centro de receita · canais do Financeiro</th><th>Receita realizada</th><th>% efetivo</th><th>Contratado R$</th><th style="text-align:left">Destino</th></tr></thead><tbody>'+det+'</tbody></table></div></div>';
 }
 
 // ─── 9) TUTORIAL ─────────────────────────────────────────────────────
