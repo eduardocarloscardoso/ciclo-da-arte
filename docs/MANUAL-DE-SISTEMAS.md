@@ -607,6 +607,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   período (mesma base do bloco 1, vermelho se acima da marca comum) e peso na
   produção. Coluna nova **Ideal Ciclo · Marca comum** (ideal = custo ideal do
   Mix × peso do tipo; marca = soma dos centros VJ + AT). Tutorial atualizado.
+  Coluna **Tot. Real. + Prov.** (pedido do Cardoso, 28/10): realizado + provisões
+  e o % da receita do período; vermelho ▲ quando passa o Ideal Ciclo (limite de
+  compras); em branco sem provisão. Obs.: o % compara com a receita já
+  realizada; o "Pode comprar" considera a receita do ano inteiro.
 - **Natureza vem só do grupo** (28/10/2026, subetapa 2.3, SQL
   `planejamento_anual_13_natureza_do_grupo.sql`, aprovado pelo Cardoso): centro
   de despesa com grupo tem a natureza do grupo — o trigger
