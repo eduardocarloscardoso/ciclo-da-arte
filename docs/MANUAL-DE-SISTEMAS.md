@@ -612,6 +612,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Buscar (nome do centro ou do grupo; canais do Financeiro listados só os dos
   centros visíveis) e Analítico (grupos abertos, clique fecha) / Sintético (só
   grupos, clique abre). Com filtro, totais "(filtrado)" e sem a linha Resultado.
+  Textos explicativos da tela reunidos num único **ℹ️ Tutorial Informativo**
+  (`PA_TUT.grupos`: Geral, Receita, Despesa), ao lado do Analítico/Sintético; na
+  tela ficam só os avisos que pedem ação (canal sem grupo, motivo obrigatório).
 - **Filtros em cascata com preenchimento automático** (28/10/2026, pente fino
   pedido pelo Cardoso; todas as telas com filtro): ao trocar Conta, Grupo ou
   Subconta (`paMudaFiltro`), os filtros de baixo são limpos e, se o seguinte

@@ -307,7 +307,7 @@ function paFiltroHTML(h, opts){
   }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
   html+='<div class="pa-toggle" role="group" aria-label="Modo de exibição"><button class="'+(!paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=false;navigatePlanejamento(paEstado.page)">Analítico</button><button class="'+(paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=true;navigatePlanejamento(paEstado.page)">Sintético</button></div>';
-  if(opts.acoes)html+='<div class="pa-acoes">'+opts.acoes+'</div>';
+  if(opts.acoes)html+='<div class="pa-acoes"'+(opts.acoesJunto?' style="margin-left:0"':'')+'>'+opts.acoes+'</div>';
   return html+'</div>';
 }
 function paContasFiltradas(h){
@@ -824,8 +824,7 @@ async function paTabelaGrupos(){
   var ex=await Promise.all([sb.get('cda_grupo','order=tipo,ordem,id').catch(function(){return [];}),paDadosAno(paEstado.ano),paMetasEstrutura(paEstado.ano),sb.get('canais','select=id,nome,grupo_id,centro_custo_id&order=nome').catch(function(){return [];})]);
   paCache.grupos=ex[0]||[];var d=ex[1],metas=paMercadoSomado(d,ex[2].m);paCache.metasEstr=metas;
   var podeEd=paPodeEditar(),adm=paIsAdmin(),tipo=paEstado.tipo;
-  var html=paFiltroHTML(h,{anos:d.anos,busca:true,centro:true});
-  html+='<div class="pa-info">Grupos do ecossistema: cada centro (e cada canal do Financeiro) pertence a um grupo. O grupo de um centro se troca em <a class="pa-link" onclick="navigatePlanejamento(\'tabela\')">Tabela Contábil › coluna Grupo</a>. <b>Analítico</b> = grupos abertos · <b>Sintético</b> = só os grupos (clique no grupo para abrir/fechar).</div>';
+  var html=paFiltroHTML(h,{anos:d.anos,busca:true,centro:true,acoesJunto:true,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'grupos\')">ℹ️ Tutorial Informativo</button>'});
   if(tipo!=='DESPESAS')html+=paSecaoGruposReceita(h,d,ex[3]||[],adm);
   if(tipo!=='RECEITAS')html+=paSecaoGrupos(h,d,metas,podeEd,adm);
   document.getElementById('pa-root').innerHTML=html;
@@ -851,7 +850,7 @@ function paSecaoGruposReceita(h,d,canais,adm){
   });
   var semC=canais.filter(function(c){return !c.grupo_id;});
   return '<div class="card" style="margin-top:18px"><div class="card-title">💰 Grupos de Receita — centros e canais</div>'+
-    '<p class="pa-info" style="margin:4px 0 10px">Grupos por tipo de canal, usados no ecossistema inteiro: cada <b>centro de receita</b> do Planejamento (Tabela Contábil › coluna Grupo) e cada <b>canal do Financeiro</b> ficam ligados a um grupo. Realizado '+(ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'')+'. Clique no grupo para ver centros e canais.'+(semC.length?' <b style="color:var(--gold2)">⚠ '+semC.length+' canal(is) do Financeiro sem grupo: '+semC.map(function(c){return paEsc(c.nome);}).join(', ')+'.</b>':'')+'</p>'+
+    (semC.length?'<p class="pa-info" style="margin:4px 0 10px;color:var(--gold2)"><b>⚠ '+semC.length+' canal(is) do Financeiro sem grupo: '+semC.map(function(c){return paEsc(c.nome);}).join(', ')+'.</b></p>':'')+
     '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Grupo / centro de receita</th><th style="text-align:center">Centros</th><th style="text-align:center">Canais</th><th>Realizado R$</th><th>Part. %</th><th></th></tr></thead><tbody>'+linhas+
     '<tr class="conta rec"><td>TOTAL RECEITAS'+(paFiltrandoGrupos()?' (filtrado)':'')+'</td><td></td><td></td><td>'+paValor(paFiltrandoGrupos()?mostr:tot)+'</td><td>'+(paFiltrandoGrupos()?fp(mostr):'100%')+'</td><td></td></tr></tbody></table></div></div>';
 }
@@ -888,7 +887,7 @@ function paSecaoGrupos(h,d,metas,podeEd,adm){
   if(paFiltrandoGrupos())resumo=resumo.replace('TOTAL FIXOS','TOTAL FIXOS (filtrado)').replace('TOTAL VARIÁVEIS','TOTAL VARIÁVEIS (filtrado)').replace(/<tr class="conta"><td>RESULTADO[\s\S]*$/,'');
   var form=adm?'<div class="pa-filtros" style="margin-top:10px"><label>Novo grupo<input id="pa-gr-nome" placeholder="Ex.: Logística" maxlength="80"></label><label>Natureza<select id="pa-gr-nat"><option value="fixa">Despesa fixa</option><option value="variavel">Despesa variável</option><option value="receita">Receita</option></select></label><button class="btn btn-primary btn-sm" onclick="paNovoGrupo()">＋ Criar grupo</button></div>':'';
   return '<div class="card" style="margin-top:18px"><div class="card-title">🧩 Grupos de Despesa — Mercado × Marca comum</div>'+
-    '<p class="pa-info" style="margin:4px 0 10px">Grupos do ecossistema (usados no Comparativo de Modelo). O grupo <b>não guarda percentual</b>: Mercado e Marca comum do grupo são a <b>soma dos centros</b> (Σ). <b>Mercado</b> = meta da Ciclo (🔒, editado na Estrutura de Custos; Produção 🔗 pelo Mix). <b>Marca comum</b> = marca saudável do mesmo porte, sem loja própria — só o administrador altera. Diferença ≥ 0,5 p.p. exige <b>motivo</b>. Clique no grupo para ver os centros; o grupo de cada centro se escolhe em Tabela Contábil › coluna Grupo.'+(pend?' <b style="color:var(--gold2)">⚠ '+pend+' centro(s) sem motivo obrigatório.</b>':'')+'</p>'+
+    (pend?'<p class="pa-info" style="margin:4px 0 10px;color:var(--gold2)"><b>⚠ '+pend+' centro(s) sem o motivo obrigatório (diferença Mercado − Marca ≥ 0,5 p.p.).</b></p>':'')+
     '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Grupo / centro de custo</th><th>Mercado %<br>(meta Ciclo)</th><th>Marca comum</th><th>Diferença<br>Mercado − Marca</th><th style="text-align:left">Motivo da diferença</th></tr></thead><tbody>'+linhas+resumo+'</tbody></table></div>'+form+'</div>';
 }
 async function paSalvarMarcaComum(inp,ccId,campo){
@@ -2202,6 +2201,19 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
+ grupos:{t:'Tabela de Grupos',d:'Grupos do ecossistema (o mesmo cadastro vale para o Planejamento e o Financeiro). Cada centro de custo — e cada canal de venda do Financeiro — pertence a um grupo. O grupo não guarda percentual: os valores do grupo são sempre a soma dos centros (Σ). O grupo de um centro se troca em Tabela Contábil › coluna Grupo.',c:[
+  ['Geral — Filtros','Conta (Receitas mostra só os grupos de receita; Despesas, só os de despesa) · Grupo · Subconta · Centro · Buscar (nome do centro ou do grupo). Com filtro, os totais aparecem como "(filtrado)" e a linha Resultado não aparece. Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.'],
+  ['Geral — Analítico / Sintético','Analítico: grupos abertos com os centros (clique no grupo fecha). Sintético: só a linha de cada grupo (clique abre).'],
+  ['Geral — Avisos','Aparecem na tela só quando há algo a corrigir: canal do Financeiro sem grupo, ou centro sem o motivo obrigatório.'],
+  ['Geral — Novo grupo / ⏸ / 🗑','Administrador: cria grupo (despesa fixa, despesa variável ou receita), renomeia clicando no nome, inativa/reativa (⏸ ▶) e exclui (🗑, só grupo sem centros nem canais). A natureza (fixa/variável) dos centros vem do grupo.'],
+  ['Receita — Grupos por tipo de canal','Atacado, Shows de artistas, Revendas, E-commerce, Misto, Feiras e bazares, Venda direta Ciclo, Vendas subsidiadas, Market Place, Brindes/Permutas e Canais inativos. Cada centro de receita do Planejamento e cada canal do Financeiro ficam ligados a um deles.'],
+  ['Receita — Centros / Canais','Quantidade de centros de receita do Planejamento e de canais do Financeiro ligados ao grupo. Aberto, o grupo lista os centros e, abaixo, os canais do Financeiro.'],
+  ['Receita — Realizado R$ / Part. %','Receita realizada de janeiro até o último mês lançado e a participação do grupo (ou do centro) na receita total.','Part. % = realizado do grupo ÷ receita total'],
+  ['Despesa — Mercado % (meta Ciclo)','Meta da Ciclo para o centro, em % da receita, editada na Estrutura de Custos (🔒 só o administrador). Produção 🔗: calculada pelo custo ideal do Mix de Vendas × peso realizado do centro.'],
+  ['Despesa — Marca comum','Referência de uma marca saudável do mesmo porte, sem loja própria (vende em feiras, shows, casas de show e lojas parceiras). Definida por centro; só o administrador altera.'],
+  ['Despesa — Diferença Mercado − Marca','Quanto a meta da Ciclo aceita a mais (vermelho) ou a menos (verde) que a marca comum. A partir de 0,5 p.p. o motivo é obrigatório.','Mercado % − Marca comum %'],
+  ['Despesa — Motivo da diferença','Explica por que a Ciclo difere da referência (ex.: modelo de negócio, ajuste do Cardoso com o % proposto antes). Aparece também no Comparativo de Modelo (ⓘ).'],
+  ['Despesa — Totais e Resultado','Total Fixos e Total Variáveis (Σ dos centros) e o Resultado = 100% − variáveis − fixos, na meta da Ciclo e na marca comum. A marca comum precisa fechar com lucro de pelo menos o mínimo definido em ⚙ Referências (hoje 0%).','Resultado = 100% − Σ variáveis − Σ fixos']]},
  modelo:{t:'Comparativo de Modelo — Ciclo × Mercado',d:'Compara, por grupo e centro de custo, quanto a Ciclo gasta (Realizado) com a sua própria meta (Mercado) e com uma marca saudável do mesmo porte, sem loja própria (Marca comum). Separa a diferença em duas partes: o que é escolha do modelo da Ciclo (já aceito na meta) e o que está acima da meta (a reduzir). Tudo em % da receita base e em R$ por mês.',c:[
   ['Abas','Despesas Fixas, Despesas Variáveis e Despesas Globais (variáveis + fixos, com Margem de contribuição e Resultado operacional nas três visões).'],
   ['Grupo','Grupo do ecossistema ao qual o centro está ligado (Tabelas Contábeis › coluna Grupo). Os valores do grupo são a soma dos centros.'],
