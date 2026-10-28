@@ -719,7 +719,15 @@ async function paSalvarNatureza(sel,tabela,id){
 }
 // ─── Valor vigente (reprevisão) ─────────────────────────────────────
 function paTipoVigente(cc,tipoConta){return tipoConta==='DESPESAS'&&paNaturezaCentro(cc)==='variavel'?'percentual':'valor';}
-function paFmtVigente(v){var n=Number(v.valor);return v.tipo==='percentual'?n.toLocaleString('pt-BR',{maximumFractionDigits:2})+'% da receita':paBRL(n)+'/mês';}
+// % do vigente é sobre a receita dos canais VINCULADOS à despesa (Tabela Contábil › Vínculos); sem vínculo = receita total (28/10/2026)
+function paBaseVigente(ccId){
+  var h=paCache.hier,cc=h&&h.centros.find(function(x){return String(x.id)===String(ccId);});if(!cc)return 'da receita';
+  var lv=paVinculosDe('despesa_centro_id',cc.id);if(!lv.length)lv=paVinculosDe('despesa_subconta_id',cc.subconta_id);
+  if(!lv.length)return 'da receita total';
+  var nomes=lv.map(function(v){var s=h.subcontas.find(function(x){return String(x.id)===String(v.receita_subconta_id);});return s?s.nome:'?';});
+  return 'da receita de '+(nomes.length<=2?nomes.join(' e '):nomes.length+' canais');
+}
+function paFmtVigente(v){var n=Number(v.valor);return v.tipo==='percentual'?n.toLocaleString('pt-BR',{maximumFractionDigits:2})+'% '+paBaseVigente(v.centro_custo_id):paBRL(n)+'/mês';}
 function paMesAno(a,m){return PA_MESES_AB[m-1].toLowerCase()+'/'+String(a).slice(2);}
 function paVigentesDoCentro(id){return (paCache.vigentes||[]).filter(function(v){return String(v.centro_custo_id)===String(id);});}
 function paVigenteAtual(id,ano,mes){

@@ -602,6 +602,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Texto do Vigente em %** (28/10/2026, pedido do Cardoso): passa a dizer sobre
+  qual receita incide — "40,85% da receita de E-COMMERCE" (canais vinculados à
+  despesa; até 2 nomes, senão "N canais"; sem vínculo = "da receita total"),
+  em vez de "% da receita" (`paBaseVigente`). Vale na Tabela Contábil e no
+  histórico do Vigente.
 - **Tabela de Grupos — página própria** (28/10/2026, pente fino pedido pelo
   Cardoso): menu Planejamento Anual › **Tabela de Grupos** (`paTabelaGrupos`),
   logo abaixo de Tabelas Contábeis, com os quadros 💰 Grupos de Receita e 🧩
