@@ -344,12 +344,9 @@ async function paOrcamentoAnual(){
   var root=document.getElementById('pa-root');if(!root)return;
   var podeEd=paPodeEditar(),antEditavel=podeEd&&!realAnt._mensal;
   paEstado._anoAntMensal=!!realAnt._mensal;
-  var acoes=podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacaoAnual()">⬆ Importar Excel</button>':'';
+  var acoes=(podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacaoAnual()">⬆ Importar Excel</button>':'')+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'orcamento\')">ℹ️ Tutorial Informativo</button>';
   var html=paFiltroHTML(h,{anos:anos,acoes:acoes});
-  html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b> · Saldo sem provisão = Previsto − Realizado · Saldo com provisão = Previsto − (Realizado + Provisão), preenchido só onde há provisão'+
-    (podeEd?' · <span class="pa-legenda">✏️ campos com borda dourada são editáveis — digite e tecle Enter</span>':'')+
-    (podeEd&&realAnt._mensal?' · Realizado '+(ano-1)+' vem dos lançamentos mensais (edite no Orçamento Realizado)':'')+
-    ' · Realizado '+ano+' = soma dos meses (clique para abrir)</div>';
+  html+='<div class="pa-info">Período do exercício: <b>'+(ultimo?(ultimo===1?'Janeiro':'Janeiro a '+PA_MESES[ultimo-1])+' de '+ano:'nenhum mês realizado em '+ano)+'</b></div>';
 
   // Totais gerais para KPIs
   var tot={RECEITAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0},DESPESAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0}};
@@ -2223,6 +2220,14 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
+ orcamento:{t:'Orçamento Anual',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
+  ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
+  ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],
+  ['Previsto Mês','Previsto do ano dividido por 12.','Previsto ano ÷ 12'],
+  ['Realizado ano','Soma dos meses já lançados no ano. Clique no valor para abrir o detalhe mês a mês.','Soma de jan até o último mês realizado'],
+  ['Saldo Total sem Provisão','Quanto do previsto ainda não foi realizado.','Previsto − Realizado'],
+  ['Saldo Total com Provisão','Saldo descontando também o que já está comprometido na Provisão Prevista. Preenchido só onde há provisão.','Previsto − (Realizado + Provisão)'],
+  ['Filtros','Ano, Conta, Grupo, Subconta e Analítico/Sintético. Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.']]},
  vinculos:{t:'Vínculos Receita × Despesa',d:'Liga cada despesa variável ao(s) canal(is) de receita que ela gera. É a base da Margem por Canal (rateio das despesas variáveis entre os canais) e do % do valor vigente das despesas variáveis (que incide sobre a receita dos canais vinculados).',c:[
   ['Despesa variável','Subcontas com natureza variável e, dentro delas, só os centros variáveis. A natureza vem do grupo do centro.'],
   ['Canais de receita vinculados','Subcontas de receita (canais) que a despesa gera. Sem vínculo = todos os canais.'],

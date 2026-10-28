@@ -602,6 +602,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Orçamento Anual — Tutorial Informativo** (28/10/2026, pente fino): a linha de
+  explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
+  soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
+  no lugar fica "Período do exercício: Janeiro a <último mês> de <ano>".
 - **Brindes / Permutas é DESPESA variável** (28/10/2026, Cardoso; SQL
   `planejamento_anual_15_brindes_despesa.sql`): desfeito o lado de receita criado
   na 2.2 (centro 510009, subconta de receita 150004 e grupo de receita "Brindes /
