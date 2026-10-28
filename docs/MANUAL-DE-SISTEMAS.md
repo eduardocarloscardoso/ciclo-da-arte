@@ -591,6 +591,26 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Grupos de Receita** (28/10/2026, subetapa 2.1, SQL
+  `planejamento_anual_11_grupos_receita.sql`, aprovado pelo Cardoso): 10 grupos
+  `tipo='Receita'` (sem natureza) por tipo de canal — Atacado / Private Label ·
+  Shows de artistas · Revendas (lojas parceiras) · E-commerce · Misto -
+  E-Commerce / Shows · Feiras e bazares · Venda direta Ciclo (showroom, SAC,
+  Ciclo em Casa, Vendas sem Vendedor) · Vendas Subsidiadas
+  (Colaboradores/Parceiros) · Market Place · Brindes / Permutas. 35 centros de
+  receita ligados centro a centro (ex.: Revenda Ciclo Showroom/SAC → Venda
+  direta Ciclo) e **`canais.grupo_id`** no Financeiro (40 canais ligados;
+  ecossistema único). O Financeiro grava canais por upsert só com as suas
+  colunas, então `grupo_id` é preservado (igual a `escopo`). Triggers:
+  `cda_pa_valida_grupo_centro` (receita só em grupo Receita; despesa só em
+  grupo Despesa da mesma natureza) e `cda_valida_grupo_canal` (canal só em
+  grupo Receita). Telas: coluna Grupo também nas receitas; filtro Grupo lista
+  receita e despesa (receita primeiro); Margem por Canal com grupo de receita
+  recorta os canais para os centros do grupo (despesas proporcionais); card
+  **💰 Grupos de Receita** em Tabelas Contábeis (centros, canais, realizado,
+  participação; admin cria/renomeia/inativa). Participação 2026: Private
+  Label 33,9% · Shows 19,6% · Revendas 17,7% · E-commerce 15,8% · Feiras 7,9%
+  · Venda direta 4,6% · demais < 1%.
 - **Filtro por Grupo** (27/10/2026, pedido do Cardoso): select **Grupo** em
   todos os relatórios com filtro (Tabela Contábil, Orçamento, Realizado,
   Provisão, Previsto vs. Realizado, Estrutura Fixos/Variáveis, Margem por
