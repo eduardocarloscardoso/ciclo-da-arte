@@ -602,6 +602,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Filtros em cascata com preenchimento automático** (28/10/2026, pente fino
+  pedido pelo Cardoso; todas as telas com filtro): ao trocar Conta, Grupo ou
+  Subconta (`paMudaFiltro`), os filtros de baixo são limpos e, se o seguinte
+  ficar com **uma única opção**, ele é preenchido sozinho, em cascata (ex.:
+  Receitas + Atacado / Private Label → Subconta e Centro PRIVATE LABEL; grupo
+  E-commerce → só a Subconta, porque há vários centros). Só acontece na troca do
+  filtro de cima (nunca ao recarregar), para permitir voltar a "Todas". Listas
+  calculadas em `paListasFiltro` (respeitam a natureza da tela).
 - **Saldo de Compras — % por tipo de custo** (28/10/2026, pedido do Cardoso):
   no bloco 3, abaixo do valor: Orçado ÷ receita orçada; Realizado ÷ receita do
   período (mesma base do bloco 1, vermelho se acima da marca comum) e peso na

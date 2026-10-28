@@ -258,30 +258,50 @@ async function paUltimoMes(ano){
 // Filtro por Grupo: o centro passa se não há grupo escolhido ou se pertence a ele
 function paNoGrupo(cc){return !paEstado.grupoId||(cc&&String(cc.grupo_id)===String(paEstado.grupoId));}
 function paNoGrupoId(id){if(!paEstado.grupoId)return true;var cc=paCache.hier&&paCache.hier.centros.find(function(x){return String(x.id)===String(id);});return paNoGrupo(cc);}
-function paFiltroHTML(h, opts){
+// Listas dos filtros (subcontas, grupos, centros) conforme o estado atual e a natureza da tela
+function paListasFiltro(h, opts){
   opts=opts||{};
+  var natOk=function(x,s){var c=h.contas.find(function(k){return k.id===s.conta_id;});return !opts.centroNat||opts.centroNat(paNaturezaCentro(x),c&&c.tipo);};
   var subs=h.subcontas.filter(function(s){var c=h.contas.find(function(x){return x.id===s.conta_id;});
     if(opts.centroNat&&!(s.centros||[]).some(function(x){return opts.centroNat(paNaturezaCentro(x),c&&c.tipo);}))return false;
     return !paEstado.tipo||(c&&c.tipo===paEstado.tipo);});
-  // Grupos disponíveis: de despesa, ativos, com algum centro que passa no filtro de natureza da tela
-  var natOk=function(x,s){var c=h.contas.find(function(k){return k.id===s.conta_id;});return !opts.centroNat||opts.centroNat(paNaturezaCentro(x),c&&c.tipo);};
   var gruposF=(paCache.grupos||[]).filter(function(g){return g.ativo&&(!paEstado.tipo||(paEstado.tipo==='RECEITAS')===(g.tipo==='Receita'))&&h.centros.some(function(x){return String(x.grupo_id)===String(g.id)&&x.subconta&&natOk(x,x.subconta);});})
     .sort(function(a,b){return (a.tipo===b.tipo?0:(a.tipo==='Receita'?-1:1))||((a.ordem||0)-(b.ordem||0));});
   if(paEstado.grupoId&&!gruposF.some(function(g){return String(g.id)===String(paEstado.grupoId);}))paEstado.grupoId='';
   if(paEstado.grupoId)subs=subs.filter(function(s){return (s.centros||[]).some(function(x){return paNoGrupo(x)&&natOk(x,s);});});
+  function ccsDe(subId){var ccs=[];subs.forEach(function(s){if(subId&&String(s.id)!==String(subId))return;(s.centros||[]).forEach(function(x){if(!natOk(x,s))return;if(!paNoGrupo(x))return;ccs.push({id:x.id,nome:(subId?'':s.nome+' › ')+x.nome});});});return ccs;}
+  return {subs:subs,gruposF:gruposF,ccsDe:ccsDe};
+}
+// Troca de filtro: limpa os de baixo e, se o seguinte ficar com UMA opção só, preenche sozinho (em cascata) — 28/10/2026
+function paMudaFiltro(qual,valor){
+  if(qual==='tipo'){paEstado.tipo=valor;paEstado.grupoId='';paEstado.subcontaId='';paEstado.centroId='';}
+  else if(qual==='grupo'){paEstado.grupoId=valor;paEstado.subcontaId='';paEstado.centroId='';}
+  else if(qual==='sub'){paEstado.subcontaId=valor;paEstado.centroId='';}
+  var ctx=paCache.filtroCtx;
+  if(ctx&&valor){
+    var L=paListasFiltro(ctx.h,ctx.opts);
+    if(!paEstado.subcontaId&&L.subs.length===1)paEstado.subcontaId=String(L.subs[0].id);
+    if(ctx.opts.centro&&!paEstado.centroId){var cs=L.ccsDe(paEstado.subcontaId);if(cs.length===1)paEstado.centroId=String(cs[0].id);}
+  }
+  navigatePlanejamento(paEstado.page);
+}
+function paFiltroHTML(h, opts){
+  opts=opts||{};
+  paCache.filtroCtx={h:h,opts:opts};
+  var L=paListasFiltro(h,opts),subs=L.subs,gruposF=L.gruposF;
   // Filtro herdado de outra tela que não existe nesta lista (ex.: centro fixo ao abrir os Variáveis) → limpa, para não esconder tudo
   if(paEstado.subcontaId&&!subs.some(function(s){return String(s.id)===String(paEstado.subcontaId);})){paEstado.subcontaId='';paEstado.centroId='';}
   var html='<div class="pa-filtros">';
   if(opts.anos)html+='<label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+opts.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label>';
   if(opts.mes)html+='<label>Mês<select onchange="paEstado.mes=+this.value;navigatePlanejamento(paEstado.page)">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'" '+(i+1===paEstado.mes?'selected':'')+'>'+n+'</option>';}).join('')+'</select></label>';
-  html+='<label>Conta<select onchange="paEstado.tipo=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';paEstado.grupoId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
-  if(gruposF.length)html+='<label>Grupo<select aria-label="Filtrar por grupo" onchange="paEstado.grupoId=this.value;paEstado.subcontaId=\'\';paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todos</option>'+
+  html+='<label>Conta<select onchange="paMudaFiltro(\'tipo\',this.value)"><option value="">Todas</option><option value="RECEITAS" '+(paEstado.tipo==='RECEITAS'?'selected':'')+'>Receitas</option><option value="DESPESAS" '+(paEstado.tipo==='DESPESAS'?'selected':'')+'>Despesas</option></select></label>';
+  if(gruposF.length)html+='<label>Grupo<select aria-label="Filtrar por grupo" onchange="paMudaFiltro(\'grupo\',this.value)"><option value="">Todos</option>'+
     gruposF.map(function(g){return '<option value="'+g.id+'" '+(String(g.id)===String(paEstado.grupoId)?'selected':'')+'>'+paEsc(g.nome)+' ('+(g.tipo==='Receita'?'receita':(g.natureza==='variavel'?'var.':'fixo'))+')</option>';}).join('')+'</select></label>';
-  html+='<label>Subconta<select onchange="paEstado.subcontaId=this.value;paEstado.centroId=\'\';navigatePlanejamento(paEstado.page)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
+  html+='<label>Subconta<select aria-label="Filtrar por subconta" onchange="paMudaFiltro(\'sub\',this.value)"><option value="">Todas</option>'+subs.map(function(s){return '<option value="'+s.id+'" '+(String(s.id)===String(paEstado.subcontaId)?'selected':'')+'>'+paEsc(s.nome)+'</option>';}).join('')+'</select></label>';
   if(opts.centro){
-    var ccs=[];subs.forEach(function(s){if(paEstado.subcontaId&&String(s.id)!==String(paEstado.subcontaId))return;var ct=h.contas.find(function(c){return c.id===s.conta_id;})||{};(s.centros||[]).forEach(function(x){if(opts.centroNat&&!opts.centroNat(paNaturezaCentro(x),ct.tipo))return;if(!paNoGrupo(x))return;ccs.push({id:x.id,nome:(paEstado.subcontaId?'':s.nome+' › ')+x.nome});});});
+    var ccs=L.ccsDe(paEstado.subcontaId);
     if(paEstado.centroId&&!ccs.some(function(x){return String(x.id)===String(paEstado.centroId);}))paEstado.centroId='';
-    html+='<label>Centro de Custo<select onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
+    html+='<label>Centro de Custo<select aria-label="Filtrar por centro de custo" onchange="paEstado.centroId=this.value;navigatePlanejamento(paEstado.page)" style="max-width:280px"><option value="">Todos</option>'+ccs.map(function(x){return '<option value="'+x.id+'" '+(String(x.id)===String(paEstado.centroId)?'selected':'')+'>'+paEsc(x.nome)+'</option>';}).join('')+'</select></label>';
   }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
   html+='<div class="pa-toggle" role="group" aria-label="Modo de exibição"><button class="'+(!paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=false;navigatePlanejamento(paEstado.page)">Analítico</button><button class="'+(paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=true;navigatePlanejamento(paEstado.page)">Sintético</button></div>';
