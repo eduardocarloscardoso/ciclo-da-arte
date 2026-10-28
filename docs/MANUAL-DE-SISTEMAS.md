@@ -616,6 +616,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   mar–set 830.765,07 (69.451,96) + out hipotético 100.000 × 8,36% (8.360,00);
   atualizar ao fechar outubro. Nos anos seguintes, as parcelas desse
   parcelamento caem em Impostos - Parcelamento (dívida, grupo Financeiro).
+  Meta do cc 510010 (Cardoso): Mercado **0,66%** (parcela ≈ 734/mês ÷ receita
+  média, obrigatória até 2031) · Marca comum **0%** (motivo: dívida tributária;
+  marca saudável não tem parcelamento).
   Apelido de importação "Impostos
   Parcelamento sobre Vendas" (nome do centro no Bling) → cc 510010.
 - **Provisão Comissões Artistas** (28/10/2026, Cardoso): `cda_pa_provisao` id 71
