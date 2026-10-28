@@ -602,6 +602,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Marca comum das RECEITAS — mix** (28/10/2026, matriz aprovada pelo Cardoso;
+  SQL `planejamento_anual_14_marca_comum_receitas.sql`): `pct_marca_comum` nos 39
+  centros de receita (soma 100%). Por grupo: Atacado/Private Label 20 · Shows 12 ·
+  Revendas 20 · E-commerce 30 · Feiras 10 · Venda direta 6 · Market Place 2 ·
+  Misto/Subsidiadas/Brindes/Inativos 0; no centro, dividida pelo peso realizado
+  dentro do grupo. Motivos: Private Label (concentração B2B, risco), Shows Gilsons
+  (MODELO CICLO), E-commerce Multimarcas (canal online abaixo do padrão). Quadro
+  💰 Grupos de Receita — Mix Ciclo × Marca comum (Tabela de Grupos): Meta Ciclo %
+  (participação no orçado), Realizado %, Marca comum (admin edita por centro;
+  grupo Σ), Diferença Real − Marca (sem verde/vermelho; dourado ≥ 5 p.p.) e
+  Motivo (obrigatório ≥ 5 p.p. no grupo). Valores em R$ ficam no Mix de Vendas.
 - **Vínculos — Tutorial Informativo** (28/10/2026, pedido do Cardoso): o texto
   explicativo do quadro 🔗 Vínculos Receita × Despesa saiu da tela e foi para o
   botão ℹ️ Tutorial Informativo na linha do título (`PA_TUT.vinculos`).
