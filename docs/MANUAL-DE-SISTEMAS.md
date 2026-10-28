@@ -602,6 +602,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Saldo de Compras — % por tipo de custo** (28/10/2026, pedido do Cardoso):
+  no bloco 3, abaixo do valor: Orçado ÷ receita orçada; Realizado ÷ receita do
+  período (mesma base do bloco 1, vermelho se acima da marca comum) e peso na
+  produção. Coluna nova **Ideal Ciclo · Marca comum** (ideal = custo ideal do
+  Mix × peso do tipo; marca = soma dos centros VJ + AT). Tutorial atualizado.
 - **Natureza vem só do grupo** (28/10/2026, subetapa 2.3, SQL
   `planejamento_anual_13_natureza_do_grupo.sql`, aprovado pelo Cardoso): centro
   de despesa com grupo tem a natureza do grupo — o trigger

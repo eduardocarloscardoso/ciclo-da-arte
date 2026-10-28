@@ -1535,8 +1535,8 @@ async function paSaldoCompras(){
   var tipos={},ordemT=[],Tot={prev:0,real:0,prov:0};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){if(!paEhProducao(gs.sub))return;gs.centros.forEach(function(cc){
     var nomeT=cc.nome.replace(/^(VJ|AT)\s*-\s*/i,''),k=paNorm(nomeT),p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0;
-    if(!tipos[k]){tipos[k]={nome:nomeT,prev:0,real:0,prov:0,orig:[]};ordemT.push(k);}
-    var t=tipos[k];t.prev+=p;t.real+=re;t.prov+=pv;var o=/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':'');if(o&&(p||re||pv)&&t.orig.indexOf(o)<0)t.orig.push(o);
+    if(!tipos[k]){tipos[k]={nome:nomeT,prev:0,real:0,prov:0,orig:[],ids:[]};ordemT.push(k);}
+    var t=tipos[k];t.ids.push(cc.id);t.prev+=p;t.real+=re;t.prov+=pv;var o=/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':'');if(o&&(p||re||pv)&&t.orig.indexOf(o)<0)t.orig.push(o);
     Tot.prev+=p;Tot.real+=re;Tot.prov+=pv;
   });});});
   // Receita do ano em dois cenários e teto ideal de produção
@@ -1583,12 +1583,26 @@ async function paSaldoCompras(){
   // Bloco 3 — por tipo de custo
   html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado)</h3>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas"><thead><tr><th>Tipo de custo</th><th>Orçado ano</th><th class="pa-c-atual">Realizado<br>'+perDesp+'</th><th title="Provisão Prevista: valores já comprometidos e ainda não lançados">Provisões</th>'+
-    '<th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
+    '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Tabelas Contábeis › Grupos)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
     '<th title="Menor entre saldo pelo orçamento e saldo ideal (orçamento)">Pode comprar<br>(otimista)</th><th title="Menor entre saldo pelo orçamento e saldo ideal (ritmo atual)">Pode comprar<br>(conservador)</th></tr></thead><tbody>';
-  ordemT.filter(function(k){var t=tipos[k];return t.prev||t.real||t.prov;}).sort(function(a,b){return tipos[b].real-tipos[a].real;}).forEach(function(k){var t=tipos[k];
-    html+='<tr class="cc"><td>'+paEsc(t.nome)+(t.orig.length?' <span class="pa-orig">('+t.orig.join(' + ')+')</span>':'')+'</td><td>'+paValor(t.prev)+'</td><td class="pa-c-atual">'+paValor(t.real)+'</td><td>'+(t.prov?paValor(t.prov):'—')+'</td>'+
+  // % por tipo (28/10/2026): orçado ÷ receita orçada; realizado ÷ receita (mesma base do bloco 1) e peso na produção; ideal Ciclo e marca comum
+  var marcaTot=0,temMarca=false;
+  function pcts(t,total){
+    var peso=total?1:(Tot.real?t.real/Tot.real:0);
+    t.pOrc=T.prev?t.prev/T.prev*100:null;t.pReal=M.prodPctReal*peso;t.peso=peso*100;t.pIdeal=M.idealReal*peso;
+    if(!total){var mk=null;t.ids.forEach(function(id){var x=(metas['cc:'+id]||{}).marca;if(x!==null&&x!==undefined&&!isNaN(x))mk=(mk||0)+x;});t.pMarca=mk;if(mk!==null){marcaTot+=mk;temMarca=true;}}
+    else t.pMarca=temMarca?marcaTot:null;
+    return t;
+  }
+  function cOrc(t){return '<td>'+paValor(t.prev)+'<br><span class="pa-orig">'+fp(t.pOrc)+' rec.</span></td>';}
+  function cReal(t,total){var acima=t.pMarca!==null&&t.pReal>t.pMarca+0.005;return '<td class="pa-c-atual">'+paValor(t.real)+'<br><span class="pa-orig" style="'+(acima?'color:var(--red)':'')+'" title="% da receita do período'+(total?'':' · peso deste tipo na produção')+'">'+fp(t.pReal)+' rec.'+(total?'':' · '+fp(t.peso).replace('%','')+'% prod.')+'</span></td>';}
+  function cRef(t){return '<td class="pa-c-merc"><span title="Ideal da Ciclo (custo ideal do Mix × peso)">'+fp(t.pIdeal)+'</span><br><span class="pa-orig" title="Marca comum (referência)">marca '+fp(t.pMarca)+'</span></td>';}
+  var lst=ordemT.filter(function(k){var t=tipos[k];return t.prev||t.real||t.prov;}).sort(function(a,b){return tipos[b].real-tipos[a].real;});
+  lst.forEach(function(k){pcts(tipos[k],false);});pcts(Tot,true);
+  lst.forEach(function(k){var t=tipos[k];
+    html+='<tr class="cc"><td>'+paEsc(t.nome)+(t.orig.length?' <span class="pa-orig">('+t.orig.join(' + ')+')</span>':'')+'</td>'+cOrc(t)+cReal(t,false)+'<td>'+(t.prov?paValor(t.prov):'—')+'</td>'+cRef(t)+
       cel(t.saldoOrc)+cel(t.saldoIdO)+cel(t.saldoIdR)+pode(t.podeO,'')+pode(t.podeR,'')+'</tr>';});
-  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td><td>'+paValor(Tot.prev)+'</td><td>'+paValor(Tot.real)+'</td><td>'+paValor(Tot.prov)+'</td>'+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>';
+  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">O teto ideal de cada tipo de custo é o teto total distribuído pelo peso atual desse custo no realizado. <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Provisão Prevista</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
   document.getElementById('pa-root').innerHTML=html;
@@ -2215,6 +2229,8 @@ var PA_TUT={
   ['2. Dois cenários de receita','Pelo orçamento (otimista): out–dez batem o orçado. Pelo ritmo atual (conservador): out–dez seguem a média mensal realizada. Receita do ano × custo ideal = teto ideal de produção.','Teto = Receita do ano × Custo ideal %'],
   ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
+  ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
+  ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Tabelas Contábeis › Grupos).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
   ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados. O teto ideal de cada tipo é o teto total distribuído pelo peso atual desse custo no realizado.'],
   ['Provisões','Vêm da tela Provisão Prevista: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
