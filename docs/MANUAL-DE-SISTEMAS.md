@@ -591,6 +591,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   exclui grupo (exclusão só sem centros). Correção junto: `paErro` exibia o
   erro e o chamador exibia de novo "undefined" — agora `paMsgErro` devolve a
   mensagem sem exibir.
+- **Provisão Comissões Artistas** (28/10/2026, Cardoso): `cda_pa_provisao` id 71
+  (cc 60001, 2026) de **25.000,00 → 15.559,22** = contratado pelos canais
+  (53.175,85) − lançado (37.616,63). Revisar ao fechar outubro.
 - **Comissões contratado × lançado** (28/10/2026, subetapa 2.2, SQL
   `planejamento_anual_12_canal_centro_comissao.sql`, aprovado pelo Cardoso):
   `canais.centro_custo_id` (centro de RECEITA onde a venda do canal é lançada;
