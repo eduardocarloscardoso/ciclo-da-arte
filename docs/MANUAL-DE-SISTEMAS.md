@@ -602,6 +602,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Separação Impostos × Parcelamento** (28/10/2026, dados do Cardoso): em
+  Impostos sobre vendas (cc 30018) ficam só as parcelas integrais (dez/25 paga
+  em 21/01 6.850,35 · jan/26 paga em 20/02 9.124,45 · fev/26 paga em 20/04
+  6.899,91). Movido para Impostos - Parcelamento (cc 510010): jan 321,40 · fev
+  324,92 · mar 327,96 · abr 331,64 · jun 338,20 (parcelamentos parciais
+  finalizados) · jul 4.763,37 (sinal do parcelamento consolidado) · ago 733,87
+  (parcela 1/60; total 44.032,20). Valores antigos em 30018: jan 7.171,75 · fev
+  9.449,37 · mar 327,96 · abr 7.231,55 · jun 338,20 · jul 4.763,37 · ago 733,87
+  (set 741,79 aguardando confirmação). Apelido de importação "Impostos
+  Parcelamento sobre Vendas" (nome do centro no Bling) → cc 510010.
 - **Provisão Comissões Artistas** (28/10/2026, Cardoso): `cda_pa_provisao` id 71
   (cc 60001, 2026) de **25.000,00 → 15.559,22** = contratado pelos canais
   (53.175,85) − lançado (37.616,63). Revisar ao fechar outubro.
