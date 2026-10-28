@@ -947,7 +947,7 @@ function paSecaoVinculos(h,podeEd){
       linhas+='<tr class="cc"><td>'+paEsc(cc.nome)+'</td><td style="text-align:left;font-family:var(--ff-b);white-space:normal">'+(vc.length?paTextoVinculos(h,vc)+' <span class="pa-badge pa-st-warn">exceção</span>':'<span class="pa-mut" style="font-size:11.5px">↳ herda da subconta</span>')+'</td><td style="text-align:center">'+(podeEd?'<button class="pa-btn-ico" title="Editar vínculo do centro" onclick="paAbrirVinculo(\'cc\','+cc.id+')">✏️</button>':'')+'</td></tr>';
     });
   });
-  return '<div class="card" style="margin-top:18px"><div class="card-title">🔗 Vínculos Receita × Despesa</div><p class="pa-info" style="margin:4px 0 10px">Liga cada <b>despesa variável</b> ao(s) <b>canal(is) de receita</b> que ela gera — base da futura análise de Margem por Canal. A subconta define o padrão; um centro de custo pode ter vínculo próprio (exceção). Sem vínculo = todos os canais. O rateio entre canais é automático (proporcional à receita de cada um), salvo se você informar os percentuais.</p>'+
+  return '<div class="card" style="margin-top:18px"><div class="card-title" style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">🔗 Vínculos Receita × Despesa <button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'vinculos\')">ℹ️ Tutorial Informativo</button></div>'+
     '<div class="tbl-wrap"><table class="pa-tbl"><thead><tr><th>Despesa variável</th><th style="text-align:left">Canais de receita vinculados</th><th style="text-align:center">Ações</th></tr></thead><tbody>'+(linhas||'<tr><td colspan="3" class="pa-mut">Nenhuma despesa variável cadastrada (defina a Natureza acima).</td></tr>')+'</tbody></table></div></div>';
 }
 function paAbrirVinculo(nivel,id){
@@ -2210,6 +2210,12 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
+ vinculos:{t:'Vínculos Receita × Despesa',d:'Liga cada despesa variável ao(s) canal(is) de receita que ela gera. É a base da Margem por Canal (rateio das despesas variáveis entre os canais) e do % do valor vigente das despesas variáveis (que incide sobre a receita dos canais vinculados).',c:[
+  ['Despesa variável','Subcontas com natureza variável e, dentro delas, só os centros variáveis. A natureza vem do grupo do centro.'],
+  ['Canais de receita vinculados','Subcontas de receita (canais) que a despesa gera. Sem vínculo = todos os canais.'],
+  ['Subconta × centro (exceção)','A subconta define o padrão para todos os seus centros; um centro de custo pode ter vínculo próprio, marcado como exceção, que substitui o da subconta.'],
+  ['Rateio entre canais','Automático, proporcional à receita de cada canal vinculado. Se preferir, informe o % de cada canal — todos preenchidos e somando 100%.','Parte do canal = despesa × receita do canal ÷ receita dos canais vinculados'],
+  ['✏️ Ações','Abre a janela para marcar os canais e, se quiser, os percentuais de rateio.']]},
  grupos:{t:'Tabela de Grupos',d:'Grupos do ecossistema (o mesmo cadastro vale para o Planejamento e o Financeiro). Cada centro de custo — e cada canal de venda do Financeiro — pertence a um grupo. O grupo não guarda percentual: os valores do grupo são sempre a soma dos centros (Σ). O grupo de um centro se troca em Tabela Contábil › coluna Grupo.',c:[
   ['Geral — Filtros','Conta (Receitas mostra só os grupos de receita; Despesas, só os de despesa) · Grupo · Subconta · Centro · Buscar (nome do centro ou do grupo). Com filtro, os totais aparecem como "(filtrado)" e a linha Resultado não aparece. Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.'],
   ['Geral — Analítico / Sintético','Analítico: grupos abertos com os centros (clique no grupo fecha). Sintético: só a linha de cada grupo (clique abre).'],

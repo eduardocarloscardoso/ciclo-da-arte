@@ -602,6 +602,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Vínculos — Tutorial Informativo** (28/10/2026, pedido do Cardoso): o texto
+  explicativo do quadro 🔗 Vínculos Receita × Despesa saiu da tela e foi para o
+  botão ℹ️ Tutorial Informativo na linha do título (`PA_TUT.vinculos`).
 - **Tabela Contábil — Natureza nas receitas e cor do Grupo** (28/10/2026, pedido
   do Cardoso): receitas mostram "Receita" (verde) na coluna Natureza (antes
   vazia; receita não tem natureza fixa/variável); seletor de Grupo com texto
