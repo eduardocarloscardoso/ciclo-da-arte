@@ -137,7 +137,8 @@ function paErro(e, padrao){var m=paMsgErro(e,padrao);showToast(m,'error');return
     '.pa-neg{color:var(--red)}.pa-pos{color:var(--green)}.pa-mut{color:var(--muted)}',
     '.pa-acoes{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}',
     '.pa-badge{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;font-family:var(--ff-b)}',
-    '.pa-sel-nat{background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;padding:3px 6px;font-family:var(--ff-b);max-width:170px}.pa-sel-nat option{color:var(--white)}',
+    '.pa-sel-grupo{color:var(--white)!important;background:var(--card2);border:1px solid var(--border2);font-weight:600;max-width:210px}.pa-sel-grupo option{color:var(--white);background:var(--navy2)}',
+    '.pa-sel-nat{background:var(--card2);border:1px solid var(--border);border-radius:6px;font-size:11.5px;padding:3px 6px;font-family:var(--ff-b);max-width:170px}.pa-sel-nat option{color:var(--white);background:var(--navy2)}',
     '.pa-orig{font-size:10px;color:var(--muted);font-family:var(--ff-b);white-space:nowrap}.pa-orig.cad{color:var(--gold2)}',
     '.pa-alerta{background:rgba(201,148,58,.15);color:var(--gold2);border:1px solid rgba(201,148,58,.4);border-radius:6px;font-size:10px;font-weight:700;padding:1px 6px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap;margin-top:2px}',
     '.pa-param{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin:0 0 12px;font-size:12.5px}.pa-param label{display:flex;align-items:center;gap:6px;color:var(--muted2);font-size:11.5px}',
@@ -665,7 +666,7 @@ async function paTabelaContabil(){
   var semG=0,confG=0;h.centros.forEach(function(x){if(!x.conta||!x.ativo)return;var rec=x.conta.tipo==='RECEITAS',g=paGrupoDe(x);if(!g)semG++;else if(g.tipo!==(rec?'Receita':'Despesa'))confG++;});
   if(semG||confG)html+='<div class="pa-info" style="color:var(--gold2)">⚠ '+(semG?semG+' centro(s) sem grupo':'')+(semG&&confG?' · ':'')+(confG?confG+' centro(s) em grupo do tipo errado':'')+' — ajuste na coluna Grupo.</div>';
   html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · <b>✏️ Clique no nome</b> para renomear · <b>⏸</b> inativa / <b>▶</b> reativa · <b>🗑</b> exclui (só sem lançamentos) · <b>＋ Novo cadastro</b> inclui conta, subconta ou centro':'')+'</div>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda) ou fixa (estrutura). Vem do GRUPO do centro — para mudar, troque o grupo na coluna Grupo. Na subconta, resumo dos centros.">Natureza</th><th style="text-align:center" title="Grupo do ecossistema (Tabelas Contábeis › Grupos). A natureza do centro precisa ser a mesma do grupo.">Grupo</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda) ou fixa (estrutura). Vem do GRUPO do centro — para mudar, troque o grupo na coluna Grupo. Na subconta, resumo dos centros. Receitas: sem natureza fixa/variável.">Natureza</th><th style="text-align:center" title="Grupo do ecossistema (Tabelas Contábeis › Grupos). A natureza do centro precisa ser a mesma do grupo.">Grupo</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
     if(paEstado.centroId&&!g.subcontas.some(function(s){return s.centros.some(function(x){return String(x.id)===String(paEstado.centroId);});}))return;
@@ -675,12 +676,12 @@ async function paTabelaContabil(){
       if(b&&!centros.length&&paNorm(s.nome).indexOf(b)<0)return;
       if((paEstado.centroId||paEstado.grupoId)&&!centros.length)return;
       html+='<tr class="sub"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(s.nome)+'" data-orig="'+paEsc(s.nome)+'" aria-label="Nome da subconta" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_subconta\','+s.id+')">':paEsc(s.nome))+'</td>'+
-        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paNaturezaSubconta(s):'')+'</td><td></td><td></td>'+
+        '<td style="text-align:center">'+(c.tipo==='DESPESAS'?paNaturezaSubconta(s):'<span style="color:var(--green);font-size:11.5px" title="Contas de receita não têm natureza fixa/variável">Receita</span>')+'</td><td></td><td></td>'+
         '<td style="text-align:center">'+paBadgeAtivo(s.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_subconta',s.id,s.ativo,podeEd,adm)+'</td></tr>';
       if(paEstado.sintetico)return;
       centros.forEach(function(x){
         html+='<tr class="cc'+(x.ativo?'':' inativo')+'"><td>'+(podeEd?'<input class="pa-in pa-in-txt" value="'+paEsc(x.nome)+'" data-orig="'+paEsc(x.nome)+'" aria-label="Nome do centro de custo" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paRenomear(this,\'cda_pa_centro_custo\','+x.id+')">':paEsc(x.nome))+'</td>'+
-          '<td style="text-align:center">'+(c.tipo==='DESPESAS'?(paGrupoDe(x)&&paGrupoDe(x).natureza?paRotuloNatureza(paGrupoDe(x).natureza,'do grupo'):paCampoNatureza('cda_pa_centro_custo',x.id,x.natureza,s.natureza,podeEd)):'')+'</td>'+
+          '<td style="text-align:center">'+(c.tipo==='DESPESAS'?(paGrupoDe(x)&&paGrupoDe(x).natureza?paRotuloNatureza(paGrupoDe(x).natureza,'do grupo'):paCampoNatureza('cda_pa_centro_custo',x.id,x.natureza,s.natureza,podeEd)):'<span style="color:var(--green);font-size:11.5px" title="Contas de receita não têm natureza fixa/variável">Receita</span>')+'</td>'+
           '<td style="text-align:center">'+paCampoGrupo(x,podeEd)+'</td>'+
           '<td style="text-align:center">'+paCampoVigente(x,c.tipo,podeEd)+'</td>'+
           '<td style="text-align:center">'+paBadgeAtivo(x.ativo)+'</td><td style="text-align:center">'+paAcoesLinha('cda_pa_centro_custo',x.id,x.ativo,podeEd,adm)+'</td></tr>';
@@ -806,7 +807,7 @@ function paCampoGrupo(cc,podeEd){
   var aviso=conf?' <span class="pa-badge err" title="'+(rec?'Grupo de despesa num centro de receita':'Grupo de receita num centro de despesa')+'. Troque o grupo.">⚠ tipo</span>':(!g?' <span class="pa-badge pa-st-warn">sem grupo</span>':'');
   if(!podeEd)return '<span style="font-size:11.5px">'+(g?paEsc(g.nome):'—')+'</span>'+aviso;
   var ops=(paCache.grupos||[]).filter(function(x){return x.tipo===tipoG&&(x.ativo||(g&&x.id===g.id));});
-  return '<select class="pa-sel-nat" aria-label="Grupo de '+paEsc(cc.nome)+'" onchange="paSalvarGrupoCentro(this,'+cc.id+')"><option value="">— sem grupo —</option>'+
+  return '<select class="pa-sel-nat pa-sel-grupo" aria-label="Grupo de '+paEsc(cc.nome)+'" onchange="paSalvarGrupoCentro(this,'+cc.id+')"><option value="">— sem grupo —</option>'+
     ops.map(function(x){return '<option value="'+x.id+'" '+(g&&x.id===g.id?'selected':'')+'>'+paEsc(x.nome)+(x.natureza?' ('+(x.natureza==='variavel'?'variável':'fixa')+')':'')+'</option>';}).join('')+'</select>'+aviso;
 }
 async function paSalvarGrupoCentro(sel,ccId){

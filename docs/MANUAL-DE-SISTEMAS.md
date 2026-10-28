@@ -602,6 +602,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Tabela Contábil — Natureza nas receitas e cor do Grupo** (28/10/2026, pedido
+  do Cardoso): receitas mostram "Receita" (verde) na coluna Natureza (antes
+  vazia; receita não tem natureza fixa/variável); seletor de Grupo com texto
+  claro e em negrito (`.pa-sel-grupo`) e opções com fundo escuro legível.
 - **Texto do Vigente em %** (28/10/2026, pedido do Cardoso): passa a dizer sobre
   qual receita incide — "40,85% da receita de E-COMMERCE" (canais vinculados à
   despesa; até 2 nomes, senão "N canais"; sem vínculo = "da receita total"),
