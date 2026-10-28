@@ -602,6 +602,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Tabela de Grupos — página própria** (28/10/2026, pente fino pedido pelo
+  Cardoso): menu Planejamento Anual › **Tabela de Grupos** (`paTabelaGrupos`),
+  logo abaixo de Tabelas Contábeis, com os quadros 💰 Grupos de Receita e 🧩
+  Grupos de Despesa (antes no fim da Tabela Contábil). A Tabela Contábil ficou
+  com a tabela de contas (coluna Grupo para trocar o grupo do centro), Vínculos
+  e Apelidos — e carrega mais rápido. Filtros na Tabela de Grupos: Conta
+  (Receitas / Despesas mostra só o quadro do tipo), Grupo, Subconta, Centro,
+  Buscar (nome do centro ou do grupo; canais do Financeiro listados só os dos
+  centros visíveis) e Analítico (grupos abertos, clique fecha) / Sintético (só
+  grupos, clique abre). Com filtro, totais "(filtrado)" e sem a linha Resultado.
 - **Filtros em cascata com preenchimento automático** (28/10/2026, pente fino
   pedido pelo Cardoso; todas as telas com filtro): ao trocar Conta, Grupo ou
   Subconta (`paMudaFiltro`), os filtros de baixo são limpos e, se o seguinte
