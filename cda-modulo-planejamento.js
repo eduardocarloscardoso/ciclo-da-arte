@@ -2164,7 +2164,7 @@ function paBlocoComissoes(d,canais,ult,fGr){
   var h=d.h,porCc={};h.centros.forEach(function(cc){porCc[String(cc.id)]=cc;});
   function fp(v){return (Math.round(v*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   var centros={};
-  canais.forEach(function(k){if(!k.centro_custo_id)return;var id=String(k.centro_custo_id),cc=porCc[id];if(!cc)return;
+  canais.forEach(function(k){if(!k.centro_custo_id)return;var id=String(k.centro_custo_id),cc=porCc[id];if(!cc||!cc.conta||cc.conta.tipo!=='RECEITAS')return; // canal sem valor comercial (ligado a despesa) fica fora
     var c=centros[id]||(centros[id]={cc:cc,canais:[],pct:0,destino:null,diverge:false,real:paRealAte(d,cc.id,ult)});
     c.canais.push(k);var pe=paPctEfetivo(k);
     if(pe>0){if(c.pct>0&&Math.abs(c.pct-pe)>0.005)c.diverge=true;if(pe>c.pct){c.pct=pe;c.destino=k.comissao_centro_id;}}});
@@ -2234,7 +2234,7 @@ var PA_TUT={
   ['Geral — Analítico / Sintético','Analítico: grupos abertos com os centros (clique no grupo fecha). Sintético: só a linha de cada grupo (clique abre).'],
   ['Geral — Avisos','Aparecem na tela só quando há algo a corrigir: canal do Financeiro sem grupo, ou centro sem o motivo obrigatório.'],
   ['Geral — Novo grupo / ⏸ / 🗑','Administrador: cria grupo (despesa fixa, despesa variável ou receita), renomeia clicando no nome, inativa/reativa (⏸ ▶) e exclui (🗑, só grupo sem centros nem canais). A natureza (fixa/variável) dos centros vem do grupo.'],
-  ['Receita — Grupos por tipo de canal','Atacado, Shows de artistas, Revendas, E-commerce, Misto, Feiras e bazares, Venda direta Ciclo, Vendas subsidiadas, Market Place, Brindes/Permutas e Canais inativos. Cada centro de receita do Planejamento e cada canal do Financeiro ficam ligados a um deles.'],
+  ['Receita — Grupos por tipo de canal','Atacado, Shows de artistas, Revendas, E-commerce, Misto, Feiras e bazares, Venda direta Ciclo, Vendas subsidiadas, Market Place e Canais inativos. Cada centro de receita do Planejamento e cada canal de venda do Financeiro ficam ligados a um deles. O canal CICLO BRINDES / PERMUTAS (sem valor comercial) é despesa: fica no grupo Marketing, centro Brindes / Permutas.'],
   ['Receita — Centros · canais','Ao lado do nome do grupo: quantos centros de receita do Planejamento e canais do Financeiro ele tem. Aberto, o grupo lista os centros e, abaixo, os canais do Financeiro. Os valores em R$ ficam no Mix de Vendas.'],
   ['Receita — Meta Ciclo % (orçado)','Participação do grupo (ou centro) no orçamento de receita do ano.','Orçado do grupo ÷ orçado total'],
   ['Receita — Realizado %','Participação do grupo (ou centro) na receita realizada de janeiro até o último mês lançado.','Realizado do grupo ÷ realizado total'],

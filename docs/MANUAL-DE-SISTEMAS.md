@@ -602,6 +602,18 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Brindes / Permutas é DESPESA variável** (28/10/2026, Cardoso; SQL
+  `planejamento_anual_15_brindes_despesa.sql`): desfeito o lado de receita criado
+  na 2.2 (centro 510009, subconta de receita 150004 e grupo de receita "Brindes /
+  Permutas", todos sem valores). Centro de despesa 420008 "Brindes" →
+  **"Brindes / Permutas"**, do grupo Marketing fixo para **Marketing (variável)**,
+  Mercado 0,30% e Marca comum 0,30% mantidos; apelido "Brindes" → 420008. Canal
+  do Financeiro CICLO BRINDES / PERMUTAS (sem valor comercial) → grupo Marketing e
+  centro 420008; regras do banco passam a aceitar canal em grupo/centro de
+  despesa. Efeito: Mercado fixos 27,05 → 26,75% e variáveis +0,30; Marca comum
+  fixos 28,00 → 27,70% e variáveis 70,36 → 70,66% (lucro de referência
+  inalterado, +1,64%). Comissões contratado × lançado ignora canal ligado a
+  despesa. Mix de receitas continua somando 100%.
 - **Marca comum das RECEITAS — mix** (28/10/2026, matriz aprovada pelo Cardoso;
   SQL `planejamento_anual_14_marca_comum_receitas.sql`): `pct_marca_comum` nos 39
   centros de receita (soma 100%). Por grupo: Atacado/Private Label 20 · Shows 12 ·
