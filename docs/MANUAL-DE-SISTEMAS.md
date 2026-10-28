@@ -610,7 +610,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   finalizados) · jul 4.763,37 (sinal do parcelamento consolidado) · ago 733,87
   (parcela 1/60; total 44.032,20). Valores antigos em 30018: jan 7.171,75 · fev
   9.449,37 · mar 327,96 · abr 7.231,55 · jun 338,20 · jul 4.763,37 · ago 733,87
-  (set 741,79 aguardando confirmação). Apelido de importação "Impostos
+  · set 741,79 (parcela 2/60, movida depois da confirmação; antes em 30018).
+  Imposto mar–out/26 não pago vai gerar **parcelamento novo** (Cardoso):
+  `cda_pa_provisao` id 80 (cc 30018) **0 → 77.811,96** = 8,36% × receita
+  mar–set 830.765,07 (69.451,96) + out hipotético 100.000 × 8,36% (8.360,00);
+  atualizar ao fechar outubro. Nos anos seguintes, as parcelas desse
+  parcelamento caem em Impostos - Parcelamento (dívida, grupo Financeiro).
+  Apelido de importação "Impostos
   Parcelamento sobre Vendas" (nome do centro no Bling) → cc 510010.
 - **Provisão Comissões Artistas** (28/10/2026, Cardoso): `cda_pa_provisao` id 71
   (cc 60001, 2026) de **25.000,00 → 15.559,22** = contratado pelos canais
