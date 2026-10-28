@@ -602,6 +602,19 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Natureza vem só do grupo** (28/10/2026, subetapa 2.3, SQL
+  `planejamento_anual_13_natureza_do_grupo.sql`, aprovado pelo Cardoso): centro
+  de despesa com grupo tem a natureza do grupo — o trigger
+  `cda_pa_valida_grupo_centro` copia a natureza do grupo (trocar o grupo troca a
+  natureza; não há mais erro de conflito) e `cda_propaga_natureza_grupo` leva a
+  mudança de natureza de um grupo para todos os seus centros. 77/77 centros
+  sincronizados (71 herdavam da subconta). Front: `paNaturezaCentro` lê o grupo;
+  Tabela Contábil mostra a natureza só para leitura ("do grupo"; na subconta,
+  resumo "dos centros" ou "mista"); a coluna Grupo lista todos os grupos de
+  despesa com a natureza entre parênteses. Natureza da subconta fica só como
+  reserva para centro sem grupo. Conferido: totais de Estrutura Fixos/Variáveis,
+  Mercado e Marca comum somados e Resultado idênticos antes e depois. Backup
+  `cda_pa_centro_natureza_backup_20261028` (116 linhas; apagar após validação).
 - **Separação Impostos × Parcelamento** (28/10/2026, dados do Cardoso): em
   Impostos sobre vendas (cc 30018) ficam só as parcelas integrais (dez/25 paga
   em 21/01 6.850,35 · jan/26 paga em 20/02 9.124,45 · fev/26 paga em 20/04
