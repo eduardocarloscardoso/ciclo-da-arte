@@ -632,6 +632,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Integração API Bling — projeto** (29/10/2026, Cardoso): o submódulo Financeiro ›
+  Importar Planilha Bling será renomeado "Integração API Bling" e centralizará as
+  operações com o BLING em 3 telas — 1) Receitas no Período, 2) Despesas no Período
+  (ambas → Orçamento Realizado), 3) Receitas no Período / Histórico de Compras
+  (→ Prestação de Contas + Histórico de Compras) — com API como principal e Excel
+  como contingência. Registrado no ℹ️ Tutorial Informativo do submódulo
+  (`#mo-tut-bling` em financeiro.html), com o levantamento das importações por Excel
+  do ecossistema e os dados do aplicativo da API v3 (callback, escopos, segredos
+  `BLING_CLIENT_ID`/`BLING_CLIENT_SECRET`, limites). Passo a passo de cadastro no
+  documento Word "Integracao-BLING-API-Ciclo-da-Arte.docx". Etapa seguinte:
+  Cardoso cadastra o aplicativo; Claude prepara a prévia da reorganização das telas.
 - **Orçamento Anual — Tutorial Informativo** (28/10/2026, pente fino): a linha de
   explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
   soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
