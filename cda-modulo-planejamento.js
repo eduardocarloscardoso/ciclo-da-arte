@@ -108,6 +108,8 @@ function paErro(e, padrao){var m=paMsgErro(e,padrao);showToast(m,'error');return
     '.pa-kpi .t{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}',
     '.pa-kpi .v{font-family:var(--ff-m);font-size:14.5px;font-weight:500;margin-top:4px;line-height:1.3}',
     '.pa-kpi .s{font-size:11px;color:var(--muted2);margin-top:2px;font-family:var(--ff-m)}',
+    '.pa-kpis-mini{gap:8px;margin-bottom:10px}.pa-kpis-mini .pa-kpi{padding:6px 12px;display:flex;flex-wrap:wrap;align-items:baseline;column-gap:14px;row-gap:1px}',
+    '.pa-kpis-mini .pa-kpi .t{flex:1 0 100%;font-size:9.5px}.pa-kpis-mini .pa-kpi .v,.pa-kpis-mini .pa-kpi .s{font-size:12px;margin-top:2px;line-height:1.25}',
     '#pa-root{min-width:0;max-width:100%}',
     '.pa-tbl-wrap{overflow:auto;max-height:calc(100vh - 290px);border:1px solid var(--border);border-radius:12px;width:0;min-width:100%}',
     '.pa-prev{width:0;min-width:100%}',
@@ -1245,7 +1247,6 @@ async function paVisaoTrimestral(){
   var divMedia=Math.min(fimTri,d.ultimo||0);
   var seg='<div class="pa-toggle" role="group" aria-label="Trimestre">'+[1,2,3,4].map(function(i){return '<button class="'+(i===t?'on':'')+'" onclick="paEstado.trim='+i+';navigatePlanejamento(\'trimestral\')">'+i+'ºT</button>';}).join('')+'</div>';
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:seg+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'trimestral\')">ℹ️ Tutorial Informativo</button>'});
-  html+=paInfoUltimo(d,ano,'Tabela em R$ · Exibindo <b>'+PA_MESES[meses[0]-1]+' a '+PA_MESES[meses[2]-1]+'</b> · Média Mensal Realizada = Total Real. '+rot+' ÷ <b>'+divMedia+'</b> '+(divMedia===1?'mês':'meses')+' com Orçamento Realizado');
   function linha(cc){
     var p=d.prev[cc.id]||0,mm=d.mes[cc.id]||{},m1=mm[meses[0]]||0,m2=mm[meses[1]]||0,m3=mm[meses[2]]||0,acum=paRealAte(d,cc.id,fimTri);
     return {prev:p,pm:p/12,prevAte:p/12*fimTri,m1:m1,m2:m2,m3:m3,prevTri:p/12*3,tri:m1+m2+m3,acum:acum,media:divMedia>0?acum/divMedia:0};
@@ -1253,10 +1254,10 @@ async function paVisaoTrimestral(){
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prevAte;tot[g.conta.tipo].real+=l.acum;});});});
   var res={prev:tot.RECEITAS.prev-tot.DESPESAS.prev,real:tot.RECEITAS.real-tot.DESPESAS.real};
-  html+='<div class="pa-kpis">'+
-    paKpi('Total Receitas '+rot,'Previsto '+paBRL(tot.RECEITAS.prev),'Realizado '+paBRL(tot.RECEITAS.real),'var(--green)')+
-    paKpi('Total Despesas '+rot,'Previsto '+paBRL(tot.DESPESAS.prev),'Realizado '+paBRL(tot.DESPESAS.real),'var(--red)')+
-    paKpi('Resultado (Receita − Despesa) '+rot,'Previsto '+paBRL(res.prev),'Realizado '+paBRL(res.real),res.real>=0?'var(--blue)':'var(--red)')+
+  html+='<div class="pa-kpis pa-kpis-mini">'+
+    paKpi('Total Receitas '+rot,'Prev. '+paBRL(tot.RECEITAS.prev),'Real. '+paBRL(tot.RECEITAS.real),'var(--green)')+
+    paKpi('Total Despesas '+rot,'Prev. '+paBRL(tot.DESPESAS.prev),'Real. '+paBRL(tot.DESPESAS.real),'var(--red)')+
+    paKpi('Resultado (Receita − Despesa) '+rot,'Prev. '+paBRL(res.prev),'Real. '+paBRL(res.real),res.real>=0?'var(--blue)':'var(--red)')+
   '</div>';
   html+=paTabelaHier(d,{
     classe:'pa-compacta pa-estreita',
@@ -2296,8 +2297,9 @@ var PA_TUT={
   ['Saldo Mensal Anual pendente a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o último Orçamento Realizado lançado (exibido acima da tabela, com os meses restantes), para atingir o previsto do ano. Não muda com o mês filtrado.','Saldo Mensal = (Previsto Ano − Total Real + Prov) ÷ meses restantes (12 − último mês realizado)'],
   ['Mês sem lançamentos','Se escolher um mês posterior ao último realizado, aparece o aviso "mês sem lançamentos" e Previsto Mês/Realizado ficam zerados.']]},
  trimestral:{t:'Visão Trimestral Acumulada',d:'Mostra os três meses do trimestre lado a lado e o acumulado do ano até o fim do trimestre, com a média mensal realizada para comparar com o previsto mensal.',c:[
-  ['1ºT a 4ºT','Escolhe o trimestre (1ºT = jan–mar … 4ºT = out–dez). Abre no trimestre do último mês realizado.'],
-  ['Cartões "até o nºT"','Previsto e Realizado acumulados de janeiro até o fim do trimestre escolhido, por Receitas e Despesas, e o Resultado (Receitas − Despesas).','Previsto = Prev. Mês × meses até o fim do trimestre · Realizado = soma de jan até o fim do trimestre'],
+  ['1ºT a 4ºT','Escolhe o trimestre (1ºT = jan–mar … 4ºT = out–dez) — a tabela exibe os três meses dele (ex.: 2ºT = Abril a Junho). Abre no trimestre do último mês realizado. Valores da tabela em R$.'],
+  ['Último mês realizado','Último mês com Orçamento Realizado no ano (hoje aparece no Orçamento Realizado e nas demais telas). Define quantos meses entram na Média Mensal Realizada.'],
+  ['Cartões "até o nºT"','Prev. (previsto) e Real. (realizado) acumulados de janeiro até o fim do trimestre escolhido, por Receitas e Despesas, e o Resultado (Receitas − Despesas).','Previsto = Prev. Mês × meses até o fim do trimestre · Realizado = soma de jan até o fim do trimestre'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
   ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
   ['Meses do trimestre','Realizado lançado em cada mês do trimestre escolhido.'],

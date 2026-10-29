@@ -632,6 +632,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Visão Trimestral Acumulada — topo e cartões** (29/10/2026, Cardoso): retirada toda
+  a linha do topo (último mês, meses restantes, "Tabela em R$", meses exibidos, fórmula
+  da Média Mensal) — fórmulas e convenções no ℹ️ Tutorial Informativo
+  (`PA_TUT.trimestral`). Cartões mais baixos (classe `pa-kpis-mini`: Prev. e Real. na
+  mesma linha, 12px; altura ~64 → 45px).
 - **Comparativo Mensal — topo e coluna** (29/10/2026, Cardoso): saiu da linha do
   topo o texto de fórmulas (Variação, Previsto acumulado, Saldo Mensal) — já estão no
   ℹ️ Tutorial Informativo (`PA_TUT.comparativo`); no topo fica "Último mês realizado
