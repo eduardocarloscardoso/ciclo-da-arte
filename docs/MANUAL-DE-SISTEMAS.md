@@ -602,6 +602,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Origem do Realizado — BLING** (29/10/2026, Cardoso): a planilha Excel importada
+  no Orçamento Realizado vem do ERP **BLING** — Receitas: **Relatório de Vendas**
+  (coluna "Vendedor" = canal; "Total Venda" = valor); Despesas: **Relatório de
+  Pagamentos** (1ª coluna = categoria/centro; 2ª = valor). Em breve a planilha será
+  substituída por **API direta com o BLING**. Registrado no ℹ️ Tutorial
+  Informativo do Orçamento Realizado (`PA_TUT.realizado`), junto com importação,
+  apelidos, edição pontual, coluna Origem e Limpar Período. Cardoso decidiu manter
+  a tela como está (coluna Origem e edição pontual).
 - **Orçamento Realizado — texto do topo** (29/10/2026, Cardoso): só "Último mês
   realizado em <ano>: <mês>" (saíram "Exibindo", nº de lançamentos e a dica de
   edição). Coluna **Origem** = de onde veio o valor do mês: Excel (importação da

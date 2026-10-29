@@ -491,7 +491,7 @@ async function paOrcamentoRealizado(){
   var rows=await sb.get('cda_pa_realizado_mensal','ano=eq.'+ano+'&mes=eq.'+mes);
   var val={},orig={};rows.forEach(function(x){val[x.centro_custo_id]=Number(x.valor_realizado)||0;orig[x.centro_custo_id]=x.origem;});
   var podeEd=paPodeEditar();
-  var acoes=(podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacao()">⬆ Importar Excel</button>':'')+(paIsAdmin()?'<button class="btn btn-danger btn-sm" onclick="paAbrirLimpeza()">🗑 Limpar Período</button>':'');
+  var acoes=(podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacao()">⬆ Importar Excel</button>':'')+(paIsAdmin()?'<button class="btn btn-danger btn-sm" onclick="paAbrirLimpeza()">🗑 Limpar Período</button>':'')+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'realizado\')">ℹ️ Tutorial Informativo</button>';
   var html=paFiltroHTML(h,{anos:anos,mes:true,acoes:acoes});
   var totMes={RECEITAS:0,DESPESAS:0};
   h.centros.forEach(function(cc){var c=h.contas.find(function(x){return x.id===cc.subconta.conta_id;});if(c)totMes[c.tipo]+=val[cc.id]||0;});
@@ -2220,6 +2220,16 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
+ realizado:{t:'Orçamento Realizado',d:'Valores realizados mês a mês, por centro de custo. Os dados vêm do sistema ERP BLING, exportados em planilha Excel e importados aqui. Em breve a planilha será substituída por integração direta (API) com o BLING.',c:[
+  ['Origem dos dados — Receitas','BLING › Relatório de Vendas. Na planilha, a coluna "Vendedor" é o canal de venda (centro de receita) e "Total Venda" é o valor.'],
+  ['Origem dos dados — Despesas','BLING › Relatório de Pagamentos. 1ª coluna = centro de custo (categoria do BLING), 2ª coluna = valor pago no mês.'],
+  ['⬆ Importar Excel','Escolha ano e mês e o arquivo. Cada aba precisa ter "Receita" ou "Despesa" no nome (ou escolha o tipo). Cada aba substitui o mês inteiro daquela conta. Antes de gravar aparece a prévia: centros reconhecidos, apelidos e nomes não encontrados.'],
+  ['Apelidos de importação','Quando o nome no BLING é diferente do cadastro, o apelido (Tabela Contábil › Apelidos de importação) indica o centro certo. Ex.: "Impostos Parcelamento sobre Vendas" → Impostos - Parcelamento; "Brindes" → Brindes / Permutas.'],
+  ['Mês','Mês exibido na tabela. "Último mês realizado" (acima da tabela) é o último mês com lançamentos no ano.'],
+  ['Realizado do mês','Valor do centro no mês. Campos com borda dourada podem ser corrigidos (digite e tecle Enter) por quem tem permissão de edição — uso só para ajustes pontuais; o normal é importar do BLING.'],
+  ['Origem','De onde veio o valor: Excel (importação da planilha do BLING), Manual (corrigido na tela ou ajuste registrado, ex.: separações de VT, Uber, Impostos/Parcelamento), Manus (migração do sistema antigo, já desativado).'],
+  ['🗑 Limpar Período','Administrador: apaga os lançamentos de um período para reimportar. Use com cuidado.'],
+  ['Integração futura','A importação por planilha será substituída por API direta com o BLING (Receitas e Pagamentos), sem precisar exportar Excel.']]},
  orcamento:{t:'Orçamento Anual',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
   ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
   ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],
