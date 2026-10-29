@@ -144,6 +144,17 @@ tr:hover td{background:#faf7f0;}
 .mo-h h3{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;}
 .mo-x{background:none;border:none;color:var(--cream);font-size:18px;cursor:pointer;}
 .mo-b{padding:22px;}
+.tut-bling{font-size:12.5px;line-height:1.6;}
+.tut-bling h4{font-family:'DM Serif Display',serif;font-size:17px;font-weight:400;margin:18px 0 6px;color:var(--ink);}
+.tut-bling h4:first-of-type{margin-top:4px;}
+.tut-bling ul,.tut-bling ol{margin:4px 0 8px 20px;}
+.tut-bling li{margin-bottom:4px;}
+.tut-bling code{font-family:Consolas,monospace;font-size:11.5px;background:#f5f0e8;padding:1px 4px;word-break:break-all;}
+.tut-bling .tb-mut{color:var(--muted);font-size:11.5px;}
+.tut-bling .tb-warn{color:#a3361f;font-weight:600;}
+.tut-bling .tb-t{width:100%;border-collapse:collapse;margin:6px 0 8px;font-size:11.5px;}
+.tut-bling .tb-t th{background:var(--ink);color:var(--cream);text-align:left;padding:6px 8px;font-weight:600;}
+.tut-bling .tb-t td{border:1px solid var(--border);padding:6px 8px;vertical-align:top;}
 .mo-f{padding:14px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;}
 /* FORM */
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
@@ -389,8 +400,11 @@ tr:hover td{background:#faf7f0;}
 
     <!-- UPLOAD -->
     <div class="pg" id="pg-upload">
-      <div class="sec-t">Importar Planilha Bling</div>
-      <div class="sec-d">Envie a planilha mensal de prestação de contas</div>
+      <div class="row-bt">
+        <div><div class="sec-t">Importar Planilha Bling</div>
+        <div class="sec-d">Envie a planilha mensal de prestação de contas</div></div>
+        <button class="btn sm" onclick="openMo('mo-tut-bling')" title="Tutorial Informativo — planilha BLING e futura Integração API Bling">ℹ️ Tutorial Informativo</button>
+      </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px;">
         <div class="fgr"><label>Mês de Referência *</label><input type="month" id="up-mes" value="2026-03"></div>
         <div class="fgr"><label style="color:var(--muted)">Collab / Canal</label>
@@ -539,6 +553,84 @@ tr:hover td{background:#faf7f0;}
 </div>
 
 <!-- MODAL COLLAB VENDEDOR -->
+<div class="mo" id="mo-tut-bling">
+  <div class="mo-box" style="max-width:880px">
+    <div class="mo-h"><h3>ℹ️ Tutorial Informativo — Planilha BLING e Integração API Bling</h3><button class="mo-x" onclick="closeMo('mo-tut-bling')">✕</button></div>
+    <div class="mo-b tut-bling">
+      <p class="tb-mut">Registro de 29/10/2026 (Cardoso + Claude). Atualizar este tutorial a cada etapa da integração.</p>
+
+      <h4>1. O que este submódulo faz hoje</h4>
+      <ul>
+        <li>Importa o <b>Relatório de Vendas do BLING detalhado por produto</b> (Excel). Cada bloco começa por uma linha de <b>Vendedor</b> (= collab/canal, ex.: "Vendas sem vendedor") seguida dos produtos vendidos. Colunas: Produto, Código, Localização, Qtde, Qtde faturada, Preço Médio, Valor, Valor faturado, Frete, Desconto, Outras despesas, <b>Total Venda</b>.</li>
+        <li>Com ela o sistema monta a <b>Prestação de Contas</b> do mês de cada collab/canal (Total Venda Bruta, Imposto, Desc. Operacional, Royalties, Base Comissão, Comissão — com os % de cada canal) e grava cada item no <b>Histórico de Compras</b>, ligado à prestação de origem.</li>
+        <li>Antes de importar: escolha o <b>Mês de Referência</b>; se editou Canais de Venda recentemente, clique em <b>Sincronizar Cadastro</b>.</li>
+      </ul>
+
+      <h4>2. Relatórios do BLING usados no ecossistema</h4>
+      <table class="tb-t"><thead><tr><th>Relatório BLING</th><th>Onde é importado</th><th>Para onde vai</th></tr></thead><tbody>
+        <tr><td>Relatório de Vendas — por produto</td><td>Financeiro › Importar Planilha Bling (esta tela)</td><td>Prestação de Contas + Histórico de Compras</td></tr>
+        <tr><td>Relatório de Vendas — total por vendedor (colunas "Vendedor" e "Total Venda")</td><td>Planejamento Anual › Orçamento Realizado › Importar (Receitas)</td><td>Realizado mensal por centro de custo (canal → centro)</td></tr>
+        <tr><td>Relatório de Pagamentos (1ª coluna = categoria/centro; 2ª = valor)</td><td>Planejamento Anual › Orçamento Realizado › Importar (Despesas)</td><td>Realizado mensal por centro de custo</td></tr>
+      </tbody></table>
+      <ul>
+        <li>As linhas 1 e 2 vêm do <b>mesmo relatório de vendas</b>: a soma das prestações do mês deve bater com a Receita do Orçamento Realizado.</li>
+        <li>Orçamento Realizado: cada aba substitui o mês inteiro daquela conta; nas despesas do BLING o Tipo deve ser <b>Despesas</b> (a aba vem como "Worksheet"); cabeçalhos "Despesas …" e a linha "Total" são ignorados. Depois de importar despesas, refazer o <b>rateio do Uber</b> (R$ 500/mês de Eventos Uber → Produção - Transporte).</li>
+        <li>29/10/2026: corrigido o importador do Realizado — centro de despesa com o mesmo nome da subconta ("Aluguel - Espaços em Lojas") deixou de ser descartado como cabeçalho.</li>
+      </ul>
+
+      <h4>3. Importações por Excel no ecossistema (levantamento 29/10/2026)</h4>
+      <table class="tb-t"><thead><tr><th>Módulo › tela</th><th>Planilha</th><th>Origem</th><th>Destino na centralização</th></tr></thead><tbody>
+        <tr><td>Financeiro › Importar Planilha Bling</td><td>Vendas por produto</td><td>BLING</td><td>Vai para a Integração API Bling (tela 3)</td></tr>
+        <tr><td>Planejamento Anual › Orçamento Realizado › Importar</td><td>Vendas por vendedor · Pagamentos</td><td>BLING</td><td>Vai para a Integração API Bling (telas 1 e 2)</td></tr>
+        <tr><td>Planejamento Anual › Orçamento Anual › Importar</td><td>Previsto do ano + Realizado do ano anterior (layout Manus)</td><td>Planilha própria</td><td>Fica onde está</td></tr>
+        <tr><td>Painel › Ações › Importar Excel</td><td>Tarefas do plano de ação</td><td>Planilha própria</td><td>Fica onde está</td></tr>
+      </tbody></table>
+      <p class="tb-mut">Backups (JSON), PDFs de cardápio e Word dos tutoriais não são importações de Excel. Estoque, Comercial e Marketing não importam Excel.</p>
+
+      <h4>4. Projeto aprovado: "Integração API Bling"</h4>
+      <ul>
+        <li>Este submódulo será <b>renomeado para Integração API Bling</b> e centralizará todas as operações com o BLING, em 3 telas:
+          <ol>
+            <li><b>Receitas no Período</b> — totais por vendedor/canal → Orçamento Realizado.</li>
+            <li><b>Despesas no Período</b> — totais por categoria → Orçamento Realizado.</li>
+            <li><b>Receitas no Período / Histórico de Compras</b> — detalhe por produto → Prestação de Contas + Histórico de Compras (a tela de hoje).</li>
+          </ol></li>
+        <li>Cada tela terá <b>API (principal)</b> e <b>Excel (contingência)</b>, com a mesma pré-visualização e as mesmas regras de hoje (apelidos, vínculos canal → centro, gravação só após confirmar).</li>
+        <li>1 e 3 usam a mesma consulta ao BLING; o sistema confere uma contra a outra.</li>
+        <li>Permissões: telas 1 e 2 gravam no Planejamento Anual (regra de escrita de lá — administrador); tela 3 mantém a permissão atual do Financeiro.</li>
+        <li>O botão Importar do Orçamento Realizado passará a abrir este submódulo (um só caminho).</li>
+        <li>Rateio do Uber aplicado automaticamente a cada atualização de despesas; coluna Origem passa a mostrar "Bling".</li>
+      </ul>
+
+      <h4>5. Dados da API a criar no BLING (API v3)</h4>
+      <p><b>Cadastro do aplicativo</b> (uma vez, usuário administrador do BLING) — passo a passo completo no documento Word "Integracao-BLING-API-Ciclo-da-Arte.docx" (29/10/2026):</p>
+      <ul>
+        <li>Caminho: <b>Central de Extensões › Área do Integrador › Criar aplicativo</b>, uso privado/próprio (não publicado na loja).</li>
+        <li>Nome: <b>Ciclo da Arte — Planejamento Anual</b>. Descrição: leitura de pedidos de venda e contas pagas; somente consulta.</li>
+        <li>Link de redirecionamento (callback): <code>https://gsizoiwefejsllgtsard.supabase.co/functions/v1/bling-oauth</code></li>
+        <li>Escopos (somente leitura): <b>Pedidos de Venda, Vendedores, Contas a Pagar, Borderôs, Categorias de receitas e despesas</b>; opcionais: Contas a Receber, Contatos. <span class="tb-warn">Alterar escopos depois revoga o acesso — marcar todos de uma vez.</span></li>
+        <li>Credenciais: <b>Client ID</b> e <b>Client Secret</b> — gravar no Supabase › Edge Functions › Secrets como <code>BLING_CLIENT_ID</code> e <code>BLING_CLIENT_SECRET</code>. Nunca enviar o Secret por e-mail ou mensagem; se vazar, gerar outro.</li>
+      </ul>
+      <p><b>Funcionamento técnico</b></p>
+      <ul>
+        <li>OAuth2: autorização em <code>www.bling.com.br/Api/v3/oauth/authorize</code>; troca e renovação em <code>api.bling.com.br/Api/v3/oauth/token</code>. O código de autorização vale ~1 minuto e é de uso único; o token de acesso dura ~6 horas; a renovação vale 30 dias e é prorrogada a cada uso.</li>
+        <li>Consultas previstas (base <code>api.bling.com.br/Api/v3</code>): <code>/pedidos/vendas</code> (receitas), <code>/vendedores</code>, <code>/contas/pagar</code> e <code>/borderos</code> (despesas pagas), <code>/categorias/receitas-despesas</code> (ligar categoria → centro pelo código). Confirmar na documentação oficial (developer.bling.com.br) ao implementar.</li>
+        <li>Limites: 3 consultas/segundo e 120 mil/dia. O BLING <b>não tem ambiente de testes</b> — a integração é <b>somente leitura</b>.</li>
+        <li>Conciliação com os relatórios: excluir pedidos cancelados, usar data de pagamento (não vencimento), tratar devoluções. A planilha só sai de uso depois que os totais baterem.</li>
+      </ul>
+
+      <h4>6. Etapas</h4>
+      <table class="tb-t"><thead><tr><th>#</th><th>Etapa</th><th>Quem</th><th>Situação</th></tr></thead><tbody>
+        <tr><td>1</td><td>Cadastrar o aplicativo no BLING e gravar as credenciais no Supabase</td><td>Cardoso</td><td>Pendente</td></tr>
+        <tr><td>2</td><td>Reorganizar este submódulo nas 3 telas (ainda com Excel) e trazer a importação do Realizado para cá</td><td>Claude</td><td>Aguardando aprovação da prévia</td></tr>
+        <tr><td>3</td><td>Função de conexão + botão "Conectar ao BLING" (autorização)</td><td>Claude + Cardoso</td><td>Após etapa 1</td></tr>
+        <tr><td>4</td><td>Tela de teste: totais da API lado a lado com o realizado (sem gravar)</td><td>Claude</td><td>—</td></tr>
+        <tr><td>5</td><td>Validação no fechamento de outubro (03/11/2026): planilha × API, centro a centro</td><td>Claude + Cardoso</td><td>—</td></tr>
+        <tr><td>6</td><td>Ativar API nas 3 telas; Excel fica como contingência; opcional: atualização diária</td><td>Claude</td><td>Após aprovação</td></tr>
+      </tbody></table>
+    </div>
+  </div>
+</div>
 <div class="mo" id="mo-cv">
   <div class="mo-box">
     <div class="mo-h"><h3 id="mo-cv-t">Novo Collab / Vendedor</h3><button class="mo-x" onclick="closeMo(&#39;mo-cv&#39;)">✕</button></div>
