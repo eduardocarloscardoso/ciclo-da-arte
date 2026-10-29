@@ -615,6 +615,18 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   edição). Coluna **Origem** = de onde veio o valor do mês: Excel (importação da
   planilha), Manual (digitado na tela ou ajuste feito no banco, ex.: separações
   de VT, Uber, impostos), Manus (migrado do sistema antigo), Bling.
+- **Importador — centro com o mesmo nome da subconta** (29/10/2026, migração 16,
+  aprovado por Cardoso): ao conferir o Relatório de Pagamentos do BLING de
+  29/10/2026, a linha "Aluguel - Espaços em Lojas" (subconta 150003 e centro 510004
+  com o mesmo nome) era descartada como cabeçalho — outubro ficaria zerado nesse
+  centro. Regra nova em `cda_pa_importar_mes`: na importação de **DESPESAS**, linha
+  com o nome exato de um centro de despesa é lançamento, não subtotal. Cabeçalhos
+  "Despesas …" do BLING continuam ignorados; receitas sem mudança. Backup da versão
+  anterior: `docs/sql/backup/cda_pa_importar_mes_antes_16_2026-10-29.sql`.
+  Conferência da planilha (Cardoso confirmou): Predial 330,00 e Espaços em Lojas
+  900,00 são os pagos até 29/10 (antes: 1.823,07 e 1.880,65 manuais); TI compra
+  205,00 foi somado em TI Licenças (1.202,21); rateio Uber de R$ 500 a refazer
+  após a importação.
 - **Orçamento Anual — Tutorial Informativo** (28/10/2026, pente fino): a linha de
   explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
   soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
