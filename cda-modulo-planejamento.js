@@ -1172,11 +1172,11 @@ async function paProvisaoPrevista(){
       var provCel;
       if(nivel==='cc'&&podeEd)provCel='<td><input class="pa-in prov'+(l.prov<0?' neg':'')+'" inputmode="decimal" aria-label="Provisão '+paEsc(l._cc.nome)+'" value="'+paValorInput(l.prov)+'" data-orig="'+l.prov+'" onfocus="this.select()" onkeydown="if(event.key===\'Enter\')this.blur()" onchange="paSalvarProvisao(this,'+l._cc.id+')"></td>';
       else provCel=paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),600);
-      var auto=nivel==='cc'&&podeEd?'<td><button class="pa-btn-auto" title="Provisão = '+paEsc(paBRL(l.auto))+'" onclick="paProvisaoAuto(['+l._cc.id+'])">⚡ Auto</button></td>':'<td></td>';
+      var auto=nivel==='cc'&&podeEd?'<td><button class="pa-btn-auto" title="'+paEsc('Hoje: Provisão = Previsto − Realizado. Em breve: contas a pagar/receber em aberto no BLING (Integração API Bling) — este centro: '+paBRL(l.auto))+'" onclick="paProvisaoAuto(['+l._cc.id+'])">⚡ Bling</button></td>':'<td></td>';
       return paCelula(paBRL(l.prev))+paCelula(paBRL(l.real))+paCelula(paBRL(l.saldo),paCorSaldo(l.saldo,tipo),600)+paCelula(paBRL(l.saldoMes),'var(--muted2)')+provCel+auto;
     },
-    extraSub:podeEd?function(gs){return ' <button class="pa-btn-auto" style="margin-left:8px" onclick="paProvisaoAuto(['+gs.centros.map(function(c){return c.id;}).join(',')+'],\'esta subconta\')">⚡ Auto Sub</button>';}:null,
-    extraConta:podeEd?function(g){var ids=[];g.subcontas.forEach(function(s){s.centros.forEach(function(c){ids.push(c.id);});});return ' <button class="pa-btn-auto" style="margin-left:8px" onclick="paProvisaoAuto(['+ids.join(',')+'],\'toda a conta '+(g.conta.tipo==='RECEITAS'?'Receitas':'Despesas')+'\')">⚡ Auto Conta</button>';}:null
+    extraSub:podeEd?function(gs){return ' <button class="pa-btn-auto" style="margin-left:8px" onclick="paProvisaoAuto(['+gs.centros.map(function(c){return c.id;}).join(',')+'],\'esta subconta\')" title="Hoje: Provisão = Previsto − Realizado. Em breve: contas a pagar/receber em aberto no BLING (Integração API Bling)">⚡ Bling Sub</button>';}:null,
+    extraConta:podeEd?function(g){var ids=[];g.subcontas.forEach(function(s){s.centros.forEach(function(c){ids.push(c.id);});});return ' <button class="pa-btn-auto" style="margin-left:8px" onclick="paProvisaoAuto(['+ids.join(',')+'],\'toda a conta '+(g.conta.tipo==='RECEITAS'?'Receitas':'Despesas')+'\')" title="Hoje: Provisão = Previsto − Realizado. Em breve: contas a pagar/receber em aberto no BLING (Integração API Bling)">⚡ Bling Conta</button>';}:null
   });
   paEstado._dadosProv=d;
   document.getElementById('pa-root').innerHTML=html;
@@ -1291,10 +1291,10 @@ async function paVisaoAnual(){
   html+=paKpisPrevReal(tot,null,true);
   html+=paTabelaHier(d,{
     classe:'pa-compacta pa-estreita',
-    cols:[{t:'Prev.<br>Anual'},{t:'Total<br>Real.'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'% Exec.',title:'Total Real. ÷ Prev. Anual (sem provisão)'},{t:'Saldo Total<br>a Real.',title:'Prev. Anual − Total Real. com Prov.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
+    cols:[{t:'Prev.<br>Anual'},{t:'Total<br>Real.'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'% Exec.<br>c/ Prov.',title:'Total Real. com Prov. ÷ Prev. Anual'},{t:'Saldo Total<br>a Real.',title:'Prev. Anual − Total Real. com Prov.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
     campos:['prev','real','prov','realProv','saldo','saldoMes'],linha:linha,
     celulas:function(l,tipo){
-      var pct=l.prev!==0?l.real/l.prev*100:null,w=pct===null?0:Math.min(100,Math.max(0,pct));
+      var pct=l.prev!==0?l.realProv/l.prev*100:null,w=pct===null?0:Math.min(100,Math.max(0,pct));
       var corBar=pct===null?'var(--muted)':(tipo==='RECEITAS'?(pct>=100?'var(--green)':'var(--gold)'):(pct>100?'var(--red)':'var(--green)'));
       return paCelula(paValor(l.prev))+paCelula(paValor(l.real),'',600)+paCelula(l.prov!==0?paValor(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paValor(l.realProv),'',600)+
         '<td>'+(pct===null?'—':pct.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%')+'<span class="pa-bar"><i style="width:'+w+'%;background:'+corBar+'"></i></span></td>'+
@@ -1317,7 +1317,7 @@ async function paComparativoMetas(){
   var sel='<label>Status<select onchange="paEstado.statusMeta=this.value;navigatePlanejamento(\'metas\')">'+['Todos','OK','Sem Dados','Atenção','Crítico','Intervenção'].map(function(s){return '<option '+(s===paEstado.statusMeta?'selected':'')+'>'+s+'</option>';}).join('')+'</select></label>';
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'metas'+'\')">ℹ️ Tutorial Informativo</button>'}).replace('<div class="pa-toggle"',sel+'<div class="pa-toggle"');
   var mPass=d.ultimo||0,mRest=d.restantes;
-  html+=paInfoUltimo(d,ano,'% Desvio = (Realizado − Previsto Mês × <b>'+mPass+'</b>) ÷ previsto acumulado · Proj. Mensal = Saldo ÷ <b>'+mRest+'</b> meses restantes');
+  html+=paInfoUltimo(d,ano);
   function linha(cc){
     var p=d.prev[cc.id]||0,pm=p/12,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;
     var com=mPass,sem=mRest,pa=pm*com; // regra única: meses até o último Orçamento Realizado (todos os centros)
@@ -1329,13 +1329,13 @@ async function paComparativoMetas(){
     t.com=mPass;t.prevAcum=t.pm*t.com;return t;
   }
   var filtro=paEstado.statusMeta;
-  function passa(l,tipo){var dv=l.prevAcum!==0?(l.real-l.prevAcum)/l.prevAcum*100:null;return filtro==='Todos'||paStatusMetas(dv,tipo)===filtro;}
+  function passa(l,tipo){var dv=l.prevAcum!==0?(l.realProv-l.prevAcum)/l.prevAcum*100:null;return filtro==='Todos'||paStatusMetas(dv,tipo)===filtro;}
   var totT={RECEITAS:{prev:0,real:0,proj:0},DESPESAS:{prev:0,real:0,proj:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);totT[g.conta.tipo].prev+=l.prev;totT[g.conta.tipo].real+=l.real;totT[g.conta.tipo].proj+=l.projAno;});});});
-  html+='<div class="pa-kpis">'+
-    paKpi('Total Receitas','Previsto '+paBRL(totT.RECEITAS.prev),'Realizado '+paBRL(totT.RECEITAS.real)+' · Projeção '+paBRL(totT.RECEITAS.proj),'var(--green)')+
-    paKpi('Total Despesas','Previsto '+paBRL(totT.DESPESAS.prev),'Realizado '+paBRL(totT.DESPESAS.real)+' · Projeção '+paBRL(totT.DESPESAS.proj),'var(--red)')+
-    paKpi('Resultado Líquido','Previsto '+paBRL(totT.RECEITAS.prev-totT.DESPESAS.prev),'Realizado '+paBRL(totT.RECEITAS.real-totT.DESPESAS.real)+' · Projeção '+paBRL(totT.RECEITAS.proj-totT.DESPESAS.proj),'var(--blue)')+'</div>';
+  html+='<div class="pa-kpis pa-kpis-mini">'+
+    paKpi('Total Receitas','Prev. '+paBRL(totT.RECEITAS.prev),'Real. '+paBRL(totT.RECEITAS.real)+' · Proj. '+paBRL(totT.RECEITAS.proj),'var(--green)')+
+    paKpi('Total Despesas','Prev. '+paBRL(totT.DESPESAS.prev),'Real. '+paBRL(totT.DESPESAS.real)+' · Proj. '+paBRL(totT.DESPESAS.proj),'var(--red)')+
+    paKpi('Resultado Líquido','Prev. '+paBRL(totT.RECEITAS.prev-totT.DESPESAS.prev),'Real. '+paBRL(totT.RECEITAS.real-totT.DESPESAS.real)+' · Proj. '+paBRL(totT.RECEITAS.proj-totT.DESPESAS.proj),'var(--blue)')+'</div>';
   // Com filtro de status, subcontas/contas somam só os centros que passam
   var dFiltrado=d;
   if(filtro!=='Todos'){
@@ -1345,10 +1345,10 @@ async function paComparativoMetas(){
   }
   html+=paTabelaHier(dFiltrado,{
     classe:'pa-compacta pa-estreita',
-    cols:[{t:'Prev.<br>Ano'},{t:'Prev.<br>Mês'},{t:'Total<br>Real.',title:'Soma dos meses realizados no ano (sem provisão)'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'Saldo<br>a Real.',title:'Prev. Ano − Total Real. com Prov.'},{t:'% Exec.<br>c/ Prov.',title:'Total Real. com Prov. ÷ Prev. Ano'},{t:'%<br>Desvio'},{t:'Status'},{t:'Proj.<br>Mensal'},{t:'Proj.<br>Anual'}],
+    cols:[{t:'Prev.<br>Ano'},{t:'Prev.<br>Mês'},{t:'Total<br>Real.',title:'Soma dos meses realizados no ano (sem provisão)'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'Saldo<br>a Real.',title:'Prev. Ano − Total Real. com Prov.'},{t:'% Exec.<br>c/ Prov.',title:'Total Real. com Prov. ÷ Prev. Ano'},{t:'% Desvio<br>c/ Prov.',title:'(Total Real. com Prov. − Prev. Mês × meses realizados) ÷ (Prev. Mês × meses realizados)'},{t:'Status'},{t:'Proj.<br>Mensal'},{t:'Proj.<br>Anual'}],
     linha:linha,agregar:agregar,
     celulas:function(l,tipo){
-      var exe=l.prev!==0?(l.real+l.prov)/l.prev*100:null,dv=l.prevAcum!==0?(l.real-l.prevAcum)/l.prevAcum*100:null;
+      var exe=l.prev!==0?(l.real+l.prov)/l.prev*100:null,dv=l.prevAcum!==0?(l.realProv-l.prevAcum)/l.prevAcum*100:null;
       var ruim=dv===null||dv===0?null:(tipo==='RECEITAS'?dv<0:dv>0);
       var cor=ruim===null?'var(--muted2)':(ruim?'var(--red)':'var(--green)');
       return paCelula(paBRL(l.prev))+paCelula(paBRL(l.pm),'var(--muted2)')+paCelula(paBRL(l.real),'',600)+paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paBRL(l.realProv),'',600)+
@@ -2203,7 +2203,7 @@ function paTutorial(){
   '<li><b>Análises Estratégicas › Estrutura de Custos Fixos</b> — fixos e financeiros como % da receita total (prevista e realizada), com referência de mercado, meta interna editável, status e o teste de fechamento das metas.</li>'+
   '<li><b>Orçamento Anual</b> — Realizado do ano anterior, <b>Previsto</b> do exercício (editável), Previsto do mês, Realizado acumulado e Saldo Mensal a Realizar.</li>'+
   '<li><b>Orçamento Realizado</b> — valores de cada mês por centro; edição manual, importação Excel e <b>Limpar Período</b> (somente administradores).</li>'+
-  '<li><b>Provisão Prevista</b> — quanto ainda se espera realizar até o fim do ano. Digite o valor ou use <b>⚡ Auto</b> (Provisão = Previsto − Realizado) por centro, subconta ou conta. Pode ser negativa (roxo = positiva, vermelho = negativa).</li>'+
+  '<li><b>Provisão Prevista</b> — quanto ainda se espera realizar até o fim do ano. Digite o valor ou use <b>⚡ Bling</b> (hoje: Provisão = Previsto − Realizado; em breve: contas em aberto no BLING) por centro, subconta ou conta. Pode ser negativa (roxo = positiva, vermelho = negativa).</li>'+
   '<li><b>Comparativo Mensal</b> — previsto × realizado de um mês ou do total de meses, com variação e status.</li>'+
   '<li><b>Visão Trimestral Acumulada</b> — os três meses do trimestre lado a lado, com totais do ano.</li>'+
   '<li><b>Visão Anual Acumulada</b> — previsto anual, total realizado e % executado.</li>'+
@@ -2240,10 +2240,12 @@ var PA_TUT={
   ['Saldo Total a Realizar','Quanto do previsto ainda falta, descontando o realizado e a provisão.','Saldo Total = Previsto − (Realizado + Provisão)'],
   ['Saldo Mensal a Realizar','Saldo Total distribuído pelos meses que faltam.','Saldo Total ÷ meses restantes'],
   ['Provisão Prevista','Valor provisionado do centro (roxo se positivo, vermelho se negativo). ✏️ Campos com borda dourada são editáveis por quem tem permissão — digite e tecle Enter.'],
-  ['⚡ Auto','Grava a provisão do centro igual ao que falta realizar do previsto. Substitui o valor manual.','Auto grava Provisão = Previsto − Realizado'],
-  ['⚡ Auto Sub / ⚡ Auto Conta','Aplica o Auto em todos os centros da subconta ou da conta inteira, após confirmação. Os valores manuais são substituídos.'],
+  ['O que é provisão','Compromisso já assumido e ainda não pago (ou venda feita e ainda não recebida): compras feitas, comissões devidas, impostos a recolher — mesmo que o pagamento caia nos meses seguintes. Entra no Total Real. com Prov., no % Exec. c/ Prov., no % Desvio c/ Prov. e no Saldo. Não use provisão para compras apenas planejadas.'],
+  ['Revisão no fechamento do mês','Ao fechar o mês (Orçamento Realizado definitivo), refaça as provisões: tire o que foi pago no mês (já está no Realizado — senão conta duas vezes), some os novos compromissos e mantenha o que continua em aberto.'],
+  ['⚡ Bling (antes ⚡ Auto)','O rótulo "Bling" lembra que a provisão será automatizada pela Integração API Bling: provisão de despesas = contas a pagar em aberto no BLING; de receitas = contas a receber em aberto; ao pagar/receber, sai da provisão e entra no Realizado. HOJE o botão ainda grava Provisão = Previsto − Realizado (previsão do resto do ano) e substitui o valor manual — use com cuidado, pois isso não é compromisso assumido.','Hoje: Provisão = Previsto − Realizado'],
+  ['⚡ Bling Sub / ⚡ Bling Conta','Aplicam o mesmo cálculo em todos os centros da subconta ou da conta inteira, após confirmação. Os valores manuais são substituídos.'],
   ['Cartões do topo','Provisão Receitas, Provisão Despesas e Realizado + Provisão (Resultado) = (Receitas realizadas + provisão) − (Despesas realizadas + provisão).'],
-  ['Fechamento do mês','A cada mês fechado, revise as provisões (ex.: Impostos e Comissões Artistas): o que foi realizado sai da provisão para não contar duas vezes.']]},
+  ['Integração futura','Etapa prevista na Integração API Bling (Financeiro): provisão automática pelas contas a pagar/receber em aberto. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais.']]},
  orcamento:{t:'Orçamento Anual',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
   ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
   ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],
@@ -2310,12 +2312,12 @@ var PA_TUT={
   ['Total Real. até o nºT','Tudo o que foi realizado de janeiro até o fim do trimestre (mesmo valor do cartão).','Soma de jan até o último mês do trimestre'],
   ['Média Mensal Realizada Acum.','Média mensal do que foi realizado até o trimestre, para comparar com o Prev. Mês. Divide só pelos meses que já têm Orçamento Realizado (ex.: 4ºT com outubro lançado → 10 meses). Verde = dentro do previsto; vermelho = Receitas abaixo ou Despesas acima do Prev. Mês.','Total Real. até o nºT ÷ meses com Orçamento Realizado até o trimestre']]},
  anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta. Valores da tabela em R$. Acima da tabela: último mês realizado e meses restantes.',c:[
-  ['Cartões do topo','Total Receitas, Total Despesas e Resultado: Prev. (previsto anual) e Real. (realizado no ano, sem provisão).'],
+  ['Cartões do topo','Total Receitas, Total Despesas e Resultado: Prev. (previsto anual) e Real. (realizado no ano, sem provisão — a provisão aparece na tabela).'],
   ['Prev. Anual','Valor previsto para o ano inteiro.'],
   ['Total Real.','Soma de todos os meses realizados no ano.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
   ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado — é o valor que o Saldo Total desconta do previsto.','Total Real. + Provisão Prev.'],
-  ['% Exec.','Quanto do previsto já foi realizado. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. ÷ Previsto Anual × 100 (não inclui a provisão)'],
+  ['% Exec. c/ Prov.','Quanto do previsto já foi realizado ou comprometido (provisão = compromisso já assumido e ainda não pago). Mesmo cálculo do Comparativo de Metas. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. com Prov. ÷ Previsto Anual × 100'],
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − Total Real. com Prov.'],
   ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
  margem:{t:'Margem por Canal',d:'Mostra quanto cada canal de receita deixa de margem de contribuição depois das despesas variáveis que ele gera. A soma das margens paga os custos fixos; o que sobra é o resultado.',c:[
@@ -2382,10 +2384,12 @@ var PA_TUT={
   ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado.','Total Real. + Provisão Prev.'],
   ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − Total Real. com Prov.'],
   ['% Exec. c/ Prov.','Quanto do previsto já está realizado ou provisionado. Atenção: na Visão Anual Acumulada o % Exec. é calculado sem a provisão.','Total Real. com Prov. ÷ Previsto Ano × 100'],
-  ['% Desvio','Desvio do realizado (sem provisão) contra o previsto proporcional aos meses já passados.','(Total Real. − Prev. Mês × meses até o último realizado) ÷ (Prev. Mês × meses até o último realizado) × 100'],
-  ['Status','Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],
+  ['Último mês realizado / Meses restantes','Acima da tabela. Os meses realizados (ex.: outubro → 10) formam o previsto acumulado do % Desvio; os meses restantes dividem o Saldo na Proj. Mensal.'],
+  ['% Desvio c/ Prov.','Desvio do que já foi realizado ou comprometido (provisão = compromisso já assumido e ainda não pago) contra o previsto proporcional aos meses já passados. Ex. Despesas 29/10/2026: (1.416.147,31 − 1.352.250,00) ÷ 1.352.250,00 = +4,7% → gastamos/comprometemos 4,7% acima do previsto para jan–out.','% Desvio c/ Prov. = (Total Real. com Prov. − Prev. Mês × meses realizados) ÷ (Prev. Mês × meses realizados) × 100'],
+  ['Status','Calculado sobre o % Desvio c/ Prov. Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],
   ['Proj. Mensal','Quanto realizar por mês nos meses que faltam no ano.','Saldo a Real. ÷ meses restantes (12 − último mês realizado)'],
   ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Total Real. + Proj. Mensal × meses restantes'],
+  ['Cartões do topo','Total Receitas, Total Despesas e Resultado Líquido: Prev. (previsto do ano), Real. (realizado, sem provisão) e Proj. (projeção de fechamento do ano).'],
   ['Tabela','Valores em R$. Tabela compacta (11 colunas): em telas menores, role para o lado.']]}
 };
 function paTutorialInformativo(chave){

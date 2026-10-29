@@ -632,6 +632,24 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Provisão = compromisso assumido e não pago; desvio e execução com provisão**
+  (29/10/2026, Cardoso): conceito definido — provisão é compra feita/comissão devida/
+  imposto a recolher ainda não pago (ou venda não recebida), mesmo com pagamento em
+  meses seguintes; não usar para compras só planejadas. Revisão a cada fechamento
+  (tirar o que foi pago, somar novos compromissos). Mudanças:
+  · Comparativo de Metas: **% Desvio c/ Prov.** = (Total Real. com Prov. − Prev. Mês ×
+    meses realizados) ÷ (Prev. Mês × meses realizados); Status calculado sobre ele.
+    Ex. produção Despesas: (1.416.147,31 − 1.352.250) ÷ 1.352.250 = +4,7% (Atenção);
+    antes, sem provisão, −6,6% (OK). Topo só "Último mês realizado · Meses
+    restantes"; cartões compactos (Prev. / Real. · Proj.).
+  · Visão Anual: **% Exec. c/ Prov.** = Total Real. com Prov. ÷ Prev. Anual (antes sem
+    provisão) — corrige a decisão anterior do mesmo dia (cada tela com seu cálculo).
+  · Provisão Prevista: botões ⚡ Auto / Auto Sub / Auto Conta renomeados para
+    **⚡ Bling / Bling Sub / Bling Conta** (lembrete da automação); por decisão de
+    Cardoso continuam gravando Previsto − Realizado até a integração.
+  · Integração API Bling: nova etapa 7 — provisão = contas a pagar/receber em aberto
+    no BLING; escopo Contas a Receber passou a obrigatório (tutorial do Financeiro e
+    documento Word v2).
 - **Comparativo de Metas — colunas padronizadas com a Visão Anual** (29/10/2026,
   Cardoso): "Real. Acum." → **Total Real.** (soma dos meses realizados, sem provisão);
   nova coluna **Total Real. com Prov.** (Total Real. + Provisão Prev.); "% Exec." →

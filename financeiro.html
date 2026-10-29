@@ -600,6 +600,7 @@ tr:hover td{background:#faf7f0;}
         <li>Permissões: telas 1 e 2 gravam no Planejamento Anual (regra de escrita de lá — administrador); tela 3 mantém a permissão atual do Financeiro.</li>
         <li>O botão Importar do Orçamento Realizado passará a abrir este submódulo (um só caminho).</li>
         <li>Rateio do Uber aplicado automaticamente a cada atualização de despesas; coluna Origem passa a mostrar "Bling".</li>
+        <li><b>Provisão automática</b> (decisão de 29/10/2026): provisão = compromisso já assumido e ainda não pago. Com a API, a <b>Provisão Prevista de despesas</b> passa a ser as <b>contas a pagar em aberto</b> no BLING (por categoria → centro) e a de <b>receitas</b>, as <b>contas a receber em aberto</b>. Ao pagar/receber, o valor sai da provisão e entra no Realizado — sem relançar provisões no fechamento e sem contar duas vezes. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais. Na tela Provisão Prevista os botões ⚡ Auto passaram a se chamar <b>⚡ Bling</b> como lembrete (hoje ainda gravam Previsto − Realizado).</li>
       </ul>
 
       <h4>5. Dados da API a criar no BLING (API v3)</h4>
@@ -608,13 +609,13 @@ tr:hover td{background:#faf7f0;}
         <li>Caminho: <b>Central de Extensões › Área do Integrador › Criar aplicativo</b>, uso privado/próprio (não publicado na loja).</li>
         <li>Nome: <b>Ciclo da Arte — Planejamento Anual</b>. Descrição: leitura de pedidos de venda e contas pagas; somente consulta.</li>
         <li>Link de redirecionamento (callback): <code>https://gsizoiwefejsllgtsard.supabase.co/functions/v1/bling-oauth</code></li>
-        <li>Escopos (somente leitura): <b>Pedidos de Venda, Vendedores, Contas a Pagar, Borderôs, Categorias de receitas e despesas</b>; opcionais: Contas a Receber, Contatos. <span class="tb-warn">Alterar escopos depois revoga o acesso — marcar todos de uma vez.</span></li>
+        <li>Escopos (somente leitura): <b>Pedidos de Venda, Vendedores, Contas a Pagar, Contas a Receber, Borderôs, Categorias de receitas e despesas</b>; opcional: Contatos. (Contas a Receber passou a ser necessário para a provisão de receitas.) <span class="tb-warn">Alterar escopos depois revoga o acesso — marcar todos de uma vez.</span></li>
         <li>Credenciais: <b>Client ID</b> e <b>Client Secret</b> — gravar no Supabase › Edge Functions › Secrets como <code>BLING_CLIENT_ID</code> e <code>BLING_CLIENT_SECRET</code>. Nunca enviar o Secret por e-mail ou mensagem; se vazar, gerar outro.</li>
       </ul>
       <p><b>Funcionamento técnico</b></p>
       <ul>
         <li>OAuth2: autorização em <code>www.bling.com.br/Api/v3/oauth/authorize</code>; troca e renovação em <code>api.bling.com.br/Api/v3/oauth/token</code>. O código de autorização vale ~1 minuto e é de uso único; o token de acesso dura ~6 horas; a renovação vale 30 dias e é prorrogada a cada uso.</li>
-        <li>Consultas previstas (base <code>api.bling.com.br/Api/v3</code>): <code>/pedidos/vendas</code> (receitas), <code>/vendedores</code>, <code>/contas/pagar</code> e <code>/borderos</code> (despesas pagas), <code>/categorias/receitas-despesas</code> (ligar categoria → centro pelo código). Confirmar na documentação oficial (developer.bling.com.br) ao implementar.</li>
+        <li>Consultas previstas (base <code>api.bling.com.br/Api/v3</code>): <code>/pedidos/vendas</code> (receitas), <code>/vendedores</code>, <code>/contas/pagar</code> e <code>/borderos</code> (despesas pagas; contas em aberto = provisão), <code>/contas/receber</code> (em aberto = provisão de receitas), <code>/categorias/receitas-despesas</code> (ligar categoria → centro pelo código). Confirmar na documentação oficial (developer.bling.com.br) ao implementar.</li>
         <li>Limites: 3 consultas/segundo e 120 mil/dia. O BLING <b>não tem ambiente de testes</b> — a integração é <b>somente leitura</b>.</li>
         <li>Conciliação com os relatórios: excluir pedidos cancelados, usar data de pagamento (não vencimento), tratar devoluções. A planilha só sai de uso depois que os totais baterem.</li>
       </ul>
@@ -627,6 +628,7 @@ tr:hover td{background:#faf7f0;}
         <tr><td>4</td><td>Tela de teste: totais da API lado a lado com o realizado (sem gravar)</td><td>Claude</td><td>—</td></tr>
         <tr><td>5</td><td>Validação no fechamento de outubro (03/11/2026): planilha × API, centro a centro</td><td>Claude + Cardoso</td><td>—</td></tr>
         <tr><td>6</td><td>Ativar API nas 3 telas; Excel fica como contingência; opcional: atualização diária</td><td>Claude</td><td>Após aprovação</td></tr>
+        <tr><td>7</td><td>Provisão automática: contas a pagar/receber em aberto no BLING → Provisão Prevista (botões ⚡ Bling)</td><td>Claude</td><td>Após etapa 6</td></tr>
       </tbody></table>
     </div>
   </div>
