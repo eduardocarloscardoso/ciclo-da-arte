@@ -602,6 +602,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Cardoso envia a separação das parcelas já pagas dentro de Impostos (mover mês
   a mês, como o VT); depois, Provisão Prevista do imposto 2026 não pago; e
   valor/prazo do parcelamento para o orçamento 2027.
+- **Orçamento Realizado — texto do topo** (29/10/2026, Cardoso): só "Último mês
+  realizado em <ano>: <mês>" (saíram "Exibindo", nº de lançamentos e a dica de
+  edição). Coluna **Origem** = de onde veio o valor do mês: Excel (importação da
+  planilha), Manual (digitado na tela ou ajuste feito no banco, ex.: separações
+  de VT, Uber, impostos), Manus (migrado do sistema antigo), Bling.
 - **Orçamento Anual — Tutorial Informativo** (28/10/2026, pente fino): a linha de
   explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
   soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
