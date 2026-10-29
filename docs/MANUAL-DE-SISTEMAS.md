@@ -627,6 +627,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   900,00 são os pagos até 29/10 (antes: 1.823,07 e 1.880,65 manuais); TI compra
   205,00 foi somado em TI Licenças (1.202,21); rateio Uber de R$ 500 a refazer
   após a importação.
+- **Despesas out/2026 importadas** (29/10/2026 08:39, Cardoso, pelo sistema): BLING
+  Relatório de Pagamentos até 29/10 — 41 centros, R$ 106.491,56 (substituiu o mês
+  inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
+  1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
+  No fechamento (03/11) o mês será importado de novo e o rateio refeito.
 - **Orçamento Anual — Tutorial Informativo** (28/10/2026, pente fino): a linha de
   explicações (último mês, fórmulas dos saldos, campos editáveis, realizado =
   soma dos meses) foi para o botão ℹ️ Tutorial Informativo (`PA_TUT.orcamento`);
