@@ -632,6 +632,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Comparativo Mensal — topo e coluna** (29/10/2026, Cardoso): saiu da linha do
+  topo o texto de fórmulas (Variação, Previsto acumulado, Saldo Mensal) — já estão no
+  ℹ️ Tutorial Informativo (`PA_TUT.comparativo`); no topo fica "Último mês realizado
+  · Meses restantes" (+ aviso "mês sem lançamentos" quando for o caso). Coluna
+  "Total Realizado" renomeada para **Total Real + Prov** — cálculo inalterado:
+  realizado acumulado até o último mês realizado + Provisão Prevista.
 - **Provisão Prevista — Tutorial Informativo** (29/10/2026, Cardoso): as fórmulas
   "Saldo Total = Previsto − (Realizado + Provisão)" e "Auto grava Provisão = Previsto −
   Realizado" saíram da linha do topo e foram para o ℹ️ Tutorial Informativo
