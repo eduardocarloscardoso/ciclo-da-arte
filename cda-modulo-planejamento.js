@@ -1155,8 +1155,8 @@ function paTabelaHier(d,cfg){
 // ─── 4) PROVISÃO PREVISTA ────────────────────────────────────────────
 async function paProvisaoPrevista(){
   var ano=paEstado.ano,d=await paDadosAno(ano),podeEd=paPodeEditar();
-  var html=paFiltroHTML(d.h,{anos:d.anos});
-  html+=paInfoUltimo(d,ano,'Saldo Total = Previsto − (Realizado + Provisão)'+(podeEd?' · <b>Auto</b> grava Provisão = Previsto − Realizado':''));
+  var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'provisao\')">ℹ️ Tutorial Informativo</button>'});
+  html+=paInfoUltimo(d,ano);
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,saldo:sal,saldoMes:paSaldoMensal(d,sal),prov:pv,auto:p-re};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}},totProv={RECEITAS:0,DESPESAS:0};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;totProv[g.conta.tipo]+=l.prov;});});});
@@ -2230,6 +2230,17 @@ var PA_TUT={
   ['Origem','De onde veio o valor: Excel (importação da planilha do BLING), Manual (corrigido na tela ou ajuste registrado, ex.: separações de VT, Uber, Impostos/Parcelamento), Manus (migração do sistema antigo, já desativado).'],
   ['🗑 Limpar Período','Administrador: apaga os lançamentos de um período para reimportar. Use com cuidado.'],
   ['Integração futura','A importação por planilha será substituída por API direta com o BLING (Receitas e Pagamentos), sem precisar exportar Excel.']]},
+ provisao:{t:'Provisão Prevista',d:'Valor ainda a realizar no ano que já está comprometido ou esperado por centro de custo (ex.: impostos e comissões a pagar, receitas contratadas). A provisão entra no Saldo Total e nos relatórios "com Provisão".',c:[
+  ['Último mês realizado / Meses restantes','Acima da tabela: o último mês com lançamentos no ano e quantos meses faltam até dezembro. Os meses restantes dividem o Saldo Total no Saldo Mensal.','Meses restantes = 12 − último mês realizado'],
+  ['Previsto Anual','Orçamento do ano do centro de custo (Orçamento Anual).'],
+  ['Total Realizado','Soma dos meses já lançados no ano (Orçamento Realizado).'],
+  ['Saldo Total a Realizar','Quanto do previsto ainda falta, descontando o realizado e a provisão.','Saldo Total = Previsto − (Realizado + Provisão)'],
+  ['Saldo Mensal a Realizar','Saldo Total distribuído pelos meses que faltam.','Saldo Total ÷ meses restantes'],
+  ['Provisão Prevista','Valor provisionado do centro (roxo se positivo, vermelho se negativo). ✏️ Campos com borda dourada são editáveis por quem tem permissão — digite e tecle Enter.'],
+  ['⚡ Auto','Grava a provisão do centro igual ao que falta realizar do previsto. Substitui o valor manual.','Auto grava Provisão = Previsto − Realizado'],
+  ['⚡ Auto Sub / ⚡ Auto Conta','Aplica o Auto em todos os centros da subconta ou da conta inteira, após confirmação. Os valores manuais são substituídos.'],
+  ['Cartões do topo','Provisão Receitas, Provisão Despesas e Realizado + Provisão (Resultado) = (Receitas realizadas + provisão) − (Despesas realizadas + provisão).'],
+  ['Fechamento do mês','A cada mês fechado, revise as provisões (ex.: Impostos e Comissões Artistas): o que foi realizado sai da provisão para não contar duas vezes.']]},
  orcamento:{t:'Orçamento Anual',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
   ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
   ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],

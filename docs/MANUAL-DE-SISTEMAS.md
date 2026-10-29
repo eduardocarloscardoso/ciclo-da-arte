@@ -632,6 +632,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Provisão Prevista — Tutorial Informativo** (29/10/2026, Cardoso): as fórmulas
+  "Saldo Total = Previsto − (Realizado + Provisão)" e "Auto grava Provisão = Previsto −
+  Realizado" saíram da linha do topo e foram para o ℹ️ Tutorial Informativo
+  (`PA_TUT.provisao`, com colunas, ⚡ Auto/Auto Sub/Auto Conta, cartões e revisão no
+  fechamento). No topo fica só "Último mês realizado em <ano>: <mês> · Meses
+  restantes: <n>".
 - **Integração API Bling — projeto** (29/10/2026, Cardoso): o submódulo Financeiro ›
   Importar Planilha Bling será renomeado "Integração API Bling" e centralizará as
   operações com o BLING em 3 telas — 1) Receitas no Período, 2) Despesas no Período
