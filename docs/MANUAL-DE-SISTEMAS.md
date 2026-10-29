@@ -632,6 +632,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiro de Despesas). Em seguida, rateio Uber reaplicado: Eventos Uber (30016)
   1.934,48 → 1.434,48 e Produção - Transporte (390001) 1.061,74 → 1.561,74.
   No fechamento (03/11) o mês será importado de novo e o rateio refeito.
+- **Comparativo de Metas — colunas padronizadas com a Visão Anual** (29/10/2026,
+  Cardoso): "Real. Acum." → **Total Real.** (soma dos meses realizados, sem provisão);
+  nova coluna **Total Real. com Prov.** (Total Real. + Provisão Prev.); "% Exec." →
+  **% Exec. c/ Prov.** (cálculo mantido: Total Real. com Prov. ÷ Prev. Ano — na Visão
+  Anual o % Exec. continua sem provisão, decisão de Cardoso). Tabela com 11 colunas,
+  compacta (`pa-compacta pa-estreita`), com rolagem lateral. Tutorial atualizado.
 - **Visão Anual Acumulada — topo e cartões** (29/10/2026, Cardoso): saíram do topo
   "Tabela em R$", "Total Real. com Prov. = …" e "% Executado = …" (estão no ℹ️ Tutorial
   Informativo, `PA_TUT.anual`); fica "Último mês realizado · Meses restantes". Cartões

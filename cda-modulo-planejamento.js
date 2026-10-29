@@ -1322,10 +1322,10 @@ async function paComparativoMetas(){
     var p=d.prev[cc.id]||0,pm=p/12,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;
     var com=mPass,sem=mRest,pa=pm*com; // regra única: meses até o último Orçamento Realizado (todos os centros)
     var proj=sem>0?sal/sem:0;
-    return {prev:p,pm:pm,real:re,prov:pv,saldo:sal,prevAcum:pa,com:com,projMes:proj,projAno:re+proj*sem};
+    return {prev:p,pm:pm,real:re,prov:pv,realProv:re+pv,saldo:sal,prevAcum:pa,com:com,projMes:proj,projAno:re+proj*sem};
   }
   function agregar(linhas,tipo){
-    var t=paSomaLinhas(linhas,['prev','pm','real','prov','saldo','projMes','projAno']);
+    var t=paSomaLinhas(linhas,['prev','pm','real','prov','realProv','saldo','projMes','projAno']);
     t.com=mPass;t.prevAcum=t.pm*t.com;return t;
   }
   var filtro=paEstado.statusMeta;
@@ -1344,13 +1344,14 @@ async function paComparativoMetas(){
     })})});
   }
   html+=paTabelaHier(dFiltrado,{
-    cols:[{t:'Prev. Ano'},{t:'Prev. Mês'},{t:'Real. Acum.'},{t:'Provisão Prev.',cor:'var(--purple)'},{t:'Saldo a Real.'},{t:'% Exec.',title:'(Realizado + Provisão) ÷ Previsto'},{t:'% Desvio'},{t:'Status'},{t:'Proj. Mensal'},{t:'Proj. Anual'}],
+    classe:'pa-compacta pa-estreita',
+    cols:[{t:'Prev.<br>Ano'},{t:'Prev.<br>Mês'},{t:'Total<br>Real.',title:'Soma dos meses realizados no ano (sem provisão)'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'Saldo<br>a Real.',title:'Prev. Ano − Total Real. com Prov.'},{t:'% Exec.<br>c/ Prov.',title:'Total Real. com Prov. ÷ Prev. Ano'},{t:'%<br>Desvio'},{t:'Status'},{t:'Proj.<br>Mensal'},{t:'Proj.<br>Anual'}],
     linha:linha,agregar:agregar,
     celulas:function(l,tipo){
       var exe=l.prev!==0?(l.real+l.prov)/l.prev*100:null,dv=l.prevAcum!==0?(l.real-l.prevAcum)/l.prevAcum*100:null;
       var ruim=dv===null||dv===0?null:(tipo==='RECEITAS'?dv<0:dv>0);
       var cor=ruim===null?'var(--muted2)':(ruim?'var(--red)':'var(--green)');
-      return paCelula(paBRL(l.prev))+paCelula(paBRL(l.pm),'var(--muted2)')+paCelula(paBRL(l.real),'',600)+paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+
+      return paCelula(paBRL(l.prev))+paCelula(paBRL(l.pm),'var(--muted2)')+paCelula(paBRL(l.real),'',600)+paCelula(l.prov!==0?paBRL(l.prov):'—',paCorProvisao(l.prov),500)+paCelula(paBRL(l.realProv),'',600)+
         paCelula(paBRL(l.saldo),cor,600)+paCelula(exe===null?'—':exe.toLocaleString('pt-BR',{maximumFractionDigits:1})+'%')+paCelula(paPct(dv),cor,600)+
         '<td style="text-align:center">'+paBadgeStatus(paStatusMetas(dv,tipo))+'</td>'+paCelula(paBRL(l.projMes),'var(--muted2)')+paCelula(paBRL(l.projAno));
     }
@@ -2376,14 +2377,16 @@ var PA_TUT={
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
   ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
-  ['Real. Acum.','Soma de todos os meses realizados no ano.'],
-  ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
-  ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − (Realizado Acum. + Provisão)'],
-  ['% Exec.','Quanto do previsto já está realizado ou provisionado.','(Realizado Acum. + Provisão) ÷ Previsto Ano × 100'],
-  ['% Desvio','Desvio do realizado contra o previsto proporcional aos meses já passados.','(Realizado Acum. − Prev. Mês × meses até o último realizado) ÷ (Prev. Mês × meses até o último realizado) × 100'],
+  ['Total Real.','Soma de todos os meses com Orçamento Realizado no ano, de janeiro até o último mês lançado (mesmo parcial). Não inclui a provisão. Mesmo valor do Total Real. da Visão Anual Acumulada.','Realizado jan + … + último mês realizado'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
+  ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado.','Total Real. + Provisão Prev.'],
+  ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − Total Real. com Prov.'],
+  ['% Exec. c/ Prov.','Quanto do previsto já está realizado ou provisionado. Atenção: na Visão Anual Acumulada o % Exec. é calculado sem a provisão.','Total Real. com Prov. ÷ Previsto Ano × 100'],
+  ['% Desvio','Desvio do realizado (sem provisão) contra o previsto proporcional aos meses já passados.','(Total Real. − Prev. Mês × meses até o último realizado) ÷ (Prev. Mês × meses até o último realizado) × 100'],
   ['Status','Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],
   ['Proj. Mensal','Quanto realizar por mês nos meses que faltam no ano.','Saldo a Real. ÷ meses restantes (12 − último mês realizado)'],
-  ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Realizado Acum. + Proj. Mensal × meses restantes']]}
+  ['Proj. Anual','Fechamento esperado do ano se a projeção mensal for cumprida.','Total Real. + Proj. Mensal × meses restantes'],
+  ['Tabela','Valores em R$. Tabela compacta (11 colunas): em telas menores, role para o lado.']]}
 };
 function paTutorialInformativo(chave){
   var t=PA_TUT[chave];if(!t)return;
