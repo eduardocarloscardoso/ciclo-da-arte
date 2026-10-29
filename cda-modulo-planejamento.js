@@ -1120,12 +1120,13 @@ function paBadgeStatus(st){
 (function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-badge.pa-st-ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.pa-st-warn{background:rgba(201,148,58,.18);color:var(--gold2)}.pa-badge.pa-st-err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.pa-st-int{background:#4c0519;color:#fecdd3;border:1px solid #be123c}.pa-badge.pa-st-mut{background:var(--card2);color:var(--muted2)}\n.pa-bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--card2);vertical-align:middle;margin-left:8px;overflow:hidden}.pa-bar i{display:block;height:100%;border-radius:3px}\n.pa-btn-auto{background:rgba(155,114,207,.15);color:var(--purple);border:1px solid rgba(155,114,207,.35);border-radius:6px;font-size:10.5px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap}.pa-btn-auto:hover{background:rgba(155,114,207,.28)}\n.pa-in.prov{color:var(--purple)}.pa-in.prov.neg{color:var(--red)}\n.pa-tut h3{font-family:var(--ff-d);font-size:16px;margin:18px 0 6px}.pa-tut p,.pa-tut li{font-size:13px;color:var(--muted2);line-height:1.6}.pa-tut ul{padding-left:20px}.pa-tut b{color:var(--white)}.pa-tut code{font-family:var(--ff-m);font-size:12px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--gold2)}';})();
 
 // Bloco de KPIs comum (Receitas, Despesas, Resultado)
-function paKpisPrevReal(tot,rotReal){
+function paKpisPrevReal(tot,rotReal,mini){
   var res={prev:tot.RECEITAS.prev-tot.DESPESAS.prev,real:tot.RECEITAS.real-tot.DESPESAS.real};
-  return '<div class="pa-kpis">'+
-    paKpi('Total Receitas','Previsto '+paBRL(tot.RECEITAS.prev),(rotReal||'Realizado')+' '+paBRL(tot.RECEITAS.real),'var(--green)')+
-    paKpi('Total Despesas','Previsto '+paBRL(tot.DESPESAS.prev),(rotReal||'Realizado')+' '+paBRL(tot.DESPESAS.real),'var(--red)')+
-    paKpi('Resultado (Receita − Despesa)','Previsto '+paBRL(res.prev),(rotReal||'Realizado')+' '+paBRL(res.real),res.real>=0?'var(--blue)':'var(--red)')+
+  var P=mini?'Prev. ':'Previsto ',RR=(rotReal||(mini?'Real.':'Realizado'))+' ';
+  return '<div class="pa-kpis'+(mini?' pa-kpis-mini':'')+'">'+
+    paKpi('Total Receitas',P+paBRL(tot.RECEITAS.prev),RR+paBRL(tot.RECEITAS.real),'var(--green)')+
+    paKpi('Total Despesas',P+paBRL(tot.DESPESAS.prev),RR+paBRL(tot.DESPESAS.real),'var(--red)')+
+    paKpi('Resultado (Receita − Despesa)',P+paBRL(res.prev),RR+paBRL(res.real),res.real>=0?'var(--blue)':'var(--red)')+
   '</div>';
 }
 
@@ -1283,11 +1284,11 @@ async function paVisaoTrimestral(){
 async function paVisaoAnual(){
   var ano=paEstado.ano,d=await paDadosAno(ano);
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'anual'+'\')">ℹ️ Tutorial Informativo</button>'});
-  html+=paInfoUltimo(d,ano,'Tabela em R$ · Total Real. com Prov. = Total Real. + Provisão Prev. · % Executado = Total Real. ÷ Prev. Anual');
+  html+=paInfoUltimo(d,ano);
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,realProv:re+pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
-  html+=paKpisPrevReal(tot);
+  html+=paKpisPrevReal(tot,null,true);
   html+=paTabelaHier(d,{
     classe:'pa-compacta pa-estreita',
     cols:[{t:'Prev.<br>Anual'},{t:'Total<br>Real.'},{t:'Provisão<br>Prev.',cor:'var(--purple)'},{t:'Total Real.<br>com Prov.',title:'Total Real. + Provisão Prev.'},{t:'% Exec.',title:'Total Real. ÷ Prev. Anual (sem provisão)'},{t:'Saldo Total<br>a Real.',title:'Prev. Anual − Total Real. com Prov.'},{t:'Saldo Mensal Anual<br>pendente a Real.',title:'Saldo Total ÷ '+d.restantes+' meses'}],
@@ -2307,7 +2308,8 @@ var PA_TUT={
   ['Total Trimestral','Soma dos três meses exibidos. Verde = dentro do Prev. Tri; vermelho = Receitas abaixo ou Despesas acima (só colore quando o trimestre já tem Orçamento Realizado).','Mês 1 + Mês 2 + Mês 3'],
   ['Total Real. até o nºT','Tudo o que foi realizado de janeiro até o fim do trimestre (mesmo valor do cartão).','Soma de jan até o último mês do trimestre'],
   ['Média Mensal Realizada Acum.','Média mensal do que foi realizado até o trimestre, para comparar com o Prev. Mês. Divide só pelos meses que já têm Orçamento Realizado (ex.: 4ºT com outubro lançado → 10 meses). Verde = dentro do previsto; vermelho = Receitas abaixo ou Despesas acima do Prev. Mês.','Total Real. até o nºT ÷ meses com Orçamento Realizado até o trimestre']]},
- anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta.',c:[
+ anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta. Valores da tabela em R$. Acima da tabela: último mês realizado e meses restantes.',c:[
+  ['Cartões do topo','Total Receitas, Total Despesas e Resultado: Prev. (previsto anual) e Real. (realizado no ano, sem provisão).'],
   ['Prev. Anual','Valor previsto para o ano inteiro.'],
   ['Total Real.','Soma de todos os meses realizados no ano.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
