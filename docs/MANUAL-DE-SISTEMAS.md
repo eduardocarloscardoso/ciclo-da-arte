@@ -994,7 +994,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   · Banco (`docs/sql/historico_compras_06_bloqueio_importacao.sql`, gatilho `cda_compras_bloqueia_reimportacao`):
     linha de origem 'importado' de pedido gravado há mais de 10 min, ou de cliente Consumidor Final, é descartada.
     Lançamentos manuais não são afetados.
-- Pendente: checagem por total de gravação (pedido duplicado com texto de linha diferente, como o 7804). Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+- **Checagem por total de gravação** (30/10/2026; `docs/sql/historico_compras_07_duplicidade_por_total.sql`):
+  21 pedidos de abr–jun/2026 gravados 2× com texto de linha diferente e mesmas peças/valor. Aprovado por
+  Cardoso: removida a 2ª gravação de 20 pedidos (7788, 7829, 7445, 7465, 7472, 7743, 7508, 7807, 7800, 7466,
+  7507, 7747, 7818, 7773, 7759, 7764, 7840, 7477, 7454, 7492 — R$ 4.418,50); 7832 E-commerce Circo Voador
+  (BLING R$ 356,00) — removida a gravação de 29/07 (R$ 338,20), ficam as de 26/08. Total 31 linhas,
+  R$ 4.756,70; backup `public.bkp_compras_dup_por_total_20261030`. Tabela `compras`: 10.660 → 10.629.
+- **Resumo da limpeza de 30/10/2026:** 1.409 linhas removidas (R$ 559.078,85) — duplicidades de importação
+  (756 linhas, R$ 334.825,71) + notas de Consumidor Final (653 linhas, R$ 224.253,14). `compras`: 12.038 → 10.629.
+  Todas as linhas removidas estão nas tabelas `public.bkp_compras_*_20261030`. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
