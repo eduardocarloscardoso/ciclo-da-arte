@@ -141,7 +141,7 @@ function calRenderEventos(){
           '<td style="text-align:left;font-weight:600;white-space:normal">'+calEsc(e.evento)+'</td><td style="text-align:left;white-space:normal">'+calEsc(e.collab)+'</td>'+
           '<td style="text-align:left;white-space:normal">'+calVinculoHTML(e)+'</td><td style="text-align:left">'+calEsc(e.criterio)+'</td>'+
           '<td style="text-align:left;white-space:normal;max-width:340px;color:var(--gold2);font-family:var(--ff-b);font-size:11.5px">'+calEsc(e.acao_ia)+'</td>'+
-          '<td style="text-align:center">'+calBadgeStatus(e.status)+'</td><td>'+(e.projecao!==null&&e.projecao!==undefined?calBRL(e.projecao):'—')+'</td></tr>';
+          '<td style="text-align:center">'+calBadgeStatus(e.status)+'</td><td'+(e.memoria_projecao?' title="'+calEsc(e.memoria_projecao)+'" style="cursor:help;text-decoration:underline dotted"':'')+'>'+(e.projecao!==null&&e.projecao!==undefined?calBRL(e.projecao):'—')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
   }
   document.getElementById('cal-root').innerHTML=h;
@@ -171,6 +171,7 @@ function calAbrirEvento(id){
     '</div>'+
     '<label class="pa-lbl-bloco">Ação IA projetada<textarea id="cal-e-acao" rows="2">'+calEsc(e.acao_ia)+'</textarea></label>'+
     '<label class="pa-lbl-bloco">Observações<textarea id="cal-e-obs" rows="2">'+calEsc(e.observacoes)+'</textarea></label>'+
+    (e.projecao!==null&&e.projecao!==undefined?'<div class="pa-info" style="margin-top:10px">📈 <b>Projeção: '+calBRL(e.projecao)+'</b>'+(e.memoria_projecao?' — '+calEsc(e.memoria_projecao):'')+'</div>':'')+
     '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'+
       (id?'<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="calExcluirEvento('+id+')">🗑 Excluir</button>':'')+
       '<button class="btn btn-ghost" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="calSalvarEvento('+(id||'null')+')">Salvar</button></div></div>');
@@ -276,7 +277,7 @@ async function calImportarPrevia(){
     var jaExcel=calCache.eventos.filter(function(e){return +e.ano===ano&&e.origem==='excel'&&(!e.mes||e.mes>=desde);}).length;
     calImport={ano:ano,desde:desde,itens:itens,substituir:jaExcel};
     res.innerHTML='<div class="card" style="font-size:13px;line-height:1.7"><b>'+itens.length+'</b> evento(s) lidos da aba "'+calEsc(nome)+'" a partir de '+CAL_MESES[desde-1]+'/'+ano+'.'+
-      (jaExcel?' <span class="pa-neg">Os '+jaExcel+' evento(s) importados antes (origem Excel, a partir deste mês) serão substituídos.</span> Eventos digitados na tela são mantidos.':'')+'</div>'+
+      (jaExcel?' <span class="pa-neg">Os '+jaExcel+' evento(s) importados antes (origem Excel, a partir deste mês) serão substituídos — inclusive as projeções já calculadas.</span> Eventos digitados na tela são mantidos.':'')+'</div>'+
       '<div class="pa-prev"><table class="pa-tbl pa-compacta"><thead><tr><th>Linha</th><th style="text-align:left">Início</th><th style="text-align:left">Evento</th><th style="text-align:left">Collab</th><th style="text-align:left">Canal (planilha)</th><th style="text-align:left">Canal / Grupo no sistema</th><th>Critério</th><th>Qtd × Ticket</th></tr></thead><tbody>'+
       itens.map(function(x,k){return '<tr><td>'+x.linha+(x.unido?'<br><span class="pa-mut" style="font-size:10px">+ '+x.unido+'</span>':'')+'</td><td style="text-align:left">'+(x.inicio?calDataBR(x.inicio):CAL_MESES[(x.mes||1)-1].slice(0,3).toLowerCase())+'</td><td style="text-align:left;white-space:normal">'+calEsc(x.evento)+'</td><td style="text-align:left">'+calEsc(x.collab)+'</td><td style="text-align:left">'+calEsc(x.canalPlanilha)+'</td>'+
         '<td style="text-align:left"><select onchange="calImport.itens['+k+'].vinculo=this.value" style="max-width:240px">'+calOpcoesVinculo(x.vinculo)+'</select></td><td>'+x.criterio+'</td><td>'+(x.qtd_prevista?x.qtd_prevista+' × '+(x.ticket_medio?calBRL(x.ticket_medio):'—'):'—')+'</td></tr>';}).join('')+
@@ -311,6 +312,7 @@ function calTutorial(){
     ['Status','Planejado · A confirmar · A definir · Confirmado · Realizado · Cancelado.'],
     ['⬆ Importar Excel','Lê a aba "Calendário …" da planilha comercial (colunas D e J, datas, collab, canal, critério, status e observações) e o bloco "Marcos e prazos" — marcos sem data entram no mês escolhido (padrão Novembro) e, se a collab já tiver evento no calendário, são unidos a ele. Antes de gravar, confira o Canal / Grupo de cada linha. Reimportar substitui só os eventos que vieram de Excel; os digitados na tela ficam.'],
     ['Editar / excluir','Clique na linha do evento.'],
+    ['Projeção (fatia 2)','Valor esperado de cada evento. Passe o mouse sobre o valor para ver a memória de cálculo. Shows e feiras: média por evento de 2025–2026 (valor vendido no mês ÷ nº de eventos de Financeiro › Canais de Venda › 📅 Eventos por mês; valor da Prestação de Contas quando existe, senão Histórico de Compras). E-commerce: nov/dez 2025 × desempenho 2026 sobre 2025 (jan–ago); Black Friday (20–30/11), Cyber Monday (01/12) e Natal (02–24/12) só com o que vendeu acima da média diária normal. Manuais: peças × ticket.'],
     ['Próximas etapas','Fatia 2: projeção automática por evento com as estatísticas de vendas (Histórico de Compras e Prestação de Contas). Fatia 3: Planejamento Anual › Simulações › Simulação Compras Black Friday / Natal (receita projetada → compras VJ/AT pela meta 25%/50% e pela proporção real de 2026, menos provisões). Fatia 4: visão mensal e realizado automático por evento.']
   ];
   openModal('<div class="modal-box pa-modal-wide" onclick="event.stopPropagation()"><div class="modal-title">ℹ️ Tutorial Informativo — Calendário Comercial</div>'+

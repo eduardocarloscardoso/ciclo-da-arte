@@ -936,6 +936,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - Novo centro de receita **E-COMMERCE IZA** (id 510011, subconta E-COMMERCE, grupo E-commerce)
   e canal do Financeiro **E-COMMERCE IZA** (comissão 15% → Comissões Artistas Collabs, imposto
   padrão).
+- **Fatia 2 — projeção nov/dez 2026** (30/10/2026, aprovada por Cardoso; `docs/sql/calendario_02_projecao_nov_dez_2026.sql`):
+  nova coluna `memoria_projecao` (memória de cálculo, exibida ao passar o mouse na Projeção e na edição do evento).
+  Shows/feiras pela média por evento 2025–2026 (Luedji R$ 13.478,41; Gilsons R$ 8.683,78; Feiras R$ 18.843,17);
+  e-commerce nov/dez 2025 × 0,625 (queda de 37,5% em jan–ago 2026 sobre 2025, aplicada por decisão de Cardoso);
+  Black Friday 20–30/11, Cyber 01/12 e Natal 02–24/12 só o acima da média diária normal (R$ 939,13). Ajustes de
+  Cardoso: FACC Zudizilla 30 × R$ 180; D Space e Rosenbaum Natal R$ 10.000 cada; Hostel Gaia ticket R$ 150.
+  **Total: novembro R$ 194.069,75 · dezembro R$ 45.211,98 · nov+dez R$ 239.281,73.** Reimportar a planilha
+  substitui os eventos de origem Excel e apaga as projeções (aviso na prévia).
 - Próximas fatias: 2) motor de projeção por evento (média por show da collab e por feira/evento
   em 2026 pela Prestação de Contas; e-commerce/Black Friday 20–30/11/2025, Cyber Monday,
   Natal 01–24/12/2025 × crescimento 2026/2025; manual; só informar; a definir); 3) Planejamento ›
