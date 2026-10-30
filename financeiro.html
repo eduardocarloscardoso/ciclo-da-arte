@@ -2392,10 +2392,32 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
       return idResolvido;
     }
     let totalGravados=0,totalErros=0;
+    // Regra 30/10/2026 (Cardoso): (1) pedido já gravado no Histórico (mesmo nº de pedido + canal, de importação
+    // anterior) não é gravado de novo — evita duplicidade por reimportação; (2) pedidos do cliente
+    // "Consumidor Final" são ignorados — são notas fiscais contábeis emitidas depois dos eventos, cujas peças
+    // já estão nos pedidos de venda dos shows.
+    const ehConsumidorFinal=function(nome){return /consumidor\s*final/i.test(String(nome||''));};
+    const pedidosJaGravados={};
+    try{
+      const nums=[...new Set(resumo.flatMap(g=>g.secoes.flatMap(s=>s.itens.map(i=>String(i.numero_pedido||'').trim()).filter(Boolean))))];
+      for(let k=0;k<nums.length;k+=150){
+        const {data,error}=await cdaClient.from('compras').select('numero_pedido,canal_id').in('numero_pedido',nums.slice(k,k+150));
+        if(error)throw error;
+        (data||[]).forEach(r=>{pedidosJaGravados[String(r.numero_pedido).trim()+'|'+String(r.canal_id)]=1;});
+      }
+    }catch(eChk){
+      console.error('Falha ao verificar pedidos já gravados:',eChk);
+      alert('Não foi possível verificar se os pedidos já existem no Histórico de Compras. A sincronização foi cancelada para não duplicar dados. Tente novamente.');
+      return;
+    }
+    const ignoradosDup={},ignoradosCF={};
     for(const grupo of resumo){
       for(const sec of grupo.secoes){
         for(const item of sec.itens){
           if(!item.numero_pedido&&!item.cliente){continue;}
+          const chavePed=String(item.numero_pedido||'').trim()+'|'+String(sec.canal_id);
+          if(item.numero_pedido&&pedidosJaGravados[chavePed]){ignoradosDup[chavePed]=1;continue;}
+          if(ehConsumidorFinal(item.cliente)){ignoradosCF[chavePed]=1;continue;}
           try{
             var clienteId=await resolverClienteId(item);
             var salvo=await cdaSalvarCompra({
@@ -2427,10 +2449,13 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
         }
       }
     }
+    const nDup=Object.keys(ignoradosDup).length,nCF=Object.keys(ignoradosCF).length;
+    const extra=(nDup?' · '+nDup+' pedido(s) já existiam no Histórico e não foram gravados de novo':'')+(nCF?' · '+nCF+' pedido(s) de Consumidor Final ignorados (nota contábil)':'');
     if(totalErros===0){
-      toast('✔ Histórico de Compras sincronizado: '+totalGravados+' itens gravados.','ok');
+      toast('✔ Histórico de Compras sincronizado: '+totalGravados+' itens gravados'+extra+'.','ok');
+      if(nDup||nCF)console.info('[Histórico de Compras] Ignorados — já gravados:',Object.keys(ignoradosDup),'· Consumidor Final:',Object.keys(ignoradosCF));
     }else{
-      alert('Histórico de Compras: '+totalGravados+' itens gravados, '+totalErros+' falharam. Veja o console para detalhes.');
+      alert('Histórico de Compras: '+totalGravados+' itens gravados, '+totalErros+' falharam'+extra+'. Veja o console para detalhes.');
     }
   }catch(err){
     console.error(err);

@@ -986,8 +986,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   histórico. Removidos todos: **84 pedidos, 653 linhas, 1.285 peças, R$ 224.253,14** (ago/2022–nov/2024; nenhum
   ligado a prestação). Backup em `public.bkp_compras_consumidor_final_20261030`. Os 5 cadastros de cliente foram
   mantidos (sem pedidos). Tabela `compras`: 11.313 → 10.660 linhas.
-- Pendentes: checagem por total de gravação (pedido duplicado com texto de linha diferente, como o 7804);
-  importador recusar pedido já gravado. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+- **Proteção contra nova duplicidade** (30/10/2026, Cardoso):
+  · Importador (financeiro.html › Importar Planilha Bling › `sincronizarHistoricoComprasDaImportacao`): antes de
+    gravar, consulta os nºs de pedido da planilha no Histórico; pedido (nº + canal) já gravado **não é gravado de
+    novo**, e pedido de cliente **Consumidor Final** é ignorado. O aviso final informa quantos foram ignorados; se a
+    consulta falhar, a sincronização é cancelada (não grava às cegas).
+  · Banco (`docs/sql/historico_compras_06_bloqueio_importacao.sql`, gatilho `cda_compras_bloqueia_reimportacao`):
+    linha de origem 'importado' de pedido gravado há mais de 10 min, ou de cliente Consumidor Final, é descartada.
+    Lançamentos manuais não são afetados.
+- Pendente: checagem por total de gravação (pedido duplicado com texto de linha diferente, como o 7804). Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
