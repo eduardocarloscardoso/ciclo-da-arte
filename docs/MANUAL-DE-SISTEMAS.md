@@ -942,6 +942,22 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Simulações (com Tutorial) › Simulação Compras Black Friday / Natal (compras VJ/AT pela meta
   25%/50% e pela proporção real de 2026, menos provisões); 4) visão mensal e realizado automático.
 
+## 13. Histórico de Compras — duplicidades — out/2026
+
+- **Levantamento** (30/10/2026): 690 pedidos com linhas idênticas repetidas na tabela `compras`
+  (planilha "Historico_Compras_Pedidos_Duplicados_2026-10-30.xlsx"). Classes: **A** reimportação
+  completa (117 pedidos, pedido inteiro gravado 2× em importações diferentes); **B** duplicação
+  parcial (62 pedidos, R$ 105.054 a mais — pendente de conferência); **C** repetição na mesma
+  importação (511 pedidos 2022–2025, R$ 395.485 — pode ser legítima: mesma peça em linhas
+  separadas no BLING; conferir por amostragem). Origem principal: importações repetidas em
+  28/09/2026 (128 pedidos), 29–31/07/2026 (42) e 02–03/08/2026 (9).
+- **Correção da classe A** (30/10/2026, aprovada por Cardoso; `docs/sql/historico_compras_01_remove_reimportacao.sql`):
+  removidas **283 linhas** (1.522 peças, **R$ 228.911,86**) — mantida a gravação mais antiga de cada
+  linha. Backup integral das linhas removidas em `public.bkp_compras_dup_classe_a_20261030`.
+  Tabela `compras`: 12.038 → 11.755 linhas. Conferência: pedido 8095 (SHOWS LUEDJI LUNA, ago/2026)
+  passou de 102 peças / R$ 19.944 para **51 peças / R$ 9.972**, igual à Prestação de Contas.
+- Pendentes: classes B e C; importador recusar pedido já gravado.
+
 ## 11. Memória da última tela — out/2026
 
 `cda-memoria-tela.js` (carregado no fim do `index.html`, depois do script
