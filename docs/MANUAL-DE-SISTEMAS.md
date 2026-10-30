@@ -968,8 +968,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   → R$ 1.073; 7990 Showroom (4 lotes de 28/09) → R$ 898,50; 7953 Showroom (4 lotes de 28/09) → R$ 445.
   **144 linhas, R$ 37.333,05** removidas; backup em `public.bkp_compras_dup_classe_b2_20261030`.
   Tabela `compras`: 11.553 → 11.409 linhas. Total corrigido (A + B1 + B2): 629 linhas, R$ 329.867,51.
-- Pendentes: **B2 restantes** (11 pedidos 2023–2025, conferir no BLING: 5736, 5283, 1616, 1044, 4985, 6235,
-  3594, 8010, 1449, 4471, 6724); antigo texto: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+- **B2 restantes — conferidos no BLING** (30/10/2026, Cardoso; `docs/sql/historico_compras_04_b2_8010_6724.sql`):
+  sem alteração 5736 (R$ 10.647), 5283 (R$ 6.408), 1044 (R$ 6.825), 3594 (R$ 1.834), 1449 (R$ 815), 6235 (R$ 778),
+  4471 (R$ 431) — linhas repetidas legítimas; 4985 (BLING R$ 700 = 4 × R$ 175; Histórico R$ 730 inclui frete de
+  R$ 7,50 por linha); 1616 (BLING R$ 5.205; os R$ 1.520 a mais são produtos genéricos fora do Histórico).
+  Corrigidos: **8010** Ciclo em Casa — removida a gravação de 28/09 15:45 (2 linhas, R$ 201,50) → 3 peças,
+  **R$ 302,55**; **6724** Brindes / Permutas (R$ 0) — pedido inteiro removido (94 linhas, 97 peças).
+  Backup na mesma tabela `public.bkp_compras_dup_classe_b2_20261030` (240 linhas no total). Tabela `compras`:
+  11.409 → 11.313 linhas. Classe B encerrada.
+- Pendentes: **C** — a conferência da B2 indica que repetição na mesma importação costuma ser legítima; confirmar
+  amostra 7048, 7058, 4589 no BLING antes de concluir. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
