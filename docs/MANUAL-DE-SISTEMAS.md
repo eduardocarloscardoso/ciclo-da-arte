@@ -976,8 +976,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   **R$ 302,55**; **6724** Brindes / Permutas (R$ 0) — pedido inteiro removido (94 linhas, 97 peças).
   Backup na mesma tabela `public.bkp_compras_dup_classe_b2_20261030` (240 linhas no total). Tabela `compras`:
   11.409 → 11.313 linhas. Classe B encerrada.
-- Pendentes: **C** — a conferência da B2 indica que repetição na mesma importação costuma ser legítima; confirmar
-  amostra 7048, 7058, 4589 no BLING antes de concluir. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+- **Classe C encerrada sem alteração** (30/10/2026, Cardoso): amostra conferida no BLING bateu — 7048 R$ 595,00
+  (4 peças), 7058 R$ 969,81 (7 peças), 4589 R$ 457,00 (3 peças; Histórico R$ 482,00 = BLING + R$ 25 de frete).
+  Repetição de linhas idênticas dentro da mesma importação = mesma peça vendida em linhas separadas (legítimo).
+- Pendentes: checagem por total de gravação (pedido duplicado com texto de linha diferente, como o 7804);
+  importador recusar pedido já gravado. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
