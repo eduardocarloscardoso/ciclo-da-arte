@@ -962,7 +962,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   28/09/2026). Removidas **202 linhas** (206 peças, **R$ 63.622,60**), mantida a gravação mais antiga.
   Backup em `public.bkp_compras_dup_classe_b1_20261030`. Tabela `compras`: 11.755 → 11.553 linhas.
   Conferência: 8093 = 2 linhas / R$ 4.589,75.
-- Pendentes: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+- **Correção de 5 pedidos da B2** (30/10/2026, totais conferidos no BLING por Cardoso;
+  `docs/sql/historico_compras_03_b2_cinco_pedidos.sql`): removidos os lotes repetidos — 7804 Feiras (lote
+  26/08 21:18) → R$ 15.148,05; 7633 Shows Gilsons (30/07 23:51) → R$ 17.558; 8110 Showroom (4 lotes de 28/09)
+  → R$ 1.073; 7990 Showroom (4 lotes de 28/09) → R$ 898,50; 7953 Showroom (4 lotes de 28/09) → R$ 445.
+  **144 linhas, R$ 37.333,05** removidas; backup em `public.bkp_compras_dup_classe_b2_20261030`.
+  Tabela `compras`: 11.553 → 11.409 linhas. Total corrigido (A + B1 + B2): 629 linhas, R$ 329.867,51.
+- Pendentes: **B2 restantes** (11 pedidos 2023–2025, conferir no BLING: 5736, 5283, 1616, 1044, 4985, 6235,
+  3594, 8010, 1449, 4471, 6724); antigo texto: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
