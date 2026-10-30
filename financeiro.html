@@ -646,6 +646,23 @@ tr:hover td{background:#faf7f0;}
   </div>
 </div>
 
+<!-- MODAL EVENTOS POR MÊS (canal) -->
+<div class="mo" id="mo-ev">
+  <div class="mo-box" style="max-width:720px">
+    <div class="mo-h"><h3 id="mo-ev-t">Eventos por mês</h3><button class="mo-x" onclick="closeMo('mo-ev')">✕</button></div>
+    <div class="mo-b">
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Quantos shows ou feiras/eventos o canal teve em cada mês. É a base da média por evento usada nas projeções do Calendário Comercial. Altere o número ou os locais e o valor é salvo ao sair do campo.</p>
+      <div id="ev-lista"></div>
+      <div style="display:grid;grid-template-columns:150px 110px 1fr auto;gap:8px;align-items:end;margin-top:14px">
+        <div class="fgr"><label>Mês</label><input id="ev-novo-mes" type="month"></div>
+        <div class="fgr"><label>Nº eventos</label><input id="ev-novo-qtd" type="number" min="0" step="1"></div>
+        <div class="fgr"><label>Locais / observação</label><input id="ev-novo-obs" type="text" placeholder="Ex.: Circo Voador ; Centro Artístico SP"></div>
+        <button class="btn rust sm" onclick="finAdicionarEvento()">+ Adicionar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL COLLAB -->
 <div class="mo" id="mo-col">
   <div class="mo-box">
@@ -655,6 +672,7 @@ tr:hover td{background:#faf7f0;}
         <div class="fgr" style="grid-column:1/-1"><label>Collab / Vendedor *</label><select id="col-cv"><option value="">— Selecione —</option></select></div>
         <div class="fgr" style="grid-column:1/-1"><label>Nome do Canal *</label><input id="col-n" type="text" placeholder="Ex: E-Commerce Duda Beat"></div>
         <div class="fgr"><label>Tipo</label><select id="col-t"><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select></div>
+        <div class="fgr"><label>Grupo <small style="font-weight:400;color:var(--muted)">(Tabela de Grupos)</small></label><select id="col-grupo"><option value="">— sem grupo —</option></select></div>
         <div class="fgr"><label>% Comissão (sobrescreve padrão)</label><input id="col-c" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
         <div class="fgr"><label>% Imposto <small style="font-weight:400;color:var(--muted)">(s/ Total Venda + Frete)</small></label><input id="col-imp" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
         <div class="fgr"><label>% Desc. Operacional <small style="font-weight:400;color:var(--muted)">(Shows / Loja Itinerante)</small></label><input id="col-op" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
@@ -703,8 +721,8 @@ const SB_TABLE_MAP={
     toRow:o=>({id:o.id,nome:o.nome||null,email:o.email||null,cpf:o.cpf||null,sexo:o.sexo||null,nascimento:o['data-nascimento']||null,celular:o['telefone-celular']||o.celular||null,telefone:o.telefone||null,telefone_principal:o['telefone-principal']||null,telefone_comercial:o['telefone-comercial']||null,endereco:o.endereco||null,numero:o.numero||null,complemento:o.complemento||null,referencia:o.referencia||null,bairro:o.bairro||null,cidade:o.cidade||null,estado:o.estado||null,cep:o.cep||null,pais:o.pais||null,situacao:o.situacao||null,grupo:o.grupo||null,ativo:o.ativo||null,tipo:o.tipo||null,rg:o.rg||null,cnpj:o.cnpj||null,razao_social:o['razao-social']||null,ie:o.ie||null,data_criacao:o['data-criacao']||null,tipo_comercial:o.tipo_comercial||null,instagram:o.instagram||null,origem:o.origem||null,origem_dados:o.origem_dados||null,responsavel_comercial:o.responsavel_comercial||null,tags_comercial:o.tags_comercial||null,obs_comercial:o.obs_comercial||null})
   },
   collabs:{table:'canais',pk:'id',
-    fromRow:r=>({id:r.id,nome:r.nome,tipo:r.tipo,comissao:r.comissao,pct_imp:r.pct_imp,pct_op:r.pct_op,pct_cs:r.pct_cs,sem_frete:r.sem_frete,email:r.email,obs:r.obs,cv_id:r.parceiro_id}),
-    toRow:o=>({id:o.id,nome:o.nome||null,tipo:o.tipo||null,comissao:o.comissao,pct_imp:o.pct_imp,pct_op:o.pct_op,pct_cs:o.pct_cs,sem_frete:!!o.sem_frete,email:o.email||null,obs:o.obs||null,parceiro_id:o.cv_id||null})
+    fromRow:r=>({id:r.id,nome:r.nome,tipo:r.tipo,comissao:r.comissao,pct_imp:r.pct_imp,pct_op:r.pct_op,pct_cs:r.pct_cs,sem_frete:r.sem_frete,email:r.email,obs:r.obs,cv_id:r.parceiro_id,grupo_id:r.grupo_id}),
+    toRow:o=>({id:o.id,nome:o.nome||null,tipo:o.tipo||null,comissao:o.comissao,pct_imp:o.pct_imp,pct_op:o.pct_op,pct_cs:o.pct_cs,sem_frete:!!o.sem_frete,email:o.email||null,obs:o.obs||null,parceiro_id:o.cv_id||null,grupo_id:o.grupo_id||null})
   },
   cvs:{table:'parceiros',pk:'id',
     fromRow:r=>({id:r.id,nome:r.nome,obs:r.obs}),
@@ -1170,7 +1188,7 @@ function render(p){
       }});
     }
   }
-  else if(p==='collabs'){fillFiltrosCollabs();rCollabs();}
+  else if(p==='collabs'){fillFiltrosCollabs();rCollabs();finCarregarGrupos().then(()=>rCollabs());}
   else if(p==='cvpage')rCVPage();
   else if(p==='cfg')rCfg();
   else if(p==='cardapios')rCardapios();
@@ -2928,9 +2946,10 @@ function rCollabs(){
         <div>
           ${cv?`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">${cv.nome}</div>`:''}
           <div class="ccard-n">${c.nome}</div>
-          <div class="ccard-t">${TIPO_L[c.tipo]||c.tipo}</div>
+          <div class="ccard-t">${TIPO_L[c.tipo]||c.tipo}${finNomeGrupo(c.grupo_id)?` · <span title="Grupo (Tabela de Grupos)">▦ ${finNomeGrupo(c.grupo_id)}</span>`:''}</div>
         </div>
         <div style="display:flex;gap:6px;">
+          ${finCanalTemEventos(c)?`<button class="btn sm" title="Nº de eventos (shows / feiras) por mês" onclick="finAbrirEventos(${c.id})">📅</button>`:''}
           <button class="btn sm" onclick="editCol(${c.id})">✏</button>
           <button class="btn sm" style="background:var(--rust);color:#fff;" data-del-id="${c.id}" data-del-nome="${c.nome}" onclick="deletarCanal(this)">🗑</button>
         </div>
@@ -2960,6 +2979,7 @@ function openMoCol(c){
   document.getElementById('col-frete-flag').checked=c?c.sem_frete||false:false;
   document.getElementById('col-e').value=c?.email||'';
   document.getElementById('col-o').value=c?.obs||'';
+  finPreencherGrupos(c?.grupo_id||'');
   openMo('mo-col');
 }
 function editCol(id){const c=DB.g('collabs').find(x=>x.id==id);if(c)openMoCol(c);}
@@ -2972,9 +2992,68 @@ function saveCol(){
   const pct_op=parseFloat(document.getElementById('col-op').value);
   const pct_cs=parseFloat(document.getElementById('col-cs').value);
   const sem_frete=document.getElementById('col-frete-flag').checked;
-  const obj={id:eCOId||uid(),nome,tipo:document.getElementById('col-t').value,comissao:isNaN(com)?null:com,pct_imp:isNaN(pct_imp)?null:pct_imp,pct_op:isNaN(pct_op)?null:pct_op,pct_cs:isNaN(pct_cs)?null:pct_cs,sem_frete,email:document.getElementById('col-e').value,obs:document.getElementById('col-o').value,cv_id:cvId};
+  const obj={id:eCOId||uid(),nome,tipo:document.getElementById('col-t').value,comissao:isNaN(com)?null:com,pct_imp:isNaN(pct_imp)?null:pct_imp,pct_op:isNaN(pct_op)?null:pct_op,pct_cs:isNaN(pct_cs)?null:pct_cs,sem_frete,email:document.getElementById('col-e').value,obs:document.getElementById('col-o').value,cv_id:cvId,grupo_id:parseInt(document.getElementById('col-grupo').value)||null};
   if(eCOId){const i=cols.findIndex(x=>x.id==eCOId);if(i>=0)cols[i]=obj;}else cols.push(obj);
   DB.s('collabs',cols);closeMo('mo-col');rCollabs();toast('Canal de Venda salvo!','ok');
+}
+
+// ── Grupo do canal (Tabela de Grupos do Planejamento) e Nº de eventos por mês — 30/10/2026 ──
+let FIN_GRUPOS=null;
+async function finCarregarGrupos(){
+  if(FIN_GRUPOS)return FIN_GRUPOS;
+  try{const {data,error}=await sbClient.from('cda_grupo').select('id,nome,tipo,ativo,ordem').order('ordem');if(error)throw error;FIN_GRUPOS=data||[];}
+  catch(e){console.error('Grupos:',e);FIN_GRUPOS=[];}
+  return FIN_GRUPOS;
+}
+function finNomeGrupo(id){if(!id||!FIN_GRUPOS)return '';const g=FIN_GRUPOS.find(x=>String(x.id)===String(id));return g?g.nome:'';}
+function finCanalTemEventos(c){return /show|feira|evento/i.test(finNomeGrupo(c.grupo_id))||/^shows?\b|feira|evento/i.test(c.nome||'');}
+async function finPreencherGrupos(sel){
+  const gs=await finCarregarGrupos(),el=document.getElementById('col-grupo');if(!el)return;
+  const lista=gs.filter(g=>(g.ativo&&g.tipo==='Receita')||String(g.id)===String(sel));
+  el.innerHTML='<option value="">— sem grupo —</option>'+lista.map(g=>`<option value="${g.id}">${g.nome}${g.tipo!=='Receita'?' ('+g.tipo+')':''}</option>`).join('');
+  el.value=sel?String(sel):'';
+}
+let FIN_EV_CANAL=null;
+async function finAbrirEventos(canalId){
+  const c=DB.g('collabs').find(x=>String(x.id)===String(canalId));if(!c)return;
+  FIN_EV_CANAL=c;
+  document.getElementById('mo-ev-t').textContent='📅 Eventos por mês — '+c.nome;
+  document.getElementById('ev-novo-mes').value='';document.getElementById('ev-novo-qtd').value='';document.getElementById('ev-novo-obs').value='';
+  openMo('mo-ev');await finListarEventos();
+}
+async function finListarEventos(){
+  const box=document.getElementById('ev-lista');box.innerHTML='<p style="font-size:12px;color:var(--muted)">Carregando…</p>';
+  try{
+    const {data,error}=await sbClient.from('cda_canal_eventos_mes').select('*').eq('canal_id',FIN_EV_CANAL.id).order('ano_mes',{ascending:false});
+    if(error)throw error;
+    if(!data||!data.length){box.innerHTML='<p style="font-size:12px;color:var(--muted)">Nenhum mês registrado ainda.</p>';return;}
+    const tot=data.reduce((s,r)=>s+(r.qtd_eventos||0),0);
+    box.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;border-bottom:2px solid var(--ink)"><th style="padding:6px">Mês</th><th style="padding:6px;width:90px">Nº eventos</th><th style="padding:6px">Locais / observação</th><th></th></tr></thead><tbody>`+
+      data.map(r=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px;white-space:nowrap">${mesLabel(r.ano_mes)}</td>
+        <td style="padding:6px"><input type="number" min="0" step="1" value="${r.qtd_eventos}" style="width:70px" onchange="finSalvarEvento('${r.ano_mes}',this.value,null,this)"></td>
+        <td style="padding:6px"><input type="text" value="${(r.observacao||'').replace(/"/g,'&quot;')}" style="width:100%" onchange="finSalvarEvento('${r.ano_mes}',null,this.value,this)"></td>
+        <td style="padding:6px"><button class="btn sm" title="Excluir mês" onclick="finExcluirEvento(${r.id})">🗑</button></td></tr>`).join('')+
+      `</tbody><tfoot><tr><td style="padding:6px;font-weight:700">Total</td><td style="padding:6px;font-weight:700">${tot}</td><td colspan="2"></td></tr></tfoot></table>`;
+  }catch(e){console.error(e);box.innerHTML='<p style="color:var(--rust)">Não foi possível carregar os eventos.</p>';}
+}
+async function finSalvarEvento(mes,qtd,obs,el){
+  try{
+    const atual=(await sbClient.from('cda_canal_eventos_mes').select('qtd_eventos,observacao').eq('canal_id',FIN_EV_CANAL.id).eq('ano_mes',mes).maybeSingle()).data||{};
+    const row={canal_id:FIN_EV_CANAL.id,ano_mes:mes,qtd_eventos:qtd!==null?(parseInt(qtd,10)||0):(atual.qtd_eventos||0),observacao:obs!==null?(obs.trim()||null):(atual.observacao||null),origem:'manual',atualizado_por:(window.cu&&cu.email)||'financeiro',atualizado_em:new Date().toISOString()};
+    const {error}=await sbClient.from('cda_canal_eventos_mes').upsert(row,{onConflict:'canal_id,ano_mes'});if(error)throw error;
+    toast('Eventos de '+mesLabel(mes)+' salvos','ok');if(!el)await finListarEventos();
+  }catch(e){console.error(e);toast('Erro ao salvar: '+(e.message||e));}
+}
+async function finAdicionarEvento(){
+  const mes=document.getElementById('ev-novo-mes').value,qtd=document.getElementById('ev-novo-qtd').value,obs=document.getElementById('ev-novo-obs').value;
+  if(!mes){toast('Informe o mês');return;}if(qtd===''){toast('Informe o nº de eventos');return;}
+  await finSalvarEvento(mes,qtd,obs,null);
+  document.getElementById('ev-novo-mes').value='';document.getElementById('ev-novo-qtd').value='';document.getElementById('ev-novo-obs').value='';
+}
+async function finExcluirEvento(id){
+  if(!confirm('Excluir este mês?'))return;
+  try{const {error}=await sbClient.from('cda_canal_eventos_mes').delete().eq('id',id);if(error)throw error;toast('Mês excluído','ok');await finListarEventos();}
+  catch(e){console.error(e);toast('Erro ao excluir: '+(e.message||e));}
 }
 
 // ════════════════════════════════════════════════

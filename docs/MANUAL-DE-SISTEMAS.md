@@ -1007,6 +1007,22 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
 
+## 14. Canais de Venda — Grupo e Nº de eventos por mês — out/2026
+
+- **30/10/2026 (Cardoso):** Financeiro › Canais de Venda passa a mostrar e editar o **Grupo** do canal
+  (`canais.grupo_id`, mesmo cadastro da Tabela de Grupos do Planejamento; lista só grupos de Receita ativos,
+  mais o grupo atual se for de outro tipo). Cartão do canal mostra "▦ <grupo>".
+- Nova tabela `cda_canal_eventos_mes` (migração `docs/sql/canais_01_eventos_mes.sql`): canal × mês (AAAA-MM) →
+  **nº de eventos** (shows / feiras-eventos) e locais. Botão **📅 Eventos por mês** nos canais de grupos de
+  shows/feiras: ver, alterar (grava ao sair do campo), incluir e excluir meses. Base da **média por evento** do
+  Calendário Comercial (valor vendido no mês ÷ nº de eventos; valor da Prestação de Contas quando existe —
+  2026 — senão Histórico de Compras limpo).
+- Carga inicial (planilha "Eventos_por_mes_Shows_Feiras.xlsx" preenchida por Cardoso, sem as linhas em amarelo —
+  Shows Multimarcas inteiro, Kaê 06/2026, Gilsons 04/2026): 54 meses — Luedji 14 eventos, Gilsons 11, Feiras 11,
+  Rachel Reis 11, Rico Dalassam 15, Zudizilla 4, Duda Beat 3, Kaê Guajajara 5. Ajustes: Luedji 04/2026 = 3
+  (2 shows no Circo Voador + Centro Artístico SP), Zudizilla 11/2025 = 2, Kaê 05/2026 = 1.
+- Pendente: investigar os pedidos do canal Shows Multimarcas (2022–2024), apontados por Cardoso como errados.
+
 ## 11. Memória da última tela — out/2026
 
 `cda-memoria-tela.js` (carregado no fim do `index.html`, depois do script
