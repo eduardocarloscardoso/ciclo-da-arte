@@ -979,6 +979,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - **Classe C encerrada sem alteração** (30/10/2026, Cardoso): amostra conferida no BLING bateu — 7048 R$ 595,00
   (4 peças), 7058 R$ 969,81 (7 peças), 4589 R$ 457,00 (3 peças; Histórico R$ 482,00 = BLING + R$ 25 de frete).
   Repetição de linhas idênticas dentro da mesma importação = mesma peça vendida em linhas separadas (legítimo).
+- **Pedidos de "Consumidor Final" removidos** (30/10/2026, decisão de Cardoso;
+  `docs/sql/historico_compras_05_remove_consumidor_final.sql`): o cliente Consumidor Final (5 cadastros
+  "CONSUMIDOR FINAL ATUAL / Consumidor Final - DADOS CADASTRAIS INCOMPLETOS") é só contábil — notas fiscais ao
+  consumidor emitidas depois dos eventos, cujas peças já estão nos pedidos de venda dos shows; dobravam o
+  histórico. Removidos todos: **84 pedidos, 653 linhas, 1.285 peças, R$ 224.253,14** (ago/2022–nov/2024; nenhum
+  ligado a prestação). Backup em `public.bkp_compras_consumidor_final_20261030`. Os 5 cadastros de cliente foram
+  mantidos (sem pedidos). Tabela `compras`: 11.313 → 10.660 linhas.
 - Pendentes: checagem por total de gravação (pedido duplicado com texto de linha diferente, como o 7804);
   importador recusar pedido já gravado. Texto anterior: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
   texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
