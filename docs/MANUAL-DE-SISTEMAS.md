@@ -956,7 +956,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   linha. Backup integral das linhas removidas em `public.bkp_compras_dup_classe_a_20261030`.
   Tabela `compras`: 12.038 → 11.755 linhas. Conferência: pedido 8095 (SHOWS LUEDJI LUNA, ago/2026)
   passou de 102 peças / R$ 19.944 para **51 peças / R$ 9.972**, igual à Prestação de Contas.
-- Pendentes: classes B e C; importador recusar pedido já gravado.
+- **Correção da classe B1** (30/10/2026, aprovada por Cardoso — "manter um único pedido de cada";
+  `docs/sql/historico_compras_02_remove_reimportacao_multipla.sql`): 46 pedidos reimportados de 3 a 7
+  vezes com gravações idênticas (ex.: 8093 Revenda Showroom/SAC 5×, 7779 7×, e-commerces Luedji 3× em
+  28/09/2026). Removidas **202 linhas** (206 peças, **R$ 63.622,60**), mantida a gravação mais antiga.
+  Backup em `public.bkp_compras_dup_classe_b1_20261030`. Tabela `compras`: 11.755 → 11.553 linhas.
+  Conferência: 8093 = 2 linhas / R$ 4.589,75.
+- Pendentes: **B2** (16 pedidos com gravações diferentes, R$ 41.431 — ex.: 7804 Feiras jun/26 gravado 2× com
+  texto de linha diferente; 7633 Shows Gilsons; 8110, 7990, 7953 Showroom importados em partes e depois
+  inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
+  (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
 
 ## 11. Memória da última tela — out/2026
 
