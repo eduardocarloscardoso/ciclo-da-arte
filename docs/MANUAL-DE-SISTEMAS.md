@@ -912,6 +912,36 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
+## 12. Calendário Comercial — out/2026
+
+- **Fatia 1** (30/10/2026, Cardoso): projeto **Calendário** da barra lateral deixou de ser
+  "em construção" e virou o **Calendário Comercial** (`cda-modulo-calendario.js`, submenu
+  "Calendário Comercial"). Agenda única de shows, feiras, lançamentos, campanhas, base do
+  e-commerce, private label e marcos — fonte das projeções de receita e de compras.
+- Tabela `cda_cal_evento` (migração `docs/sql/calendario_01_eventos.sql`, RLS membros da
+  equipe): início/fim, ano/mês (marcos sem data), evento, collab, **Canal / Grupo** (centro de
+  RECEITA do Planejamento ou grupo de receita — exibido só com o nome do grupo + ▦), critério
+  (**Unidades · Pedidos · A definir** — "Diária" virou Unidades e "Marco" virou A definir),
+  status, ação IA projetada, local, observações, qtd/ticket (projeção manual), projeção
+  (fatia 2), realizado (fatia 4), origem (manual/excel). Sem coluna Tipo (decisão Cardoso).
+- Tela: filtros ano/mês/canal-grupo/status, cartões compactos, + Novo evento, edição/exclusão
+  clicando na linha, ⬆ Importar Excel (aba "Calendário …": colunas D Evento e J Ação IA + datas,
+  collab, canal, critério, status, observações e bloco "Marcos e prazos"; marcos sem data no mês
+  escolhido — padrão Novembro; marco da mesma collab de um evento é unido a ele, ex.: Emerson
+  Dialab 29/11 = 100 × R$ 70; reimportar substitui só eventos de origem Excel), ℹ️ Tutorial.
+- Regras de vínculo na importação: Shows → SHOWS <collab>; Feiras/Festivais → FEIRAS E
+  BAZARES; E-commerce, Campanhas e Lançamentos (Zudizilla, IZA) → grupo E-commerce; Marco PL /
+  "Canal Private Label" → PRIVATE LABEL; "Revendas Futura 1" (Hostel Gaia) → REVENDA FUTURA 1;
+  Circo Voador, Jo & Joe, Duda Beat → a definir.
+- Novo centro de receita **E-COMMERCE IZA** (id 510011, subconta E-COMMERCE, grupo E-commerce)
+  e canal do Financeiro **E-COMMERCE IZA** (comissão 15% → Comissões Artistas Collabs, imposto
+  padrão).
+- Próximas fatias: 2) motor de projeção por evento (média por show da collab e por feira/evento
+  em 2026 pela Prestação de Contas; e-commerce/Black Friday 20–30/11/2025, Cyber Monday,
+  Natal 01–24/12/2025 × crescimento 2026/2025; manual; só informar; a definir); 3) Planejamento ›
+  Simulações (com Tutorial) › Simulação Compras Black Friday / Natal (compras VJ/AT pela meta
+  25%/50% e pela proporção real de 2026, menos provisões); 4) visão mensal e realizado automático.
+
 ## 11. Memória da última tela — out/2026
 
 `cda-memoria-tela.js` (carregado no fim do `index.html`, depois do script
