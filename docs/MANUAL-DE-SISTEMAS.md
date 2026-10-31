@@ -677,6 +677,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (`PA_TUT.provisao`, com colunas, ⚡ Auto/Auto Sub/Auto Conta, cartões e revisão no
   fechamento). No topo fica só "Último mês realizado em <ano>: <mês> · Meses
   restantes: <n>".
+- **Tributos 2026 parcelados — fora da provisão** (31/10/2026, Cardoso): os tributos de mar–out/2026 foram renegociados
+  em 60 parcelas (dívida de longo prazo). Cardoso zerou a provisão de "Impostos sobre vendas" (R$ 77.811,96) e acertou as
+  provisões de comissões (Artistas/Collabs = saldo das prestações "Enviado", R$ 22.074,37; Revendas zerada) e de produção.
+  Novo cadastro `cda_pa_divida_parcelada` (`docs/sql/planejamento_anual_16b_divida_parcelada.sql`) com o registro
+  "Tributos 2026 (mar–out) — novo parcelamento" (R$ 77.811,96, 60 parcelas, centro Impostos - Parcelamento; valor negociado,
+  parcela e 1º vencimento a informar). A Visão Anual mostra o aviso "Tributos de 2026 parcelados (fora do resultado de
+  caixa)" — informativo, fora do saldo e dos cartões: economicamente é custo das vendas de 2026. As parcelas entram mês a
+  mês no Realizado/Previsto do centro de parcelamento; a dívida alimentará o orçamento de 2027+.
 - **Despesas out/2026 FECHADAS importadas** (31/10/2026 06:18, Cardoso, pelo sistema): BLING Relatório de
   Pagamentos de outubro encerrado — 43 centros, R$ 116.355,41 (substituiu a importação parcial de 29/10, R$ 106.491,56).
   Produção Varejo R$ 33.774,67 · Produção Atacado R$ 9.679,60 · Montagem Coleções R$ 3.379,79. Rateio Uber reaplicado:

@@ -1285,6 +1285,12 @@ async function paVisaoAnual(){
   var ano=paEstado.ano,d=await paDadosAno(ano);
   var html=paFiltroHTML(d.h,{anos:d.anos,acoes:'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\''+'anual'+'\')">ℹ️ Tutorial Informativo</button>'});
   html+=paInfoUltimo(d,ano);
+  // Tributos do ano renegociados em parcelamento: fora do resultado de caixa (aviso informativo, não entra no saldo)
+  try{
+    var dv=await sb.get('cda_pa_divida_parcelada','ano_competencia=eq.'+ano+'&select=descricao,valor_original');
+    var totDv=(dv||[]).reduce(function(t,x){return t+(+x.valor_original||0);},0);
+    if(totDv)html+='<div class="pa-info" style="margin-top:-4px" title="'+paEsc((dv||[]).map(function(x){return x.descricao+': '+paBRL(x.valor_original);}).join(' · '))+'">ℹ️ Tributos de '+ano+' parcelados (fora do resultado de caixa): <b>'+paBRL(totDv)+'</b></div>';
+  }catch(eDv){console.warn('[Planejamento] dívidas parceladas',eDv);}
   function linha(cc){var p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0,sal=p-re-pv;return {prev:p,real:re,prov:pv,realProv:re+pv,saldo:sal,saldoMes:paSaldoMensal(d,sal)};}
   var tot={RECEITAS:{prev:0,real:0},DESPESAS:{prev:0,real:0}};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);tot[g.conta.tipo].prev+=l.prev;tot[g.conta.tipo].real+=l.real;});});});
@@ -2313,6 +2319,7 @@ var PA_TUT={
   ['Média Mensal Realizada Acum.','Média mensal do que foi realizado até o trimestre, para comparar com o Prev. Mês. Divide só pelos meses que já têm Orçamento Realizado (ex.: 4ºT com outubro lançado → 10 meses). Verde = dentro do previsto; vermelho = Receitas abaixo ou Despesas acima do Prev. Mês.','Total Real. até o nºT ÷ meses com Orçamento Realizado até o trimestre']]},
  anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta. Valores da tabela em R$. Acima da tabela: último mês realizado e meses restantes.',c:[
   ['Cartões do topo','Total Receitas, Total Despesas e Resultado: Prev. (previsto anual) e Real. (realizado no ano, sem provisão — a provisão aparece na tabela).'],
+  ['Tributos parcelados (aviso)','Tributos do ano renegociados em parcelamento de longo prazo (ex.: 2026, mar–out, 60 meses). Não são provisão nem saem do caixa no ano — as parcelas entram mês a mês no centro "Impostos - Parcelamento". O aviso mostra o valor porque, economicamente, é custo das vendas do ano: sem ele a margem parece melhor do que foi. Não entra no saldo nem nos cartões.'],
   ['Prev. Anual','Valor previsto para o ano inteiro.'],
   ['Total Real.','Soma de todos os meses realizados no ano.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
