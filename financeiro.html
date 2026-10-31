@@ -7,9 +7,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="cda-dados-compartilhados.js"></script>
-<script src="cda-modulo-compras.js"></script>
-<script src="cda-modulo-clientes.js"></script>
-<script src="cda-modulo-produtos.js"></script>
 <script>var LZString=(function(){var f=String.fromCharCode;var keyStrBase64='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';var keyStrUriSafe='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$';var baseReverseDic={};function getBaseValue(alphabet,character){if(!baseReverseDic[alphabet]){baseReverseDic[alphabet]={};for(var i=0;i<alphabet.length;i++){baseReverseDic[alphabet][alphabet.charAt(i)]=i}}return baseReverseDic[alphabet][character]}var LZString={compressToBase64:function(input){if(input==null)return"";var res=LZString._compress(input,6,function(a){return keyStrBase64.charAt(a)});switch(res.length%4){default:case 0:return res;case 1:return res+"===";case 2:return res+"==";case 3:return res+"="}},decompressFromBase64:function(input){if(input==null)return"";if(input=="")return null;return LZString._decompress(input.length,32,function(index){return getBaseValue(keyStrBase64,input.charAt(index))})},compressToUTF16:function(input){if(input==null)return"";return LZString._compress(input,15,function(a){return f(a+32)})+" "},decompressFromUTF16:function(compressed){if(compressed==null)return"";if(compressed=="")return null;return LZString._decompress(compressed.length,16384,function(index){return compressed.charCodeAt(index)-32})},compress:function(uncompressed){return LZString._compress(uncompressed,16,function(a){return f(a)})},_compress:function(uncompressed,bitsPerChar,getCharFromInt){if(uncompressed==null)return"";var i,value,context_dictionary={},context_dictionaryToCreate={},context_c="",context_wc="",context_w="",context_enlargeIn=2,context_dictSize=3,context_numBits=2,context_data=[],context_data_val=0,context_data_position=0,ii;for(ii=0;ii<uncompressed.length;ii+=1){context_c=uncompressed.charAt(ii);if(!Object.prototype.hasOwnProperty.call(context_dictionary,context_c)){context_dictionary[context_c]=context_dictSize++;context_dictionaryToCreate[context_c]=true}context_wc=context_w+context_c;if(Object.prototype.hasOwnProperty.call(context_dictionary,context_wc)){context_w=context_wc}else{if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}delete context_dictionaryToCreate[context_w];context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}context_dictionary[context_wc]=context_dictSize++;context_w=String(context_c)}}if(context_w!==""){if(Object.prototype.hasOwnProperty.call(context_dictionaryToCreate,context_w)){if(context_w.charCodeAt(0)<256){for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}}value=context_w.charCodeAt(0);for(i=0;i<8;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}else{value=1;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|value;if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=0}value=context_w.charCodeAt(0);for(i=0;i<16;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}}delete context_dictionaryToCreate[context_w]}else{value=context_dictionary[context_w];for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}context_enlargeIn--;if(context_enlargeIn==0){context_enlargeIn=Math.pow(2,context_numBits);context_numBits++}}value=2;for(i=0;i<context_numBits;i++){context_data_val=(context_data_val<<1)|(value&1);if(context_data_position==bitsPerChar-1){context_data_position=0;context_data.push(getCharFromInt(context_data_val));context_data_val=0}else{context_data_position++}value=value>>1}while(true){context_data_val=(context_data_val<<1);if(context_data_position==bitsPerChar-1){context_data.push(getCharFromInt(context_data_val));break}else{context_data_position++}}return context_data.join("")},decompress:function(compressed){if(compressed==null)return"";if(compressed=="")return null;return LZString._decompress(compressed.length,32768,function(index){return compressed.charCodeAt(index)})},_decompress:function(length,resetValue,getNextValue){var dictionary=[],next,enlargeIn=4,dictSize=4,numBits=3,entry="",result=[],i,w,bits,resb,maxpower,power,c,data={val:getNextValue(0),position:resetValue,index:1};for(i=0;i<3;i+=1){dictionary[i]=i}bits=0;maxpower=Math.pow(2,2);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(next=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}c=f(bits);break;case 2:return""}w=c;dictionary[3]=c;result.push(c);while(true){if(data.index>length){return""}bits=0;maxpower=Math.pow(2,numBits);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}switch(c=bits){case 0:bits=0;maxpower=Math.pow(2,8);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 1:bits=0;maxpower=Math.pow(2,16);power=1;while(power!=maxpower){resb=data.val&data.position;data.position>>=1;if(data.position==0){data.position=resetValue;data.val=getNextValue(data.index++)}bits|=(resb>0?1:0)*power;power<<=1}dictionary[dictSize++]=f(bits);c=dictSize-1;enlargeIn--;break;case 2:return result.join("")}if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}if(dictionary[c]){entry=dictionary[c]}else{if(c===dictSize){entry=w+w.charAt(0)}else{return null}}result.push(entry);dictionary[dictSize++]=w+entry.charAt(0);enlargeIn--;if(enlargeIn==0){enlargeIn=Math.pow(2,numBits);numBits++}w=entry}return result.join("")}}; return LZString})();</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -317,19 +314,10 @@ tr:hover td{background:#faf7f0;}
     <span>Sistema de Gestão</span>
   </div>
   <div class="sb-nav">
-    <div class="sb-sec">Visão Geral</div>
-    <div class="sb-item on" onclick="go(&#39;dash&#39;)"><em>◉</em> Dashboard</div>
     <div class="sb-sec">Financeiro</div>
-    <div class="sb-item" onclick="go(&#39;prest&#39;)"><em>📋</em> Prestações de Contas</div>
+    <div class="sb-item on" onclick="go(&#39;prest&#39;)"><em>📋</em> Prestações de Contas</div>
     <div class="sb-item" onclick="go(&#39;upload&#39;)"><em>⬆</em> Importar Planilha Bling</div>
     <div class="sb-item" onclick="go(&#39;cardapios&#39;)"><em>📄</em> Cardápios</div>
-    <div class="sb-sec">Cadastros</div>
-    <div class="sb-item" onclick="go(&#39;cvpage&#39;)"><em>🎨</em> Collabs / Vendedores</div>
-    <div class="sb-item" onclick="go(&#39;clientes&#39;)"><em>👥</em> Clientes</div>
-    <div class="sb-item" onclick="go(&#39;compras&#39;)"><em>🛒</em> Histórico de Compras</div>
-    <div class="sb-item" onclick="go(&#39;produtos&#39;)"><em>🛍</em> Produtos</div>
-    <div class="sb-sec">Sistema</div>
-    <div class="sb-item" onclick="go(&#39;cfg&#39;)"><em>🏷</em> Tipos e Coleções</div>
   </div>
   <div class="sb-ft">v1.0 · Maio 2026<br>Ciclo da Arte © 2026<br>
 <input type="file" id="rb" accept=".json" style="display:none" onchange="restaurarBackup(this)">
@@ -349,26 +337,8 @@ tr:hover td{background:#faf7f0;}
   </div>
   <div class="wrap">
 
-    <!-- DASHBOARD -->
-    <div class="pg on" id="pg-dash">
-      <div class="kpi-g">
-        <div class="kpi"><div class="kpi-l">Total Clientes</div><div class="kpi-v" id="kpi-cli">4.557</div><div class="kpi-s">Cadastrados</div></div>
-        <div class="kpi gd"><div class="kpi-l">Collabs / Vendedores</div><div class="kpi-v" id="kpi-col">22</div><div class="kpi-s">Artistas / Parceiros</div></div>
-        <div class="kpi li"><div class="kpi-l">Canais de Venda</div><div class="kpi-v" id="kpi-canais">33</div><div class="kpi-s">Ativos</div></div>
-        <div class="kpi vi"><div class="kpi-l">Produtos</div><div class="kpi-v" id="kpi-prod">162</div><div class="kpi-s">No catálogo</div></div>
-        <div class="kpi sa"><div class="kpi-l">Prestações</div><div class="kpi-v" id="kpi-pres">85</div><div class="kpi-s">Importadas</div></div>
-        <div class="kpi li"><div class="kpi-l">Total Comissões</div><div class="kpi-v" id="kpi-com">R$ 62.046,70</div><div class="kpi-s">Todas as prestações</div></div>
-      </div>
-      <div class="ch-g">
-        <div class="ch-c"><div class="ch-t">Clientes por Estado (Top 10)</div><div class="bl" id="ch-est"><div><div class="bi-l"><span>SP</span><span>1.771</span></div><div class="bt"><div class="bf rust" style="width:100.0%"></div></div></div><div><div class="bi-l"><span>RJ</span><span>946</span></div><div class="bt"><div class="bf gd" style="width:53.4%"></div></div></div><div><div class="bi-l"><span>MG</span><span>358</span></div><div class="bt"><div class="bf vi" style="width:20.2%"></div></div></div><div><div class="bi-l"><span>BA</span><span>320</span></div><div class="bt"><div class="bf sa" style="width:18.1%"></div></div></div><div><div class="bi-l"><span>RS</span><span>208</span></div><div class="bt"><div class="bf li" style="width:11.7%"></div></div></div><div><div class="bi-l"><span>DF</span><span>149</span></div><div class="bt"><div class="bf ik" style="width:8.4%"></div></div></div><div><div class="bi-l"><span>PE</span><span>124</span></div><div class="bt"><div class="bf rust" style="width:7.0%"></div></div></div><div><div class="bi-l"><span>PR</span><span>102</span></div><div class="bt"><div class="bf gd" style="width:5.8%"></div></div></div><div><div class="bi-l"><span>SC</span><span>100</span></div><div class="bt"><div class="bf vi" style="width:5.6%"></div></div></div><div><div class="bi-l"><span>CE</span><span>75</span></div><div class="bt"><div class="bf sa" style="width:4.2%"></div></div></div></div></div>
-        <div class="ch-c"><div class="ch-t">Distribuição por Sexo</div><div class="dw"><svg id="dn-sexo" width="130" height="130" viewBox="0 0 130 130"><path d="M65 35 L65 15 A50 50 0 1 1 59.03519076752501 114.64293555804471 L61.42111446051501 94.78576133482683 A30 30 0 1 0 65 35" fill="#c94a2b" stroke="#fff" stroke-width="2"></path><path d="M61.42111446051501 94.78576133482683 L59.03519076752501 114.64293555804471 A50 50 0 0 1 64.99999999999999 15 L64.99999999999999 35 A30 30 0 0 0 61.42111446051501 94.78576133482683" fill="#6b3fa0" stroke="#fff" stroke-width="2"></path><text x="65" y="70" text-anchor="middle" font-family="DM Serif Display,serif" font-size="12" fill="#0d0d0d">4.545</text></svg><div class="dl" id="lg-sexo"><div class="li-item"><div class="li-dot" style="background:#c94a2b"></div><span>Feminino: <b>2.359</b> (51.9%)</span></div><div class="li-item"><div class="li-dot" style="background:#6b3fa0"></div><span>Masculino: <b>2.186</b> (48.1%)</span></div></div></div></div>
-        <div class="ch-c"><div class="ch-t">Clientes por Faixa Etária</div><div class="bl" id="ch-fx"><div><div class="bi-l"><span>N/D</span><span>4.557</span></div><div class="bt"><div class="bf rust" style="width:100.0%"></div></div></div></div></div>
-        <div class="ch-c"><div class="ch-t">Clientes por Collab / Vendedor</div><div class="bl" id="ch-colcli"><p style="font-size:12px;color:var(--muted);padding:20px 0">Vincule clientes a Collabs / Vendedores para ver aqui</p></div></div>
-      </div>
-    </div>
-
     <!-- PRESTAÇÕES -->
-    <div class="pg" id="pg-prest">
+    <div class="pg on" id="pg-prest">
       <div id="pv-list">
         <div class="row-bt">
           <div><div class="sec-t">Prestações de Contas</div><div class="sec-d">Histórico por parceiro e mês</div></div>
@@ -431,35 +401,6 @@ tr:hover td{background:#faf7f0;}
     </div>
 
 
-    <!-- CLIENTES (módulo compartilhado com o Comercial) -->
-    <div class="pg" id="pg-clientes">
-      <div id="container-clientes"></div>
-    </div>
-
-    <!-- HISTÓRICO DE COMPRAS (módulo compartilhado com o Comercial) -->
-    <div class="pg" id="pg-compras">
-      <div id="container-compras"></div>
-    </div>
-
-    <!-- PRODUTOS (módulo compartilhado com o Comercial) -->
-    <div class="pg" id="pg-produtos">
-      <div id="container-produtos"></div>
-    </div>
-
-    <!-- PAGE COLLABS VENDEDORES -->
-<div class="pg" id="pg-cvpage">
-      <div class="row-bt">
-        <div><div class="sec-t">Collabs / Vendedores</div><div class="sec-d">Artistas e parceiros vinculados à Ciclo da Arte</div></div>
-        <button class="btn rust sm" onclick="openMoCV()">+ Novo</button>
-      </div>
-      <div class="fb">
-        <input type="text" id="f-cvnome" placeholder="Buscar collab / vendedor..." oninput="rCVPage()">
-        <select id="f-cv-canal" onchange="rCVPage()"><option value="">Todos os canais</option></select>
-        <span class="fc" id="cv-cnt"></span>
-      </div>
-      <div class="cc-g" id="cv-cards" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>
-    </div>
-
     <!-- CARDÁPIOS -->
     <div class="pg" id="pg-cardapios">
       <div class="row-bt">
@@ -501,28 +442,9 @@ tr:hover td{background:#faf7f0;}
         </div>
       </div>
     </div>
-    <!-- TIPOS E COLEÇÕES (antigo módulo "Configurações" — os parâmetros
-         financeiros padrão do sistema foram removidos: canal sem % cadastrada
-         agora é sempre 0%, nunca um valor genérico "inventado") -->
-    <div class="pg" id="pg-cfg">
-      <div class="sec-t">Tipos e Coleções</div>
-      <div class="sec-d">Listas usadas no cadastro de produtos</div>
-      <div class="cc">
-        <h3>Tipos de Peça</h3>
-        <div id="tp-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:7px;"><input type="text" id="new-tp" placeholder="Ex: Moletom" style="font-family:&#39;Syne&#39;,sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" onclick="addTp()">+ Adicionar</button></div>
-      </div>
-      <div class="cc">
-        <h3>Coleções</h3>
-        <div id="col-list" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
-        <div style="display:flex;gap:7px;"><input type="text" id="new-col" placeholder="Ex: Tour 2026" style="font-family:&#39;Syne&#39;,sans-serif;font-size:12px;padding:6px 11px;border:2px solid var(--ink);flex:1;outline:none;"><button class="btn rust sm" onclick="addCol()">+ Adicionar</button></div>
-      </div>
-    </div>
-
   </div>
 </div>
 
-<!-- MODAL COLLAB VENDEDOR -->
 <div class="mo" id="mo-tut-bling">
   <div class="mo-box" style="max-width:880px">
     <div class="mo-h"><h3>ℹ️ Tutorial Informativo — Planilha BLING e Integração API Bling</h3><button class="mo-x" onclick="closeMo('mo-tut-bling')">✕</button></div>
@@ -603,19 +525,6 @@ tr:hover td{background:#faf7f0;}
     </div>
   </div>
 </div>
-<div class="mo" id="mo-cv">
-  <div class="mo-box">
-    <div class="mo-h"><h3 id="mo-cv-t">Novo Collab / Vendedor</h3><button class="mo-x" onclick="closeMo(&#39;mo-cv&#39;)">✕</button></div>
-    <div class="mo-b">
-      <div class="fg">
-        <div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input id="cv-nome" type="text" placeholder="Ex: Duda Beat"></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="cv-obs"></textarea></div>
-      </div>
-    </div>
-    <div class="mo-f"><button class="btn sm" onclick="closeMo(&#39;mo-cv&#39;)">Cancelar</button><button class="btn rust sm" onclick="saveCV()">💾 Salvar</button></div>
-  </div>
-</div>
-
 
 <div class="toast ok" id="toast">XLSX exportado: 4557 clientes!</div>
 
@@ -1075,47 +984,7 @@ function go(p){
   render(p);
 }
 function render(p){
-  if(p==='dash')rDash();
-  else if(p==='prest'){fillFiltrosPrest();rPrestList();}
-  else if(p==='clientes'){
-    var contCli=document.getElementById('container-clientes');
-    if(contCli && !contCli.dataset.montado){
-      contCli.dataset.montado='1';
-      montarModuloClientes('container-clientes',{onSync:function(clientesArr){
-        var convertido=clientesArr.map(function(c){
-          var o=Object.assign({},c);
-          o.tipo_comercial=c.tipoComercial; delete o.tipoComercial;
-          o.origem_dados=c.origemDados; delete o.origemDados;
-          o.responsavel_comercial=c.responsavelComercial; delete o.responsavelComercial;
-          o.tags_comercial=(c.tagsComercial||[]).join(', '); delete o.tagsComercial;
-          o.obs_comercial=c.obsComercial; delete o.obsComercial;
-          return o;
-        });
-        DB.s('clientes',convertido);
-      }});
-    }
-  }
-  else if(p==='compras'){
-    var contCompras=document.getElementById('container-compras');
-    if(contCompras && !contCompras.dataset.montado){
-      contCompras.dataset.montado='1';
-      montarModuloCompras('container-compras',{editavel:true});
-    }
-  }
-  else if(p==='produtos'){
-    var contProd=document.getElementById('container-produtos');
-    if(contProd && !contProd.dataset.montado){
-      contProd.dataset.montado='1';
-      montarModuloProdutos('container-produtos',{editavel:true,onSync:function(produtosArr){
-        var convertido=produtosArr.map(function(pr){
-          return {id:pr.id,nome:pr.nome,tipo:pr.tipo,colecao:pr.colecao,collab_id:pr.canalId,cv_id:pr.parceiroId,preco:pr.preco,cor:pr.cor,tam:pr.tam,status:pr.status};
-        });
-        DB.s('produtos',convertido);
-      }});
-    }
-  }
-  else if(p==='cvpage')rCVPage();
-  else if(p==='cfg')rCfg();
+  if(p==='prest'){fillFiltrosPrest();rPrestList();}
   else if(p==='cardapios')rCardapios();
   else if(p==='upload')fillUpCol();
 }
@@ -1123,42 +992,6 @@ function render(p){
 // ════════════════════════════════════════════════
 // DASHBOARD
 // ════════════════════════════════════════════════
-function rDash(){
-  const cli=DB.g('clientes'),col=DB.g('collabs'),prod=DB.g('produtos'),prest=DB.g('prestacoes');
-  document.getElementById('kpi-cli').textContent=cli.length.toLocaleString('pt-BR');
-  document.getElementById('kpi-col').textContent=getCVS().length;
-  const kpiCanais=document.getElementById('kpi-canais');
-  if(kpiCanais)kpiCanais.textContent=col.length;
-  document.getElementById('kpi-prod').textContent=prod.length;
-  document.getElementById('kpi-pres').textContent=prest.length;
-  // calcP seguro — trata prestações antigas sem secoes
-  const totalCom=prest.reduce((s,p)=>{try{return s+(calcP(p).com||0);}catch(e){return s;}},0);
-  document.getElementById('kpi-com').textContent=R(totalCom);
-
-  // Estados
-  const ests={};cli.forEach(c=>{if(c.estado)ests[c.estado]=(ests[c.estado]||0)+1;});
-  const topE=Object.entries(ests).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const mxE=topE[0]?.[1]||1;
-  document.getElementById('ch-est').innerHTML=topE.map(([e,n],i)=>`<div><div class="bi-l"><span>${e}</span><span>${n.toLocaleString('pt-BR')}</span></div><div class="bt"><div class="bf ${COLS[i%6]}" style="width:${(n/mxE*100).toFixed(1)}%"></div></div></div>`).join('');
-
-  // Sexo donut
-  const sF=cli.filter(c=>c.sexo==='F').length,sM=cli.filter(c=>c.sexo==='M').length,tot=sF+sM||1;
-  donut('dn-sexo',[{l:'Feminino',v:sF,c:'#c94a2b'},{l:'Masculino',v:sM,c:'#6b3fa0'}],'lg-sexo',tot);
-
-  // Faixas
-  const fx={'Até 20':0,'21-30':0,'31-40':0,'41-50':0,'51+':0,'N/D':0};
-  const ny=new Date().getFullYear();
-  cli.forEach(c=>{const dn=(c['data-nascimento']||'').split('/');const yr=dn.length===3?parseInt(dn[2]):NaN;if(!yr||yr<1900||yr>ny){fx['N/D']++;return;}const a=ny-yr;if(a<=20)fx['Até 20']++;else if(a<=30)fx['21-30']++;else if(a<=40)fx['31-40']++;else if(a<=50)fx['41-50']++;else fx['51+']++;});
-  const fxA=Object.entries(fx).filter(([,v])=>v>0);const mxF=Math.max(...fxA.map(([,v])=>v))||1;
-  document.getElementById('ch-fx').innerHTML=fxA.map(([l,v],i)=>`<div><div class="bi-l"><span>${l}</span><span>${v.toLocaleString('pt-BR')}</span></div><div class="bt"><div class="bf ${COLS[i%6]}" style="width:${(v/mxF*100).toFixed(1)}%"></div></div></div>`).join('');
-
-  // Collab clientes
-  const cvs_d=getCVS();const cc={};cli.forEach(c=>(c.collabs||[]).forEach(id=>{const cv=cvs_d.find(x=>x.id==id);if(cv)cc[cv.nome]=(cc[cv.nome]||0)+1;}));
-  const ccA=Object.entries(cc).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  if(ccA.length){const mxC=ccA[0][1];document.getElementById('ch-colcli').innerHTML=ccA.map(([n,v],i)=>`<div><div class="bi-l"><span>${n}</span><span>${v}</span></div><div class="bt"><div class="bf ${COLS[i%6]}" style="width:${(v/mxC*100).toFixed(1)}%"></div></div></div>`).join('');}
-  else document.getElementById('ch-colcli').innerHTML='<p style="font-size:12px;color:var(--muted);padding:20px 0">Vincule clientes a Collabs / Vendedores para ver aqui</p>';
-}
-
 function donut(id,data,lid,tot){
   const s=document.getElementById(id);
   const cx=65,cy=65,r=50,ri=30;let a=0,paths='';
@@ -2594,7 +2427,6 @@ function doImport(){
 // ════════════════════════════════════════════════
 // COLLABS VENDEDORES PAGE
 // ════════════════════════════════════════════════
-let eCVId=null;
 // Fallback seed data always available
 const CV_SEED=[
   {id:1,nome:'Luedji Luna',obs:''},
@@ -2619,89 +2451,6 @@ function getCVS(){
   return cvs;
 }
 
-function rCVPage(){
-  const cvs=getCVS();
-  const cols=DB.g('collabs'),cli=DB.g('clientes'),prs=DB.g('prestacoes');
-  const q=((document.getElementById('f-cvnome')||{}).value||'').toLowerCase();
-  const fCanal=(document.getElementById('f-cv-canal')||{value:''}).value;
-  // Popular select de canais
-  const selCvCanal=document.getElementById('f-cv-canal');
-  if(selCvCanal&&selCvCanal.options.length<=1){
-    const todosCanais=DB.g('collabs');
-    selCvCanal.innerHTML='<option value="">Todos os canais</option>'+todosCanais.map(col=>`<option value="${col.id}">${col.nome}</option>`).join('');
-  }
-  const f=cvs.filter(cv=>{
-    if(q&&!cv.nome.toLowerCase().includes(q))return false;
-    if(fCanal){
-      const canais=DB.g('collabs').filter(col=>String(col.cv_id)===String(cv.id));
-      if(!canais.some(col=>String(col.id)===fCanal))return false;
-    }
-    return true;
-  });
-  const cnt=document.getElementById('cv-cnt');
-  if(cnt)cnt.textContent=f.length+' registro(s)';
-  const el=document.getElementById('cv-cards');
-  if(!el)return;
-  el.innerHTML=f.map(cv=>{
-    const canais=cols.filter(col=>String(col.cv_id)===String(cv.id));
-    const nc=cli.filter(cl=>(cl.collabs||[]).some(id=>String(id)===String(cv.id))).length;
-    const np=prs.filter(p=>canais.some(ch=>ch.id===p.collab_id));
-    const tc=np.reduce((s,p)=>s+calcP(p).com,0);
-    return`<div class="ccard" style="padding:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
-        <div class="ccard-n" style="font-size:13px;line-height:1.2">${cv.nome}</div>
-        <div style="display:flex;gap:6px;">
-          <button class="btn sm" style="padding:3px 7px;font-size:9px" onclick="editCV(${cv.id})">✏</button>
-          <button class="btn sm" style="padding:3px 7px;font-size:9px;background:var(--rust);color:#fff;" onclick="deletarCV(${cv.id},'${cv.nome.replace(/'/g,"\\'")}')">🗑</button>
-        </div>
-      </div>
-      <div style="margin-bottom:8px;">
-        ${canais.length?canais.map(ch=>`<span class="badge b-vio" style="margin:1px;font-size:8px;padding:1px 5px">${ch.nome}</span>`).join(''):'<span style="font-size:10px;color:var(--muted)">—</span>'}
-      </div>
-      <div style="display:flex;gap:8px;border-top:1px solid var(--border);padding-top:8px;flex-wrap:wrap;">
-        <div style="text-align:center;flex:1"><div style="font-family:'DM Serif Display',serif;font-size:16px">${nc}</div><div style="font-size:7px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Clientes</div></div>
-        <div style="text-align:center;flex:1"><div style="font-family:'DM Serif Display',serif;font-size:16px">${np.length}</div><div style="font-size:7px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Prestações</div></div>
-        <div style="text-align:center;flex:1"><div style="font-size:11px;color:var(--sage);font-weight:700">${tc?R(tc):'—'}</div><div style="font-size:7px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)">Comissões</div></div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function openMoCV(cv){
-  eCVId=cv?cv.id:null;
-  document.getElementById('mo-cv-t').textContent=cv?'Editar Collab / Vendedor':'Novo Collab / Vendedor';
-  document.getElementById('cv-nome').value=cv?cv.nome||'':'';
-  document.getElementById('cv-obs').value=cv?cv.obs||'':'';
-  openMo('mo-cv');
-}
-function editCV(id){const cv=getCVS().find(x=>x.id==id);if(cv)openMoCV(cv);}
-function deletarCV(id,nome){
-  if(!confirm('Deletar o Collab/Vendedor "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
-  var canaisVinc=DB.g('collabs').filter(function(c){return String(c.cv_id)===String(id);});
-  if(canaisVinc.length>0){
-    alert('Não é possível deletar: este Collab/Vendedor possui '+canaisVinc.length+' canal(is) de venda vinculado(s). Desvincule ou apague os canais primeiro.');
-    return;
-  }
-  var clientesVinc=DB.g('clientes').filter(function(c){return (c.collabs||[]).some(function(cid){return String(cid)===String(id);});});
-  if(clientesVinc.length>0){
-    alert('Não é possível deletar: este Collab/Vendedor possui '+clientesVinc.length+' cliente(s) vinculado(s).');
-    return;
-  }
-  var cvs=getCVS().filter(function(x){return String(x.id)!==String(id);});
-  DB.s('cvs',cvs);
-  toast('Collab/Vendedor "'+nome+'" deletado.');
-  rCVPage();
-}
-function saveCV(){
-  const nome=document.getElementById('cv-nome').value.trim();if(!nome){toast('Nome obrigatório');return;}
-  const cvs=getCVS();
-  const obj={id:eCVId||uid(),nome,obs:document.getElementById('cv-obs').value};
-  if(eCVId){const i=cvs.findIndex(x=>x.id==eCVId);if(i>=0)cvs[i]=obj;}else cvs.push(obj);
-  DB.s('cvs',cvs);closeMo('mo-cv');rCVPage();toast('Collab / Vendedor salvo!','ok');
-}
-
-// Busca os % vigentes AGORA no cadastro do canal (mesma regra de resolução usada
-// em calcP, extraída aqui para reuso pelo recalcular_valores).
 function _buscarPctAtualCanal(canal_id, canalNome){
   // Sem módulo de Configurações: canal sem % cadastrada = 0%, sempre.
   var cols_all=DB.g('collabs');
@@ -2794,17 +2543,6 @@ function mudarStatusPrest(id, selectEl){
 // ════════════════════════════════════════════════
 // CONFIG
 // ════════════════════════════════════════════════
-function rCfg(){
-  // Módulo de parâmetros financeiros padrão removido — só resta Tipos/Coleções.
-  const tips=DB.g('tipos');
-  document.getElementById('tp-list').innerHTML=tips.map((t,i)=>`<span class="badge b-vio" style="padding:4px 11px;font-size:10px;cursor:pointer" onclick="rmTp(${i})">${t} ✕</span>`).join('');
-  const cols=DB.g('colecoes');
-  document.getElementById('col-list').innerHTML=cols.map((c,i)=>`<span class="badge b-gd" style="padding:4px 11px;font-size:10px;cursor:pointer" onclick="rmCol(${i})">${c} ✕</span>`).join('');
-}
-function addTp(){const v=document.getElementById('new-tp').value.trim();if(!v)return;const t=DB.g('tipos');if(!t.includes(v)){t.push(v);DB.s('tipos',t);}document.getElementById('new-tp').value='';rCfg();}
-function rmTp(i){const t=DB.g('tipos');t.splice(i,1);DB.s('tipos',t);rCfg();}
-function addCol(){const v=document.getElementById('new-col').value.trim();if(!v)return;const c=DB.g('colecoes');if(!c.includes(v)){c.push(v);DB.s('colecoes',c);}document.getElementById('new-col').value='';rCfg();}
-function rmCol(i){const c=DB.g('colecoes');c.splice(i,1);DB.s('colecoes',c);rCfg();}
 
 // ════════════════════════════════════════════════
 // INIT
@@ -2857,7 +2595,8 @@ function _appInit(){
       console.log('Canais duplicados removidos:',(cols.length-cleaned.length));
     }
   })();
-  var _paginaInicial=(window.location.hash||'').replace('#','')||'dash';
+  var _paginaInicial=(window.location.hash||'').replace('#','')||'prest';
+  if(!document.getElementById('pg-'+_paginaInicial))_paginaInicial='prest'; // páginas antigas removidas em 31/10/2026 — estão no hub
   if(window.self!==window.top){
     // Está embutido num iframe (hub unificado) — esconde a sidebar própria
     var _sb=document.querySelector('nav.sb');

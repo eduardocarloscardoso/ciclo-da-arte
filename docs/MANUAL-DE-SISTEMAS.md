@@ -1105,6 +1105,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   shows/feiras), etiquetas dos canais com as vendas de cada um, edição em painel lateral (nome, observações e
   tabela dos canais ligados com atalho "Abrir ↗" para o canal). Excluir bloqueado com canal ligado. Tabela
   `parceiros` sem alteração.
+- **Limpeza do `financeiro.html` (31/10/2026, pedido de Cardoso):** removidas as 6 telas repetidas que só
+  existiam no menu interno escondido do arquivo — Dashboard, Clientes, Histórico de Compras, Produtos,
+  Collabs / Vendedores e Tipos e Coleções (páginas, itens do menu, funções rDash, rCVPage/openMoCV/editCV/
+  deletarCV/saveCV, rCfg/addTp/rmTp/addCol/rmCol, modal mo-cv e os scripts cda-modulo-clientes/compras/produtos,
+  que só montavam essas páginas). As versões válidas são as do hub (Financeiro › Clientes, Histórico de
+  Compras, Produtos, Collabs / Vendedores, Tipos e Coleções). O arquivo fica só com Prestação de Contas,
+  Importar Planilha Bling e Cardápios (abertos pelo hub no iframe); a página inicial passou de Dashboard para
+  Prestação de Contas, e um endereço antigo (#dash, #clientes…) abre a Prestação. Mantidos porque a
+  Prestação usa: carga de todas as tabelas (DB), getCVS/CV_SEED, donut, calcP e _buscarPctAtualCanal.
+  Nenhuma tabela ou dado alterado. Backup local do arquivo anterior + histórico do git.
 
 ## 11. Memória da última tela — out/2026
 
