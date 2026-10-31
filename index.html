@@ -24,6 +24,7 @@
 <script src="cda-modulo-orcamento-vendas.js?v=20261021-private-label-projeto-telas-v11"></script>
 <script src="cda-modulo-planejamento.js?v=20261031-p6-sim-v1"></script>
 <script src="cda-modulo-simulacoes.js?v=20261031-sim-v1"></script>
+<script src="cda-modulo-canais.js?v=20261031-canais-v1"></script>
 <script src="cda-modulo-calendario.js?v=20261031-cal-camp-v1"></script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -842,8 +843,7 @@ async function navigateCRM(pageId){
     el.innerHTML=roBanner+'<div class="crm-embed"><div id="container-tutorialfin"></div></div>';
     montarModuloTutorial('container-tutorialfin',{modulo:'financeiro'});
   }else if(pageId==='canais'){
-    el.innerHTML=roBanner+'<div class="crm-embed" id="container-canais"></div>';
-    montarCanaisVenda('container-canais');
+    navigateCanais();
   }else if(pageId==='cvpage'){
     el.innerHTML=roBanner+'<div class="crm-embed" id="container-cvpage"></div>';
     montarCollabsVendedores('container-cvpage');
@@ -1291,127 +1291,7 @@ async function montarCollabsVendedores(containerId){
 }
 
 // ── CANAIS DE VENDA — Supabase ───────────────────────────────────────
-var TIPO_L_CANAL={artista:'Artista',casa_shows:'Casa de Shows',revenda:'Revenda',ecommerce:'E-Commerce Dedicado',multi:'E-Commerce Multimarcas'};
-var TIPO_C_CANAL={multi:'mu',ecommerce:'ec',casa_shows:'cs'};
-async function montarCanaisVenda(containerId){
-  var host=document.getElementById(containerId);
-  var canais=[],parceiros=[];
-  try{
-    canais=await cdaCarregarCanais();
-    parceiros=await cdaCarregarParceiros();
-  }catch(e){ host.innerHTML='<p style="color:var(--rust)">Erro ao carregar dados. Veja o console.</p>'; console.error(e); return; }
-  host.innerHTML=
-    '<div class="row-bt"><div><div class="sec-t">Canais de Venda</div><div class="sec-d">Artistas, casas de shows, revendas e e-commerces</div></div>'+
-    '<button class="btn rust sm" id="col-btn-novo">+ Novo Canal de Venda</button></div>'+
-    '<div class="fb"><input type="text" id="f-col-nome" placeholder="Buscar canal...">'+
-    '<select id="f-col-cv"><option value="">Todos os collabs</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('')+'</select>'+
-    '<select id="f-col-tipo"><option value="">Todos os tipos</option><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select>'+
-    '<span class="fc" id="col-cnt"></span></div>'+
-    '<div class="kpi-g" style="margin-bottom:16px">'+
-    '<div class="kpi"><div class="kpi-l">Total Canais</div><div class="kpi-v" id="col-total-kpi">—</div><div class="kpi-s">conforme filtros</div></div>'+
-    '<div class="kpi gd"><div class="kpi-l">Artistas</div><div class="kpi-v" id="col-kpi-artista">—</div><div class="kpi-s">canais tipo artista</div></div>'+
-    '<div class="kpi vi"><div class="kpi-l">E-Commerce</div><div class="kpi-v" id="col-kpi-ecommerce">—</div><div class="kpi-s">canais e-commerce</div></div>'+
-    '<div class="kpi sa"><div class="kpi-l">Revendas</div><div class="kpi-v" id="col-kpi-revenda">—</div><div class="kpi-s">canais revenda</div></div>'+
-    '<div class="kpi li"><div class="kpi-l">Shows / Outros</div><div class="kpi-v" id="col-kpi-outros">—</div><div class="kpi-s">demais tipos</div></div></div>'+
-    '<div class="cc-g" id="col-cards"></div>'+
-    '<div class="mo" id="mo-col"><div class="mo-box"><div class="mo-h"><h3 id="mo-col-t">Novo Canal de Venda</h3><button class="mo-x" id="col-modal-x">✕</button></div>'+
-    '<div class="mo-b"><div class="fg">'+
-    '<div class="fgr"><label>Collab / Vendedor</label><select id="col-cv"><option value="">— Selecione —</option></select></div>'+
-    '<div class="fgr"><label>Tipo</label><select id="col-t"><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select></div>'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Nome do Canal *</label><input id="col-n" type="text"></div>'+
-    '<div class="fgr"><label>Comissão (%)</label><input id="col-c" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>Impostos (%)</label><input id="col-imp" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>Op. (%)</label><input id="col-op" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>CS (%)</label><input id="col-cs" type="number" step="0.01"></div>'+
-    '<div class="fgr"><label>E-mail</label><input id="col-e" type="email"></div>'+
-    '<div class="fgr" style="display:flex;align-items:center;gap:8px;padding-top:20px"><input type="checkbox" id="col-frete-flag"> <label style="text-transform:none;font-size:11px">Sem cobrança de frete</label></div>'+
-    '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="col-o"></textarea></div>'+
-    '</div></div><div class="mo-f"><button class="btn" id="col-m-cancelar">Cancelar</button><button class="btn rust" id="col-m-salvar">Salvar</button></div></div></div>';
-
-  function render(){
-    var busca=host.querySelector('#f-col-nome').value.toLowerCase();
-    var fCv=host.querySelector('#f-col-cv').value;
-    var fTipo=host.querySelector('#f-col-tipo').value;
-    var list=canais.filter(function(c){
-      if(busca&&!(c.nome||'').toLowerCase().includes(busca))return false;
-      if(fCv&&String(c.parceiroId)!==fCv)return false;
-      if(fTipo&&c.tipo!==fTipo)return false;
-      return true;
-    });
-    host.querySelector('#col-cnt').textContent=list.length+' canal(is)';
-    host.querySelector('#col-total-kpi').textContent=list.length;
-    host.querySelector('#col-kpi-artista').textContent=list.filter(function(c){return c.tipo==='artista';}).length;
-    host.querySelector('#col-kpi-ecommerce').textContent=list.filter(function(c){return c.tipo==='ecommerce'||c.tipo==='multi';}).length;
-    host.querySelector('#col-kpi-revenda').textContent=list.filter(function(c){return c.tipo==='revenda';}).length;
-    host.querySelector('#col-kpi-outros').textContent=list.filter(function(c){return c.tipo!=='artista'&&c.tipo!=='ecommerce'&&c.tipo!=='multi'&&c.tipo!=='revenda';}).length;
-    host.querySelector('#col-cards').innerHTML=list.map(function(c){
-      var parc=parceiros.find(function(p){return String(p.id)===String(c.parceiroId);});
-      var cls=TIPO_C_CANAL[c.tipo]||'';
-      return '<div class="ccard '+cls+'"><div class="ccard-n">'+c.nome+'</div><div class="ccard-t">'+(TIPO_L_CANAL[c.tipo]||c.tipo)+(parc?' · '+parc.nome:'')+'</div>'+
-        '<div class="ccard-st"><button class="btn sm" data-edit="'+c.id+'">✏</button>'+
-        '<button class="btn sm" style="background:var(--rust);color:#fff" data-del="'+c.id+'" data-nome="'+c.nome+'">🗑</button></div></div>';
-    }).join('')||'<p class="tmu" style="grid-column:1/-1">Nenhum canal encontrado.</p>';
-    host.querySelectorAll('[data-edit]').forEach(function(b){b.addEventListener('click',function(){abrirModal(b.dataset.edit);});});
-    host.querySelectorAll('[data-del]').forEach(function(b){b.addEventListener('click',function(){excluir(b.dataset.del,b.dataset.nome);});});
-  }
-  var modal=host.querySelector('#mo-col');
-  function abrirModal(id){
-    var c=id?canais.find(function(x){return String(x.id)===String(id);}):null;
-    host.querySelector('#mo-col-t').textContent=c?'Editar Canal de Venda':'Novo Canal de Venda';
-    var selCv=host.querySelector('#col-cv');
-    selCv.innerHTML='<option value="">— Selecione —</option>'+parceiros.slice().sort(function(a,b){return a.nome.localeCompare(b.nome);}).map(function(p){return '<option value="'+p.id+'">'+p.nome+'</option>';}).join('');
-    selCv.value=c?(c.parceiroId||''):'';
-    host.querySelector('#col-n').value=c?c.nome:'';
-    host.querySelector('#col-t').value=c?(c.tipo||'artista'):'artista';
-    host.querySelector('#col-c').value=c&&c.comissao!=null?c.comissao:'';
-    host.querySelector('#col-imp').value=c&&c.pctImp!=null?c.pctImp:'';
-    host.querySelector('#col-op').value=c&&c.pctOp!=null?c.pctOp:'';
-    host.querySelector('#col-cs').value=c&&c.pctCs!=null?c.pctCs:'';
-    host.querySelector('#col-frete-flag').checked=c?!!c.semFrete:false;
-    host.querySelector('#col-e').value=c?(c.email||''):'';
-    host.querySelector('#col-o').value=c?(c.obs||''):'';
-    modal.dataset.editId=id||'';
-    modal.classList.add('op');
-  }
-  function fecharModal(){modal.classList.remove('op');}
-  host.querySelector('#col-btn-novo').addEventListener('click',function(){abrirModal(null);});
-  host.querySelector('#col-modal-x').addEventListener('click',fecharModal);
-  host.querySelector('#col-m-cancelar').addEventListener('click',fecharModal);
-  host.querySelector('#col-m-salvar').addEventListener('click',async function(){
-    var nome=host.querySelector('#col-n').value.trim();
-    if(!nome){alert('Nome obrigatório.');return;}
-    var editId=modal.dataset.editId;
-    var com=parseFloat(host.querySelector('#col-c').value);
-    var pctImp=parseFloat(host.querySelector('#col-imp').value);
-    var pctOp=parseFloat(host.querySelector('#col-op').value);
-    var pctCs=parseFloat(host.querySelector('#col-cs').value);
-    var o={id:editId||null,nome:nome,tipo:host.querySelector('#col-t').value,comissao:isNaN(com)?null:com,
-      pctImp:isNaN(pctImp)?null:pctImp,pctOp:isNaN(pctOp)?null:pctOp,pctCs:isNaN(pctCs)?null:pctCs,
-      semFrete:host.querySelector('#col-frete-flag').checked,email:host.querySelector('#col-e').value,
-      obs:host.querySelector('#col-o').value,parceiroId:host.querySelector('#col-cv').value||null};
-    try{
-      var salvo=await cdaSalvarCanal(o);
-      if(editId){var i=canais.findIndex(function(x){return String(x.id)===String(editId);});canais[i]=salvo;}
-      else canais.push(salvo);
-      fecharModal();render();
-    }catch(e){alert('Erro ao salvar.');console.error(e);}
-  });
-  async function excluir(id,nome){
-    if(!confirm('Deletar canal "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
-    try{
-      await cdaExcluirCanal(id);
-      canais=canais.filter(function(x){return String(x.id)!==String(id);});
-      render();
-    }catch(e){
-      alert('Não foi possível excluir. Pode haver histórico de compras ou prestações vinculadas a este canal.');
-      console.error(e);
-    }
-  }
-  host.querySelector('#f-col-nome').addEventListener('input',render);
-  host.querySelector('#f-col-cv').addEventListener('change',render);
-  host.querySelector('#f-col-tipo').addEventListener('change',render);
-  render();
-}
+// Canais de Venda: tela única em cda-modulo-canais.js (31/10/2026; substitui a antiga montarCanaisVenda, removida — está no histórico do git).
 
 // ── CREDENCIAMENTO DE USUÁRIOS (admin only) ─────────────────────────
 function renderCredenciamento(el){
