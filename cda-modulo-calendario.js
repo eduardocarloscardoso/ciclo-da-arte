@@ -4,6 +4,8 @@
 // eventos, lista com filtros, importação da planilha Excel e Tutorial.
 // Fatias seguintes: motor de projeção (2), Simulações no Planejamento (3),
 // visão mensal e realizado automático (4).
+// 31/10/2026: Campanhas (nível macro que agrupa eventos, ex.: Black Friday / Natal 2026) e
+// Segmento Varejo/Atacado herdado do grupo do canal (cda_grupo.segmento).
 // Usa os estilos pa-* do Planejamento Anual (injetados por cda-modulo-planejamento.js).
 // ════════════════════════════════════════════════════════════════════
 var CAL_PROJETO = 'calendario';
@@ -11,14 +13,18 @@ var CAL_PAGES = { eventos: { icon: '📅', label: 'Calendário Comercial' } };
 var CAL_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 var CAL_CRITERIOS = ['Unidades','Pedidos','A definir'];
 var CAL_STATUS = ['Planejado','A confirmar','A definir','Confirmado','Realizado','Cancelado'];
-var calEstado = { page: 'eventos', ano: new Date().getFullYear(), mes: '', vinculo: '', status: '' };
-var calCache = { eventos: [], grupos: [], centros: [] };
+var CAL_CAMP_STATUS = ['Planejada','Em andamento','Encerrada','Cancelada'];
+var CAL_SEGMENTOS = { varejo: 'Varejo', atacado: 'Atacado' };
+var calEstado = { page: 'eventos', ano: new Date().getFullYear(), mes: '', vinculo: '', status: '', campanha: '', segmento: '' };
+var calCache = { eventos: [], grupos: [], centros: [], campanhas: [], centroGrupo: {} };
 var calImport = null;
 (function calEstilos(){
   if(document.getElementById('cal-estilos'))return;
   var st=document.createElement('style');st.id='cal-estilos';
   st.textContent='.pa-lbl-bloco{display:flex;flex-direction:column;gap:4px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:10px}'+
     '.cal-tbl th:first-child,.cal-tbl td:first-child{min-width:0!important;padding-left:10px!important;white-space:nowrap}.cal-tbl td{font-family:var(--ff-b)}.cal-tbl td:last-child{font-family:var(--ff-m)}.cal-tbl tbody tr:hover td{background:var(--card2)}'+
+    '.cal-seg{display:inline-block;padding:1px 7px;border-radius:9px;font:700 10px var(--ff-m);letter-spacing:.06em}.cal-seg.vj{background:rgba(80,160,255,.14);color:var(--blue)}.cal-seg.at{background:rgba(200,160,60,.16);color:var(--gold2)}'+
+    '.cal-camp-tag{display:block;font:400 10.5px var(--ff-b);color:var(--muted2);margin-top:2px}'+
     '.pa-lbl-bloco textarea{background:var(--navy2);color:var(--white);border:1px solid var(--border2);border-radius:8px;padding:8px 10px;font:13px var(--ff-b);text-transform:none;letter-spacing:0;resize:vertical}';
   document.head.appendChild(st);
 })();
@@ -39,6 +45,7 @@ function calErro(e,padrao){
   console.error('[Calendário]',e);showToast(m||padrao,'error');
 }
 function calDataBR(d){if(!d)return '';var p=String(d).slice(0,10).split('-');return p[2]+'/'+p[1];}
+function calDataBRAno(d){if(!d)return '';var p=String(d).slice(0,10).split('-');return p[2]+'/'+p[1]+'/'+p[0];}
 function calIsoData(v){
   if(!v)return null;
   if(v instanceof Date&&!isNaN(v))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
@@ -71,11 +78,39 @@ async function navigateCalendario(page){
 async function calCarregar(){
   var r=await Promise.all([
     sb.get('cda_cal_evento','order=inicio.asc.nullslast,id.asc'),
-    sb.get('cda_grupo','tipo=eq.Receita&ativo=eq.true&order=ordem,nome'),
-    sb.get('cda_pa_v_hierarquia','tipo=eq.RECEITAS&ativo=eq.true&order=subconta_ordem,centro_ordem')
+    sb.get('cda_grupo','tipo=eq.Receita&order=ordem,nome'),
+    sb.get('cda_pa_v_hierarquia','tipo=eq.RECEITAS&ativo=eq.true&order=subconta_ordem,centro_ordem'),
+    sb.get('cda_cal_campanha','order=inicio.desc,id.desc'),
+    sb.get('cda_pa_centro_custo','select=id,grupo_id')
   ]);
-  calCache.eventos=r[0]||[];calCache.grupos=r[1]||[];
+  calCache.eventos=r[0]||[];calCache.gruposTodos=r[1]||[];calCache.grupos=calCache.gruposTodos.filter(function(g){return g.ativo!==false;});
   calCache.centros=(r[2]||[]).map(function(h){return {id:h.centro_custo_id,nome:h.centro_nome,sub:h.subconta_nome};});
+  calCache.campanhas=r[3]||[];
+  calCache.centroGrupo={};(r[4]||[]).forEach(function(c){if(c.grupo_id)calCache.centroGrupo[String(c.id)]=c.grupo_id;});
+}
+// Segmento (Varejo / Atacado): vem do grupo — do próprio evento (▦) ou do grupo do centro (canal).
+function calGrupoDoEvento(ev){
+  var gid=ev.grupo_id||(ev.centro_custo_id?calCache.centroGrupo[String(ev.centro_custo_id)]:null);if(!gid)return null;
+  return (calCache.gruposTodos||calCache.grupos).find(function(g){return String(g.id)===String(gid);})||null;
+}
+function calSegmento(ev){var g=calGrupoDoEvento(ev);if(!g)return '';return g.segmento||'varejo';}
+function calSegHTML(ev){
+  var g=calGrupoDoEvento(ev);if(!g)return '<span class="pa-mut">—</span>';
+  var s=g.segmento||'varejo';
+  return '<span class="cal-seg '+(s==='atacado'?'at':'vj')+'" title="Grupo: '+calEsc(g.nome)+(g.segmento?'':' (sem segmento no grupo — tratado como Varejo)')+'">'+(s==='atacado'?'AT':'VJ')+(g.segmento?'':'?')+'</span>';
+}
+function calCampanha(id){return id?calCache.campanhas.find(function(c){return String(c.id)===String(id);})||null:null;}
+// Campanha cujo período contém a data (ou o mês, para eventos sem data)
+function calCampanhaPorData(iso,ano,mes){
+  return calCache.campanhas.find(function(c){
+    if(c.status==='Cancelada')return false;
+    if(iso)return iso>=String(c.inicio).slice(0,10)&&iso<=String(c.fim).slice(0,10);
+    if(ano&&mes){var ini=ano+'-'+String(mes).padStart(2,'0');return ini>=String(c.inicio).slice(0,7)&&ini<=String(c.fim).slice(0,7);}
+    return false;
+  })||null;
+}
+function calOpcoesCampanha(sel){
+  return '<option value="">— sem campanha —</option>'+calCache.campanhas.map(function(c){return '<option value="'+c.id+'"'+(String(c.id)===String(sel||'')?' selected':'')+'>🏷 '+calEsc(c.nome)+(c.status==='Encerrada'||c.status==='Cancelada'?' ('+c.status.toLowerCase()+')':'')+'</option>';}).join('');
 }
 function calVinculoValor(ev){return ev.centro_custo_id?'c:'+ev.centro_custo_id:(ev.grupo_id?'g:'+ev.grupo_id:'');}
 function calVinculoHTML(ev){
@@ -97,7 +132,10 @@ function calOpcoesVinculo(sel){
 // ─── Lista de eventos ────────────────────────────────────────────────
 function calFiltrados(){
   return calCache.eventos.filter(function(e){
-    if(+e.ano!==+calEstado.ano)return false;
+    if(calEstado.campanha==='nenhuma'){if(e.campanha_id)return false;}
+    else if(calEstado.campanha){if(String(e.campanha_id)!==String(calEstado.campanha))return false;}
+    if(!calEstado.campanha||calEstado.campanha==='nenhuma'){if(+e.ano!==+calEstado.ano)return false;}
+    if(calEstado.segmento&&calSegmento(e)!==calEstado.segmento)return false;
     if(calEstado.mes==='nd'&&e.inicio)return false;
     if(calEstado.mes&&calEstado.mes!=='nd'&&+e.mes!==+calEstado.mes)return false;
     if(calEstado.vinculo&&calVinculoValor(e)!==calEstado.vinculo)return false;
@@ -113,33 +151,43 @@ function calRenderEventos(){
   var ed=calPodeEditar(),anos={};
   calCache.eventos.forEach(function(e){anos[e.ano]=1;});anos[calEstado.ano]=1;anos[new Date().getFullYear()]=1;
   var lista=calFiltrados();
-  var usados={};calCache.eventos.filter(function(e){return +e.ano===+calEstado.ano;}).forEach(function(e){var v=calVinculoValor(e);if(v)usados[v]=calVinculoHTML(e).replace(/<[^>]+>/g,'');});
+  var usados={};calCache.eventos.filter(function(e){return calEstado.campanha&&calEstado.campanha!=='nenhuma'?String(e.campanha_id)===String(calEstado.campanha):+e.ano===+calEstado.ano;}).forEach(function(e){var v=calVinculoValor(e);if(v)usados[v]=calVinculoHTML(e).replace(/<[^>]+>/g,'');});
   var sel=function(id,label,opts,val,onch){return '<label>'+label+'<select id="'+id+'" onchange="'+onch+'">'+opts.map(function(o){return '<option value="'+calEsc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+calEsc(o[1])+'</option>';}).join('')+'</select></label>';};
+  var campSel=calCampanha(calEstado.campanha);
   var h='<div class="pa-filtros">'+
-    sel('cal-f-ano','Ano',Object.keys(anos).sort().map(function(a){return [a,a];}),calEstado.ano,'calEstado.ano=+this.value;calRenderEventos()')+
+    sel('cal-f-camp','Campanha',[['','Todas'],['nenhuma','Sem campanha']].concat(calCache.campanhas.map(function(c){return [c.id,'🏷 '+c.nome];})),calEstado.campanha,'calEstado.campanha=this.value;calRenderEventos()')+
+    (campSel?'':sel('cal-f-ano','Ano',Object.keys(anos).sort().map(function(a){return [a,a];}),calEstado.ano,'calEstado.ano=+this.value;calRenderEventos()'))+
     sel('cal-f-mes','Mês',[['','Todos'],['nd','Sem data (a definir)']].concat(CAL_MESES.map(function(m,i){return [i+1,m];})),calEstado.mes,'calEstado.mes=this.value;calRenderEventos()')+
     sel('cal-f-vinc','Canal / Grupo',[['','Todos']].concat(Object.keys(usados).sort(function(a,b){return usados[a].localeCompare(usados[b]);}).map(function(v){return [v,usados[v]];})),calEstado.vinculo,'calEstado.vinculo=this.value;calRenderEventos()')+
+    sel('cal-f-seg','Segmento',[['','Todos'],['varejo','Varejo'],['atacado','Atacado']],calEstado.segmento,'calEstado.segmento=this.value;calRenderEventos()')+
     sel('cal-f-st','Status',[['','Todos']].concat(CAL_STATUS.map(function(s){return [s,s];})),calEstado.status,'calEstado.status=this.value;calRenderEventos()')+
     '<div class="pa-acoes" style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">'+
       (ed?'<button class="btn btn-primary btn-sm" onclick="calAbrirEvento(null)">+ Novo evento</button><button class="btn btn-ghost btn-sm" onclick="calAbrirImportacao()">⬆ Importar Excel</button>':'')+
+      '<button class="btn btn-ghost btn-sm" onclick="calAbrirCampanhas()">🏷 Campanhas</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="calTutorial()">ℹ️ Tutorial Informativo</button></div></div>';
   var pend=lista.filter(function(e){return e.status==='A confirmar'||e.status==='A definir';}).length;
   var proj=lista.reduce(function(s,e){return s+(Number(e.projecao)||0);},0),real=lista.reduce(function(s,e){return s+(Number(e.realizado)||0);},0);
   var temProj=lista.some(function(e){return e.projecao!==null&&e.projecao!==undefined;}),temReal=lista.some(function(e){return e.realizado!==null&&e.realizado!==undefined;});
+  var projSeg={varejo:0,atacado:0};lista.forEach(function(e){var s=calSegmento(e);if(s&&e.projecao!==null&&e.projecao!==undefined)projSeg[s]+=Number(e.projecao)||0;});
+  if(campSel)h+='<div class="pa-info" style="margin:4px 0 10px">🏷 <b>'+calEsc(campSel.nome)+'</b> · '+calDataBRAno(campSel.inicio)+' a '+calDataBRAno(campSel.fim)+' · '+calEsc(campSel.status)+(campSel.objetivo?' — '+calEsc(campSel.objetivo):'')+'</div>';
+  var semSeg=(calCache.grupos||[]).filter(function(g){return !g.segmento;});
+  if(semSeg.length)h+='<p class="pa-info" style="margin:4px 0 10px;color:var(--gold2)">⚠ Grupo(s) de receita sem Segmento: '+semSeg.map(function(g){return calEsc(g.nome);}).join(', ')+' — tratados como Varejo. Defina em Planejamento › Tabela de Grupos (Grupos de Receita).</p>';
   h+='<div class="pa-kpis pa-kpis-mini">'+
     paKpi('Eventos',String(lista.length),'','var(--gold)')+
     paKpi('A confirmar / A definir',String(pend),'','var(--gold)')+
-    paKpi('Projeção',temProj?calBRL(proj):'— (fatia 2)','','var(--blue)')+
+    paKpi('Projeção',temProj?calBRL(proj):'—','','var(--blue)')+
+    paKpi('Projeção Varejo',temProj?calBRL(projSeg.varejo):'—','','var(--blue)')+
+    paKpi('Projeção Atacado',temProj?calBRL(projSeg.atacado):'—','','var(--gold2)')+
     paKpi('Realizado',temReal?calBRL(real):'— (fatia 4)','','var(--green)')+'</div>';
   if(!lista.length){
     h+='<div class="card">Nenhum evento '+(calCache.eventos.length?'com estes filtros.':'cadastrado ainda. Use <b>⬆ Importar Excel</b> para carregar a planilha do calendário ou <b>+ Novo evento</b>.')+'</div>';
   }else{
-    h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta cal-tbl"><thead><tr><th style="text-align:left">Início</th><th style="text-align:left">Fim</th><th style="text-align:left">Evento / oportunidade</th><th style="text-align:left">Collab / marca</th><th style="text-align:left">Canal / Grupo</th><th style="text-align:left">Critério</th><th style="text-align:left">Ação IA projetada</th><th>Status</th><th>Projeção</th></tr></thead><tbody>'+
+    h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta cal-tbl"><thead><tr><th style="text-align:left">Início</th><th style="text-align:left">Fim</th><th style="text-align:left">Evento / oportunidade</th><th style="text-align:left">Collab / marca</th><th style="text-align:left">Canal / Grupo</th><th title="Varejo (VJ) ou Atacado (AT) — vem do grupo do canal">Seg.</th><th style="text-align:left">Critério</th><th style="text-align:left">Ação IA projetada</th><th>Status</th><th>Projeção</th></tr></thead><tbody>'+
       lista.map(function(e){
         var ini=e.inicio?calDataBR(e.inicio):(e.mes?CAL_MESES[e.mes-1].slice(0,3).toLowerCase():'a definir');
         return '<tr'+(ed?' style="cursor:pointer" onclick="calAbrirEvento('+e.id+')" title="Clique para editar"':'')+'><td style="text-align:left">'+ini+'</td><td style="text-align:left">'+calDataBR(e.fim)+'</td>'+
-          '<td style="text-align:left;font-weight:600;white-space:normal">'+calEsc(e.evento)+'</td><td style="text-align:left;white-space:normal">'+calEsc(e.collab)+'</td>'+
-          '<td style="text-align:left;white-space:normal">'+calVinculoHTML(e)+'</td><td style="text-align:left">'+calEsc(e.criterio)+'</td>'+
+          '<td style="text-align:left;font-weight:600;white-space:normal">'+calEsc(e.evento)+(!campSel&&calCampanha(e.campanha_id)?'<span class="cal-camp-tag">🏷 '+calEsc(calCampanha(e.campanha_id).nome)+'</span>':'')+'</td><td style="text-align:left;white-space:normal">'+calEsc(e.collab)+'</td>'+
+          '<td style="text-align:left;white-space:normal">'+calVinculoHTML(e)+'</td><td style="text-align:center">'+calSegHTML(e)+'</td><td style="text-align:left">'+calEsc(e.criterio)+'</td>'+
           '<td style="text-align:left;white-space:normal;max-width:340px;color:var(--gold2);font-family:var(--ff-b);font-size:11.5px">'+calEsc(e.acao_ia)+'</td>'+
           '<td style="text-align:center">'+calBadgeStatus(e.status)+'</td><td'+(e.memoria_projecao?' title="'+calEsc(e.memoria_projecao)+'" style="cursor:help;text-decoration:underline dotted"':'')+'>'+(e.projecao!==null&&e.projecao!==undefined?calBRL(e.projecao):'—')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
@@ -150,7 +198,8 @@ function calRenderEventos(){
 // ─── Cadastro / edição ───────────────────────────────────────────────
 function calAbrirEvento(id){
   if(!calPodeEditar())return;
-  var e=id?calCache.eventos.find(function(x){return String(x.id)===String(id);}):{ano:calEstado.ano,criterio:'Unidades',status:'Planejado'};
+  var campPadrao=calEstado.campanha&&calEstado.campanha!=='nenhuma'?calEstado.campanha:'';
+  var e=id?calCache.eventos.find(function(x){return String(x.id)===String(id);}):{ano:calEstado.ano,criterio:'Unidades',status:'Planejado',campanha_id:campPadrao};
   if(!e)return;
   var opt=function(lst,v){return lst.map(function(o){return '<option'+(o===v?' selected':'')+'>'+calEsc(o)+'</option>';}).join('');};
   var inp=function(id,lab,val,tipo,extra){return '<label>'+lab+'<input id="'+id+'" type="'+(tipo||'text')+'" value="'+calEsc(val===null||val===undefined?'':val)+'"'+(extra||'')+'></label>';};
@@ -161,6 +210,7 @@ function calAbrirEvento(id){
       inp('cal-e-ano','Ano',e.ano||calEstado.ano,'number',' style="width:90px"')+
     '</div><div class="pa-filtros" style="flex-wrap:wrap">'+
       '<label style="flex:2 1 260px">Evento / oportunidade *<input id="cal-e-ev" value="'+calEsc(e.evento)+'"></label>'+inp('cal-e-col','Collab / marca',e.collab)+
+      '<label style="flex:1 1 220px">Campanha<select id="cal-e-camp">'+calOpcoesCampanha(e.campanha_id)+'</select></label>'+
     '</div><div class="pa-filtros" style="flex-wrap:wrap">'+
       '<label style="flex:2 1 260px">Canal / Grupo<select id="cal-e-vinc">'+calOpcoesVinculo(calVinculoValor(e))+'</select></label>'+
       '<label>Critério<select id="cal-e-crit">'+opt(CAL_CRITERIOS,e.criterio)+'</select></label>'+
@@ -188,8 +238,11 @@ async function calSalvarEvento(id){
     centro_custo_id:v.indexOf('c:')===0?+v.slice(2):null,grupo_id:v.indexOf('g:')===0?+v.slice(2):null,
     criterio:g('cal-e-crit'),status:g('cal-e-st'),local:g('cal-e-loc').trim()||null,
     acao_ia:g('cal-e-acao').trim()||null,observacoes:g('cal-e-obs').trim()||null,
-    qtd_prevista:calNum(g('cal-e-qtd')),ticket_medio:calNum(g('cal-e-tkt'))
+    qtd_prevista:calNum(g('cal-e-qtd')),ticket_medio:calNum(g('cal-e-tkt')),
+    campanha_id:+g('cal-e-camp')||null
   };
+  if(!b.campanha_id){var sug=calCampanhaPorData(ini,b.ano,b.mes);
+    if(sug&&sug.status!=='Encerrada'&&confirm('Este evento cai no período da campanha "'+sug.nome+'". Ligar o evento a ela?'))b.campanha_id=sug.id;}
   try{
     if(id)await sb.patch('cda_cal_evento',id,b);
     else{b.criado_por=(cu&&(cu.email||cu.name))||null;await sb.post('cda_cal_evento',b);}
@@ -218,7 +271,8 @@ function calAbrirImportacao(){
     '<div class="pa-filtros"><label>Arquivo<input type="file" id="cal-imp-arq" accept=".xls,.xlsx"></label>'+
     '<label>Ano<input id="cal-imp-ano" type="number" value="'+calEstado.ano+'" style="width:90px"></label>'+
     '<label>Mês dos marcos sem data<select id="cal-imp-mesmarco">'+CAL_MESES.map(function(m,i){return '<option value="'+(i+1)+'"'+(i===10?' selected':'')+'>'+m+'</option>';}).join('')+'</select></label>'+
-    '<label>A partir do mês<select id="cal-imp-desde">'+CAL_MESES.map(function(m,i){return '<option value="'+(i+1)+'"'+(i===10?' selected':'')+'>'+m+'</option>';}).join('')+'</select></label></div>'+
+    '<label>A partir do mês<select id="cal-imp-desde">'+CAL_MESES.map(function(m,i){return '<option value="'+(i+1)+'"'+(i===10?' selected':'')+'>'+m+'</option>';}).join('')+'</select></label>'+
+    '<label>Campanha dos eventos<select id="cal-imp-camp">'+calOpcoesCampanha(calEstado.campanha&&calEstado.campanha!=='nenhuma'?calEstado.campanha:'')+'</select></label></div>'+
     '<div id="cal-imp-res" aria-live="polite"></div>'+
     '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button><button class="btn btn-ghost" onclick="calImportarPrevia()">🔍 Pré-visualizar</button><button class="btn btn-primary" id="cal-imp-ok" disabled onclick="calImportarConfirmar()">⬆ Importar</button></div></div>');
 }
@@ -275,7 +329,7 @@ async function calImportarPrevia(){
         qtd_prevista:qm.qtd,ticket_medio:qm.ticket,vinculo:calSugerirVinculo('',proj,acaoM),marco:true});
     }
     var jaExcel=calCache.eventos.filter(function(e){return +e.ano===ano&&e.origem==='excel'&&(!e.mes||e.mes>=desde);}).length;
-    calImport={ano:ano,desde:desde,itens:itens,substituir:jaExcel};
+    calImport={ano:ano,desde:desde,itens:itens,substituir:jaExcel,campanha_id:+document.getElementById('cal-imp-camp').value||null};
     res.innerHTML='<div class="card" style="font-size:13px;line-height:1.7"><b>'+itens.length+'</b> evento(s) lidos da aba "'+calEsc(nome)+'" a partir de '+CAL_MESES[desde-1]+'/'+ano+'.'+
       (jaExcel?' <span class="pa-neg">Os '+jaExcel+' evento(s) importados antes (origem Excel, a partir deste mês) serão substituídos — inclusive as projeções já calculadas.</span> Eventos digitados na tela são mantidos.':'')+'</div>'+
       '<div class="pa-prev"><table class="pa-tbl pa-compacta"><thead><tr><th>Linha</th><th style="text-align:left">Início</th><th style="text-align:left">Evento</th><th style="text-align:left">Collab</th><th style="text-align:left">Canal (planilha)</th><th style="text-align:left">Canal / Grupo no sistema</th><th>Critério</th><th>Qtd × Ticket</th></tr></thead><tbody>'+
@@ -293,7 +347,7 @@ async function calImportarConfirmar(){
     var linhas=calImport.itens.map(function(x){return {ano:calImport.ano,mes:x.inicio?null:x.mes,inicio:x.inicio,fim:x.fim,evento:x.evento,collab:x.collab,
       centro_custo_id:x.vinculo.indexOf('c:')===0?+x.vinculo.slice(2):null,grupo_id:x.vinculo.indexOf('g:')===0?+x.vinculo.slice(2):null,
       criterio:x.criterio,status:x.status,acao_ia:x.acao_ia,observacoes:x.observacoes,qtd_prevista:x.qtd_prevista,ticket_medio:x.ticket_medio,
-      origem:'excel',criado_por:(cu&&(cu.email||cu.name))||null};});
+      campanha_id:calImport.campanha_id,origem:'excel',criado_por:(cu&&(cu.email||cu.name))||null};});
     await sb.post('cda_cal_evento',linhas);
     for(var i=0;i<velhos.length;i++)await sb.del('cda_cal_evento',velhos[i].id);
     closeModal();showToast(linhas.length+' evento(s) importado(s)','success');
@@ -301,10 +355,73 @@ async function calImportarConfirmar(){
   }catch(e){btn.disabled=false;btn.textContent='⬆ Importar';calErro(e,'Não foi possível importar');}
 }
 
+// ─── Campanhas (nível macro) ─────────────────────────────────────────
+function calAbrirCampanhas(){
+  var ed=calPodeEditar();
+  var tot=function(c){var ev=calCache.eventos.filter(function(e){return String(e.campanha_id)===String(c.id);});
+    var p={t:0,v:0,a:0};ev.forEach(function(e){var x=Number(e.projecao)||0,sg=calSegmento(e);p.t+=x;if(sg==='atacado')p.a+=x;else if(sg)p.v+=x;});return {n:ev.length,p:p};};
+  var linhas=calCache.campanhas.map(function(c){var t=tot(c);
+    return '<tr'+(ed?' style="cursor:pointer" onclick="calAbrirCampanha('+c.id+')" title="Clique para editar"':'')+'><td style="text-align:left;font-weight:600">🏷 '+calEsc(c.nome)+'</td><td style="text-align:left">'+calDataBRAno(c.inicio)+' a '+calDataBRAno(c.fim)+'</td><td>'+calBadgeStatus(c.status==='Encerrada'?'Realizado':c.status==='Cancelada'?'Cancelado':c.status==='Em andamento'?'Confirmado':'Planejado').replace(/>[^<]+</,'>'+calEsc(c.status)+'<')+'</td><td>'+t.n+'</td><td>'+calBRL(t.p.v)+'</td><td>'+calBRL(t.p.a)+'</td><td><b>'+calBRL(t.p.t)+'</b></td>'+
+      '<td style="text-align:center" onclick="event.stopPropagation()"><button class="btn btn-ghost btn-sm" onclick="closeModal();calEstado.campanha=\''+c.id+'\';calRenderEventos()">Ver eventos</button></td></tr>';}).join('');
+  openModal('<div class="modal-box pa-modal-wide" style="max-width:1080px;width:96vw" onclick="event.stopPropagation()"><div class="modal-title">🏷 Campanhas</div>'+
+    '<p class="pa-info" style="margin:6px 0 12px">A campanha agrupa os eventos de um período com o mesmo objetivo (ex.: Black Friday / Natal). As Simulações do Planejamento e os cenários salvos são feitos por campanha.</p>'+
+    (linhas?'<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta cal-tbl"><thead><tr><th style="text-align:left">Campanha</th><th style="text-align:left">Período</th><th>Status</th><th>Eventos</th><th>Projeção Varejo</th><th>Projeção Atacado</th><th>Projeção total</th><th></th></tr></thead><tbody>'+linhas+'</tbody></table></div>':'<div class="card">Nenhuma campanha cadastrada.</div>')+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'+(ed?'<button class="btn btn-primary" style="margin-right:auto" onclick="calAbrirCampanha(null)">+ Nova campanha</button>':'')+'<button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
+}
+function calAbrirCampanha(id){
+  if(!calPodeEditar())return;
+  var c=id?calCampanha(id):{status:'Planejada'};if(!c)return;
+  var semCamp=function(){return calCache.eventos.filter(function(e){return !e.campanha_id;}).length;};
+  openModal('<div class="modal-box pa-modal-wide" onclick="event.stopPropagation()"><div class="modal-title">'+(id?'✏️ Editar campanha':'+ Nova campanha')+'</div>'+
+    '<div class="pa-filtros" style="flex-wrap:wrap"><label style="flex:2 1 260px">Nome *<input id="cal-c-nome" maxlength="120" value="'+calEsc(c.nome||'')+'" placeholder="Ex.: Carnaval 2027"></label>'+
+      '<label>Início *<input id="cal-c-ini" type="date" value="'+calEsc(c.inicio?String(c.inicio).slice(0,10):'')+'"></label>'+
+      '<label>Fim *<input id="cal-c-fim" type="date" value="'+calEsc(c.fim?String(c.fim).slice(0,10):'')+'"></label>'+
+      '<label>Status<select id="cal-c-st">'+CAL_CAMP_STATUS.map(function(x){return '<option'+(x===c.status?' selected':'')+'>'+x+'</option>';}).join('')+'</select></label></div>'+
+    '<label class="pa-lbl-bloco">Objetivo<textarea id="cal-c-obj" rows="2">'+calEsc(c.objetivo||'')+'</textarea></label>'+
+    '<label class="pa-lbl-bloco">Observações<textarea id="cal-c-obs" rows="2">'+calEsc(c.observacoes||'')+'</textarea></label>'+
+    (semCamp()?'<label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12.5px"><input type="checkbox" id="cal-c-ligar"> Ligar a esta campanha os eventos <b>sem campanha</b> que caem no período</label>':'')+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">'+
+      (id?'<button class="btn btn-danger btn-sm" style="margin-right:auto" onclick="calExcluirCampanha('+id+')">🗑 Excluir</button>':'')+
+      '<button class="btn btn-ghost" onclick="calAbrirCampanhas()">Voltar</button><button class="btn btn-primary" onclick="calSalvarCampanha('+(id||'null')+')">Salvar</button></div></div>');
+}
+async function calSalvarCampanha(id){
+  if(!calPodeEditar())return;
+  var g=function(x){var el=document.getElementById(x);return el?el.value:'';};
+  var b={nome:g('cal-c-nome').trim(),inicio:g('cal-c-ini')||null,fim:g('cal-c-fim')||null,status:g('cal-c-st'),objetivo:g('cal-c-obj').trim()||null,observacoes:g('cal-c-obs').trim()||null};
+  if(!b.nome||!b.inicio||!b.fim){showToast('Informe nome, início e fim da campanha.','error');return;}
+  if(b.fim<b.inicio){showToast('A data de fim é anterior ao início.','error');return;}
+  if(calCache.campanhas.some(function(c){return calNorm(c.nome)===calNorm(b.nome)&&String(c.id)!==String(id);})){showToast('Já existe uma campanha com este nome.','error');return;}
+  var ligar=document.getElementById('cal-c-ligar')&&document.getElementById('cal-c-ligar').checked;
+  try{
+    var cid=id;
+    if(id)await sb.patch('cda_cal_campanha',id,b);
+    else{b.criado_por=(cu&&(cu.email||cu.name))||null;var r=await sb.post('cda_cal_campanha',b);cid=r&&r[0]&&r[0].id;}
+    var n=0;
+    if(ligar&&cid){
+      var ini=b.inicio,fim=b.fim;
+      var alvo=calCache.eventos.filter(function(e){if(e.campanha_id)return false;
+        if(e.inicio){var d=String(e.inicio).slice(0,10);return d>=ini&&d<=fim;}
+        if(e.ano&&e.mes){var m=e.ano+'-'+String(e.mes).padStart(2,'0');return m>=ini.slice(0,7)&&m<=fim.slice(0,7);}return false;});
+      for(var i=0;i<alvo.length;i++){await sb.patch('cda_cal_evento',alvo[i].id,{campanha_id:cid});n++;}
+    }
+    showToast('Campanha salva'+(n?' · '+n+' evento(s) ligados':''),'success');
+    await calCarregar();calRenderEventos();calAbrirCampanhas();
+  }catch(e){calErro(e,'Não foi possível salvar a campanha');}
+}
+async function calExcluirCampanha(id){
+  if(!calPodeEditar())return;
+  var c=calCampanha(id),n=calCache.eventos.filter(function(e){return String(e.campanha_id)===String(id);}).length;
+  if(!confirm('Excluir a campanha "'+(c?c.nome:'')+'"?'+(n?' Os '+n+' evento(s) ligados a ela continuam no calendário, sem campanha.':'')))return;
+  try{await sb.del('cda_cal_campanha',id);if(String(calEstado.campanha)===String(id))calEstado.campanha='';showToast('Campanha excluída','success');await calCarregar();calRenderEventos();calAbrirCampanhas();}
+  catch(e){calErro(e,'Não foi possível excluir a campanha');}
+}
+
 // ─── Tutorial ────────────────────────────────────────────────────────
 function calTutorial(){
   var linhas=[
     ['Calendário Comercial','Agenda única de eventos e ações comerciais da Ciclo da Arte: shows, feiras, lançamentos, campanhas (Black Friday, Natal), base do e-commerce, projetos de private label e marcos. É a fonte para as projeções de receita e de compras (Simulações do Planejamento Anual).'],
+    ['Campanha (🏷)','Nível acima dos eventos: agrupa os eventos de um período com o mesmo objetivo (ex.: Black Friday / Natal 2026, de 01/11 a 31/12/2026; no futuro Carnaval 2027, Dia das Mães 2027). Botão 🏷 Campanhas: cadastro (nome, período, status, objetivo), totais de projeção por campanha (Varejo, Atacado e total) e Ver eventos. Ao criar uma campanha, você pode ligar a ela os eventos sem campanha do período. Cada evento escolhe a campanha no seu cadastro; um evento novo no período de uma campanha recebe a sugestão de ligar-se a ela. Na importação do Excel, escolha a campanha dos eventos. As Simulações do Planejamento e os cenários salvos são feitos por campanha.'],
+    ['Segmento (VJ / AT)','Varejo ou Atacado. Não é digitado no evento: vem do grupo do canal (Planejamento › Tabela de Grupos › Grupos de Receita › coluna Segmento). Regra: tudo é Varejo, menos Atacado / Private Label. Grupo sem segmento aparece com "?" e é tratado como Varejo. Os cartões mostram a projeção de Varejo e de Atacado dos eventos filtrados.'],
     ['Canal / Grupo','Cada evento se liga a um canal (centro de receita do Planejamento, ex.: SHOWS LUEDJI LUNA, REVENDA FUTURA 1) ou a um grupo (▦, ex.: E-commerce = todos os canais de e-commerce). Use grupo quando a venda se espalha pelos canais do grupo (base, Black Friday, lançamentos de collabs no e-commerce).'],
     ['Critério','Unidades = peças × ticket (shows, feiras, lançamentos, private label) · Pedidos = pedidos do e-commerce · A definir = ainda sem base de projeção.'],
     ['Ação IA projetada','Instrução de como projetar o evento (coluna J da planilha). Na fatia 2 vira o método de projeção: média por show da collab em 2026 · média por feira/evento em 2026 · mesmo período de 2025 × crescimento (e-commerce, Black Friday 20–30/11, Cyber Monday, Natal 01–24/12) · todas as vendas da collab · manual (peças × ticket) · só informar (custo já na Provisão Prevista) · a definir.'],
