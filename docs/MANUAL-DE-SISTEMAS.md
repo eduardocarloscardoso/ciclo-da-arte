@@ -677,6 +677,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (`PA_TUT.provisao`, com colunas, ⚡ Auto/Auto Sub/Auto Conta, cartões e revisão no
   fechamento). No topo fica só "Último mês realizado em <ano>: <mês> · Meses
   restantes: <n>".
+- **Despesas out/2026 FECHADAS importadas** (31/10/2026 06:18, Cardoso, pelo sistema): BLING Relatório de
+  Pagamentos de outubro encerrado — 43 centros, R$ 116.355,41 (substituiu a importação parcial de 29/10, R$ 106.491,56).
+  Produção Varejo R$ 33.774,67 · Produção Atacado R$ 9.679,60 · Montagem Coleções R$ 3.379,79. Rateio Uber reaplicado:
+  Eventos Uber (30016) 1.934,48 → 1.434,48; Produção - Transporte (390001) 1.061,74 → 1.561,74.
 - **Integração API Bling — projeto** (29/10/2026, Cardoso): o submódulo Financeiro ›
   Importar Planilha Bling será renomeado "Integração API Bling" e centralizará as
   operações com o BLING em 3 telas — 1) Receitas no Período, 2) Despesas no Período
