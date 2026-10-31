@@ -14,6 +14,10 @@
 --   nota consolidada (ticket > R$ 1.000/peça indica nota única de evento). E-commerce: ticket por
 --   pedido do grupo E-commerce no mesmo mês de 2025 (Histórico).
 -- ════════════════════════════════════════════════════════════════════
+-- Backup dos eventos antes da carga (valores antigos de projeção, quantidade e ticket)
+create table if not exists public.bkp_cal_evento_20261031 as select * from public.cda_cal_evento;
+alter table public.bkp_cal_evento_20261031 enable row level security;
+
 alter table public.cda_cal_evento add column if not exists publico_previsto int check (publico_previsto is null or publico_previsto >= 0);
 alter table public.cda_cal_evento add column if not exists projecao_status text not null default 'pendente';
 alter table public.cda_cal_evento drop constraint if exists cda_cal_evento_projecao_status_check;

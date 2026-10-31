@@ -991,6 +991,26 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
     Projeção Varejo **R$ 211.281,73** e Projeção Atacado **R$ 28.000,00**, botão 🏷 Campanhas (cadastro e totais;
     ao criar, opção de ligar os eventos sem campanha do período), campo Campanha no evento (sugestão automática
     pelo período) e na importação do Excel. As Simulações do Planejamento e os cenários salvos serão por campanha.
+- **Projeção do evento — previsão informada pelo usuário (31/10/2026, aprovada por Cardoso;
+  `docs/sql/calendario_04_previsao_evento.sql`):** no cadastro do evento, bloco em destaque (valor, conta,
+  selo ✓ revisada / ⚠ sugerido — revisar / ⚠ previsão pendente) e botão **📈 Abrir projeção do evento**: base
+  histórica do canal (ou dos canais do grupo) — Prestação de Contas quando existe no mês, senão Histórico de
+  Compras, desde jan/2025; notas consolidadas (ticket > R$ 1.000/peça) ficam fora de peças e ticket — e a
+  previsão: público previsto (novo), quantidade (peças; e-commerce: pedidos), ticket e Total Venda Previsto
+  (quantidade × ticket). Obrigatória para Planejado / A confirmar / Confirmado, salvo "Só informar". Cartão
+  "Previsões a revisar" na lista. Qtd. e Ticket saíram do cadastro principal.
+  - Banco: colunas `publico_previsto`, `projecao_status` (pendente | sugerido | revisado | so_informar),
+    `projecao_por`, `projecao_em` (antes não existiam); view `cda_v_prestacao_canal_mes` (itens das
+    prestações por canal/mês, só leitura). Backup antes da carga: tabela `bkp_cal_evento_20261031` (24 eventos).
+  - Carga (opção "a"): quantidade = projeção aprovada ÷ ticket do histórico (arredondada), projeção =
+    quantidade × ticket, selo "sugerido". Valores antigos → novos: Luedji ×3 13.478,41 → 13.566,75
+    (75 × 180,89); Gilsons 8.683,78 → 8.613,92 (56 × 153,82); Feiras IAB/Batekoo/Caminhoá 18.843,17 →
+    18.726,95 (79 × 237,05); E-commerce nov 17.608,07 → 17.682,40 (80 pedidos × 221,03); Black Friday
+    4.494,34 → 4.420,60 (20 × 221,03); Cyber 418,82 → 388,72 (2 × 194,36); E-commerce dez 18.373,11 →
+    18.464,20 (95 × 194,36); Natal 6.838,87 → 6.802,60 (35 × 194,36). Números informados por Cardoso
+    (IZA, Emerson, Hostel Gaia, Longboard, Nábilia, FACC, D Space, Rosenbaum Natal) = "revisado"; D Space e
+    Rosenbaum Natal sem quantidade/ticket aparecem como pendentes até serem informados. Zudizilla Quinta
+    Essência = "só informar". Campanha: R$ 239.281,73 → **R$ 239.153,54**.
 
 ## 13. Histórico de Compras — duplicidades — out/2026
 
