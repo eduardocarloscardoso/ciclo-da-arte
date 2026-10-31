@@ -689,6 +689,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Pagamentos de outubro encerrado — 43 centros, R$ 116.355,41 (substituiu a importação parcial de 29/10, R$ 106.491,56).
   Produção Varejo R$ 33.774,67 · Produção Atacado R$ 9.679,60 · Montagem Coleções R$ 3.379,79. Rateio Uber reaplicado:
   Eventos Uber (30016) 1.934,48 → 1.434,48; Produção - Transporte (390001) 1.061,74 → 1.561,74.
+- **Receitas out/2026 — SIMULAÇÃO (31/10/2026 18:4x, Claude a pedido de Cardoso, pela mesma RPC do importador):**
+  planilha "SIMULACAO_OUTUBRO_VENDAS.xls" (layout Vendedor / Total Venda), 17 centros, **R$ 100.893,97**. Outubro não
+  tinha receita lançada (valor antigo: nenhum). Ajustes só nesta importação, sem apelidos: "REVENDA JO E JOE" →
+  REVENDA HOTEL JO & JOE (R$ 1.393,00); "MARKET PLACE - VENDA PRODUTOS TERCEIROS" → Market Place - Vendas Terceiros
+  (R$ 17.000,00 — **valor fictício** de Cardoso para completar a previsão do mês). Será substituída pela planilha
+  definitiva ao fechar outubro (a importação substitui o mês inteiro). Efeito: outubro passa a contar como mês com
+  receita fechada; proporção real de Produção jan–out: Varejo 41,81% (305.144,95 ÷ 729.798,97), Atacado 32,65%
+  (127.417,17 ÷ 390.247,00). Setembro: receita no Planejamento (R$ 107.961,61, 22/10), mas o relatório de vendas
+  por produto (Prestação + Histórico de Compras) ainda não foi importado no Financeiro.
 - **Integração API Bling — projeto** (29/10/2026, Cardoso): o submódulo Financeiro ›
   Importar Planilha Bling será renomeado "Integração API Bling" e centralizará as
   operações com o BLING em 3 telas — 1) Receitas no Período, 2) Despesas no Período
