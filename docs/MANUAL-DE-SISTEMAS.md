@@ -921,6 +921,20 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   realizado — mesma regra para todos os centros desde 23/10/2026; Proj.
   Mensal = Saldo ÷ meses restantes) OK
   favorável · Atenção ≤10% · Crítico ≤20% · Intervenção >20% · Sem Dados.
+- **🧪 Simulações › Simulação de Compras por Campanha** (31/10/2026, aprovada por Cardoso; módulo
+  `cda-modulo-simulacoes.js`, SQL `planejamento_anual_17_simulacao_cenarios.sql`):
+  receita da campanha do Calendário Comercial (projeção dos eventos ou meta digitada por grupo, ou total
+  de Varejo/Atacado distribuído pelos grupos na proporção da projeção) → compra de Produção Varejo/Atacado
+  pela meta de custo (custo ideal do Mix em ⚙ Referências: **venda direta 30% — mantido por Cardoso em
+  31/10/2026** · atacado 50%) e pela proporção real do ano (Produção realizada ÷ receita do segmento, meses
+  de receita fechada; jan–set: VJ 40,27% · AT 34,10%) − provisão de Produção do segmento = Pendente,
+  comparado ao Saldo do orçamento (orçado − realizado − provisão) → cabe / excede / provisão cobre.
+  Segmento pelo grupo (`cda_grupo.segmento`). Montagem Coleções só informativa. Blocos: 1) Varejo e
+  Atacado; 2) por grupo e canal (meta do canal = meta do grupo pela projeção; % real igual para todos os
+  grupos do segmento); 3) comparação de cenários. Tabela nova `cda_pa_sim_cenario` (metas jsonb
+  {grupos:{id:valor}} por campanha; nome único na campanha) — sem dados antigos. Valores na publicação
+  (provisões de 31/10): Calendário VJ R$ 211.281,73 / AT R$ 28.000 → VJ cabe pela meta e excede ≈ R$ 8,3 mil
+  pela proporção real; AT cabe nas duas.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
