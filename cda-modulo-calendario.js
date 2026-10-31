@@ -70,8 +70,8 @@ async function navigateCalendario(page){
   document.getElementById('page-title').textContent='Calendário · '+p.label;
   var banner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — você pode consultar, mas não alterar.</div>':'';
   document.getElementById('main-content').innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Calendário · Eventos e ações comerciais</p></div><div id="cal-root"><div class="card">Carregando…</div></div>';
-  try{await calCarregar();calRenderEventos();}
-  catch(e){document.getElementById('cal-root').innerHTML='<div class="card">Não foi possível carregar o calendário. Atualize a página e tente novamente.</div>';calErro(e,'Falha ao carregar o Calendário');}
+  try{await calCarregar();if(document.getElementById('cal-root'))calRenderEventos();}
+  catch(e){var r0=document.getElementById('cal-root');if(!r0)return;r0.innerHTML='<div class="card">Não foi possível carregar o calendário. Atualize a página e tente novamente.</div>';calErro(e,'Falha ao carregar o Calendário');}
 }
 
 // ─── Dados ───────────────────────────────────────────────────────────
@@ -192,7 +192,7 @@ function calRenderEventos(){
           '<td style="text-align:center">'+calBadgeStatus(e.status)+'</td><td'+(e.memoria_projecao?' title="'+calEsc(e.memoria_projecao)+'" style="cursor:help;text-decoration:underline dotted"':'')+'>'+(e.projecao!==null&&e.projecao!==undefined?calBRL(e.projecao):'—')+'</td></tr>';
       }).join('')+'</tbody></table></div>';
   }
-  document.getElementById('cal-root').innerHTML=h;
+  var root=document.getElementById('cal-root');if(root)root.innerHTML=h;
 }
 
 // ─── Cadastro / edição ───────────────────────────────────────────────

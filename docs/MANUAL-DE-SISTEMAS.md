@@ -1072,6 +1072,28 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Rachel Reis 11, Rico Dalassam 15, Zudizilla 4, Duda Beat 3, Kaê Guajajara 5. Ajustes: Luedji 04/2026 = 3
   (2 shows no Circo Voador + Centro Artístico SP), Zudizilla 11/2025 = 2, Kaê 05/2026 = 1.
 - Pendente: investigar os pedidos do canal Shows Multimarcas (2022–2024), apontados por Cardoso como errados.
+- **Correção 31/10/2026:** o Grupo e o 📅 de 30/10 tinham sido colocados na cópia antiga da tela dentro do
+  `financeiro.html` (sem acesso pelo menu do hub), e por isso não apareciam. Os dados (54 meses, grupos dos
+  canais) estavam gravados e foram usados normalmente pelo Calendário.
+- **Nova tela única (31/10/2026, aprovada por Cardoso)** — `cda-modulo-canais.js`, chamada por
+  Financeiro › Canais de Venda (`navigateCanais`), no estilo escuro do Planejamento/Calendário:
+  filtros (busca, Segmento, Grupo, Tipo, Collab, Período: ano atual / 12 meses / todo o histórico /
+  personalizado), cartões de resumo, modo Cartões (seções por grupo com selo Varejo/Atacado e total) ou Lista
+  (ordenável), números do período por canal (vendas, peças, ticket = valor ÷ peças; eventos, público e
+  R$/evento nos canais de shows/feiras), edição em painel lateral (Identificação com Grupo, Segmento só
+  leitura e centro de receita ligado; Condições; Contato) e 📅 Eventos em painel lateral (mês a mês: eventos,
+  locais e público editáveis + pedidos, peças, vendas e ticket do Histórico; resumo com médias por evento e
+  conversão peças ÷ público). Excluir fica dentro da edição e é bloqueado para canal com pedidos no Histórico
+  ou com prestação de contas ligada.
+- SQL `docs/sql/canais_02_publico_vendas_mes.sql`: coluna `cda_canal_eventos_mes.publico` (público realizado do
+  mês; antes não existia) e view `cda_v_vendas_canal_mes` (compras por canal × mês: pedidos, peças, valor —
+  security_invoker; conferida: soma R$ 3.934.880,34 = total do Histórico).
+- **Remoções (sem tabela concorrente — os canais sempre estiveram só em `public.canais`):** função
+  `montarCanaisVenda` do `index.html` (tela antiga do menu) e, no `financeiro.html`, a página "Canais de Venda"
+  (pg-collabs, rCollabs, modais mo-col e mo-ev, item do menu interno). O `financeiro.html` continua carregando
+  os canais (DB 'collabs') porque a Prestação de Contas usa comissão e percentuais. Ficam para uma etapa própria
+  as outras telas repetidas do `financeiro.html` sem acesso pelo hub: Painel, Clientes, Histórico de Compras,
+  Produtos, Collabs / Vendedores e Configurações.
 
 ## 11. Memória da última tela — out/2026
 

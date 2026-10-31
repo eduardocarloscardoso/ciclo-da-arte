@@ -78,7 +78,7 @@ async function navigateCanais(){
   var banner=(typeof isReadOnly==='function'&&isReadOnly())?'<div class="readonly-banner">👁 Modo somente leitura — você pode consultar, mas não alterar.</div>':'';
   el.innerHTML=banner+'<div class="ph"><h1>🏷 Canais de Venda</h1><p>Financeiro · Artistas, casas de shows, revendas, feiras e e-commerces</p></div><div id="can-root"><div class="card">Carregando…</div></div>';
   try{await canCarregar();canRender();}
-  catch(e){document.getElementById('can-root').innerHTML='<div class="card">Não foi possível carregar os canais. Atualize a página e tente novamente.</div>';canErro(e,'Falha ao carregar os Canais de Venda');}
+  catch(e){var r0=document.getElementById('can-root');if(!r0)return;r0.innerHTML='<div class="card">Não foi possível carregar os canais. Atualize a página e tente novamente.</div>';canErro(e,'Falha ao carregar os Canais de Venda');}
 }
 async function canCarregar(){
   var r=await Promise.all([
@@ -119,6 +119,7 @@ function canFiltrados(){
 
 // ─── Render ──────────────────────────────────────────────────────────
 function canRender(){
+  if(!document.getElementById('can-root')||!canCache)return;
   var ed=canPodeEditar(),P=canPeriodo(),lista=canFiltrados(),N={};
   lista.forEach(function(c){N[c.id]=canNumeros(c);});
   var sel=function(id,lab,opts,val,onch){return '<label>'+lab+'<select id="'+id+'" onchange="'+onch+'">'+opts.map(function(o){return '<option value="'+canEsc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+canEsc(o[1])+'</option>';}).join('')+'</select></label>';};
@@ -146,7 +147,7 @@ function canRender(){
   if(!lista.length)h+='<div class="card">Nenhum canal com estes filtros.</div>';
   else if(canEstado.modo==='lista')h+=canLista(lista,N);
   else h+=canCartoes(lista,N);
-  document.getElementById('can-root').innerHTML=h;
+  var root=document.getElementById('can-root');if(root)root.innerHTML=h; // usuário pode ter trocado de tela durante a carga
 }
 var canTimer=null;
 function canRenderDebounce(){clearTimeout(canTimer);canTimer=setTimeout(function(){canRender();var i=document.getElementById('can-f-busca');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length);}},250);}
@@ -213,11 +214,11 @@ function canAbrirCanal(id){
       '<label class="w">Centro de receita (Planejamento)<div class="can-ro">'+(cc?canEsc(cc.centro_nome)+' <span class="pa-mut">· '+canEsc(cc.subconta_nome)+'</span>':'— não ligado —')+'</div></label>'+
     '</div></fieldset>'+
     '<fieldset class="can-fs"><legend>Condições</legend><div class="can-fg" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
-      '<label>Comissão %<input id="can-e-com" type="number" step="0.01" value="'+v(c.comissao)+'"'+dis+'></label>'+
-      '<label>Impostos %<input id="can-e-imp" type="number" step="0.01" value="'+v(c.pct_imp)+'"'+dis+'></label>'+
-      '<label>Op. %<input id="can-e-op" type="number" step="0.01" value="'+v(c.pct_op)+'"'+dis+'></label>'+
-      '<label>CS %<input id="can-e-cs" type="number" step="0.01" value="'+v(c.pct_cs)+'"'+dis+'></label>'+
-      '<label class="w" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" style="width:auto" id="can-e-frete"'+(c.sem_frete?' checked':'')+dis+'> Sem cobrança de frete</label>'+
+      '<label title="Vazio = padrão do sistema">Comissão %<input id="can-e-com" placeholder="padrão" type="number" step="0.01" value="'+v(c.comissao)+'"'+dis+'></label>'+
+      '<label title="Sobre total da venda + frete">Imposto %<input id="can-e-imp" type="number" step="0.01" value="'+v(c.pct_imp)+'"'+dis+'></label>'+
+      '<label title="Desconto operacional (shows / loja itinerante)">Desc. operac. %<input id="can-e-op" type="number" step="0.01" value="'+v(c.pct_op)+'"'+dis+'></label>'+
+      '<label title="Desconto das casas de shows">Desc. casas show %<input id="can-e-cs" type="number" step="0.01" value="'+v(c.pct_cs)+'"'+dis+'></label>'+
+      '<label class="w" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" style="width:auto" id="can-e-frete"'+(c.sem_frete?' checked':'')+dis+'> Desconsiderar o frete no cálculo e na exibição da Prestação de Contas</label>'+
     '</div></fieldset>'+
     '<fieldset class="can-fs"><legend>Contato e observações</legend><div class="can-fg">'+
       '<label class="w">E-mail<input id="can-e-email" type="email" value="'+v(c.email)+'"'+dis+'></label>'+
@@ -247,7 +248,11 @@ async function canSalvarCanal(id){
 }
 async function canExcluirCanal(id){
   var c=canCache.canais.find(function(x){return String(x.id)===String(id);});if(!c)return;
-  var vendas=0;try{var r=await sb.get('compras','select=id&canal_id=eq.'+id+'&limit=1');vendas=(r||[]).length;}catch(e){}
+  var vendas=0,prest=0;
+  try{var r=await sb.get('compras','select=id&canal_id=eq.'+id+'&limit=1');vendas=(r||[]).length;}catch(e){vendas=1;}
+  // Prestações: canal principal (canal_id) ou seções de prestações multi-canal (dados.secoes)
+  try{var ps=await sb.get('prestacoes','select=id,canal_id,dados');prest=(ps||[]).filter(function(p){var d=p.dados||{};return String(p.canal_id)===String(id)||String(d.collab_id)===String(id)||(d.secoes||[]).some(function(s){return String(s.canal_id)===String(id)||s.canal===c.nome;});}).length;}catch(e){prest=1;}
+  if(prest){alert('O canal "'+c.nome+'" tem prestação(ões) de contas ligadas e não pode ser excluído.');return;}
   if(vendas){alert('O canal "'+c.nome+'" tem pedidos no Histórico de Compras e não pode ser excluído. Use as Observações para marcá-lo como inativo ou mova-o para o grupo "Canais inativos".');return;}
   if(!confirm('Excluir o canal "'+c.nome+'"?\nEsta ação não pode ser desfeita.'))return;
   try{await sb.del('canais',id);canFecharPainel();showToast('Canal excluído','success');canCache.canais=canCache.canais.filter(function(x){return String(x.id)!==String(id);});canRender();}
@@ -260,8 +265,8 @@ async function canAbrirEventos(id){
   canPainel('<div class="can-dr-h"><div style="flex:1"><h3>📅 '+canEsc(c.nome)+'</h3><div class="sub">Eventos, público e vendas mês a mês</div></div><button class="can-btn" onclick="canFecharPainel()" aria-label="Fechar">✕</button></div><div class="can-dr-b" id="can-ev-b">Carregando…</div>');
   try{
     var r=await Promise.all([sb.get('cda_canal_eventos_mes','canal_id=eq.'+id+'&order=ano_mes.desc'),sb.get('cda_v_vendas_canal_mes','canal_id=eq.'+id+'&order=ano_mes.desc')]);
-    canRenderEventos(c,r[0]||[],r[1]||[]);
-  }catch(e){document.getElementById('can-ev-b').innerHTML='<div class="card">Não foi possível carregar os eventos.</div>';canErro(e,'Falha ao carregar os eventos');}
+    if(document.getElementById('can-ev-b'))canRenderEventos(c,r[0]||[],r[1]||[]);
+  }catch(e){var b0=document.getElementById('can-ev-b');if(b0)b0.innerHTML='<div class="card">Não foi possível carregar os eventos.</div>';canErro(e,'Falha ao carregar os eventos');}
 }
 function canRenderEventos(c,ev,vd){
   var ed=canPodeEditar(),meses={},V={};

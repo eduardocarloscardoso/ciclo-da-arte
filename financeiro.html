@@ -328,7 +328,6 @@ tr:hover td{background:#faf7f0;}
     <div class="sb-item" onclick="go(&#39;clientes&#39;)"><em>👥</em> Clientes</div>
     <div class="sb-item" onclick="go(&#39;compras&#39;)"><em>🛒</em> Histórico de Compras</div>
     <div class="sb-item" onclick="go(&#39;produtos&#39;)"><em>🛍</em> Produtos</div>
-    <div class="sb-item" onclick="go(&#39;collabs&#39;)"><em>🎤</em> Canais de Venda</div>
     <div class="sb-sec">Sistema</div>
     <div class="sb-item" onclick="go(&#39;cfg&#39;)"><em>🏷</em> Tipos e Coleções</div>
   </div>
@@ -459,35 +458,6 @@ tr:hover td{background:#faf7f0;}
         <span class="fc" id="cv-cnt"></span>
       </div>
       <div class="cc-g" id="cv-cards" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;"></div>
-    </div>
-
-    <!-- COLLABS -->
-    <div class="pg" id="pg-collabs">
-      <div class="row-bt">
-        <div><div class="sec-t">Canais de Venda</div><div class="sec-d">Artistas, casas de shows, revendas e e-commerces</div></div>
-        <button class="btn rust sm" onclick="openMoCol()">+ Novo Canal de Venda</button>
-      </div>
-      <div class="fb">
-        <input type="text" id="f-col-nome" placeholder="Buscar canal..." oninput="rCollabs()">
-        <select id="f-col-cv" onchange="rCollabs()"><option value="">Todos os collabs</option></select>
-        <select id="f-col-tipo" onchange="rCollabs()">
-          <option value="">Todos os tipos</option>
-          <option value="artista">Artista</option>
-          <option value="casa_shows">Casa de Shows</option>
-          <option value="revenda">Revenda</option>
-          <option value="ecommerce">E-Commerce Dedicado</option>
-          <option value="multi">E-Commerce Multimarcas</option>
-        </select>
-        <span class="fc" id="col-cnt"></span>
-      </div>
-      <div class="kpi-g" style="margin-bottom:16px">
-        <div class="kpi"><div class="kpi-l">Total Canais</div><div class="kpi-v" id="col-total-kpi">—</div><div class="kpi-s">conforme filtros</div></div>
-        <div class="kpi gd"><div class="kpi-l">Artistas</div><div class="kpi-v" id="col-kpi-artista">—</div><div class="kpi-s">canais tipo artista</div></div>
-        <div class="kpi vi"><div class="kpi-l">E-Commerce</div><div class="kpi-v" id="col-kpi-ecommerce">—</div><div class="kpi-s">canais e-commerce</div></div>
-        <div class="kpi sa"><div class="kpi-l">Revendas</div><div class="kpi-v" id="col-kpi-revenda">—</div><div class="kpi-s">canais revenda</div></div>
-        <div class="kpi li"><div class="kpi-l">Shows / Outros</div><div class="kpi-v" id="col-kpi-outros">—</div><div class="kpi-s">demais tipos</div></div>
-      </div>
-      <div class="cc-g" id="col-cards"></div>
     </div>
 
     <!-- CARDÁPIOS -->
@@ -646,50 +616,6 @@ tr:hover td{background:#faf7f0;}
   </div>
 </div>
 
-<!-- MODAL EVENTOS POR MÊS (canal) -->
-<div class="mo" id="mo-ev">
-  <div class="mo-box" style="max-width:720px">
-    <div class="mo-h"><h3 id="mo-ev-t">Eventos por mês</h3><button class="mo-x" onclick="closeMo('mo-ev')">✕</button></div>
-    <div class="mo-b">
-      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Quantos shows ou feiras/eventos o canal teve em cada mês. É a base da média por evento usada nas projeções do Calendário Comercial. Altere o número ou os locais e o valor é salvo ao sair do campo.</p>
-      <div id="ev-lista"></div>
-      <div style="display:grid;grid-template-columns:150px 110px 1fr auto;gap:8px;align-items:end;margin-top:14px">
-        <div class="fgr"><label>Mês</label><input id="ev-novo-mes" type="month"></div>
-        <div class="fgr"><label>Nº eventos</label><input id="ev-novo-qtd" type="number" min="0" step="1"></div>
-        <div class="fgr"><label>Locais / observação</label><input id="ev-novo-obs" type="text" placeholder="Ex.: Circo Voador ; Centro Artístico SP"></div>
-        <button class="btn rust sm" onclick="finAdicionarEvento()">+ Adicionar</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- MODAL COLLAB -->
-<div class="mo" id="mo-col">
-  <div class="mo-box">
-    <div class="mo-h"><h3 id="mo-col-t">Novo Canal de Venda</h3><button class="mo-x" onclick="closeMo(&#39;mo-col&#39;)">✕</button></div>
-    <div class="mo-b">
-      <div class="fg">
-        <div class="fgr" style="grid-column:1/-1"><label>Collab / Vendedor *</label><select id="col-cv"><option value="">— Selecione —</option></select></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Nome do Canal *</label><input id="col-n" type="text" placeholder="Ex: E-Commerce Duda Beat"></div>
-        <div class="fgr"><label>Tipo</label><select id="col-t"><option value="artista">Artista</option><option value="casa_shows">Casa de Shows</option><option value="revenda">Revenda</option><option value="ecommerce">E-Commerce Dedicado</option><option value="multi">E-Commerce Multimarcas</option></select></div>
-        <div class="fgr"><label>Grupo <small style="font-weight:400;color:var(--muted)">(Tabela de Grupos)</small></label><select id="col-grupo"><option value="">— sem grupo —</option></select></div>
-        <div class="fgr"><label>% Comissão (sobrescreve padrão)</label><input id="col-c" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
-        <div class="fgr"><label>% Imposto <small style="font-weight:400;color:var(--muted)">(s/ Total Venda + Frete)</small></label><input id="col-imp" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
-        <div class="fgr"><label>% Desc. Operacional <small style="font-weight:400;color:var(--muted)">(Shows / Loja Itinerante)</small></label><input id="col-op" type="number" step="0.1" placeholder="Deixe vazio = padrão do sistema"></div>
-        <div class="fgr"><label>% Desc. Casas de Shows</label><input id="col-cs" type="number" step="0.1" placeholder="Deixe vazio = 0"></div>
-        <div class="fgr" style="grid-column:1/-1">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:12px;font-weight:600">
-            <input type="checkbox" id="col-frete-flag" style="width:16px;height:16px;cursor:pointer;accent-color:var(--rust)">
-            Desconsiderar Frete no cálculo e exibição da Prestação de Contas
-          </label>
-        </div>
-        <div class="fgr"><label>E-mail de Contato</label><input id="col-e" type="email"></div>
-        <div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="col-o"></textarea></div>
-      </div>
-    </div>
-    <div class="mo-f"><button class="btn sm" onclick="closeMo(&#39;mo-col&#39;)">Cancelar</button><button class="btn rust sm" onclick="saveCol()">💾 Salvar</button></div>
-  </div>
-</div>
 
 <div class="toast ok" id="toast">XLSX exportado: 4557 clientes!</div>
 
@@ -1188,7 +1114,6 @@ function render(p){
       }});
     }
   }
-  else if(p==='collabs'){fillFiltrosCollabs();rCollabs();finCarregarGrupos().then(()=>rCollabs());}
   else if(p==='cvpage')rCVPage();
   else if(p==='cfg')rCfg();
   else if(p==='cardapios')rCardapios();
@@ -2775,17 +2700,6 @@ function saveCV(){
   DB.s('cvs',cvs);closeMo('mo-cv');rCVPage();toast('Collab / Vendedor salvo!','ok');
 }
 
-let eCOId=null;
-const TIPO_L={artista:'Artista',casa_shows:'Casa de Shows',revenda:'Revenda',ecommerce:'E-Commerce Dedicado',multi:'E-Commerce Multimarcas'};
-const TIPO_C={multi:'mu',ecommerce:'ec',casa_shows:'cs'};
-function fillFiltrosCollabs(){
-  const cvs=getCVS();
-  const sel=document.getElementById('f-col-cv');
-  if(sel)sel.innerHTML='<option value="">Todos os collabs</option>'+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-}
-
-
-
 // Busca os % vigentes AGORA no cadastro do canal (mesma regra de resolução usada
 // em calcP, extraída aqui para reuso pelo recalcular_valores).
 function _buscarPctAtualCanal(canal_id, canalNome){
@@ -2873,188 +2787,9 @@ function mudarStatusPrest(id, selectEl){
   toast('Status atualizado: '+{em_aberto:'Em Aberto',enviado:'Enviado',finalizado:'Finalizado'}[novoStatus],'ok');
 }
 
-function deletarCanal(el){
-  var id=el.getAttribute('data-del-id');
-  var nome=el.getAttribute('data-del-nome');
-  if(!confirm('Deletar canal "'+nome+'"?\nEsta ação não pode ser desfeita.'))return;
-  // Verificação de segurança: confirmar que não há prestações vinculadas
-  var prs=DB.g('prestacoes');
-  var vinculadas=prs.filter(function(p){
-    if((p.secoes||[]).some(function(s){return s.canal_id==id||s.canal===nome;}))return true;
-    if(p.collab_id==id)return true;
-    return false;
-  });
-  if(vinculadas.length>0){
-    alert('Não é possível deletar: este canal possui '+vinculadas.length+' prestação(ões) vinculada(s).');
-    return;
-  }
-  var cols=DB.g('collabs').filter(function(c){return c.id!=id;});
-  DB.s('collabs',cols);
-  toast('Canal "'+nome+'" deletado.');
-  rCollabs();
-}
-
-function rCollabs(){
-  const allCols=DB.g('collabs'),cli=DB.g('clientes'),prs=DB.g('prestacoes'),cvs=DB.g('cvs');
-  const q=((document.getElementById('f-col-nome')||{}).value||'').toLowerCase();
-  const fCV=(document.getElementById('f-col-cv')||{value:''}).value;
-  const fTipo=(document.getElementById('f-col-tipo')||{value:''}).value;
-  const cols=allCols.filter(col=>{
-    if(q&&!col.nome.toLowerCase().includes(q))return false;
-    if(fCV&&String(col.cv_id)!==fCV)return false;
-    if(fTipo&&col.tipo!==fTipo)return false;
-    return true;
-  });
-  const cnt=document.getElementById('col-cnt');
-  if(cnt)cnt.textContent=cols.length+' canal(is)';
-  // KPIs totalizadores
-  const kpiTotal=document.getElementById('col-total-kpi');
-  if(kpiTotal)kpiTotal.textContent=cols.length;
-  const kpiArt=document.getElementById('col-kpi-artista');
-  if(kpiArt)kpiArt.textContent=cols.filter(col=>col.tipo==='artista').length;
-  const kpiEc=document.getElementById('col-kpi-ecommerce');
-  if(kpiEc)kpiEc.textContent=cols.filter(col=>col.tipo==='ecommerce'||col.tipo==='multi').length;
-  const kpiRev=document.getElementById('col-kpi-revenda');
-  if(kpiRev)kpiRev.textContent=cols.filter(col=>col.tipo==='revenda').length;
-  const kpiOut=document.getElementById('col-kpi-outros');
-  if(kpiOut)kpiOut.textContent=cols.filter(col=>!['artista','ecommerce','multi','revenda'].includes(col.tipo)).length;
-  document.getElementById('col-cards').innerHTML=cols.map(c=>{
-    // Clientes vinculados ao CV deste canal
-    const nc=c.cv_id?cli.filter(cl=>(cl.collabs||[]).map(String).includes(String(c.cv_id))).length:0;
-    // Prestações que contêm este canal (em secoes ou collab_id direto)
-    const np=prs.filter(p=>{
-      if((p.secoes||[]).some(s=>s.canal_id==c.id||s.canal===c.nome))return true;
-      if(p.collab_id==c.id)return true;
-      return false;
-    });
-    // Comissão APENAS da seção deste canal específico
-    const tc=np.reduce((s,p)=>{try{
-      const calc=calcP(p);
-      const secs=calc.secoes||[];
-      // Busca seção exata pelo nome do canal
-      const sec=secs.find(s=>s.canal&&s.canal.trim().toLowerCase()===c.nome.trim().toLowerCase());
-      if(sec)return s+sec.com;
-      // Se só tem uma seção e é este canal, usa ela
-      if(secs.length===1)return s+secs[0].com;
-      // Prestação antiga sem secoes — só conta se collab_id bate direto
-      if(!p.secoes&&p.collab_id==c.id)return s+calc.com;
-      return s;
-    }catch(e){return s;}},0);
-    const cv=cvs.find(x=>x.id==c.cv_id);
-    return`<div class="ccard ${TIPO_C[c.tipo]||''}">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start">
-        <div>
-          ${cv?`<div style="font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted);font-weight:700;margin-bottom:3px">${cv.nome}</div>`:''}
-          <div class="ccard-n">${c.nome}</div>
-          <div class="ccard-t">${TIPO_L[c.tipo]||c.tipo}${finNomeGrupo(c.grupo_id)?` · <span title="Grupo (Tabela de Grupos)">▦ ${finNomeGrupo(c.grupo_id)}</span>`:''}</div>
-        </div>
-        <div style="display:flex;gap:6px;">
-          ${finCanalTemEventos(c)?`<button class="btn sm" title="Nº de eventos (shows / feiras) por mês" onclick="finAbrirEventos(${c.id})">📅</button>`:''}
-          <button class="btn sm" onclick="editCol(${c.id})">✏</button>
-          <button class="btn sm" style="background:var(--rust);color:#fff;" data-del-id="${c.id}" data-del-nome="${c.nome}" onclick="deletarCanal(this)">🗑</button>
-        </div>
-      </div>
-      <div class="ccard-st">
-        <div><div class="cs-v">${nc}</div><div class="cs-l">Clientes</div></div>
-        <div><div class="cs-v">${np.length}</div><div class="cs-l">Prestações</div></div>
-        <div><div class="cs-v" style="font-size:13px">${R(tc)}</div><div class="cs-l">Em Comissões</div></div>
-      </div>
-      ${c.comissao?`<div style="margin-top:9px"><span class="badge b-sage">Comissão: ${c.comissao}%</span></div>`:''}
-    </div>`;
-  }).join('');
-}
-function openMoCol(c){
-  eCOId=c?.id||null;
-  document.getElementById('mo-col-t').textContent=c?'Editar Canal de Venda':'Novo Canal de Venda';
-  // Populate CVs select
-  const cvs=DB.g('cvs');
-  document.getElementById('col-cv').innerHTML='<option value="">— Selecione —</option>'+cvs.map(cv=>`<option value="${cv.id}">${cv.nome}</option>`).join('');
-  document.getElementById('col-cv').value=c?.cv_id||'';
-  document.getElementById('col-n').value=c?.nome||'';
-  document.getElementById('col-t').value=c?.tipo||'artista';
-  document.getElementById('col-c').value=c?.comissao||'';
-  document.getElementById('col-imp').value=c?.pct_imp||'';
-  document.getElementById('col-op').value=c?.pct_op||'';
-  document.getElementById('col-cs').value=c?.pct_cs||'';
-  document.getElementById('col-frete-flag').checked=c?c.sem_frete||false:false;
-  document.getElementById('col-e').value=c?.email||'';
-  document.getElementById('col-o').value=c?.obs||'';
-  finPreencherGrupos(c?.grupo_id||'');
-  openMo('mo-col');
-}
-function editCol(id){const c=DB.g('collabs').find(x=>x.id==id);if(c)openMoCol(c);}
-function saveCol(){
-  const nome=document.getElementById('col-n').value.trim();if(!nome){toast('Nome obrigatório');return;}
-  const cols=DB.g('collabs');
-  const com=parseFloat(document.getElementById('col-c').value);
-  const cvId=parseInt(document.getElementById('col-cv').value)||null;
-  const pct_imp=parseFloat(document.getElementById('col-imp').value);
-  const pct_op=parseFloat(document.getElementById('col-op').value);
-  const pct_cs=parseFloat(document.getElementById('col-cs').value);
-  const sem_frete=document.getElementById('col-frete-flag').checked;
-  const obj={id:eCOId||uid(),nome,tipo:document.getElementById('col-t').value,comissao:isNaN(com)?null:com,pct_imp:isNaN(pct_imp)?null:pct_imp,pct_op:isNaN(pct_op)?null:pct_op,pct_cs:isNaN(pct_cs)?null:pct_cs,sem_frete,email:document.getElementById('col-e').value,obs:document.getElementById('col-o').value,cv_id:cvId,grupo_id:parseInt(document.getElementById('col-grupo').value)||null};
-  if(eCOId){const i=cols.findIndex(x=>x.id==eCOId);if(i>=0)cols[i]=obj;}else cols.push(obj);
-  DB.s('collabs',cols);closeMo('mo-col');rCollabs();toast('Canal de Venda salvo!','ok');
-}
-
-// ── Grupo do canal (Tabela de Grupos do Planejamento) e Nº de eventos por mês — 30/10/2026 ──
-let FIN_GRUPOS=null;
-async function finCarregarGrupos(){
-  if(FIN_GRUPOS)return FIN_GRUPOS;
-  try{const {data,error}=await sbClient.from('cda_grupo').select('id,nome,tipo,ativo,ordem').order('ordem');if(error)throw error;FIN_GRUPOS=data||[];}
-  catch(e){console.error('Grupos:',e);FIN_GRUPOS=[];}
-  return FIN_GRUPOS;
-}
-function finNomeGrupo(id){if(!id||!FIN_GRUPOS)return '';const g=FIN_GRUPOS.find(x=>String(x.id)===String(id));return g?g.nome:'';}
-function finCanalTemEventos(c){return /show|feira|evento/i.test(finNomeGrupo(c.grupo_id))||/^shows?\b|feira|evento/i.test(c.nome||'');}
-async function finPreencherGrupos(sel){
-  const gs=await finCarregarGrupos(),el=document.getElementById('col-grupo');if(!el)return;
-  const lista=gs.filter(g=>(g.ativo&&g.tipo==='Receita')||String(g.id)===String(sel));
-  el.innerHTML='<option value="">— sem grupo —</option>'+lista.map(g=>`<option value="${g.id}">${g.nome}${g.tipo!=='Receita'?' ('+g.tipo+')':''}</option>`).join('');
-  el.value=sel?String(sel):'';
-}
-let FIN_EV_CANAL=null;
-async function finAbrirEventos(canalId){
-  const c=DB.g('collabs').find(x=>String(x.id)===String(canalId));if(!c)return;
-  FIN_EV_CANAL=c;
-  document.getElementById('mo-ev-t').textContent='📅 Eventos por mês — '+c.nome;
-  document.getElementById('ev-novo-mes').value='';document.getElementById('ev-novo-qtd').value='';document.getElementById('ev-novo-obs').value='';
-  openMo('mo-ev');await finListarEventos();
-}
-async function finListarEventos(){
-  const box=document.getElementById('ev-lista');box.innerHTML='<p style="font-size:12px;color:var(--muted)">Carregando…</p>';
-  try{
-    const {data,error}=await sbClient.from('cda_canal_eventos_mes').select('*').eq('canal_id',FIN_EV_CANAL.id).order('ano_mes',{ascending:false});
-    if(error)throw error;
-    if(!data||!data.length){box.innerHTML='<p style="font-size:12px;color:var(--muted)">Nenhum mês registrado ainda.</p>';return;}
-    const tot=data.reduce((s,r)=>s+(r.qtd_eventos||0),0);
-    box.innerHTML=`<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr style="text-align:left;border-bottom:2px solid var(--ink)"><th style="padding:6px">Mês</th><th style="padding:6px;width:90px">Nº eventos</th><th style="padding:6px">Locais / observação</th><th></th></tr></thead><tbody>`+
-      data.map(r=>`<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px;white-space:nowrap">${mesLabel(r.ano_mes)}</td>
-        <td style="padding:6px"><input type="number" min="0" step="1" value="${r.qtd_eventos}" style="width:70px" onchange="finSalvarEvento('${r.ano_mes}',this.value,null,this)"></td>
-        <td style="padding:6px"><input type="text" value="${(r.observacao||'').replace(/"/g,'&quot;')}" style="width:100%" onchange="finSalvarEvento('${r.ano_mes}',null,this.value,this)"></td>
-        <td style="padding:6px"><button class="btn sm" title="Excluir mês" onclick="finExcluirEvento(${r.id})">🗑</button></td></tr>`).join('')+
-      `</tbody><tfoot><tr><td style="padding:6px;font-weight:700">Total</td><td style="padding:6px;font-weight:700">${tot}</td><td colspan="2"></td></tr></tfoot></table>`;
-  }catch(e){console.error(e);box.innerHTML='<p style="color:var(--rust)">Não foi possível carregar os eventos.</p>';}
-}
-async function finSalvarEvento(mes,qtd,obs,el){
-  try{
-    const atual=(await sbClient.from('cda_canal_eventos_mes').select('qtd_eventos,observacao').eq('canal_id',FIN_EV_CANAL.id).eq('ano_mes',mes).maybeSingle()).data||{};
-    const row={canal_id:FIN_EV_CANAL.id,ano_mes:mes,qtd_eventos:qtd!==null?(parseInt(qtd,10)||0):(atual.qtd_eventos||0),observacao:obs!==null?(obs.trim()||null):(atual.observacao||null),origem:'manual',atualizado_por:(window.cu&&cu.email)||'financeiro',atualizado_em:new Date().toISOString()};
-    const {error}=await sbClient.from('cda_canal_eventos_mes').upsert(row,{onConflict:'canal_id,ano_mes'});if(error)throw error;
-    toast('Eventos de '+mesLabel(mes)+' salvos','ok');if(!el)await finListarEventos();
-  }catch(e){console.error(e);toast('Erro ao salvar: '+(e.message||e));}
-}
-async function finAdicionarEvento(){
-  const mes=document.getElementById('ev-novo-mes').value,qtd=document.getElementById('ev-novo-qtd').value,obs=document.getElementById('ev-novo-obs').value;
-  if(!mes){toast('Informe o mês');return;}if(qtd===''){toast('Informe o nº de eventos');return;}
-  await finSalvarEvento(mes,qtd,obs,null);
-  document.getElementById('ev-novo-mes').value='';document.getElementById('ev-novo-qtd').value='';document.getElementById('ev-novo-obs').value='';
-}
-async function finExcluirEvento(id){
-  if(!confirm('Excluir este mês?'))return;
-  try{const {error}=await sbClient.from('cda_canal_eventos_mes').delete().eq('id',id);if(error)throw error;toast('Mês excluído','ok');await finListarEventos();}
-  catch(e){console.error(e);toast('Erro ao excluir: '+(e.message||e));}
-}
+// Canais de Venda: a tela antiga (rCollabs, modais mo-col e mo-ev) foi removida em 31/10/2026 —
+// a tela única é Financeiro › Canais de Venda do hub (cda-modulo-canais.js). Os dados de canais
+// continuam carregados aqui (DB 'collabs') porque a Prestação de Contas usa comissão e percentuais.
 
 // ════════════════════════════════════════════════
 // CONFIG
