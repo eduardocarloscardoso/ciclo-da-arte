@@ -961,6 +961,22 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Natal 01–24/12/2025 × crescimento 2026/2025; manual; só informar; a definir); 3) Planejamento ›
   Simulações (com Tutorial) › Simulação Compras Black Friday / Natal (compras VJ/AT pela meta
   25%/50% e pela proporção real de 2026, menos provisões); 4) visão mensal e realizado automático.
+- **Campanhas e Segmento Varejo/Atacado** (31/10/2026, aprovado por Cardoso; `docs/sql/calendario_03_campanhas_segmento.sql`):
+  - **Segmento no Grupo, não no evento** (decisão de Cardoso): `cda_grupo.segmento` ('varejo' | 'atacado'),
+    editável pelo administrador em Planejamento › Tabela de Grupos › Grupos de Receita (coluna Segmento).
+    O evento herda o segmento do grupo — o grupo ▦ do próprio evento ou o grupo do centro (canal). Grupo sem
+    segmento é tratado como Varejo, com aviso. Valores antigos: coluna não existia (todos nulos). Carga:
+    Atacado / Private Label (id 14) = atacado; os outros 9 grupos de receita = varejo (regra "tudo menos
+    Private Label é Varejo", confirmada por Cardoso inclusive para Vendas Subsidiadas, Revendas e Canais inativos).
+  - **Campanha** = nível macro que agrupa eventos de um período: tabela `cda_cal_campanha` (nome único, início,
+    fim, objetivo, status Planejada/Em andamento/Encerrada/Cancelada) e `cda_cal_evento.campanha_id`
+    (on delete set null — excluir a campanha mantém os eventos, sem campanha). Valores antigos: campanha_id não
+    existia. Carga: campanha id 1 **"Black Friday / Natal 2026"** (01/11–31/12/2026, Planejada) com os 24 eventos
+    de nov/dez 2026.
+  - Tela: filtros Campanha e Segmento (com campanha escolhida o filtro Ano some), coluna Seg. (VJ/AT), cartões
+    Projeção Varejo **R$ 211.281,73** e Projeção Atacado **R$ 28.000,00**, botão 🏷 Campanhas (cadastro e totais;
+    ao criar, opção de ligar os eventos sem campanha do período), campo Campanha no evento (sugestão automática
+    pelo período) e na importação do Excel. As Simulações do Planejamento e os cenários salvos serão por campanha.
 
 ## 13. Histórico de Compras — duplicidades — out/2026
 
