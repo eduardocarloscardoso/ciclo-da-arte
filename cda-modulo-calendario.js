@@ -211,7 +211,7 @@ function calAbrirEvento(id){
   var campPadrao=calEstado.campanha&&calEstado.campanha!=='nenhuma'?calEstado.campanha:'';
   var e=id?calCache.eventos.find(function(x){return String(x.id)===String(id);}):{ano:calEstado.ano,criterio:'Unidades',status:'Planejado',campanha_id:campPadrao};
   if(!e)return;
-  calPrev={id:id||null,qtd:e.qtd_prevista,ticket:e.ticket_medio,publico:e.publico_previsto,projecao:e.projecao,status:e.projecao_status||'pendente',memoria:e.memoria_projecao||null,por:e.projecao_por||null,em:e.projecao_em||null};
+  calPrev={id:id||null,crit:e.criterio||'Unidades',qtd:e.qtd_prevista,ticket:e.ticket_medio,publico:e.publico_previsto,projecao:e.projecao,status:e.projecao_status||'pendente',memoria:e.memoria_projecao||null,por:e.projecao_por||null,em:e.projecao_em||null};
   var opt=function(lst,v){return lst.map(function(o){return '<option'+(o===v?' selected':'')+'>'+calEsc(o)+'</option>';}).join('');};
   var inp=function(id,lab,val,tipo,extra){return '<label>'+lab+'<input id="'+id+'" type="'+(tipo||'text')+'" value="'+calEsc(val===null||val===undefined?'':val)+'"'+(extra||'')+'></label>';};
   openModal('<div class="modal-box pa-modal-wide" onclick="event.stopPropagation()"><div class="modal-title">'+(id?'✏️ Editar evento':'+ Novo evento')+'</div>'+
@@ -384,7 +384,7 @@ function calPrevSelo(e,curto){
   if(CAL_OBRIGA_PREV.indexOf(e.status)>=0&&!(Number(e.qtd_prevista)>0&&Number(e.ticket_medio)>0))return ' <span class="cal-pst pen" title="Falta a previsão (quantidade e ticket)">'+(curto?'pendente':'⚠ previsão pendente')+'</span>';
   return curto?'':' <span class="cal-pst ok">✓ revisada</span>';
 }
-function calCritAtual(){var el=document.getElementById('cal-e-crit');return el?el.value:'Unidades';}
+function calCritAtual(){var el=document.getElementById('cal-e-crit');return el?el.value:((calPrev&&calPrev.crit)||'Unidades');}
 function calPrevUnid(crit,plural){return crit==='Pedidos'?(plural?'pedidos':'pedido'):(plural?'peças':'peça');}
 function calPrevBloco(){
   var P=calPrev||{},crit=calCritAtual(),st=P.status||'pendente';
