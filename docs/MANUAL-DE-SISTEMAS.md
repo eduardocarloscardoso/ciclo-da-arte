@@ -1094,6 +1094,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   os canais (DB 'collabs') porque a Prestação de Contas usa comissão e percentuais. Ficam para uma etapa própria
   as outras telas repetidas do `financeiro.html` sem acesso pelo hub: Painel, Clientes, Histórico de Compras,
   Produtos, Collabs / Vendedores e Configurações.
+- **Ajustes de 31/10/2026 (tarde, aprovados por Cardoso):** o **Tipo** do canal (Artista, Casa de Shows,
+  Revenda, E-commerce…) deixou de ser exibido e editado — não entrava em nenhum cálculo do ecossistema e o
+  Grupo cumpre o papel; a coluna `canais.tipo` fica no banco, sem alteração de dados. O campo Buscar virou o
+  filtro **Canal** (digitar e escolher). Ordem dos filtros: Segmento · Grupo · Collab · Canal · Período,
+  compartilhados entre Canais de Venda e Collabs / Vendedores.
+- **Collabs / Vendedores** (Financeiro, `navigateCollabs` em `cda-modulo-canais.js`; substitui
+  `montarCollabsVendedores` do `index.html`): mesmo estilo e filtros; cartões ou lista com o desempenho de
+  cada collab somando os seus canais (vendas, peças, ticket; eventos, público e R$/evento só com os canais de
+  shows/feiras), etiquetas dos canais com as vendas de cada um, edição em painel lateral (nome, observações e
+  tabela dos canais ligados com atalho "Abrir ↗" para o canal). Excluir bloqueado com canal ligado. Tabela
+  `parceiros` sem alteração.
 
 ## 11. Memória da última tela — out/2026
 
