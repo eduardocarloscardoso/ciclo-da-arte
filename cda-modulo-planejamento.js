@@ -219,6 +219,7 @@ async function navigatePlanejamento(page){
     else if(page==='mix')await paMixVendas();
     else if(page==='compras')await paSaldoCompras();
     else if(page==='margem')await paMargemCanal();
+    else if(page==='simcampanha'&&typeof paSimCampanha==='function')await paSimCampanha();
     else if(page==='tutorial')paTutorial();
   }catch(e){
     document.getElementById('pa-root').innerHTML='<div class="card">Não foi possível carregar os dados. Atualize a página e tente novamente.</div>';
