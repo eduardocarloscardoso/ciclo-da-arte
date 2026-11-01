@@ -20,6 +20,7 @@ var PA_PAGES = {
   provisao:    {icon:'🔮', label:'Provisão Prevista'},
   comparativo: {icon:'📊', label:'Comparativo Mensal', grupo:'pxr'},
   trimestral:  {icon:'📅', label:'Visão Trimestral Acumulada', grupo:'pxr'},
+  modelo:      {icon:'⚖', label:'Comparativo de Modelo — Ciclo × Mercado', grupo:'pxr'},
   anual:       {icon:'📈', label:'Visão Anual Acumulada', grupo:'pxr'},
   metas:       {icon:'🏁', label:'Comparativo de Metas', grupo:'pxr'},
   mix:         {icon:'🧩', label:'Mix de Vendas e Custo Ideal', grupo:'ae', sec:'Receitas'},
@@ -27,7 +28,6 @@ var PA_PAGES = {
   estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae', sec:'Despesas'},
   variaveis:   {icon:'⚖️', label:'Estrutura de Custos Variáveis', grupo:'ae', sec:'Despesas'},
   margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae', sec:'Despesas'},
-  modelo:      {icon:'⚖', label:'Comparativo de Modelo — Ciclo × Mercado', grupo:'ae', sec:'Modelo'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
 var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}, ae:{icon:'🧭', label:'Análises Estratégicas'}};
@@ -1709,7 +1709,7 @@ async function paSaldoCompras(){
   document.getElementById('pa-root').innerHTML=html;
 }
 
-// ─── Comparativo de Modelo — Ciclo × Mercado (Análises Estratégicas › Modelo) — 27/10/2026 ─────
+// ─── Comparativo de Modelo — Ciclo × Mercado (Previsto vs. Realizado, antes da Visão Anual — 01/11/2026) — 27/10/2026 ─────
 // Por grupo do ecossistema e centro: Realizado (base da Estrutura: consolidado ou média), Mercado (meta Ciclo),
 // Marca comum (referência). Diferença total = Realizado − Marca = (Mercado − Marca: escolha do modelo, já aceita
 // na meta) + (Realizado − Mercado: acima da própria meta, a reduzir).
