@@ -65,6 +65,7 @@ function canPeriodo(){
 }
 // Canal com eventos (shows / feiras): grupo ou nome, ou já tem meses registrados
 function canTemEventos(c){
+  if(c.exige_eventos)return true;
   var g=canGrupo(c);
   return /show|feira|evento|bazar/i.test(g?g.nome:'')||/^shows?\b|feira|evento|bazar/i.test(c.nome||'')||canCache.evMes.some(function(r){return String(r.canal_id)===String(c.id);});
 }
@@ -217,6 +218,7 @@ function canAbrirCanal(id){
       '<label class="w">Collab / vendedor<select id="can-e-parc"'+dis+'><option value="">— nenhum —</option>'+canCache.parceiros.map(function(p){return '<option value="'+p.id+'"'+(String(p.id)===String(c.parceiro_id)?' selected':'')+'>'+canEsc(p.nome)+'</option>';}).join('')+'</select></label>'+
       '<label>Grupo<select id="can-e-grupo" onchange="canMostrarSeg(this.value)"'+dis+'><option value="">— sem grupo —</option>'+grupos.map(function(x){return '<option value="'+x.id+'"'+(String(x.id)===String(c.grupo_id)?' selected':'')+'>'+canEsc(x.nome)+'</option>';}).join('')+'</select></label>'+
       '<label>Segmento<div class="can-ro" id="can-e-seg">'+canSegTexto(g)+'</div></label>'+
+      '<label class="w" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" style="width:auto" id="can-e-exev"'+(c.id?(c.exige_eventos?' checked':''):'')+dis+'> Exige registro de eventos (nº de eventos, locais e público na Prestação de Contas de cada mês)</label>'+
       '<label class="w">Centro de receita (Planejamento)<div class="can-ro">'+(cc?canEsc(cc.centro_nome)+' <span class="pa-mut">· '+canEsc(cc.subconta_nome)+'</span>':'— não ligado —')+'</div></label>'+
     '</div></fieldset>'+
     '<fieldset class="can-fs"><legend>Condições</legend><div class="can-fg" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
@@ -243,7 +245,7 @@ async function canSalvarCanal(id){
   if(canCache.canais.some(function(c){return canNorm(c.nome)===canNorm(nome)&&String(c.id)!==String(id);})){showToast('Já existe um canal com este nome.','error');return;}
   var b={nome:nome,parceiro_id:gv('can-e-parc')?+gv('can-e-parc'):null,grupo_id:gv('can-e-grupo')?+gv('can-e-grupo'):null,
     comissao:num('can-e-com'),pct_imp:num('can-e-imp'),pct_op:num('can-e-op'),pct_cs:num('can-e-cs'),sem_frete:document.getElementById('can-e-frete').checked,
-    email:gv('can-e-email').trim()||null,obs:gv('can-e-obs').trim()||null};
+    email:gv('can-e-email').trim()||null,obs:gv('can-e-obs').trim()||null,exige_eventos:document.getElementById('can-e-exev').checked};
   var btn=document.getElementById('can-e-ok');btn.disabled=true;btn.textContent='Salvando…';
   try{
     if(id)await sb.patch('canais',id,b);
@@ -275,7 +277,7 @@ async function canAbrirEventos(id){
   }catch(e){var b0=document.getElementById('can-ev-b');if(b0)b0.innerHTML='<div class="card">Não foi possível carregar os eventos.</div>';canErro(e,'Falha ao carregar os eventos');}
 }
 function canRenderEventos(c,ev,vd){
-  var ed=canPodeEditar(),meses={},V={};
+  var ed=false,meses={},V={}; // só consulta: eventos são lançados na Prestação de Contas (01/11/2026)
   vd.forEach(function(x){V[x.ano_mes]=x;});
   ev.forEach(function(x){meses[x.ano_mes]=1;});
   var lista=Object.keys(meses).sort().reverse();
@@ -291,49 +293,22 @@ function canRenderEventos(c,ev,vd){
     '<div><span>Peças por evento</span><b>'+(R.eventos?(R.pecas/R.eventos).toLocaleString('pt-BR',{maximumFractionDigits:1}):'—')+'</b></div>'+
     '<div><span>Público</span><b>'+(R.temPub?canInt(R.publico):'—')+'</b></div>'+
     '<div><span>Conversão (peças ÷ público)</span><b>'+(R.temPub&&R.publico?(R.pecasPub/R.publico).toLocaleString('pt-BR',{maximumFractionDigits:3}):'—')+'</b></div></div>';
-  h+='<p class="pa-info" style="margin:0 0 10px;font-size:12px">Vendas, peças e ticket vêm do Histórico de Compras do canal no mês. Eventos, locais e público são digitados aqui'+(ed?' (salvam ao sair do campo)':'')+'. A conversão usa só os meses com público informado.</p>';
-  h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta can-tbl"><thead><tr><th style="text-align:left">Mês</th><th>Eventos</th><th style="text-align:left">Locais</th><th>Público</th><th>Pedidos</th><th>Peças</th><th>Vendas</th><th>Ticket</th><th>R$ / evento</th>'+(ed?'<th></th>':'')+'</tr></thead><tbody>';
+  h+='<p class="pa-info" style="margin:0 0 10px;font-size:12px">Vendas, peças e ticket vêm do Histórico de Compras do canal no mês. Eventos, locais e público são lançados e concluídos na <b>Prestação de Contas</b> do mês (Financeiro › Prestação de Contas › Resumo por Canal de Venda › 📅 Eventos do mês) — aqui é só consulta. A conversão usa só os meses com público informado.</p>';
+  h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta can-tbl"><thead><tr><th style="text-align:left">Mês</th><th>Eventos</th><th style="text-align:left">Locais</th><th>Público</th><th>Pedidos</th><th>Peças</th><th>Vendas</th><th>Ticket</th><th>R$ / evento</th><th>Situação</th></tr></thead><tbody>';
   if(!lista.length)h+='<tr><td colspan="10" style="text-align:left" class="pa-mut">Nenhum mês registrado ainda.</td></tr>';
   lista.forEach(function(am){
     var x=ev.find(function(r){return r.ano_mes===am;})||{},v=V[am]||{},q=x.qtd_eventos||0,val=+v.valor||0,pc=+v.pecas||0;
     var inp=function(campo,valor,w,tipo){return ed?'<input class="can-in" '+(tipo==='n'?'type="number" min="0" step="1" style="width:'+w+'px;text-align:right"':'style="width:'+w+'px"')+' value="'+canEsc(valor===null||valor===undefined?'':valor)+'" onchange="canSalvarMes('+c.id+',\''+am+'\',\''+campo+'\',this.value)">':canEsc(valor===null||valor===undefined?'—':valor);};
     h+='<tr><td style="text-align:left;font-weight:600">'+canMes(am)+'</td><td>'+inp('qtd_eventos',x.qtd_eventos,56,'n')+'</td><td style="text-align:left">'+inp('observacao',x.observacao,230)+'</td><td>'+inp('publico',x.publico,76,'n')+'</td>'+
       '<td>'+canInt(v.pedidos)+'</td><td>'+canInt(pc)+'</td><td>'+canBRL2(val)+'</td><td>'+(pc?canBRL2(val/pc):'—')+'</td><td>'+(q?canBRL(val/q):'—')+'</td>'+
-      (ed?'<td><button class="can-btn" title="Excluir mês" onclick="canExcluirMes('+c.id+','+x.id+',\''+am+'\')">🗑</button></td>':'')+'</tr>';
+      '<td>'+(x.concluido?'<span class="can-chip vj" title="'+canEsc('Concluído por '+(x.concluido_por||'—')+(x.concluido_em?' em '+new Date(x.concluido_em).toLocaleDateString('pt-BR'):''))+'" style="background:rgba(62,201,122,.15);color:var(--green)">✓ concluído</span>':'<span class="can-chip warn">pendente</span>')+'</td></tr>';
   });
   h+='</tbody></table></div>';
-  if(ed)h+='<div class="pa-filtros" style="margin-top:12px"><label>Novo mês<input type="month" id="can-ev-mes"></label><label>Eventos<input type="number" min="0" step="1" id="can-ev-qtd" style="width:80px"></label><label>Locais<input id="can-ev-obs" style="width:220px"></label><label>Público<input type="number" min="0" step="1" id="can-ev-pub" style="width:90px"></label><button class="can-btn pri" onclick="canNovoMes('+c.id+')">+ Adicionar</button></div>';
   var semEv=vd.filter(function(x){return !meses[x.ano_mes];}).length;
   if(semEv)h+='<p class="pa-info" style="margin-top:8px;font-size:11.5px;color:var(--muted2)">'+semEv+' mês(es) com vendas sem evento registrado não aparecem na lista (ex.: vendas no e-commerce do artista fora de shows).</p>';
   document.getElementById('can-ev-b').innerHTML=h;
 }
-async function canGravarMes(canalId,am,campos){
-  var ex=(await sb.get('cda_canal_eventos_mes','canal_id=eq.'+canalId+'&ano_mes=eq.'+am)||[])[0];
-  var quem=(window.cu&&(cu.email||cu.name))||null;
-  if(ex)await sb.patch('cda_canal_eventos_mes',ex.id,Object.assign({origem:'manual',atualizado_por:quem,atualizado_em:new Date().toISOString()},campos));
-  else await sb.post('cda_canal_eventos_mes',Object.assign({canal_id:+canalId,ano_mes:am,qtd_eventos:0,origem:'manual',atualizado_por:quem},campos));
-}
-async function canSalvarMes(canalId,am,campo,valor){
-  if(!canPodeEditar())return;
-  var b={};
-  if(campo==='observacao')b.observacao=String(valor).trim()||null;
-  else{var t=String(valor).trim();if(t===''){if(campo==='qtd_eventos'){showToast('Informe o nº de eventos (0 ou mais).','error');return;}b[campo]=null;}else{var n=parseInt(t,10);if(isNaN(n)||n<0){showToast('Informe um número inteiro, 0 ou mais.','error');return;}b[campo]=n;}}
-  try{await canGravarMes(canalId,am,b);showToast(canMes(am)+' salvo','success');await canAtualizarEventos(canalId);}
-  catch(e){canErro(e,'Não foi possível salvar');}
-}
-async function canNovoMes(canalId){
-  var am=document.getElementById('can-ev-mes').value,q=document.getElementById('can-ev-qtd').value,o=document.getElementById('can-ev-obs').value.trim(),p=document.getElementById('can-ev-pub').value;
-  if(!am){showToast('Informe o mês.','error');return;}
-  var n=parseInt(q,10);if(isNaN(n)||n<0){showToast('Informe o nº de eventos.','error');return;}
-  var pub=p===''?null:parseInt(p,10);if(pub!==null&&(isNaN(pub)||pub<0)){showToast('Público inválido.','error');return;}
-  try{await canGravarMes(canalId,am,{qtd_eventos:n,observacao:o||null,publico:pub});showToast(canMes(am)+' adicionado','success');await canAtualizarEventos(canalId);}
-  catch(e){canErro(e,'Não foi possível adicionar o mês');}
-}
-async function canExcluirMes(canalId,id,am){
-  if(!id||!confirm('Excluir o registro de eventos de '+canMes(am)+'? As vendas do mês não são afetadas.'))return;
-  try{await sb.del('cda_canal_eventos_mes',id);showToast('Mês excluído','success');await canAtualizarEventos(canalId);}
-  catch(e){canErro(e,'Não foi possível excluir');}
-}
+// Edição de eventos saiu desta tela (01/11/2026): lançamento e correção só na Prestação de Contas.
 async function canAtualizarEventos(canalId){
   var c=canCache.canais.find(function(x){return String(x.id)===String(canalId);});
   var r=await Promise.all([sb.get('cda_canal_eventos_mes','canal_id=eq.'+canalId+'&order=ano_mes.desc'),sb.get('cda_v_vendas_canal_mes','canal_id=eq.'+canalId+'&order=ano_mes.desc'),sb.get('cda_canal_eventos_mes','order=ano_mes.desc')]);
@@ -349,7 +324,7 @@ function canTutorial(){
     ['Período','Ano atual, últimos 12 meses, todo o histórico ou personalizado (de/até). Vale para os cartões do topo e os números de cada canal.'],
     ['Vendas · Peças · Ticket','Do Histórico de Compras do canal no período. Ticket = valor ÷ peças (preço médio por peça).'],
     ['Eventos · Público · R$ por evento','Dos registros mês a mês do botão 📅 Eventos (shows, feiras e eventos). R$ por evento = vendas do período ÷ nº de eventos.'],
-    ['📅 Eventos','Mês a mês: nº de eventos, locais e público realizado (digitados), com pedidos, peças, vendas e ticket do Histórico. O resumo traz médias por evento e a conversão (peças ÷ público). É a base da projeção dos eventos no Calendário Comercial.'],
+    ['📅 Eventos','Consulta mês a mês: nº de eventos, locais e público realizado (lançados e concluídos na Prestação de Contas do mês, nos canais com "Exige registro de eventos"), com pedidos, peças, vendas e ticket do Histórico. O resumo traz médias por evento e a conversão (peças ÷ público). É a base da projeção dos eventos no Calendário Comercial.'],
     ['▦ Cartões / ☰ Lista','Cartões agrupados por grupo (clique no título para recolher). A lista ordena por qualquer coluna (clique no cabeçalho).'],
     ['✏ Editar / Excluir','Edição no painel lateral. Excluir fica dentro da edição e só é possível para canal sem pedidos no Histórico de Compras.']
   ];

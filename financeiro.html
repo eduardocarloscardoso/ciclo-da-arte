@@ -358,7 +358,6 @@ tr:hover td{background:#faf7f0;}
             <option value="em_aberto">Em Aberto</option>
             <option value="enviado">Enviado</option>
             <option value="finalizado">Finalizado</option>
-            <option value="recalcular_valores">Recalcular Valores</option>
           </select>
           <span class="fc" id="prest-cnt"></span>
         </div>
@@ -556,8 +555,8 @@ const SB_TABLE_MAP={
     toRow:o=>({id:o.id,nome:o.nome||null,email:o.email||null,cpf:o.cpf||null,sexo:o.sexo||null,nascimento:o['data-nascimento']||null,celular:o['telefone-celular']||o.celular||null,telefone:o.telefone||null,telefone_principal:o['telefone-principal']||null,telefone_comercial:o['telefone-comercial']||null,endereco:o.endereco||null,numero:o.numero||null,complemento:o.complemento||null,referencia:o.referencia||null,bairro:o.bairro||null,cidade:o.cidade||null,estado:o.estado||null,cep:o.cep||null,pais:o.pais||null,situacao:o.situacao||null,grupo:o.grupo||null,ativo:o.ativo||null,tipo:o.tipo||null,rg:o.rg||null,cnpj:o.cnpj||null,razao_social:o['razao-social']||null,ie:o.ie||null,data_criacao:o['data-criacao']||null,tipo_comercial:o.tipo_comercial||null,instagram:o.instagram||null,origem:o.origem||null,origem_dados:o.origem_dados||null,responsavel_comercial:o.responsavel_comercial||null,tags_comercial:o.tags_comercial||null,obs_comercial:o.obs_comercial||null})
   },
   collabs:{table:'canais',pk:'id',
-    fromRow:r=>({id:r.id,nome:r.nome,tipo:r.tipo,comissao:r.comissao,pct_imp:r.pct_imp,pct_op:r.pct_op,pct_cs:r.pct_cs,sem_frete:r.sem_frete,email:r.email,obs:r.obs,cv_id:r.parceiro_id,grupo_id:r.grupo_id}),
-    toRow:o=>({id:o.id,nome:o.nome||null,tipo:o.tipo||null,comissao:o.comissao,pct_imp:o.pct_imp,pct_op:o.pct_op,pct_cs:o.pct_cs,sem_frete:!!o.sem_frete,email:o.email||null,obs:o.obs||null,parceiro_id:o.cv_id||null,grupo_id:o.grupo_id||null})
+    fromRow:r=>({id:r.id,nome:r.nome,tipo:r.tipo,comissao:r.comissao,pct_imp:r.pct_imp,pct_op:r.pct_op,pct_cs:r.pct_cs,sem_frete:r.sem_frete,email:r.email,obs:r.obs,cv_id:r.parceiro_id,grupo_id:r.grupo_id,exige_eventos:!!r.exige_eventos}),
+    toRow:o=>({id:o.id,nome:o.nome||null,tipo:o.tipo||null,comissao:o.comissao,pct_imp:o.pct_imp,pct_op:o.pct_op,pct_cs:o.pct_cs,sem_frete:!!o.sem_frete,email:o.email||null,obs:o.obs||null,parceiro_id:o.cv_id||null})
   },
   cvs:{table:'parceiros',pk:'id',
     fromRow:r=>({id:r.id,nome:r.nome,obs:r.obs}),
@@ -1554,7 +1553,7 @@ function verPrest(id){
           <tbody>
             ${c.secoes.map((sec,si)=>`
               <tr style="background:${si%2===0?'var(--paper)':'var(--card)'}">
-                <td style="padding:7px 10px;font-weight:600;border-bottom:1px solid #e0d8cc;white-space:nowrap">${sec.canal}</td>
+                <td style="padding:7px 10px;font-weight:600;border-bottom:1px solid #e0d8cc;white-space:nowrap">${sec.canal}<span class="evp-slot" data-canal-id="${(p.secoes&&p.secoes[si]&&p.secoes[si].canal_id!=null)?p.secoes[si].canal_id:(p.collab_id||'')}" data-canal="${evpEsc(sec.canal)}"></span></td>
                 <td style="padding:7px 6px;text-align:center;border-bottom:1px solid #e0d8cc">${sec.qtde}</td>
                 <td style="padding:7px 6px;text-align:right;border-bottom:1px solid #e0d8cc">${N(sec.base)}</td>
                 <td style="padding:7px 6px;text-align:right;color:var(--rust);border-bottom:1px solid #e0d8cc">${sec.freteCalc>0?'−'+N(sec.freteCalc):(sec.ignorarFrete?'<span style="font-size:9px;color:var(--muted)">s/frete</span>':'—')}</td>
@@ -1597,8 +1596,8 @@ function verPrest(id){
               <option value="em_aberto" ${(p.status_prest||'em_aberto')==='em_aberto'?'selected':''}>Em Aberto</option>
               <option value="enviado" ${(p.status_prest||'')==='enviado'?'selected':''}>Enviado</option>
               <option value="finalizado" ${(p.status_prest||'')==='finalizado'?'selected':''}>Finalizado</option>
-              <option value="recalcular_valores">🔄 Recalcular Valores</option>
             </select>
+            ${(p.status_prest||'em_aberto')==='em_aberto'?`<button class="btn sm" style="margin-top:6px;font-size:9.5px;padding:3px 7px;width:100%" title="Grava nesta prestação os % atuais do cadastro dos canais (comissão, imposto, desc. operacional, casas de shows)" onclick="recalcularPctPrest('${p.id}')">🔄 Atualizar % pelo cadastro</button>`:''}
           </div>
           <div style="flex:1;min-width:140px">
             <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:4px">Nº NF Collab</div>
@@ -1801,6 +1800,7 @@ rows+='<tr><td><b>'+i.produto+'</b></td><td class="tmu">'+(i.var||'—')+'</td><
       '</div>';
     }
   },300);
+  try{evpPreencherSlots(p);}catch(e){console.error(e);}
 }
 
 // ════════════════════════════════════════════════
@@ -2499,12 +2499,22 @@ function _buscarPctAtualCanal(canal_id, canalNome){
   };
 }
 
-function mudarStatusPrest(id, selectEl){
+async function mudarStatusPrest(id, selectEl){
   var novoStatus=selectEl.value;
   var prs=DB.g('prestacoes');
   var idx=prs.findIndex(function(x){return x.id==id;});
   if(idx<0)return;
   var statusAtual=prs[idx].status_prest||'em_aberto';
+  // Regra 01/11/2026 (Cardoso): só sai de "Em Aberto" com os eventos do mês concluídos nos canais que exigem
+  if(novoStatus!=='em_aberto'&&novoStatus!=='recalcular_valores'){
+    try{
+      var pend=await evpPendentes(prs[idx]);
+      if(pend.length){
+        alert('Conclua os eventos do mês antes de mudar o status:\n\n• '+pend.join('\n• ')+'\n\nUse o botão “📅 Eventos do mês” no Resumo por Canal de Venda.');
+        if(selectEl&&selectEl.tagName)selectEl.value=statusAtual;return;
+      }
+    }catch(eEv){console.error(eEv);alert('Não foi possível verificar os eventos do mês. Tente novamente.');if(selectEl&&selectEl.tagName)selectEl.value=statusAtual;return;}
+  }
 
   if(novoStatus==='recalcular_valores'){
     // Regra (Eduardo, 13/07/2026): busca os % vigentes AGORA no cadastro de
@@ -2564,6 +2574,112 @@ function mudarStatusPrest(id, selectEl){
   }
 
   toast('Status atualizado: '+{em_aberto:'Em Aberto',enviado:'Enviado',finalizado:'Finalizado'}[novoStatus],'ok');
+}
+
+// ════════════════════════════════════════════════
+// EVENTOS DO MÊS NA PRESTAÇÃO (01/11/2026)
+// Canais com "Exige registro de eventos" (canais.exige_eventos) registram aqui, por mês, nº de eventos,
+// locais e público (obrigatório quando há eventos) — tabela cda_canal_eventos_mes, a mesma consultada em
+// Canais de Venda › 📅 Eventos (só leitura) e usada pela Projeção do evento no Calendário. Pré-preenchido
+// pelos eventos do Calendário Comercial do mês. Prestação só sai de "Em Aberto" com todos concluídos;
+// prestação Enviada/Finalizada: correção com motivo obrigatório (log em cda_canal_eventos_mes_log).
+// ════════════════════════════════════════════════
+let EVP_CANAIS=null,EVP_CTX=null;
+const EVP_MESES=['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+function evpMes(am){const p=String(am||'').split('-');return p.length===2?EVP_MESES[+p[1]-1]+'/'+p[0]:am;}
+function evpEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+async function evpUsuario(){try{if(window.parent&&window.parent.cu&&window.parent.cu.email)return window.parent.cu.email;}catch(e){}try{const u=(await cdaClient.auth.getUser()).data.user;return u&&u.email||'usuário';}catch(e){return 'usuário';}}
+async function evpCanais(forcar){
+  if(EVP_CANAIS&&!forcar)return EVP_CANAIS;
+  const {data,error}=await cdaClient.from('canais').select('id,nome,exige_eventos,centro_custo_id,grupo_id');if(error)throw error;
+  EVP_CANAIS={};(data||[]).forEach(c=>{EVP_CANAIS[String(c.id)]=c;});return EVP_CANAIS;
+}
+function evpSecoes(p){return (p.secoes&&p.secoes.length?p.secoes:[{canal_id:p.collab_id,canal:p.canal}]).map(s=>({canal_id:s.canal_id!=null?String(s.canal_id):null,canal:s.canal||''}));}
+// Canais da prestação que exigem eventos e a situação de cada um no mês
+async function evpSituacao(p){
+  const cs=await evpCanais(),lista=evpSecoes(p).map(s=>{let c=s.canal_id?cs[s.canal_id]:null;if(!c)c=Object.values(cs).find(x=>(x.nome||'').trim().toLowerCase()===s.canal.trim().toLowerCase())||null;return {sec:s,canal:c};}).filter(x=>x.canal&&x.canal.exige_eventos);
+  if(!lista.length)return [];
+  const {data,error}=await cdaClient.from('cda_canal_eventos_mes').select('*').eq('ano_mes',p.mes).in('canal_id',lista.map(x=>x.canal.id));if(error)throw error;
+  return lista.map(x=>({canal:x.canal,reg:(data||[]).find(r=>String(r.canal_id)===String(x.canal.id))||null}));
+}
+async function evpPreencherSlots(p){
+  const slots=[...document.querySelectorAll('.evp-slot')];if(!slots.length)return;
+  let sit=[];try{sit=await evpSituacao(p);}catch(e){console.error('Eventos do mês:',e);return;}
+  slots.forEach(sl=>{
+    const s=sit.find(x=>String(x.canal.id)===String(sl.dataset.canalId)||(x.canal.nome||'').trim().toLowerCase()===String(sl.dataset.canal||'').trim().toLowerCase());
+    if(!s){sl.innerHTML='';return;}
+    const ok=s.reg&&s.reg.concluido;
+    sl.innerHTML=`<button class="btn sm" style="margin-left:8px;background:${ok?'var(--sage)':'var(--rust)'};color:#fff;border-color:${ok?'var(--sage)':'var(--rust)'};font-size:10px;padding:4px 9px" onclick="evpAbrir('${p.id}','${s.canal.id}')">📅 Eventos do mês</button>`+
+      `<span style="margin-left:6px;font-size:10px;font-weight:700;color:${ok?'var(--sage)':'var(--rust)'}" title="${ok?evpEsc('Concluído por '+(s.reg.concluido_por||'—')+(s.reg.concluido_em?' em '+new Date(s.reg.concluido_em).toLocaleDateString('pt-BR'):'')):'Informe nº de eventos, locais e público e conclua'}">${ok?'✓ '+s.reg.qtd_eventos+' evento(s)'+(s.reg.publico!=null?' · público '+Number(s.reg.publico).toLocaleString('pt-BR'):''):'⚠ pendente'}</span>`;
+  });
+}
+async function evpAbrir(prestId,canalId){
+  const p=DB.g('prestacoes').find(x=>x.id==prestId);if(!p)return;
+  const cs=await evpCanais(),c=cs[String(canalId)];if(!c)return;
+  const {data:regs}=await cdaClient.from('cda_canal_eventos_mes').select('*').eq('canal_id',c.id).eq('ano_mes',p.mes);
+  const reg=(regs||[])[0]||null;
+  // Calendário: eventos do canal (centro de receita) no mês, menos cancelados
+  let cal=[];
+  try{
+    const [ano,mes]=p.mes.split('-').map(Number),ini=p.mes+'-01',fim=p.mes+'-'+String(new Date(ano,mes,0).getDate()).padStart(2,'0');
+    if(c.centro_custo_id){
+      const r1=await cdaClient.from('cda_cal_evento').select('id,evento,inicio,fim,local,status,publico_previsto').eq('centro_custo_id',c.centro_custo_id).gte('inicio',ini).lte('inicio',fim);
+      const r2=await cdaClient.from('cda_cal_evento').select('id,evento,inicio,fim,local,status,publico_previsto').eq('centro_custo_id',c.centro_custo_id).is('inicio',null).eq('ano',ano).eq('mes',mes);
+      cal=[...(r1.data||[]),...(r2.data||[])].filter(e=>e.status!=='Cancelado');
+    }
+  }catch(e){console.error('Calendário:',e);}
+  const travada=(p.status_prest||'em_aberto')!=='em_aberto';
+  EVP_CTX={p,c,reg,cal,travada,corrigindo:false};
+  let mo=document.getElementById('mo-evp');
+  if(!mo){mo=document.createElement('div');mo.className='mo';mo.id='mo-evp';mo.innerHTML='<div class="mo-box" style="max-width:640px"><div class="mo-h"><h3 id="mo-evp-t"></h3><button class="mo-x" onclick="closeMo(\'mo-evp\')">✕</button></div><div class="mo-b" id="mo-evp-b"></div><div class="mo-f" id="mo-evp-f"></div></div>';document.body.appendChild(mo);}
+  evpRender();openMo('mo-evp');
+}
+function evpRender(){
+  const {p,c,reg,cal,travada,corrigindo}=EVP_CTX,ro=travada&&!corrigindo;
+  const sugQtd=cal.length,sugLoc=cal.map(e=>(e.inicio?e.inicio.slice(8,10)+'/'+e.inicio.slice(5,7)+' ':'')+e.evento+(e.local?' ('+e.local+')':'')).join(' ; '),sugPub=cal.reduce((s,e)=>s+(Number(e.publico_previsto)||0),0);
+  const v={qtd:reg?reg.qtd_eventos:(sugQtd||''),loc:reg?(reg.observacao||''):sugLoc,pub:reg&&reg.publico!=null?reg.publico:''};
+  document.getElementById('mo-evp-t').textContent='📅 Eventos do mês — '+c.nome+' · '+evpMes(p.mes);
+  const inp='width:100%;border:1px solid #bbb;padding:6px 8px;font-family:inherit;font-size:13px;box-sizing:border-box;background:'+(ro?'#eee':'#fff');
+  document.getElementById('mo-evp-b').innerHTML=
+    (reg&&reg.concluido?`<div style="background:#e8f2ea;border:1px solid var(--sage);padding:8px 10px;font-size:12px;margin-bottom:12px">✓ Concluído por <b>${evpEsc(reg.concluido_por||'—')}</b>${reg.concluido_em?' em '+new Date(reg.concluido_em).toLocaleString('pt-BR'):''}</div>`:`<div style="background:#fbecea;border:1px solid var(--rust);padding:8px 10px;font-size:12px;margin-bottom:12px">⚠ Eventos deste mês ainda não concluídos. A prestação só sai de "Em Aberto" com eles concluídos.</div>`)+
+    (cal.length?`<div style="font-size:11.5px;margin-bottom:12px;color:#444"><b>Calendário Comercial (previsto):</b> ${cal.length} evento(s) — ${evpEsc(sugLoc)}${sugPub?' · público previsto '+sugPub.toLocaleString('pt-BR'):''}${reg?'':' <i>(campos já preenchidos com o previsto — confira)</i>'}</div>`:`<div style="font-size:11.5px;margin-bottom:12px;color:#777">Nenhum evento deste canal no Calendário Comercial neste mês.</div>`)+
+    `<div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:start">
+      <div class="fgr"><label>Nº de eventos *</label><input id="evp-qtd" type="number" min="0" step="1" value="${evpEsc(v.qtd)}" ${ro?'disabled':''} style="${inp}"></div>
+      <div class="fgr"><label>Público realizado (soma do mês) *</label><input id="evp-pub" type="number" min="0" step="1" value="${evpEsc(v.pub)}" ${ro?'disabled':''} style="${inp}" placeholder="obrigatório quando houver eventos"></div>
+      <div class="fgr" style="grid-column:1/-1"><label>Locais</label><textarea id="evp-loc" rows="3" ${ro?'disabled':''} style="${inp}">${evpEsc(v.loc)}</textarea></div>
+      ${corrigindo?`<div class="fgr" style="grid-column:1/-1"><label>Motivo da correção *</label><input id="evp-mot" maxlength="300" style="${inp}" placeholder="Ex.: público digitado errado"></div>`:''}
+    </div>
+    <p style="font-size:11px;color:#777;margin-top:10px">Sem evento no mês? Informe 0 e conclua. ${travada?'Prestação '+(p.status_prest==='finalizado'?'Finalizada':'Enviada')+': os eventos ficam travados; use “✏ Corrigir” (motivo obrigatório, fica registrado) ou volte a prestação para Em Aberto.':''}</p>`;
+  document.getElementById('mo-evp-f').innerHTML=`<button class="btn sm" onclick="closeMo('mo-evp')">Fechar</button>`+
+    (ro?`<button class="btn rust sm" onclick="EVP_CTX.corrigindo=true;evpRender()">✏ Corrigir</button>`:`<button class="btn rust sm" id="evp-ok" onclick="evpSalvar()">${corrigindo?'💾 Salvar correção':'✓ Salvar e concluir'}</button>`);
+}
+async function evpSalvar(){
+  const {p,c,reg,corrigindo}=EVP_CTX;
+  const qtd=parseInt(document.getElementById('evp-qtd').value,10),pubTxt=document.getElementById('evp-pub').value.trim(),loc=document.getElementById('evp-loc').value.trim();
+  if(isNaN(qtd)||qtd<0){toast('Informe o nº de eventos (0 se não houve).');return;}
+  const pub=pubTxt===''?null:parseInt(pubTxt,10);
+  if(qtd>0&&(pub===null||isNaN(pub)||pub<=0)){toast('Informe o público realizado do mês (obrigatório quando há eventos).');return;}
+  if(pub!==null&&(isNaN(pub)||pub<0)){toast('Público inválido.');return;}
+  const motivo=corrigindo?(document.getElementById('evp-mot').value||'').trim():'';
+  if(corrigindo&&!motivo){toast('Informe o motivo da correção.');return;}
+  const btn=document.getElementById('evp-ok');btn.disabled=true;
+  try{
+    const quem=await evpUsuario(),agora=new Date().toISOString();
+    const novo={canal_id:c.id,ano_mes:p.mes,qtd_eventos:qtd,observacao:loc||null,publico:qtd>0?pub:(pub||null),origem:'prestacao',atualizado_por:quem,atualizado_em:agora,concluido:true,concluido_por:quem,concluido_em:agora};
+    if(reg){const {error}=await cdaClient.from('cda_canal_eventos_mes').update(novo).eq('id',reg.id);if(error)throw error;}
+    else{const {error}=await cdaClient.from('cda_canal_eventos_mes').insert(novo);if(error)throw error;}
+    const antes=reg?{qtd_eventos:reg.qtd_eventos,observacao:reg.observacao,publico:reg.publico,concluido:reg.concluido}:null;
+    await cdaClient.from('cda_canal_eventos_mes_log').insert({canal_id:c.id,ano_mes:p.mes,acao:corrigindo?'correcao':'conclusao',antes,depois:{qtd_eventos:qtd,observacao:loc||null,publico:novo.publico},motivo:motivo||null,prestacao_id:p.id,usuario:quem});
+    closeMo('mo-evp');toast(corrigindo?'Correção registrada':'Eventos de '+evpMes(p.mes)+' concluídos','ok');
+    evpPreencherSlots(p);
+  }catch(e){btn.disabled=false;console.error(e);toast('Erro ao salvar os eventos: '+(e.message||e));}
+}
+// Pendências para sair de "Em Aberto"
+async function evpPendentes(p){const sit=await evpSituacao(p);return sit.filter(x=>!(x.reg&&x.reg.concluido)).map(x=>x.canal.nome);}
+// "Recalcular Valores" saiu do seletor de status e virou botão (só Em Aberto)
+function recalcularPctPrest(id){
+  if(!confirm('Atualizar os % desta prestação (comissão, imposto, desc. operacional e casas de shows) com os valores atuais do cadastro dos canais?'))return;
+  mudarStatusPrest(id,{value:'recalcular_valores'});
 }
 
 // Canais de Venda: a tela antiga (rCollabs, modais mo-col e mo-ev) foi removida em 31/10/2026 —
