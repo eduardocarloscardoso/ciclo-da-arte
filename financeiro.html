@@ -359,6 +359,11 @@ tr:hover td{background:#faf7f0;}
             <option value="enviado">Enviado</option>
             <option value="finalizado">Finalizado</option>
           </select>
+          <select id="f-prest-ev" onchange="rPrestList()" title="Só prestações com canais marcados &quot;Exige registro de eventos&quot;">
+            <option value="">Eventos: Todas as prestações</option>
+            <option value="pend">⚠ Eventos: atualização pendente</option>
+            <option value="ok">✓ Eventos: concluídos</option>
+          </select>
           <span class="fc" id="prest-cnt"></span>
         </div>
         <div id="prest-list"></div>
@@ -1049,7 +1054,10 @@ function rPrestList(){
   const fCanal=(document.getElementById('f-prest-canal')||{value:''}).value;
   const fStatus=(document.getElementById('f-prest-status')||{value:''}).value;
   const fComissao=(document.getElementById('f-prest-com')||{value:''}).value;
+  const fEv=(document.getElementById('f-prest-ev')||{value:''}).value;
+  if(!EVP_LISTA){evpCarregarLista().then(()=>{if(EVP_LISTA)rPrestList();});}
   const filtered=prs.filter(p=>{
+    if(fEv){const st=evpStatusPrest(p);if(st!==fEv)return false;}
     if(fPer&&p.mes!==fPer)return false;
     if(fCV&&String(p.cv_id)!=fCV)return false;
     if(fCanal){
@@ -1066,7 +1074,7 @@ function rPrestList(){
   }).sort((a,b)=>(b.mes||'').localeCompare(a.mes||''));
   const cnt=document.getElementById('prest-cnt');
   if(cnt)cnt.textContent=filtered.length+' prestação(ões)';
-  document.getElementById('prest-list').innerHTML=`<div class="tw"><div class="th" style="display:flex;justify-content:space-between;align-items:center"><h3>Histórico</h3><button class="btn sm rust" onclick="abrirModalPeriodo()">📅 Resumo Prestação por Período</button></div><div class="ts"><table><thead><tr><th>Artista / Collab</th><th>Canal(is)</th><th>Mês Ref.</th><th>Peças</th><th>Valor Líquido</th><th>Comissão Devida</th><th style="white-space:normal;max-width:90px">Comissão Mensal<br>Final Devida</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(p=>{const c=calcP(p);const canaisStr=(p.secoes||[]).map(s=>s.canal).join(', ')||(p.canal||'');const finalDevida=c.com+(p.saldo_anterior||0)+(p.outros_descontos||0);return`<tr><td><b>${p.collab_nome}</b></td><td><span class="badge b-vio" style="font-size:9px">${canaisStr}</span></td><td class="mn">${mesLabel(p.mes)}</td><td class="mn">${c.qtde}</td><td class="mn" style="color:var(--gold);font-weight:700">${R(c.subtotal+c.frete)}</td><td class="mn tg">${R(c.com)}</td><td class="mn" style="color:${finalDevida>=0?'var(--sage)':'var(--rust)'};font-weight:700">${R(finalDevida)}<div style="font-size:8px;color:#aaa;font-weight:400">Saldo Mensal + Outros Descontos</div></td><td>${(function(st,pid){var cfg={em_aberto:{cls:'b-vio',lbl:'🔵 Em Aberto'},enviado:{cls:'b-gd',lbl:'🟠 Enviado'},finalizado:{cls:'b-sage',lbl:'🟢 Finalizado'},recalcular_valores:{cls:'b-vio',lbl:'🔄 Recalcular Valores'}};var c=cfg[st]||cfg['em_aberto'];return'<span class="badge '+c.cls+' prest-status-badge" data-prest-status-id="'+pid+'" style="font-size:9px">'+c.lbl+'</span>';})(p.status_prest||'em_aberto',p.id)}</td><td style="display:flex;gap:5px"><button class="btn sm rust" onclick="verPrest(${p.id})">Ver</button><button class="btn sm" onclick="delPrest(${p.id})" title="Deletar">🗑</button></td></tr>`;}).join('')}
+  document.getElementById('prest-list').innerHTML=`<div class="tw"><div class="th" style="display:flex;justify-content:space-between;align-items:center"><h3>Histórico</h3><button class="btn sm rust" onclick="abrirModalPeriodo()">📅 Resumo Prestação por Período</button></div><div class="ts"><table><thead><tr><th>Artista / Collab</th><th>Canal(is)</th><th>Mês Ref.</th><th>Peças</th><th>Valor Líquido</th><th>Comissão Devida</th><th style="white-space:normal;max-width:90px">Comissão Mensal<br>Final Devida</th><th>Status</th><th>Ações</th></tr></thead><tbody>${filtered.map(p=>{const c=calcP(p);const canaisStr=(p.secoes||[]).map(s=>s.canal).join(', ')||(p.canal||'');const finalDevida=c.com+(p.saldo_anterior||0)+(p.outros_descontos||0);return`<tr><td><b>${p.collab_nome}</b></td><td><span class="badge b-vio" style="font-size:9px">${canaisStr}</span></td><td class="mn">${mesLabel(p.mes)}</td><td class="mn">${c.qtde}</td><td class="mn" style="color:var(--gold);font-weight:700">${R(c.subtotal+c.frete)}</td><td class="mn tg">${R(c.com)}</td><td class="mn" style="color:${finalDevida>=0?'var(--sage)':'var(--rust)'};font-weight:700">${R(finalDevida)}<div style="font-size:8px;color:#aaa;font-weight:400">Saldo Mensal + Outros Descontos</div></td><td>${(function(st,pid){var cfg={em_aberto:{cls:'b-vio',lbl:'🔵 Em Aberto'},enviado:{cls:'b-gd',lbl:'🟠 Enviado'},finalizado:{cls:'b-sage',lbl:'🟢 Finalizado'},recalcular_valores:{cls:'b-vio',lbl:'🔄 Recalcular Valores'}};var c=cfg[st]||cfg['em_aberto'];return'<span class="badge '+c.cls+' prest-status-badge" data-prest-status-id="'+pid+'" style="font-size:9px">'+c.lbl+'</span>';})(p.status_prest||'em_aberto',p.id)}${evpStatusPrest(p)==='pend'?'<div style="margin-top:4px"><span class="badge" style="font-size:9px;white-space:nowrap;background:#fbecea;color:var(--rust);border:1px solid var(--rust)" title="Eventos do mês ainda não concluídos">📅 Eventos pendentes</span></div>':''}</td><td style="display:flex;gap:5px"><button class="btn sm rust" onclick="verPrest(${p.id})">Ver</button><button class="btn sm" onclick="delPrest(${p.id})" title="Deletar">🗑</button></td></tr>`;}).join('')}
       <tr style="background:var(--ink);color:var(--cream);font-weight:700;font-size:11px">
         <td style="padding:8px 12px">
           ${[...new Set(filtered.map(p=>p.collab_nome))].length} collab(s)
@@ -2594,6 +2602,26 @@ async function evpCanais(forcar){
   const {data,error}=await cdaClient.from('canais').select('id,nome,exige_eventos,centro_custo_id,grupo_id');if(error)throw error;
   EVP_CANAIS={};(data||[]).forEach(c=>{EVP_CANAIS[String(c.id)]=c;});return EVP_CANAIS;
 }
+// Situação dos eventos de todas as prestações (lista e filtro): carrega canais + meses registrados uma vez
+var EVP_LISTA=null,EVP_LISTA_CARREGANDO=null;
+function evpCarregarLista(){
+  if(EVP_LISTA_CARREGANDO)return EVP_LISTA_CARREGANDO;
+  EVP_LISTA_CARREGANDO=(async()=>{try{
+    const cs=await evpCanais(true);
+    const {data,error}=await cdaClient.from('cda_canal_eventos_mes').select('canal_id,ano_mes,concluido');if(error)throw error;
+    const m={};(data||[]).forEach(r=>{m[String(r.canal_id)+'|'+r.ano_mes]=!!r.concluido;});
+    EVP_LISTA={cs,m};
+  }catch(e){console.error('Eventos (lista):',e);}finally{EVP_LISTA_CARREGANDO=null;}})();
+  return EVP_LISTA_CARREGANDO;
+}
+// 'pend' | 'ok' | null (prestação sem canal que exige eventos, ou situação ainda não carregada)
+function evpStatusPrest(p){
+  if(!EVP_LISTA)return null;
+  const {cs,m}=EVP_LISTA,vals=Object.values(cs);
+  const canais=evpSecoes(p).map(s=>{let c=s.canal_id?cs[s.canal_id]:null;if(!c)c=vals.find(x=>(x.nome||'').trim().toLowerCase()===s.canal.trim().toLowerCase())||null;return c;}).filter(c=>c&&c.exige_eventos);
+  if(!canais.length)return null;
+  return canais.every(c=>m[String(c.id)+'|'+p.mes])?'ok':'pend';
+}
 function evpSecoes(p){return (p.secoes&&p.secoes.length?p.secoes:[{canal_id:p.collab_id,canal:p.canal}]).map(s=>({canal_id:s.canal_id!=null?String(s.canal_id):null,canal:s.canal||''}));}
 // Canais da prestação que exigem eventos e a situação de cada um no mês
 async function evpSituacao(p){
@@ -2719,7 +2747,7 @@ async function evpSalvar(){
     const antes=reg?{qtd_eventos:reg.qtd_eventos,observacao:reg.observacao,publico:reg.publico,concluido:reg.concluido}:null;
     await cdaClient.from('cda_canal_eventos_mes_log').insert({canal_id:c.id,ano_mes:p.mes,acao:corrigindo?'correcao':'conclusao',antes,depois:{qtd_eventos:qtd,observacao:loc||null,publico:novo.publico},motivo:motivo||null,prestacao_id:p.id,usuario:quem});
     closeMo('mo-evp');toast(corrigindo?'Correção registrada':'Eventos de '+evpMes(p.mes)+' concluídos','ok');
-    evpPreencherSlots(p);
+    evpPreencherSlots(p);EVP_LISTA=null;
   }catch(e){btn.disabled=false;console.error(e);toast('Erro ao salvar os eventos: '+(e.message||e));}
 }
 // Pendências para sair de "Em Aberto"
