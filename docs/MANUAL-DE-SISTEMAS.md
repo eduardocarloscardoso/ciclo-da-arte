@@ -1186,6 +1186,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
     cadastro**, só em Em Aberto.
   - Canais de Venda › 📅 Eventos passou a ser **só consulta** (coluna Situação); o "Novo mês" e a edição
     saíram — o lançamento é feito na Prestação. O apanhado do ano continua em Canais.
+  - **Meses sem vendas (01/11/2026, confirmado por Cardoso):** SHOWS GILSONS abr/2026 e SHOWS MULTIMARCAS
+    jun/2026 registrados com 0 eventos, concluídos (antes: sem registro), com linha no log.
+  - **Sugestão pelo Histórico de Compras:** mês sem registro e sem evento no Calendário abre com nº de
+    eventos = nº de pedidos do canal no mês e locais = clientes com nome de evento (nomes genéricos — EPC,
+    Ltda, produtoras, o próprio artista/canal, Consumidor Final — ficam de fora). É só sugestão: o usuário
+    confere, ajusta e informa o público. Pendentes em 01/11/2026: set/2026 de Feiras e Bazares, Luedji Luna
+    e Gilsons.
 
 ## 11. Memória da última tela — out/2026
 

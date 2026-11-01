@@ -2629,21 +2629,38 @@ async function evpAbrir(prestId,canalId){
     }
   }catch(e){console.error('Calendário:',e);}
   const travada=(p.status_prest||'em_aberto')!=='em_aberto';
+  // Sem registro e sem Calendário: sugestão pelo Histórico de Compras (nº de pedidos; clientes com nome de evento viram locais)
+  let sugHist=null;
+  if(!reg&&!cal.length){try{
+    const [ano,mes]=p.mes.split('-').map(Number),ini=p.mes+'-01',fim=p.mes+'-'+String(new Date(ano,mes,0).getDate()).padStart(2,'0');
+    const {data:cp}=await cdaClient.from('compras').select('data_compra,numero_pedido,cliente_id').eq('canal_id',c.id).gte('data_compra',ini).lte('data_compra',fim);
+    if(cp&&cp.length){
+      const ids=[...new Set(cp.map(x=>x.cliente_id).filter(Boolean))];let nomes={};
+      if(ids.length){const {data:cl}=await cdaClient.from('clientes').select('id,nome').in('id',ids);(cl||[]).forEach(x=>nomes[x.id]=x.nome||'');}
+      const norm=t=>String(t||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase();
+      const chaves=norm(c.nome).split(/\W+/).filter(w=>w.length>3&&!/^(SHOWS?|FEIRAS?|BAZARES|LOJAS?|ARTISTAS?)$/.test(w));
+      const generico=n=>{const t=norm(n);return !t||/EPC|CONSUMIDOR|LTDA|PRODUC|EIRELI|\bME\b|S\/A|\bSA\b/.test(t)||t===norm(c.nome)||chaves.some(w=>t.includes(w));};
+      const ped=[...new Set(cp.map(x=>String(x.numero_pedido||x.data_compra)))];
+      const loc=[];const vistos=new Set();
+      cp.slice().sort((x,y)=>String(x.data_compra).localeCompare(String(y.data_compra))).forEach(x=>{const n=nomes[x.cliente_id];if(!generico(n)&&!vistos.has(n)){vistos.add(n);loc.push(String(x.data_compra).slice(8,10)+'/'+String(x.data_compra).slice(5,7)+' '+n);}});
+      sugHist={qtd:ped.length,loc:loc.join(' ; ')};
+    }
+  }catch(e){console.error('Sugestão pelo Histórico:',e);}}
   // Histórico do canal (mesmo layout de Canais de Venda › 📅 Eventos): meses registrados + vendas do Histórico de Compras
   let hist=[],vend=[];
   try{
     const r1=await cdaClient.from('cda_canal_eventos_mes').select('*').eq('canal_id',c.id).order('ano_mes',{ascending:false});hist=r1.data||[];
     const r2=await cdaClient.from('cda_v_vendas_canal_mes').select('ano_mes,pedidos,pecas,valor').eq('canal_id',c.id);vend=r2.data||[];
   }catch(e){console.error('Histórico do canal:',e);}
-  EVP_CTX={p,c,reg,cal,travada,corrigindo:false,hist,vend};
+  EVP_CTX={p,c,reg,cal,travada,corrigindo:false,hist,vend,sugHist};
   let mo=document.getElementById('mo-evp');
   if(!mo){mo=document.createElement('div');mo.className='mo';mo.id='mo-evp';mo.innerHTML='<div class="mo-box" style="max-width:960px;width:96%"><div class="mo-h"><h3 id="mo-evp-t"></h3><button class="mo-x" onclick="closeMo(\'mo-evp\')">✕</button></div><div class="mo-b" id="mo-evp-b"></div><div class="mo-f" id="mo-evp-f"></div></div>';document.body.appendChild(mo);}
   evpRender();openMo('mo-evp');
 }
 function evpRender(){
-  const {p,c,reg,cal,travada,corrigindo,vend}=EVP_CTX,ro=travada&&!corrigindo;
+  const {p,c,reg,cal,travada,corrigindo,vend,sugHist}=EVP_CTX,ro=travada&&!corrigindo;
   const sugQtd=cal.length,sugLoc=cal.map(e=>(e.inicio?e.inicio.slice(8,10)+'/'+e.inicio.slice(5,7)+' ':'')+e.evento+(e.local?' ('+e.local+')':'')).join(' ; '),sugPub=cal.reduce((s,e)=>s+(Number(e.publico_previsto)||0),0);
-  const v={qtd:reg?reg.qtd_eventos:(sugQtd||''),loc:reg?(reg.observacao||''):sugLoc,pub:reg&&reg.publico!=null?reg.publico:''};
+  const v={qtd:reg?reg.qtd_eventos:(sugQtd||(sugHist?sugHist.qtd:'')),loc:reg?(reg.observacao||''):(sugLoc||(sugHist?sugHist.loc:'')),pub:reg&&reg.publico!=null?reg.publico:''};
   const w=(vend||[]).find(x=>x.ano_mes===p.mes)||{},val=+w.valor||0,pc=+w.pecas||0,q=+v.qtd||0,pub=+v.pub||0;
   const R$=x=>'R$ '+Number(x||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),I=x=>Number(x||0).toLocaleString('pt-BR');
   const card=(t,valor,id)=>`<div style="border:1.5px solid var(--ink);padding:7px 10px;background:#fff"><div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#777">${t}</div><div ${id?'id="'+id+'"':''} style="font-size:14px;font-weight:700;margin-top:2px">${valor}</div></div>`;
@@ -2660,7 +2677,7 @@ function evpRender(){
       card('Eventos','—','evp-k-ev')+card('Vendas no mês',R$(val))+card('Peças',I(pc))+card('Ticket (R$/peça)',pc?R$(val/pc):'—')+
       card('R$ por evento','—','evp-k-rsev')+card('Peças por evento','—','evp-k-pcev')+card('Público','—','evp-k-pub')+card('Conversão (peças ÷ público)','—','evp-k-conv')+`</div>`+
     (cal.length?`<div style="font-size:11.5px;color:#777;font-style:italic;margin-bottom:8px">Calendário previa ${cal.length} evento${cal.length>1?'s':''}: ${cal.map(e=>evpEsc(e.evento)+' ('+(e.inicio?e.inicio.slice(8,10)+'/'+e.inicio.slice(5,7):'data a definir')+')').join(', ')}</div>`:'')+
-    `<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#777;margin-bottom:6px">Realizado em ${evpMes(p.mes)}${!reg&&cal.length?' <span style="text-transform:none;letter-spacing:0;font-weight:400">(preenchido com o previsto — confira e informe o público)</span>':''}</div>`+
+    `<div style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#777;margin-bottom:6px">Realizado em ${evpMes(p.mes)}${!reg&&(cal.length||sugHist)?' <span style="text-transform:none;letter-spacing:0;font-weight:400">('+(cal.length?'preenchido com o previsto':'sugerido pelo Histórico de Compras: '+sugHist.qtd+' pedido'+(sugHist.qtd>1?'s':''))+' — confira e informe o público)</span>':''}</div>`+
     `<table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--ink);color:var(--cream)"><th style="${th}">Mês</th><th style="${th};text-align:right">Eventos *</th><th style="${th}">Locais</th><th style="${th};text-align:right">Público *</th><th style="${th};text-align:right">Pedidos</th><th style="${th};text-align:right">Peças</th><th style="${th};text-align:right">Vendas</th><th style="${th}">Situação</th></tr></thead><tbody>
       <tr style="background:#fdf3d8"><td style="${cel};font-weight:700">${evpMes(p.mes)}</td>
       <td style="${cel};text-align:right"><input id="evp-qtd" type="number" min="0" step="1" value="${evpEsc(v.qtd)}" ${ro?'disabled':''} style="${inp};width:64px;text-align:right" oninput="evpAtualizarIndicadores()"></td>
