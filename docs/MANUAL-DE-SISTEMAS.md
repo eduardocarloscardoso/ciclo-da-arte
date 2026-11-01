@@ -1086,6 +1086,18 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   inteiros); **C** (511 pedidos 2022–2025, conferir amostra no BLING); nova checagem por total de gravação
   (duplicidades com texto diferente, como o 7804); importador recusar pedido já gravado.
 
+- **Setembro/2026 — Relatório de Vendas por produto (31/10 e 01/11/2026, Cardoso):** auditoria antes da importação —
+  Atendidos 111 pedidos / 266 itens / 1.300 peças / R$ 107.961,72 (Valor total) = receita de setembro do Planejamento
+  (R$ 107.961,61); 121 itens Cancelados desprezados (Consumidor Final / CICLO CONTÁBIL R$ 27.193,10; sem vendedor
+  R$ 11.020,69; Feiras 8180 e 8220 EPC R$ 20.864,80 — cancelamentos confirmados por Cardoso). Arquivo ajustado por
+  Claude: pedido 8168 "E-COMMERCE LIANNE LA HAVAS" → E-Commerce Multimarcas (decisão de Cardoso); desconto de 17 linhas
+  recalculado para fechar com o Valor total do Bling (sem isso as prestações de Private Label, Showroom e Ciclo em
+  Casa sairiam R$ 2.207,15 menores). Importado por Cardoso: 15 prestações (17 canais). A 1ª sincronização do
+  Histórico foi interrompida (página recarregada) com 90 itens; a reimportação completou os demais, exceto 2 itens
+  do pedido 8179 (gravado pela metade na 1ª vez e por isso pulado), inseridos por Claude em 01/11 com origem
+  'manual' e observação (T-shirt Stone Dan R$ 195; T-shirt Barra Azulejos R$ 175). Resultado: 266 itens, 111
+  pedidos, 1.300 peças, líquido R$ 107.961,71, todos ligados à prestação e ao cliente.
+
 ## 14. Canais de Venda — Grupo e Nº de eventos por mês — out/2026
 
 - **30/10/2026 (Cardoso):** Financeiro › Canais de Venda passa a mostrar e editar o **Grupo** do canal
