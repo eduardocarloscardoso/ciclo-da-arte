@@ -1098,6 +1098,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   'manual' e observação (T-shirt Stone Dan R$ 195; T-shirt Barra Azulejos R$ 175). Resultado: 266 itens, 111
   pedidos, 1.300 peças, líquido R$ 107.961,71, todos ligados à prestação e ao cliente.
 
+- **Gravação do Histórico mais segura (01/11/2026, aprovada por Cardoso):** no `financeiro.html`, a sincronização
+  da importação mostra barra de progresso com aviso para não sair, avisa antes de recarregar/fechar (também no hub,
+  via postMessage `cdaSyncHistorico`) e compara item a item (produto | variação | quantidade | valor) com o que já
+  existe no pedido — a reimportação completa pedidos gravados pela metade. Trigger `cda_compras_bloqueia_reimportacao`
+  (`docs/sql/historico_compras_08_trigger_por_item.sql`): passa a bloquear o item idêntico já gravado há mais de 10
+  minutos, e não o pedido inteiro (antes: qualquer item de pedido já gravado era descartado). Limite conhecido: pedido
+  com linhas idênticas de propósito (ex.: 8185) gravado pela metade não completa a linha repetida — completar à mão.
+
 ## 14. Canais de Venda — Grupo e Nº de eventos por mês — out/2026
 
 - **30/10/2026 (Cardoso):** Financeiro › Canais de Venda passa a mostrar e editar o **Grupo** do canal
