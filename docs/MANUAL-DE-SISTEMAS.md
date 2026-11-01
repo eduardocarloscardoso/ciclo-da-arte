@@ -1164,6 +1164,28 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Prestação de Contas, e um endereço antigo (#dash, #clientes…) abre a Prestação. Mantidos porque a
   Prestação usa: carga de todas as tabelas (DB), getCVS/CV_SEED, donut, calcP e _buscarPctAtualCanal.
   Nenhuma tabela ou dado alterado. Backup local do arquivo anterior + histórico do git.
+- **Eventos do mês na Prestação de Contas (01/11/2026, pedido de Cardoso; SQL
+  `docs/sql/canais_03_eventos_na_prestacao.sql`):**
+  - Novo campo `canais.exige_eventos` ("Exige registro de eventos", no painel de edição do canal). Ligado nos
+    9 canais dos grupos Shows de artistas (15) e Feiras e bazares (19): SHOWS DUDA BEAT, SHOWS LUEDJI LUNA,
+    FEIRAS E BAZARES, SHOWS RACHEL REIS, SHOWS RICO DALASSAM, SHOWS GILSONS, Shows Lojas Itinerantes Artista
+    Ciclo 360 Graus, SHOWS MULTIMARCAS, SHOWS ZUDIZILLA (antes: campo inexistente).
+  - `cda_canal_eventos_mes` ganhou `concluido`, `concluido_por`, `concluido_em`. Os 54 meses já registrados
+    (planilha de 30/10/2026) foram marcados concluídos por "Planilha Cardoso 30/10/2026" (antes: sem
+    situação). Público obrigatório só daqui em diante.
+  - Nova tabela `cda_canal_eventos_mes_log` (conclusões e correções: antes/depois, motivo, prestação,
+    usuário), RLS membros da equipe.
+  - Prestação de Contas › Resumo por Canal: botão **📅 Eventos do mês** nos canais marcados, com selo
+    concluído/pendente. A janela mostra só o mês da prestação: indicadores (eventos, vendas, peças, ticket,
+    R$ e peças por evento, público, conversão), uma linha discreta "Calendário previa N eventos: …" (sem
+    cancelados) e o Realizado (nº de eventos, locais — pré-preenchidos pelo Calendário —, público *).
+  - Status: a prestação só sai de **Em Aberto** com os eventos de todos os canais marcados concluídos.
+    Enviada/Finalizada: mês travado; correção pelo botão **✏ Corrigir** com motivo obrigatório (vai para o
+    log) ou voltando a prestação para Em Aberto.
+  - O status "Recalcular Valores" saiu da lista (e do filtro); virou o botão **🔄 Atualizar % pelo
+    cadastro**, só em Em Aberto.
+  - Canais de Venda › 📅 Eventos passou a ser **só consulta** (coluna Situação); o "Novo mês" e a edição
+    saíram — o lançamento é feito na Prestação. O apanhado do ano continua em Canais.
 
 ## 11. Memória da última tela — out/2026
 
