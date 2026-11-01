@@ -1518,16 +1518,21 @@ async function paAbrirReferencias(){
 // Produção = subcontas "Produção Varejo" / "Produção Atacado" (custo do produto)
 function paNumOu(v,padrao){return v===null||v===undefined||v===''||isNaN(v)?padrao:Number(v);}
 function paEhProducao(s){return /^Produção (Varejo|Atacado)/i.test((s&&s.nome)||'');}
+// Montagem Coleções (01/11/2026, Cardoso): soma na Produção; o ideal da Produção = custo ideal do Mix + meta de Montagem (Σ Mercado dos seus centros)
+function paEhMontagem(s){return /^Montagem Cole/i.test((s&&s.nome)||'');}
+function paEhProducaoTotal(s){return paEhProducao(s)||paEhMontagem(s);}
 // Custo ideal do produto pelo mix: venda direta × custo_ideal_direta + atacado × custo_ideal_atacado
 function paCalcMix(d,metas){
-  var ult=d.ultimo||0,recMesTot={},canais=[],prod={prev:0,real:0,porMes:{}};
+  var ult=d.ultimo||0,recMesTot={},canais=[],prod={prev:0,real:0,porMes:{}},mont={prev:0,real:0,porMes:{},meta:0,temMeta:false};
   paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){var s=gs.sub;
     if(g.conta.tipo==='RECEITAS'){
       var c={id:s.id,nome:s.nome,tipo:s.tipo_venda==='atacado'?'atacado':'direta',prev:0,mes:{}};
       gs.centros.forEach(function(cc){c.prev+=d.prev[cc.id]||0;var mm=d.mes[cc.id]||{};for(var m=1;m<=12;m++){if(mm[m]){c.mes[m]=(c.mes[m]||0)+mm[m];recMesTot[m]=(recMesTot[m]||0)+mm[m];}}});
       canais.push(c);
-    }else if(paEhProducao(s)){
-      gs.centros.forEach(function(cc){prod.prev+=d.prev[cc.id]||0;var mm=d.mes[cc.id]||{};for(var m=1;m<=12;m++)if(mm[m])prod.porMes[m]=(prod.porMes[m]||0)+mm[m];});
+    }else if(paEhProducaoTotal(s)){
+      var eM=paEhMontagem(s);
+      gs.centros.forEach(function(cc){prod.prev+=d.prev[cc.id]||0;var mm=d.mes[cc.id]||{};for(var m=1;m<=12;m++)if(mm[m])prod.porMes[m]=(prod.porMes[m]||0)+mm[m];
+        if(eM){mont.prev+=d.prev[cc.id]||0;for(var m2=1;m2<=12;m2++)if(mm[m2])mont.porMes[m2]=(mont.porMes[m2]||0)+mm[m2];var mt=(metas||{})['cc:'+cc.id]||{};if(mt.mercado!==null&&mt.mercado!==undefined&&!isNaN(mt.mercado)){mont.meta+=Number(mt.mercado);mont.temMeta=true;}}});
     }
   });});
   // Período = meses com receita fechada (até o último mês lançado)
@@ -1544,6 +1549,9 @@ function paCalcMix(d,metas){
   R.idealOrc=R.partOrc.direta*R.cd/100+R.partOrc.atacado*R.ca/100;
   R.idealReal=R.partReal.direta*R.cd/100+R.partReal.atacado*R.ca/100;
   prod.real=0;for(var k=1;k<=ultRec;k++)prod.real+=prod.porMes[k]||0;prod.orcPer=prod.prev*ultRec/12;
+  mont.real=0;for(var k2=1;k2<=ultRec;k2++)mont.real+=mont.porMes[k2]||0;mont.orcPer=mont.prev*ultRec/12;
+  // idealOrc/idealReal = custo do produto (VJ + AT); *Tot = + meta de Montagem Coleções (comparação com a Produção total)
+  R.mont=mont;R.idealOrcTot=R.idealOrc+mont.meta;R.idealRealTot=R.idealReal+mont.meta;
   R.prod=prod;R.prodPctOrc=T.orcPer?prod.orcPer/T.orcPer*100:null;R.prodPctReal=T.real?prod.real/T.real*100:null;
   return R;
 }
@@ -1585,17 +1593,19 @@ async function paMixVendas(){
   html+=linha(T,'conta rec','TOTAL RECEITA','');
   html+='</tbody></table></div>';
   // Bloco 2: alvo ideal da Produção
-  var P=M.prod,difOrc=M.prodPctOrc-M.idealOrc,difReal=M.prodPctReal-M.idealReal,excesso=P.real-M.idealReal/100*T.real;
+  var P=M.prod,difOrc=M.prodPctOrc-M.idealOrcTot,difReal=M.prodPctReal-M.idealRealTot,excesso=P.real-M.idealRealTot/100*T.real;
   html+='<h3 class="pa-h3">2. Custo ideal da Produção pelo mix</h3>';
   html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th>Referência (meta da Ciclo)</th><th>Custo ideal</th><th title="Se o mix de vendas saísse como orçado: qual seria o custo ideal do produto, comparado ao custo de produção que foi orçado. Mostra se o orçamento já nasceu acima do ideal.">No orçamento<br><span style="font-weight:400;text-transform:none">o que planejamos</span></th><th class="pa-c-atual" title="Com o mix de vendas que de fato aconteceu: qual seria o custo ideal do produto, comparado ao custo de produção realizado. Mostra onde estamos hoje.">No realizado<br><span style="font-weight:400;text-transform:none">o que aconteceu</span></th></tr></thead><tbody>'+
     '<tr class="cc"><td>Venda direta × custo ideal</td><td>'+fp(M.cd)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partOrc.direta*M.cd/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.direta)+' × '+fp(M.cd)+' = <b>'+fp(M.partReal.direta*M.cd/100)+'</b></td></tr>'+
     '<tr class="cc"><td>Atacado / B2B × custo ideal</td><td>'+fp(M.ca)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partOrc.atacado*M.ca/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partReal.atacado*M.ca/100)+'</b></td></tr>'+
-    '<tr class="sub"><td>Produção ideal (custo do produto ÷ receita)</td><td></td><td><b>'+fp(M.idealOrc)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealReal)+'</b></td></tr>'+
-    '<tr class="cc"><td>Custo de produção (Varejo + Atacado) no período</td><td></td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
+    '<tr class="sub"><td>Custo ideal do produto (Varejo + Atacado ÷ receita)</td><td></td><td><b>'+fp(M.idealOrc)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealReal)+'</b></td></tr>'+
+    '<tr class="cc"><td>(+) Montagem Coleções — meta (Σ Mercado dos centros)</td><td>'+fp(M.mont.meta)+' da receita</td><td>'+fp(M.mont.meta)+'</td><td class="pa-c-atual">'+fp(M.mont.meta)+'</td></tr>'+
+    '<tr class="sub"><td>Produção ideal (Varejo + Atacado + Montagem)</td><td></td><td><b>'+fp(M.idealOrcTot)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealRealTot)+'</b></td></tr>'+
+    '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções) no período<br><span class="pa-orig">Montagem: '+paValor(M.mont.orcPer)+' orçado · '+paValor(M.mont.real)+' realizado</span></td><td></td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
     '<tr class="cc"><td>÷ Receita do período</td><td></td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
     '<tr class="conta '+(difReal>0?'desp':'rec')+'"><td>'+(difReal>0?'Acima do ideal':'Dentro do ideal')+'</td><td></td><td>'+fpp(difOrc)+'</td><td>'+fpp(difReal)+(ult?'<br><span class="pa-orig">'+(excesso>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(excesso)/ult)+'/mês</span>':'')+'</td></tr>'+
     '</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tipo do canal: <b>Direta</b> = consumidor final (inclui Revendas, comissionadas como vendedores e artistas) · <b>Atacado/B2B</b> = Private Label. '+(adm?'Altere o tipo na coluna Tipo; os % de custo ideal ficam em ⚙ Referências.':'Tipo e % de custo ideal: só o administrador altera.')+' O custo ideal da Produção também é o Mercado da Produção na Estrutura de Custos Variáveis. Período só com meses de receita fechada (a receita hipotética do mês em aberto não entra, porque não se divide por canal).</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tipo do canal: <b>Direta</b> = consumidor final (inclui Revendas, comissionadas como vendedores e artistas) · <b>Atacado/B2B</b> = Private Label. '+(adm?'Altere o tipo na coluna Tipo; os % de custo ideal ficam em ⚙ Referências.':'Tipo e % de custo ideal: só o administrador altera.')+' O custo ideal do produto também é o Mercado da Produção (Varejo + Atacado) na Estrutura de Custos Variáveis; Montagem Coleções mantém o Mercado de cada centro. Período só com meses de receita fechada (a receita hipotética do mês em aberto não entra, porque não se divide por canal).</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 async function paSalvarTipoVenda(id,tipo){
@@ -1614,24 +1624,29 @@ async function paSaldoCompras(){
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   function fpp(v){if(Math.abs(v)<0.005)v=0;return (v>0?'+':v<0?'−':'')+Math.abs(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' p.p.';}
   var perDesp=ultDesp?'jan–'+PA_MESES_AB[ultDesp-1].toLowerCase():'—';
-  // Produção por tipo de custo (VJ + AT somados)
-  var tipos={},ordemT=[],Tot={prev:0,real:0,prov:0};
-  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){if(!paEhProducao(gs.sub))return;gs.centros.forEach(function(cc){
-    var nomeT=cc.nome.replace(/^(VJ|AT)\s*-\s*/i,''),k=paNorm(nomeT),p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0;
-    if(!tipos[k]){tipos[k]={nome:nomeT,prev:0,real:0,prov:0,orig:[],ids:[]};ordemT.push(k);}
-    var t=tipos[k];t.ids.push(cc.id);t.prev+=p;t.real+=re;t.prov+=pv;var o=/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':'');if(o&&(p||re||pv)&&t.orig.indexOf(o)<0)t.orig.push(o);
-    Tot.prev+=p;Tot.real+=re;Tot.prov+=pv;
+  // Produção por tipo de custo (VJ + AT somados) + Montagem Coleções (cada centro com a sua meta)
+  var tipos={},ordemT=[],Tot={prev:0,real:0,prov:0},realProduto=0;
+  paGruposCartoes(d.h).forEach(function(g){g.subcontas.forEach(function(gs){if(!paEhProducaoTotal(gs.sub))return;var eM=paEhMontagem(gs.sub);gs.centros.forEach(function(cc){
+    var nomeT=eM?cc.nome:cc.nome.replace(/^(VJ|AT)\s*-\s*/i,''),k=(eM?'mc:':'')+paNorm(nomeT),p=d.prev[cc.id]||0,re=paRealAte(d,cc.id,12),pv=d.prov[cc.id]||0;
+    if(!tipos[k]){tipos[k]={nome:nomeT,prev:0,real:0,prov:0,orig:[],ids:[],mont:eM};ordemT.push(k);}
+    var t=tipos[k];t.ids.push(cc.id);t.prev+=p;t.real+=re;t.prov+=pv;var o=eM?'Montagem':(/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':''));if(o&&(eM||p||re||pv)&&t.orig.indexOf(o)<0)t.orig.push(o);
+    Tot.prev+=p;Tot.real+=re;Tot.prov+=pv;if(!eM)realProduto+=re;
   });});});
+  // Ideal de cada tipo (% da receita): produto = custo ideal do Mix × peso no custo do produto; Montagem = Mercado do centro
+  ordemT.forEach(function(k){var t=tipos[k];
+    if(t.mont){var mk=null;t.ids.forEach(function(id){var x=(metas['cc:'+id]||{}).mercado;if(x!==null&&x!==undefined&&!isNaN(x))mk=(mk||0)+Number(x);});t.idealPct=mk||0;}
+    else t.idealPct=realProduto?M.idealReal*t.real/realProduto:0;});
+  Tot.idealPct=M.idealRealTot;
   // Receita do ano em dois cenários e teto ideal de produção
   var recOrc=T.real+T.prev*restRec/12,recRitmo=T.real+(ultRec?T.real/ultRec:0)*restRec;
-  var tetoOrc=M.idealReal/100*recOrc,tetoRitmo=M.idealReal/100*recRitmo;
-  function calc(o,peso){
+  var tetoOrc=M.idealRealTot/100*recOrc,tetoRitmo=M.idealRealTot/100*recRitmo;
+  function calc(o){
     o.saldoOrc=o.prev-o.real-o.prov;
-    o.saldoIdO=tetoOrc*peso-o.real-o.prov;o.saldoIdR=tetoRitmo*peso-o.real-o.prov;
+    o.saldoIdO=o.idealPct/100*recOrc-o.real-o.prov;o.saldoIdR=o.idealPct/100*recRitmo-o.real-o.prov;
     o.podeO=Math.min(o.saldoOrc,o.saldoIdO);o.podeR=Math.min(o.saldoOrc,o.saldoIdR);return o;
   }
-  calc(Tot,1);
-  ordemT.forEach(function(k){var t=tipos[k];calc(t,Tot.real?t.real/Tot.real:0);});
+  calc(Tot);
+  ordemT.forEach(function(k){calc(tipos[k]);});
   function cel(v,forte){return '<td style="color:'+(v<-0.005?'var(--red)':'')+';'+(forte?'font-weight:700':'')+'">'+(v<-0.005?'−'+paValor(-v):paValor(v))+'</td>';}
   function pode(v,cls){
     if(v<=0.005)return '<td class="'+cls+'" style="color:var(--red);font-weight:700">já excedido<br><span class="pa-orig">'+paValor(Math.abs(v))+'</span></td>';
@@ -1640,14 +1655,14 @@ async function paSaldoCompras(){
   var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'mix\')">🧩 Mix de Vendas</button><button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'provisao\')">🔮 Provisões</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'compras\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
-  html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealReal)+'</b> da receita</span></div>';
+  html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealReal)+'</b> + Montagem <b>'+fp(M.mont.meta)+'</b> = <b>'+fp(M.idealRealTot)+'</b> da receita</span></div>';
   // Bloco 1 — resumo (do Mix)
-  var P=M.prod,difO=M.prodPctOrc-M.idealOrc,difR=M.prodPctReal-M.idealReal,exc=P.real-M.idealReal/100*T.real;
+  var P=M.prod,difO=M.prodPctOrc-M.idealOrcTot,difR=M.prodPctReal-M.idealRealTot,exc=P.real-M.idealRealTot/100*T.real;
   html+='<h3 class="pa-h3">1. Resumo — custo de produção × receita ('+M.periodo+')</h3>';
   html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado</th><th class="pa-c-atual">Realizado</th></tr></thead><tbody>'+
-    '<tr class="cc"><td>Custo de produção (Varejo + Atacado)</td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
+    '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções)</td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
     '<tr class="cc"><td>÷ Receita do período</td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
-    '<tr class="cc"><td>Custo ideal pelo mix</td><td>'+fp(M.idealOrc)+'</td><td class="pa-c-atual">'+fp(M.idealReal)+'</td></tr>'+
+    '<tr class="cc"><td>Custo ideal pelo mix + Montagem ('+fp(M.mont.meta)+')</td><td>'+fp(M.idealOrcTot)+'</td><td class="pa-c-atual">'+fp(M.idealRealTot)+'</td></tr>'+
     '<tr class="conta '+(difR>0.005?'desp':'rec')+'"><td>'+(difR>0.005?'Acima do ideal':'Dentro do ideal')+'</td><td>'+fpp(difO)+'</td><td>'+fpp(difR)+(ultRec?'<br><span class="pa-orig">'+(exc>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(exc)/ultRec)+'/mês</span>':'')+'</td></tr>'+
     '</tbody></table></div>';
   // Bloco 2 — receita do ano e teto ideal
@@ -1656,7 +1671,7 @@ async function paSaldoCompras(){
     '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td><td>'+paValor(T.real)+'</td></tr>'+
     '<tr class="cc"><td>Receita estimada dos '+restRec+' meses restantes</td><td>'+paValor(recOrc-T.real)+'<br><span class="pa-orig">orçado '+paValor(T.prev/12)+'/mês</span></td><td>'+paValor(recRitmo-T.real)+'<br><span class="pa-orig">média '+paValor(ultRec?T.real/ultRec:0)+'/mês</span></td></tr>'+
     '<tr class="sub"><td>Receita do ano</td><td>'+paValor(recOrc)+'</td><td>'+paValor(recRitmo)+'</td></tr>'+
-    '<tr class="cc"><td>× Custo ideal pelo mix ('+fp(M.idealReal)+') = Teto ideal de produção</td><td>'+paValor(tetoOrc)+'</td><td>'+paValor(tetoRitmo)+'</td></tr>'+
+    '<tr class="cc"><td>× Custo ideal pelo mix + Montagem ('+fp(M.idealRealTot)+') = Teto ideal de produção</td><td>'+paValor(tetoOrc)+'</td><td>'+paValor(tetoRitmo)+'</td></tr>'+
     '<tr class="cc"><td>(−) Produção realizada '+perDesp+'</td><td>'+paValor(Tot.real)+'</td><td>'+paValor(Tot.real)+'</td></tr>'+
     '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td><td>'+paValor(Tot.prov)+'</td></tr>'+
     '<tr class="conta '+(Tot.saldoIdR>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+'</tr>'+
@@ -1664,7 +1679,7 @@ async function paSaldoCompras(){
     '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span></td>'+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>'+
     '</tbody></table></div>';
   // Bloco 3 — por tipo de custo
-  html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado)</h3>';
+  html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas pa-compras3"><thead><tr><th>Tipo de custo</th><th>Orçado ano</th><th class="pa-c-atual">Realizado<br>'+perDesp+'</th><th title="Provisão Prevista: valores já comprometidos e ainda não lançados">Provisões</th>'+
     '<th title="Realizado + Provisões: total já gasto ou comprometido, e o % da receita do período. Vermelho = passou o Ideal Ciclo (limite de compras). Em branco quando não há provisão">Tot. Real.<br>+ Prov.</th>'+
     '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Tabelas Contábeis › Grupos)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
@@ -1673,7 +1688,7 @@ async function paSaldoCompras(){
   var marcaTot=0,temMarca=false;
   function pcts(t,total){
     var peso=total?1:(Tot.real?t.real/Tot.real:0);
-    t.pOrc=T.prev?t.prev/T.prev*100:null;t.pReal=M.prodPctReal*peso;t.peso=peso*100;t.pIdeal=M.idealReal*peso;
+    t.pOrc=T.prev?t.prev/T.prev*100:null;t.pReal=M.prodPctReal*peso;t.peso=peso*100;t.pIdeal=t.idealPct;
     if(!total){var mk=null;t.ids.forEach(function(id){var x=(metas['cc:'+id]||{}).marca;if(x!==null&&x!==undefined&&!isNaN(x))mk=(mk||0)+x;});t.pMarca=mk;if(mk!==null){marcaTot+=mk;temMarca=true;}}
     else t.pMarca=temMarca?marcaTot:null;
     return t;
@@ -1690,7 +1705,7 @@ async function paSaldoCompras(){
       cel(t.saldoOrc)+cel(t.saldoIdO)+cel(t.saldoIdR)+pode(t.podeO,'')+pode(t.podeR,'')+'</tr>';});
   html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">O teto ideal de cada tipo de custo é o teto total distribuído pelo peso atual desse custo no realizado. <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Provisão Prevista</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">O ideal de cada tipo de custo do produto é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto; cada centro de Montagem Coleções usa o seu Mercado (Estrutura de Custos). <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Provisão Prevista</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 
@@ -1852,9 +1867,9 @@ async function paEstruturaCustos(modo,opts){
     if(nat==='variavel'){vari.prev+=p;vari.real+=re;}
     if(VAR!==(nat==='variavel'))return;
     if(!VAR&&/^Predial - (Aluguel|Condom|IPTU|Energia)/i.test(cc.nome))ocup.real+=re;
-    var prodG=VAR&&paEhProducao(s);
+    var prodG=VAR&&paEhProducaoTotal(s),montG=prodG&&paEhMontagem(s);
     var chave=prodG?'producao':(nat==='financeira'?'financeira':'sub:'+s.id);
-    if(!linhas[chave]){linhas[chave]={chave:chave,nome:prodG?'Produção (Varejo + Atacado)':(nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome),prev:0,real:0,ant:0,centros:[]};ordem.push(chave);}
+    if(!linhas[chave]){linhas[chave]={chave:chave,nome:prodG?'Produção (Varejo + Atacado + Montagem Coleções)':(nat==='financeira'?'Financeiras (bancos, juros, empréstimos)':s.nome),prev:0,real:0,ant:0,centros:[]};ordem.push(chave);}
     // Consolidado = valor mensal cadastrado (vigente da Tabela Contábil); em % do canal → convertido em R$ pela receita média dos canais vinculados
     var vg=paVigenteAtual(cc.id,ano,refMes),cons=vg&&vg.tipo==='valor'?Number(vg.valor):null,consPctCanal=null;
     if(VAR&&vg&&vg.tipo==='percentual'){consPctCanal=Number(vg.valor);cons=consPctCanal/100*recCanaisDe(cc);}
@@ -1863,6 +1878,7 @@ async function paEstruturaCustos(modo,opts){
       alerta=ultimo>0&&ant3>0&&Math.abs(ultimo/ant3-1)>0.2&&!(vg&&vg.ano_inicio===ano&&vg.mes_inicio===ult)?{ultimo:ultimo,media:ant3}:null;}
     if(alerta)nAlertas++;
     var L=linhas[chave];L.prev+=p;L.real+=re;L.ant+=an;
+    if(montG){L.centros.push({id:cc.id,subId:s.id,chave:'cc:'+cc.id,nome:'Montagem Coleções › '+cc.nome,prev:p,real:re,ant:an,cons:cons,vg:vg,consPctCanal:consPctCanal,alerta:alerta});return;} // Montagem: cada centro com o seu Mercado
     if(prodG){ // Produção: VJ e AT somados por tipo de custo (tecidos, fábricas, facção…)
       var nomeT=cc.nome.replace(/^(VJ|AT)\s*-\s*/i,''),kT='prod:'+paNorm(nomeT),ex=L.centros.find(function(x){return x.chave===kT;});
       var orig=/^AT/i.test(cc.nome)?'AT':(/^VJ/i.test(cc.nome)?'VJ':'');
@@ -1875,7 +1891,7 @@ async function paEstruturaCustos(modo,opts){
   });});});
   ordem.sort(function(a,b){return a==='financeira'?1:b==='financeira'?-1:linhas[b].prev-linhas[a].prev;});
   var prodRealTot=0;
-  if(linhas.producao)linhas.producao.centros.forEach(function(c){c.nome=c.nomeBase+(c.origens.length>1?' (VJ + AT)':(c.origens.length?' ('+c.origens[0]+')':''));prodRealTot+=c.real;});
+  if(linhas.producao)linhas.producao.centros.forEach(function(c){if(!c.tipoProd)return;c.nome=c.nomeBase+(c.origens.length>1?' (VJ + AT)':(c.origens.length?' ('+c.origens[0]+')':''));prodRealTot+=c.real;});
   // Receita base do período: realizada + receita hipotética do mês em aberto (quando o último mês ainda não tem receita)
   var recAberto=(metas.receita_mes_aberto||{}).valor,simula=tem(recAberto)&&ult>0&&rec.ultMes===0;
   var recBase=rec.real+(simula?Number(recAberto):0),recMes=ult?recBase/ult:0;
@@ -2358,25 +2374,26 @@ var PA_TUT={
   ['Meta Mês até Fim Exerc.','Quanto o canal precisa vender por mês, nos meses que faltam, para fechar o orçamento do ano.','(Orçamento anual − Realizado do período) ÷ meses restantes'],
   ['Custo ideal da Produção','Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, "keystone"); atacado 50% do preço de atacado. Ajustável em ⚙ Referências (admin). Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos Variáveis.','Part. direta × 30% + Part. atacado × 50%'],
   ['No orçamento × No realizado','No orçamento: com o mix de vendas planejado, qual seria o custo ideal do produto, comparado ao custo de produção orçado (o orçamento já nasceu acima do ideal?). No realizado: com o mix que de fato aconteceu, comparado ao custo de produção gasto (onde estamos hoje).'],
-  ['Acima / Dentro do ideal','Custo de produção (Varejo + Atacado) do período ÷ receita, comparado com o ideal. Em R$/mês: quanto reduzir o custo do produto (ou subir preço) para chegar ao padrão.']]},
+  ['Montagem Coleções na Produção','Desde 01/11/2026 a Produção soma Montagem Coleções (telas, designer, fotos, modelos, pilotagem). O ideal da Produção = custo ideal do produto pelo mix + a meta de Montagem (soma do Mercado dos seus centros na Estrutura de Custos; 2,5% aprovado em 27/10/2026).','Produção ideal = custo ideal do produto + meta de Montagem'],
+  ['Acima / Dentro do ideal','Custo de produção (Varejo + Atacado + Montagem Coleções) do período ÷ receita, comparado com a Produção ideal. Em R$/mês: quanto reduzir o custo do produto (ou subir preço) para chegar ao padrão.']]},
  variaveis:{t:'Estrutura de Custos Variáveis',d:'Mesmo layout e cálculos da Estrutura de Custos Fixos, para as despesas de natureza variável, sobre a receita total: orçado, realizado médio, consolidado, mercado (ideal), meta mensal de redução, status e plano de ação.',c:[
   ['Base','Receita base mensal da empresa (a mesma dos fixos e do Resultado anual). Todos os % são sobre ela.'],
-  ['Produção (Varejo + Atacado)','Os centros VJ e AT são somados por tipo de custo (tecidos, fábricas, facção, silk…), porque o custo é o mesmo para varejo e atacado. O cadastro na Tabela Contábil continua separado.'],
+  ['Produção (Varejo + Atacado + Montagem Coleções)','Os centros VJ e AT são somados por tipo de custo (tecidos, fábricas, facção, silk…), porque o custo é o mesmo para varejo e atacado. O cadastro na Tabela Contábil continua separado. Os centros de Montagem Coleções entram na mesma linha, cada um com o seu Mercado.'],
   ['Mercado da Produção 🔗','Calculado pelo Mix de Vendas e Custo Ideal (venda direta × 30% + atacado × 50%) e distribuído pelo peso atual de cada tipo de custo. Não se digita.'],
   ['Consolidado em % de canal','Quando o consolidado é um % do canal (ex.: Anúncios = 40,85% do E-commerce), a tela converte em R$ pela receita média dos canais vinculados e mostra o % original.'],
   ['Mercado (ideal)','% da receita total por centro (admin). Para custos de um canal, converta: % do canal × participação do canal (ex.: 25% do E-commerce × 16,2% = 4,05%).'],
   ['Rateio do Uber (conta única)','O Uber é pago numa conta só e cai em Eventos - Transporte Uber/Outros. Regra combinada em 27/10/2026: a cada mês, R$ 500 (ou o valor do mês, se menor) vão para Produção - Transporte (Combustíveis, Uber), em Administrativas (Uber de fábricas, facções, lavanderia, aviamentos); o restante fica em Eventos (Uber dos vendedores). Aplicado em jan–out/2026 e a cada nova importação, até o Uber ser separado na origem (Uber Empresas com códigos de despesa ou cartões distintos).','Produção = mín(R$ 500; Uber do mês) · Eventos = Uber do mês − Produção'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
- compras:{t:'Saldo de Compras de Produção',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
+ compras:{t:'Saldo de Compras de Produção',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
   ['1. Resumo','Custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix (o mesmo bloco do Mix de Vendas).'],
-  ['2. Dois cenários de receita','Pelo orçamento (otimista): out–dez batem o orçado. Pelo ritmo atual (conservador): out–dez seguem a média mensal realizada. Receita do ano × custo ideal = teto ideal de produção.','Teto = Receita do ano × Custo ideal %'],
+  ['2. Dois cenários de receita','Pelo orçamento (otimista): out–dez batem o orçado. Pelo ritmo atual (conservador): out–dez seguem a média mensal realizada. Receita do ano × (custo ideal do mix + meta de Montagem) = teto ideal de produção.','Teto = Receita do ano × (Custo ideal % + Montagem %)'],
   ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
   ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
   ['Tot. Real. + Prov. (bloco 3)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
   ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Tabelas Contábeis › Grupos).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
-  ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados. O teto ideal de cada tipo é o teto total distribuído pelo peso atual desse custo no realizado.'],
+  ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado na Estrutura de Custos.'],
   ['Provisões','Vêm da tela Provisão Prevista: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
  estrutura:{t:'Estrutura de Custos Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
   ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; o total da empresa e o Resultado anual não mudam.'],

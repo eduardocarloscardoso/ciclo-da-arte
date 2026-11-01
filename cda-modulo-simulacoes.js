@@ -73,17 +73,19 @@ function paSimBase(D){
   });
   ordem.sort(function(a,b){return (G[a].seg===G[b].seg?0:(G[a].seg==='varejo'?-1:1))||G[b].proj-G[a].proj;});
   // % de custo: meta (custo ideal do Mix) e proporção real do ano (produção ÷ receita do segmento, meses de receita fechada)
-  var M=D.M,d=D.d,ult=M.ultRec||0,rec={varejo:0,atacado:0},prod={varejo:{prev:0,real:0,realPer:0,prov:0},atacado:{prev:0,real:0,realPer:0,prov:0}},mont={prev:0,real:0,prov:0,tem:false};
+  var M=D.M,d=D.d,ult=M.ultRec||0,rec={varejo:0,atacado:0},prod={varejo:{prev:0,real:0,realPer:0,prov:0},atacado:{prev:0,real:0,realPer:0,prov:0}},mont={prev:0,real:0,realPer:0,prov:0,tem:false};
   D.h.centros.forEach(function(cc){
     if(!cc.conta||!cc.subconta)return;
     if(cc.conta.tipo==='RECEITAS'){var g=grupoDe[String(cc.grupo_id)],s=(g&&g.segmento)||'varejo';rec[s]+=paRealAte(d,cc.id,ult);return;}
     var nm=cc.subconta.nome||'',s2=/^Produção Varejo/i.test(nm)?'varejo':(/^Produção Atacado/i.test(nm)?'atacado':null);
     if(s2){var p=prod[s2];p.prev+=d.prev[cc.id]||0;p.real+=paRealAte(d,cc.id,12);p.realPer+=paRealAte(d,cc.id,ult);p.prov+=d.prov[cc.id]||0;return;}
-    if(/^Montagem Cole/i.test(nm)){mont.tem=true;mont.prev+=d.prev[cc.id]||0;mont.real+=paRealAte(d,cc.id,12);mont.prov+=d.prov[cc.id]||0;}
+    if(/^Montagem Cole/i.test(nm)){mont.tem=true;mont.prev+=d.prev[cc.id]||0;mont.real+=paRealAte(d,cc.id,12);mont.realPer+=paRealAte(d,cc.id,ult);mont.prov+=d.prov[cc.id]||0;}
   });
   var pct={meta:{varejo:M.cd,atacado:M.ca},real:{varejo:rec.varejo?prod.varejo.realPer/rec.varejo*100:null,atacado:rec.atacado?prod.atacado.realPer/rec.atacado*100:null}};
   ['varejo','atacado'].forEach(function(s){var p=prod[s];p.saldo=p.prev-p.real-p.prov;});
   mont.saldo=mont.prev-mont.real-mont.prov;
+  // Montagem Coleções (01/11/2026): linha própria — meta de receita total × meta de Montagem (Σ Mercado dos centros) e × proporção real
+  var recTot=rec.varejo+rec.atacado;pct.mont={meta:(M.mont&&M.mont.meta)||0,real:recTot?mont.realPer/recTot*100:null};
   return {G:G,ordem:ordem,semCanal:semCanal,pct:pct,rec:rec,prod:prod,mont:mont,ult:ult,ultDesp:d.ultimo||0};
 }
 function paSimMetasPadrao(B){var m={};B.ordem.forEach(function(k){m[k]=Math.round(B.G[k].proj*100)/100;});return m;}
@@ -104,6 +106,9 @@ function paSimCalc(B,metas){
   ['varejo','atacado'].forEach(function(s){var x=S[s],p=B.prod[s];
     x.cMeta=x.meta*B.pct.meta[s]/100;x.cReal=B.pct.real[s]===null?null:x.meta*B.pct.real[s]/100;
     x.prov=p.prov;x.saldo=p.saldo;x.pendMeta=x.cMeta-p.prov;x.pendReal=x.cReal===null?null:x.cReal-p.prov;});
+  var mo=B.mont,mm=S.varejo.meta+S.atacado.meta,pm=B.pct.mont;
+  S.mont={tem:mo.tem,meta:mm,proj:S.varejo.proj+S.atacado.proj,cMeta:mm*pm.meta/100,cReal:pm.real===null?null:mm*pm.real/100,prov:mo.prov,saldo:mo.saldo};
+  S.mont.pendMeta=S.mont.cMeta-mo.prov;S.mont.pendReal=S.mont.cReal===null?null:S.mont.cReal-mo.prov;
   return {S:S,linhas:linhas};
 }
 
@@ -146,18 +151,23 @@ function paSimRender(){
     return '<tr class="sub"><td>'+paSimSegHTML(s)+' '+PA_SIM_SEG[s]+'</td><td>'+paValor(x.proj)+'</td><td>'+inp+'</td>'+
       '<td>'+paValor(x.cMeta)+'</td><td>'+(x.cReal===null?'—':paValor(x.cReal))+'</td><td>'+paValor(x.prov)+'</td>'+pend(x.pendMeta)+pend(x.pendReal)+
       '<td style="'+(x.saldo<0?'color:var(--red)':'')+'">'+paValor(x.saldo)+'</td>'+sit(x.pendMeta,x.saldo)+sit(x.pendReal,x.saldo)+'</tr>';}
-  var T={proj:S.varejo.proj+S.atacado.proj,meta:S.varejo.meta+S.atacado.meta,cMeta:S.varejo.cMeta+S.atacado.cMeta,cReal:(S.varejo.cReal||0)+(S.atacado.cReal||0),prov:S.varejo.prov+S.atacado.prov,saldo:S.varejo.saldo+S.atacado.saldo,
-    pendMeta:Math.max(S.varejo.pendMeta,0)+Math.max(S.atacado.pendMeta,0),pendReal:Math.max(S.varejo.pendReal||0,0)+Math.max(S.atacado.pendReal||0,0)};
-  h+='<h3 class="pa-h3">1. Varejo e Atacado — compras de Produção</h3>';
+  var Mo=S.mont.tem?S.mont:{cMeta:0,cReal:0,prov:0,saldo:0,pendMeta:0,pendReal:0};
+  var T={proj:S.varejo.proj+S.atacado.proj,meta:S.varejo.meta+S.atacado.meta,cMeta:S.varejo.cMeta+S.atacado.cMeta+Mo.cMeta,cReal:(S.varejo.cReal||0)+(S.atacado.cReal||0)+(Mo.cReal||0),prov:S.varejo.prov+S.atacado.prov+Mo.prov,saldo:S.varejo.saldo+S.atacado.saldo+Mo.saldo,
+    pendMeta:Math.max(S.varejo.pendMeta,0)+Math.max(S.atacado.pendMeta,0)+Math.max(Mo.pendMeta,0),pendReal:Math.max(S.varejo.pendReal||0,0)+Math.max(S.atacado.pendReal||0,0)+Math.max(Mo.pendReal||0,0)};
+  function linMont(){var x=S.mont;if(!x.tem)return '';
+    return '<tr class="sub"><td><span class="pa-sim-seg" style="background:rgba(155,114,207,.18);color:var(--purple)">MC</span> Montagem Coleções<br><span class="pa-orig">meta '+paSimPct(B.pct.mont.meta)+' · real '+paSimPct(B.pct.mont.real)+' da receita total</span></td><td>'+paValor(x.proj)+'</td><td class="pa-mut" title="Meta de receita total (Varejo + Atacado)">'+paValor(x.meta)+'</td>'+
+      '<td>'+paValor(x.cMeta)+'</td><td>'+(x.cReal===null?'—':paValor(x.cReal))+'</td><td>'+paValor(x.prov)+'</td>'+pend(x.pendMeta)+pend(x.pendReal)+
+      '<td style="'+(x.saldo<0?'color:var(--red)':'')+'">'+paValor(x.saldo)+'</td>'+sit(x.pendMeta,x.saldo)+sit(x.pendReal,x.saldo)+'</tr>';}
+  h+='<h3 class="pa-h3">1. Varejo, Atacado e Montagem Coleções — compras de Produção</h3>';
   h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-sim-tbl pa-sim-b1"><thead><tr><th>Segmento</th><th title="Soma da projeção dos eventos da campanha (Calendário)">Receita<br>Calendário</th><th title="Digite o total para distribuir pelos grupos na proporção da projeção, ou digite por grupo no bloco 2">Meta de<br>receita</th>'+
     '<th title="Meta de receita × custo ideal (⚙ Referências do Mix de Vendas: venda direta para Varejo, atacado para Atacado)">Compra pela<br>meta de custo</th><th title="Meta de receita × proporção real de custo do ano">Compra pela<br>proporção real</th>'+
     '<th title="Provisão Prevista de Produção do segmento: compras já comprometidas">Provisão</th><th title="Compra pela meta − Provisão">Pendente<br>(meta)</th><th title="Compra pela proporção real − Provisão">Pendente<br>(real)</th>'+
     '<th title="Orçado do ano − Realizado − Provisões (Produção do segmento)">Saldo do<br>orçamento</th><th>Situação<br>(meta)</th><th>Situação<br>(real)</th></tr></thead><tbody>'+
-    lin1('varejo')+lin1('atacado')+
+    lin1('varejo')+lin1('atacado')+linMont()+
     '<tr class="conta rec"><td>TOTAL</td><td>'+paValor(T.proj)+'</td><td>'+paValor(T.meta)+'</td><td>'+paValor(T.cMeta)+'</td><td>'+paValor(T.cReal)+'</td><td>'+paValor(T.prov)+'</td><td>'+paValor(T.pendMeta)+'</td><td>'+paValor(T.pendReal)+'</td><td>'+paValor(T.saldo)+'</td><td></td><td></td></tr>'+
     '</tbody></table></div>';
   var notas=[];
-  if(B.mont.tem)notas.push('Montagem Coleções (informativo, fora da conta acima): provisão <b>'+paBRL(B.mont.prov)+'</b> · saldo do orçamento <b>'+paBRL(B.mont.saldo)+'</b>.');
+  if(B.mont.tem)notas.push('Montagem Coleções não tem segmento: a compra usa a meta de receita total (Varejo + Atacado) × a meta de Montagem (Σ Mercado dos centros, Estrutura de Custos) ou × a proporção real de Montagem sobre a receita do ano.');
   if(B.semCanal.length)notas.push(B.semCanal.length+' evento(s) da campanha sem canal / grupo não entram: '+B.semCanal.map(function(e){return paEsc(e.evento);}).join(', ')+'.');
   var semSeg=B.ordem.filter(function(k){return B.G[k].semSeg;});
   if(semSeg.length)notas.push('<span style="color:var(--gold2)">Grupo(s) sem Segmento, tratados como Varejo: '+semSeg.map(function(k){return paEsc(B.G[k].nome);}).join(', ')+' (defina em Tabela de Grupos).</span>');
@@ -179,12 +189,12 @@ function paSimRender(){
   // Bloco 3 — comparação de cenários
   var cenarios=[{id:'',nome:'Calendário (projeção)',metas:paSimMetasPadrao(B)}].concat(D.cenarios.map(function(c){return {id:String(c.id),nome:c.nome,metas:paSimMetasDe(B,c),obs:c.observacoes,em:c.atualizado_em};}));
   h+='<h3 class="pa-h3">3. Comparação de cenários</h3>';
-  h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-sim-tbl"><thead><tr><th>Cenário</th><th>Receita<br>Varejo</th><th>Receita<br>Atacado</th><th>Receita<br>total</th><th>Pendente VJ<br>(meta · real)</th><th>Pendente AT<br>(meta · real)</th><th>Situação<br>Varejo (real)</th><th>Situação<br>Atacado (real)</th></tr></thead><tbody>'+
+  h+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-sim-tbl"><thead><tr><th>Cenário</th><th>Receita<br>Varejo</th><th>Receita<br>Atacado</th><th>Receita<br>total</th><th>Pendente VJ<br>(meta · real)</th><th>Pendente AT<br>(meta · real)</th><th>Pendente MC<br>(meta · real)</th><th>Situação<br>Varejo (real)</th><th>Situação<br>Atacado (real)</th></tr></thead><tbody>'+
     cenarios.map(function(c){var x=paSimCalc(B,c.metas).S,atual=String(c.id)===String(paSim.cenarioId);
       var st=function(s){var p=x[s].pendReal;if(p===null)return '—';if(p<=0.005)return '<span class="pa-sim-ok">provisão cobre</span>';var f=x[s].saldo-p;return f>=-0.005?'<span class="pa-sim-ok">cabe</span>':'<span class="pa-sim-neg">excede '+paValor(-f)+'</span>';};
       var pp=function(v){return v===null?'—':paValor(Math.max(v,0));};
       return '<tr class="cc" style="cursor:pointer'+(atual?';background:var(--card2)':'')+'" onclick="paSimTrocarCenario(\''+c.id+'\')" title="'+paEsc(c.obs||'Clique para abrir')+'"><td style="font-weight:'+(atual?700:400)+'">'+(c.id?'💾 ':'📅 ')+paEsc(c.nome)+(atual?' ◂':'')+'</td><td>'+paValor(x.varejo.meta)+'</td><td>'+paValor(x.atacado.meta)+'</td><td><b>'+paValor(x.varejo.meta+x.atacado.meta)+'</b></td>'+
-        '<td>'+pp(x.varejo.pendMeta)+' · '+pp(x.varejo.pendReal)+'</td><td>'+pp(x.atacado.pendMeta)+' · '+pp(x.atacado.pendReal)+'</td><td>'+st('varejo')+'</td><td>'+st('atacado')+'</td></tr>';}).join('')+
+        '<td>'+pp(x.varejo.pendMeta)+' · '+pp(x.varejo.pendReal)+'</td><td>'+pp(x.atacado.pendMeta)+' · '+pp(x.atacado.pendReal)+'</td><td>'+(x.mont.tem?pp(x.mont.pendMeta)+' · '+pp(x.mont.pendReal):'—')+'</td><td>'+st('varejo')+'</td><td>'+st('atacado')+'</td></tr>';}).join('')+
     '</tbody></table></div>';
   document.getElementById('pa-root').innerHTML=h;
 }
@@ -261,5 +271,5 @@ PA_TUT.simcampanha={t:'Simulação de Compras por Campanha',d:'Quanto comprar de
   ['Pendente','O que ainda falta comprar para a campanha. Zero quando a provisão já cobre.','Compra − Provisão'],
   ['Saldo do orçamento','Quanto ainda cabe no orçamento de Produção do segmento no ano.','Orçado do ano − Realizado − Provisão'],
   ['Situação','Cabe (sobram R$ x) quando o Pendente é menor que o Saldo; Excede (faltam R$ x) quando passa; Provisão cobre quando não há o que comprar.','Saldo − Pendente'],
-  ['Montagem Coleções','Mostrada só como informação (provisão e saldo); não entra no cálculo de compras de Produção.'],
+  ['Montagem Coleções (MC)','Linha própria desde 01/11/2026: não tem segmento, então a compra é a meta de receita total (Varejo + Atacado) × meta de Montagem (soma do Mercado dos seus centros na Estrutura de Custos) ou × proporção real de Montagem sobre a receita do ano; menos a provisão de Montagem.','Meta total × meta MC; Meta total × (Montagem realizada ÷ receita)'],
   ['Cenários','💾 Salvar cenário guarda as metas por grupo com um nome (ex.: Meta Cardoso, Otimista). O cenário base "Calendário (projeção)" é sempre a projeção atual. Compras, provisões e saldos são recalculados com os dados do dia ao abrir. O bloco 3 compara todos os cenários da campanha; clique numa linha para abri-la. ↺ volta as metas para a projeção.']]};

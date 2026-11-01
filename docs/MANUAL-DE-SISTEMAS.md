@@ -949,6 +949,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Designer Gráfico 31, Modelos/Maquiador 32) passaram do grupo 12 "Desenvolvimento de coleção" para o grupo 5
   "Produção" (antes: `grupo_id` 12). O grupo 12 ficou sem centros e foi **desativado** (antes: ativo).
   Metas de Mercado/Marca comum dos centros sem alteração.
+- **Montagem Coleções nos cálculos de Produção (01/11/2026, decisão de Cardoso; só código, sem dados):**
+  Mix de Vendas, Saldo de Compras de Produção, Estrutura de Custos Variáveis e Simulação por Campanha
+  somam Montagem Coleções à Produção (`paEhProducaoTotal`). Ideal da Produção = custo ideal do produto
+  pelo Mix (VJ × 30% / AT × 50%) **+ meta de Montagem** (Σ Mercado dos 6 centros = 2,5%). O Mercado
+  dos centros VJ/AT continua sendo o custo ideal do produto distribuído pelo peso; cada centro de
+  Montagem mantém o seu Mercado. Simulação: linha própria "MC" = meta de receita total × 2,5% (ou ×
+  proporção real de Montagem), menos a provisão de Montagem. Jan–set/2026: Produção 40,96% da receita ×
+  ideal 39,28% (antes: 38,18% × 36,78%, sem Montagem).
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
