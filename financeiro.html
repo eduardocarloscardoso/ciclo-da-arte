@@ -2629,27 +2629,53 @@ async function evpAbrir(prestId,canalId){
     }
   }catch(e){console.error('Calendário:',e);}
   const travada=(p.status_prest||'em_aberto')!=='em_aberto';
-  EVP_CTX={p,c,reg,cal,travada,corrigindo:false};
+  // Histórico do canal (mesmo layout de Canais de Venda › 📅 Eventos): meses registrados + vendas do Histórico de Compras
+  let hist=[],vend=[];
+  try{
+    const r1=await cdaClient.from('cda_canal_eventos_mes').select('*').eq('canal_id',c.id).order('ano_mes',{ascending:false});hist=r1.data||[];
+    const r2=await cdaClient.from('cda_v_vendas_canal_mes').select('ano_mes,pedidos,pecas,valor').eq('canal_id',c.id);vend=r2.data||[];
+  }catch(e){console.error('Histórico do canal:',e);}
+  EVP_CTX={p,c,reg,cal,travada,corrigindo:false,hist,vend};
   let mo=document.getElementById('mo-evp');
-  if(!mo){mo=document.createElement('div');mo.className='mo';mo.id='mo-evp';mo.innerHTML='<div class="mo-box" style="max-width:640px"><div class="mo-h"><h3 id="mo-evp-t"></h3><button class="mo-x" onclick="closeMo(\'mo-evp\')">✕</button></div><div class="mo-b" id="mo-evp-b"></div><div class="mo-f" id="mo-evp-f"></div></div>';document.body.appendChild(mo);}
+  if(!mo){mo=document.createElement('div');mo.className='mo';mo.id='mo-evp';mo.innerHTML='<div class="mo-box" style="max-width:960px;width:96%"><div class="mo-h"><h3 id="mo-evp-t"></h3><button class="mo-x" onclick="closeMo(\'mo-evp\')">✕</button></div><div class="mo-b" id="mo-evp-b"></div><div class="mo-f" id="mo-evp-f"></div></div>';document.body.appendChild(mo);}
   evpRender();openMo('mo-evp');
 }
 function evpRender(){
-  const {p,c,reg,cal,travada,corrigindo}=EVP_CTX,ro=travada&&!corrigindo;
+  const {p,c,reg,cal,travada,corrigindo,hist,vend}=EVP_CTX,ro=travada&&!corrigindo;
   const sugQtd=cal.length,sugLoc=cal.map(e=>(e.inicio?e.inicio.slice(8,10)+'/'+e.inicio.slice(5,7)+' ':'')+e.evento+(e.local?' ('+e.local+')':'')).join(' ; '),sugPub=cal.reduce((s,e)=>s+(Number(e.publico_previsto)||0),0);
   const v={qtd:reg?reg.qtd_eventos:(sugQtd||''),loc:reg?(reg.observacao||''):sugLoc,pub:reg&&reg.publico!=null?reg.publico:''};
+  const V={};(vend||[]).forEach(x=>{V[x.ano_mes]=x;});
+  const R$=x=>'R$ '+Number(x||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),I=x=>Number(x||0).toLocaleString('pt-BR');
+  // Resumo: meses com evento registrado (igual a Canais de Venda)
+  const T={ev:0,valor:0,pecas:0,pub:0,temPub:false,pecasPub:0};
+  (hist||[]).forEach(x=>{const w=V[x.ano_mes]||{};T.ev+=x.qtd_eventos||0;T.valor+=+w.valor||0;T.pecas+=+w.pecas||0;if(x.publico!=null){T.pub+=x.publico;T.temPub=true;T.pecasPub+=+w.pecas||0;}});
+  const card=(t,val)=>`<div style="border:1.5px solid var(--ink);padding:7px 10px;background:#fff"><div style="font-size:9px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#777">${t}</div><div style="font-size:14px;font-weight:700;margin-top:2px">${val}</div></div>`;
   document.getElementById('mo-evp-t').textContent='📅 Eventos do mês — '+c.nome+' · '+evpMes(p.mes);
-  const inp='width:100%;border:1px solid #bbb;padding:6px 8px;font-family:inherit;font-size:13px;box-sizing:border-box;background:'+(ro?'#eee':'#fff');
+  const cel='padding:6px 7px;border-bottom:1px solid #e0d8cc;white-space:nowrap;font-size:11.5px';
+  const inp='border:1px solid #bbb;padding:4px 6px;font-family:inherit;font-size:12px;box-sizing:border-box;background:'+(ro?'#eee':'#fff');
+  const meses=[...new Set([p.mes,...(hist||[]).map(x=>x.ano_mes)])].sort().reverse();
+  const linhas=meses.map(am=>{
+    const x=(hist||[]).find(r=>r.ano_mes===am)||null,w=V[am]||{},atual=am===p.mes,val=+w.valor||0,pc=+w.pecas||0,q=atual?(+v.qtd||0):(x?x.qtd_eventos:0);
+    const sit=x&&x.concluido?'<span style="color:var(--sage);font-weight:700">✓ concluído</span>':'<span style="color:var(--rust);font-weight:700">pendente</span>';
+    if(atual)return `<tr style="background:#fdf3d8;outline:2px solid #d4a847">
+      <td style="${cel};font-weight:700">${evpMes(am)} ◂</td>
+      <td style="${cel}"><input id="evp-qtd" type="number" min="0" step="1" value="${evpEsc(v.qtd)}" ${ro?'disabled':''} style="${inp};width:60px;text-align:right"></td>
+      <td style="${cel};white-space:normal"><input id="evp-loc" value="${evpEsc(v.loc)}" ${ro?'disabled':''} style="${inp};width:100%;min-width:200px"></td>
+      <td style="${cel}"><input id="evp-pub" type="number" min="0" step="1" value="${evpEsc(v.pub)}" ${ro?'disabled':''} placeholder="obrigatório" style="${inp};width:86px;text-align:right"></td>
+      <td style="${cel};text-align:right">${I(w.pedidos)}</td><td style="${cel};text-align:right">${I(pc)}</td><td style="${cel};text-align:right">${R$(val)}</td><td style="${cel};text-align:right">${pc?R$(val/pc):'—'}</td><td style="${cel};text-align:right">${q?R$(val/q):'—'}</td><td style="${cel}">${sit}</td></tr>`;
+    return `<tr><td style="${cel};font-weight:600">${evpMes(am)}</td><td style="${cel};text-align:right">${x?x.qtd_eventos:'—'}</td><td style="${cel};white-space:normal;font-size:11px;max-width:260px">${evpEsc(x&&x.observacao||'')}</td><td style="${cel};text-align:right">${x&&x.publico!=null?I(x.publico):'—'}</td>
+      <td style="${cel};text-align:right">${I(w.pedidos)}</td><td style="${cel};text-align:right">${I(pc)}</td><td style="${cel};text-align:right">${R$(val)}</td><td style="${cel};text-align:right">${pc?R$(val/pc):'—'}</td><td style="${cel};text-align:right">${q?R$(val/q):'—'}</td><td style="${cel}">${x?sit:'—'}</td></tr>`;
+  }).join('');
+  const th='padding:7px;text-align:right;font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap';
   document.getElementById('mo-evp-b').innerHTML=
-    (reg&&reg.concluido?`<div style="background:#e8f2ea;border:1px solid var(--sage);padding:8px 10px;font-size:12px;margin-bottom:12px">✓ Concluído por <b>${evpEsc(reg.concluido_por||'—')}</b>${reg.concluido_em?' em '+new Date(reg.concluido_em).toLocaleString('pt-BR'):''}</div>`:`<div style="background:#fbecea;border:1px solid var(--rust);padding:8px 10px;font-size:12px;margin-bottom:12px">⚠ Eventos deste mês ainda não concluídos. A prestação só sai de "Em Aberto" com eles concluídos.</div>`)+
-    (cal.length?`<div style="font-size:11.5px;margin-bottom:12px;color:#444"><b>Calendário Comercial (previsto):</b> ${cal.length} evento(s) — ${evpEsc(sugLoc)}${sugPub?' · público previsto '+sugPub.toLocaleString('pt-BR'):''}${reg?'':' <i>(campos já preenchidos com o previsto — confira)</i>'}</div>`:`<div style="font-size:11.5px;margin-bottom:12px;color:#777">Nenhum evento deste canal no Calendário Comercial neste mês.</div>`)+
-    `<div style="display:grid;grid-template-columns:140px 1fr;gap:10px;align-items:start">
-      <div class="fgr"><label>Nº de eventos *</label><input id="evp-qtd" type="number" min="0" step="1" value="${evpEsc(v.qtd)}" ${ro?'disabled':''} style="${inp}"></div>
-      <div class="fgr"><label>Público realizado (soma do mês) *</label><input id="evp-pub" type="number" min="0" step="1" value="${evpEsc(v.pub)}" ${ro?'disabled':''} style="${inp}" placeholder="obrigatório quando houver eventos"></div>
-      <div class="fgr" style="grid-column:1/-1"><label>Locais</label><textarea id="evp-loc" rows="3" ${ro?'disabled':''} style="${inp}">${evpEsc(v.loc)}</textarea></div>
-      ${corrigindo?`<div class="fgr" style="grid-column:1/-1"><label>Motivo da correção *</label><input id="evp-mot" maxlength="300" style="${inp}" placeholder="Ex.: público digitado errado"></div>`:''}
-    </div>
-    <p style="font-size:11px;color:#777;margin-top:10px">Sem evento no mês? Informe 0 e conclua. ${travada?'Prestação '+(p.status_prest==='finalizado'?'Finalizada':'Enviada')+': os eventos ficam travados; use “✏ Corrigir” (motivo obrigatório, fica registrado) ou volte a prestação para Em Aberto.':''}</p>`;
+    (reg&&reg.concluido?`<div style="background:#e8f2ea;border:1px solid var(--sage);padding:8px 10px;font-size:12px;margin-bottom:12px">✓ ${evpMes(p.mes)} concluído por <b>${evpEsc(reg.concluido_por||'—')}</b>${reg.concluido_em?' em '+new Date(reg.concluido_em).toLocaleString('pt-BR'):''}</div>`:`<div style="background:#fbecea;border:1px solid var(--rust);padding:8px 10px;font-size:12px;margin-bottom:12px">⚠ Eventos de ${evpMes(p.mes)} ainda não concluídos. A prestação só sai de "Em Aberto" com eles concluídos.</div>`)+
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">`+
+      card('Eventos',I(T.ev))+card('Vendas nos meses com evento',R$(T.valor))+card('Peças',I(T.pecas))+card('Ticket (R$/peça)',T.pecas?R$(T.valor/T.pecas):'—')+
+      card('R$ por evento',T.ev?R$(T.valor/T.ev):'—')+card('Peças por evento',T.ev?(T.pecas/T.ev).toLocaleString('pt-BR',{maximumFractionDigits:1}):'—')+card('Público',T.temPub?I(T.pub):'—')+card('Conversão (peças ÷ público)',T.temPub&&T.pub?(T.pecasPub/T.pub).toLocaleString('pt-BR',{maximumFractionDigits:3}):'—')+`</div>`+
+    (cal.length?`<div style="font-size:11.5px;margin-bottom:10px;color:#444"><b>Calendário Comercial (previsto) em ${evpMes(p.mes)}:</b> ${cal.length} evento(s) — ${evpEsc(sugLoc)}${sugPub?' · público previsto '+sugPub.toLocaleString('pt-BR'):''}${reg?'':' <i>(linha do mês já preenchida com o previsto — confira)</i>'}</div>`:`<div style="font-size:11.5px;margin-bottom:10px;color:#777">Nenhum evento deste canal no Calendário Comercial em ${evpMes(p.mes)}.</div>`)+
+    `<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr style="background:var(--ink);color:var(--cream)"><th style="${th};text-align:left">Mês</th><th style="${th}">Eventos *</th><th style="${th};text-align:left">Locais</th><th style="${th}">Público *</th><th style="${th}">Pedidos</th><th style="${th}">Peças</th><th style="${th}">Vendas</th><th style="${th}">Ticket</th><th style="${th}">R$ / evento</th><th style="${th};text-align:left">Situação</th></tr></thead><tbody>${linhas}</tbody></table></div>`+
+    (corrigindo?`<div class="fgr" style="margin-top:12px"><label>Motivo da correção *</label><input id="evp-mot" maxlength="300" style="${inp};width:100%" placeholder="Ex.: público digitado errado"></div>`:'')+
+    `<p style="font-size:11px;color:#777;margin-top:10px">Só a linha de ${evpMes(p.mes)} (desta prestação) é editável; os outros meses se corrigem na prestação de cada mês. Vendas, peças e ticket: Histórico de Compras do canal. Sem evento no mês? Informe 0 e conclua. ${travada?'Prestação '+(p.status_prest==='finalizado'?'Finalizada':'Enviada')+': o mês fica travado — use “✏ Corrigir” (motivo obrigatório, fica registrado) ou volte a prestação para Em Aberto.':''}</p>`;
   document.getElementById('mo-evp-f').innerHTML=`<button class="btn sm" onclick="closeMo('mo-evp')">Fechar</button>`+
     (ro?`<button class="btn rust sm" onclick="EVP_CTX.corrigindo=true;evpRender()">✏ Corrigir</button>`:`<button class="btn rust sm" id="evp-ok" onclick="evpSalvar()">${corrigindo?'💾 Salvar correção':'✓ Salvar e concluir'}</button>`);
 }
