@@ -490,6 +490,10 @@ function parseDate(d){if(!d)return null;d=String(d).trim();if(d.includes('/')){v
 function statusNorm(s){if(!s)return'pending';s=String(s).toLowerCase().trim();if(s==='concluída'||s==='concluida'||s==='done'||s==='feito')return'done';if(s==='em andamento'||s==='active'||s==='ativo'||s==='ativa')return'active';return'pending';}
 function showToast(msg,type){var t=document.createElement('div');t.className='toast '+(type||'success');t.innerHTML=(type==='error'?'❌':type==='info'?'ℹ️':'✅')+' '+msg;document.body.appendChild(t);setTimeout(function(){t.style.opacity='0';t.style.transition='opacity .4s';setTimeout(function(){t.remove();},400);},3000);}
 function closeModal(){document.getElementById('modal-root').innerHTML='';}
+// Gravação do Histórico de Compras em andamento no iframe do Financeiro (01/11/2026): o hub avisa antes de recarregar/sair.
+window._cdaSyncHistorico=false;
+window.addEventListener('message',function(ev){if(ev&&ev.data&&typeof ev.data.cdaSyncHistorico==='boolean')window._cdaSyncHistorico=ev.data.cdaSyncHistorico;});
+window.addEventListener('beforeunload',function(e){if(!window._cdaSyncHistorico)return;e.preventDefault();e.returnValue='O Histórico de Compras ainda está sendo gravado.';return e.returnValue;});
 function openModal(html){document.getElementById('modal-root').innerHTML='<div class="modal-overlay" onclick="handleOverlay(event)">'+html+'</div>';}
 function handleOverlay(e){if(e.target.classList.contains('modal-overlay'))closeModal();}
 function setDate(){var d=new Date();document.getElementById('topbar-date').textContent=d.toLocaleDateString('pt-BR',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});}

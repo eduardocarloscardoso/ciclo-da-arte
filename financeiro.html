@@ -2124,9 +2124,27 @@ function doFile(f){
 }
 
 
+// ── Gravação do Histórico com progresso e proteção (01/11/2026) ─────────────
+// Barra de progresso, aviso para não fechar/recarregar a página (também no hub, por postMessage) e
+// complemento de pedidos gravados pela metade (compara item a item, não só o nº do pedido).
+let SYNC_HIST_ATIVO=false;
+function _syncAntesDeSair(e){if(!SYNC_HIST_ATIVO)return;e.preventDefault();e.returnValue='O Histórico de Compras ainda está sendo gravado. Se sair agora, parte dos pedidos fica de fora.';return e.returnValue;}
+window.addEventListener('beforeunload',_syncAntesDeSair);
+function _syncAvisarHub(ativo){try{if(window.parent&&window.parent!==window)window.parent.postMessage({cdaSyncHistorico:ativo},'*');}catch(e){}}
+function _syncProgresso(feito,total,texto){
+  let el=document.getElementById('sync-hist-ov');
+  if(!el){el=document.createElement('div');el.id='sync-hist-ov';el.style.cssText='position:fixed;inset:0;background:rgba(13,13,13,.55);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:DM Sans,sans-serif';
+    el.innerHTML='<div style="background:#faf7f2;border:2px solid #0d0d0d;padding:24px 28px;width:min(520px,92vw)"><div style="font-family:Syne,sans-serif;font-weight:800;font-size:15px;margin-bottom:6px">Gravando o Histórico de Compras</div><div style="font-size:12.5px;color:#c94a2b;font-weight:700;margin-bottom:12px">⚠ Não feche, não recarregue e não troque de tela até terminar.</div><div style="height:12px;background:#e0dbd0;border:1px solid #0d0d0d"><div id="sync-hist-bar" style="height:100%;width:0;background:#4a7c59;transition:width .2s"></div></div><div id="sync-hist-txt" style="font-size:12px;margin-top:8px;color:#333"></div></div>';
+    document.body.appendChild(el);}
+  const pc=total?Math.round(feito/total*100):0;
+  document.getElementById('sync-hist-bar').style.width=pc+'%';
+  document.getElementById('sync-hist-txt').textContent=(texto||'')+' '+feito+' de '+total+' itens ('+pc+'%)';
+}
+function _syncFim(){SYNC_HIST_ATIVO=false;_syncAvisarHub(false);const el=document.getElementById('sync-hist-ov');if(el)el.remove();}
 async function sincronizarHistoricoComprasDaImportacao(resumo){
+  SYNC_HIST_ATIVO=true;_syncAvisarHub(true);
   try{
-    toast('Sincronizando Histórico de Compras...','ok');
+    _syncProgresso(0,resumo.reduce((a,g)=>a+g.secoes.reduce((b,s)=>b+s.itens.length,0),0),'Preparando…');
     const clientesAtuais=await cdaCarregarClientes();
     const cacheClientesPorNome={};
     const cacheClientesPorCpf={};
@@ -2173,26 +2191,36 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
     // "Consumidor Final" são ignorados — são notas fiscais contábeis emitidas depois dos eventos, cujas peças
     // já estão nos pedidos de venda dos shows.
     const ehConsumidorFinal=function(nome){return /consumidor\s*final/i.test(String(nome||''));};
+    // Pedido já gravado: guarda os itens existentes (assinatura produto|variação|qtde|valor) para gravar só os
+    // que faltam — pedido gravado pela metade (sincronização interrompida) é completado na reimportação.
     const pedidosJaGravados={};
+    const sigItem=function(produto,variacao,qtde,valor){return String(produto||'').trim().toLowerCase()+'|'+String(variacao||'').trim().toLowerCase()+'|'+Number(qtde||0)+'|'+(Math.round(Number(valor||0)*100)/100).toFixed(2);};
     try{
       const nums=[...new Set(resumo.flatMap(g=>g.secoes.flatMap(s=>s.itens.map(i=>String(i.numero_pedido||'').trim()).filter(Boolean))))];
       for(let k=0;k<nums.length;k+=150){
-        const {data,error}=await cdaClient.from('compras').select('numero_pedido,canal_id').in('numero_pedido',nums.slice(k,k+150));
+        const {data,error}=await cdaClient.from('compras').select('numero_pedido,canal_id,produto,variacao,quantidade,valor_total').in('numero_pedido',nums.slice(k,k+150)).limit(5000);
         if(error)throw error;
-        (data||[]).forEach(r=>{pedidosJaGravados[String(r.numero_pedido).trim()+'|'+String(r.canal_id)]=1;});
+        (data||[]).forEach(r=>{const ch=String(r.numero_pedido).trim()+'|'+String(r.canal_id);(pedidosJaGravados[ch]=pedidosJaGravados[ch]||[]).push(sigItem(r.produto,r.variacao,r.quantidade,r.valor_total));});
       }
     }catch(eChk){
       console.error('Falha ao verificar pedidos já gravados:',eChk);
+      _syncFim();
       alert('Não foi possível verificar se os pedidos já existem no Histórico de Compras. A sincronização foi cancelada para não duplicar dados. Tente novamente.');
       return;
     }
+    const totalItensSync=resumo.reduce((a,g)=>a+g.secoes.reduce((b,s)=>b+s.itens.length,0),0);let feitosSync=0;const complementados={};
     const ignoradosDup={},ignoradosCF={};
     for(const grupo of resumo){
       for(const sec of grupo.secoes){
         for(const item of sec.itens){
+          feitosSync++;if(feitosSync%3===0||feitosSync===totalItensSync)_syncProgresso(feitosSync,totalItensSync,'Gravando…');
           if(!item.numero_pedido&&!item.cliente){continue;}
           const chavePed=String(item.numero_pedido||'').trim()+'|'+String(sec.canal_id);
-          if(item.numero_pedido&&pedidosJaGravados[chavePed]){ignoradosDup[chavePed]=1;continue;}
+          if(item.numero_pedido&&pedidosJaGravados[chavePed]){
+            const lst=pedidosJaGravados[chavePed],ix=lst.indexOf(sigItem(item.produto,item.var,item.qtde,item.tvenda));
+            if(ix>=0){lst.splice(ix,1);ignoradosDup[chavePed]=1;continue;}
+            complementados[chavePed]=(complementados[chavePed]||0)+1; // item que faltava num pedido gravado pela metade
+          }
           if(ehConsumidorFinal(item.cliente)){ignoradosCF[chavePed]=1;continue;}
           try{
             var clienteId=await resolverClienteId(item);
@@ -2225,8 +2253,9 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
         }
       }
     }
-    const nDup=Object.keys(ignoradosDup).length,nCF=Object.keys(ignoradosCF).length;
-    const extra=(nDup?' · '+nDup+' pedido(s) já existiam no Histórico e não foram gravados de novo':'')+(nCF?' · '+nCF+' pedido(s) de Consumidor Final ignorados (nota contábil)':'');
+    const nDup=Object.keys(ignoradosDup).length,nCF=Object.keys(ignoradosCF).length,nComp=Object.keys(complementados).length;
+    _syncFim();
+    const extra=(nDup?' · '+nDup+' pedido(s) já existiam no Histórico e não foram gravados de novo':'')+(nComp?' · '+nComp+' pedido(s) gravado(s) pela metade foram completados':'')+(nCF?' · '+nCF+' pedido(s) de Consumidor Final ignorados (nota contábil)':'');
     if(totalErros===0){
       toast('✔ Histórico de Compras sincronizado: '+totalGravados+' itens gravados'+extra+'.','ok');
       if(nDup||nCF)console.info('[Histórico de Compras] Ignorados — já gravados:',Object.keys(ignoradosDup),'· Consumidor Final:',Object.keys(ignoradosCF));
@@ -2234,9 +2263,10 @@ async function sincronizarHistoricoComprasDaImportacao(resumo){
       alert('Histórico de Compras: '+totalGravados+' itens gravados, '+totalErros+' falharam'+extra+'. Veja o console para detalhes.');
     }
   }catch(err){
+    _syncFim();
     console.error(err);
-    alert('Erro ao sincronizar Histórico de Compras — veja o console.');
-  }
+    alert('Erro ao sincronizar Histórico de Compras — veja o console. Reimporte a mesma planilha para completar: o que já foi gravado não é duplicado.');
+  }finally{if(SYNC_HIST_ATIVO)_syncFim();}
 }
 
 function doImport(){
@@ -2404,7 +2434,7 @@ function doImport(){
   });
 
   DB.s('prestacoes',prs);
-  if(resumoParaCompras.length&&confirm('Deseja também salvar estes itens no Histórico de Compras?')){
+  if(resumoParaCompras.length&&confirm('Deseja também salvar estes itens no Histórico de Compras?\n\nA gravação leva de 1 a 3 minutos: não feche nem recarregue a página até a barra de progresso terminar.')){
     sincronizarHistoricoComprasDaImportacao(resumoParaCompras);
   }
   upData=null;upParsed=null;
