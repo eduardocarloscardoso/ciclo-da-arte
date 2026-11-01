@@ -1193,6 +1193,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
     Ltda, produtoras, o próprio artista/canal, Consumidor Final — ficam de fora). É só sugestão: o usuário
     confere, ajusta e informa o público. Pendentes em 01/11/2026: set/2026 de Feiras e Bazares, Luedji Luna
     e Gilsons.
+  - **Filtro na lista de prestações (01/11/2026):** "Eventos: Todas / ⚠ atualização pendente / ✓ concluídos" —
+    só prestações com canal marcado "Exige registro de eventos"; etiqueta "📅 Eventos pendentes" abaixo do
+    status. Sem alteração de dados.
 
 ## 11. Memória da última tela — out/2026
 
