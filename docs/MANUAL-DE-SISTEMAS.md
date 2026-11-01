@@ -944,6 +944,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   {grupos:{id:valor}} por campanha; nome único na campanha) — sem dados antigos. Valores na publicação
   (provisões de 31/10): Calendário VJ R$ 211.281,73 / AT R$ 28.000 → VJ cabe pela meta e excede ≈ R$ 8,3 mil
   pela proporção real; AT cabe nas duas.
+- **Montagem Coleções no grupo Produção (01/11/2026, pedido de Cardoso):** os 6 centros da subconta
+  Montagem Coleções (Abertura Telas 27, Fotógrafo/Filmagem 28, Locação Equipamentos 29, Peças Pilotagem 30,
+  Designer Gráfico 31, Modelos/Maquiador 32) passaram do grupo 12 "Desenvolvimento de coleção" para o grupo 5
+  "Produção" (antes: `grupo_id` 12). O grupo 12 ficou sem centros e foi **desativado** (antes: ativo).
+  Metas de Mercado/Marca comum dos centros sem alteração.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
