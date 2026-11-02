@@ -974,14 +974,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   vira item próprio no Acompanhamento, com atalho "✏ editar metas → Grupos e Metas". Estrutura de Custos →
   **Plano de Redução de Custos** (Análises e Decisões › Custos; Mercado só leitura com ✏). "Metas" só aparece
   em Grupos e Metas.
-- **Saldo de Compras do Ano e mês provisório (02/11/2026, Cardoso):** um cenário só, **Pelo orçamento** (saíram
+- **Saldo de Compras do Ano (02/11/2026, Cardoso; só código):** um cenário só, **Pelo orçamento** (saíram
   "otimista" e "ritmo atual/conservador"); "Custo ideal pelo mix" numa linha só, já com Montagem (detalhe
-  produto + Montagem em letra menor). Nova tabela `cda_pa_mes_provisorio` (SQL
-  `docs/sql/planejamento_anual_18_mes_provisorio.sql`): marca o Realizado de um mês/conta como provisório;
-  etiqueta "mês/ano provisório" em todas as telas de Orçamento, Acompanhamento e Análises; a importação do
-  Realizado tem "📌 Importação provisória" (desmarcada = definitiva, tira a marca); na aba Realizado dá para
-  marcar/desmarcar. Carga inicial: **receitas de out/2026** provisórias (planilha temporária de 31/10/2026;
-  antes: sem marca). Nenhum valor realizado alterado.
+  produto + Montagem em letra menor). A etiqueta de mês provisório foi descartada por Cardoso (sem tabela nova).
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 

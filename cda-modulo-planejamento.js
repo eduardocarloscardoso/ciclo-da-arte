@@ -40,36 +40,6 @@ var PA_GRUPOS = {
 };
 // Páginas (abas) de uma tela, na ordem do menu
 function paAbasDe(tela){return Object.keys(PA_PAGES).filter(function(id){return PA_PAGES[id].tela===tela;});}
-// ─── Mês provisório (02/11/2026): Realizado de planilha temporária, mês ainda não fechado ─────
-var PA_PAGINAS_SEM_PROVISORIO={tabela:1,grupos:1,tutorial:1};
-async function paProvisorios(ano,forcar){
-  paCache.provisorios=paCache.provisorios||{};
-  if(!forcar&&paCache.provisorios[ano])return paCache.provisorios[ano];
-  var r=[];try{r=await sb.get('cda_pa_mes_provisorio','ano=eq.'+ano+'&order=mes,tipo');}catch(e){console.warn('[Planejamento] meses provisórios',e);}
-  paCache.provisorios[ano]=r||[];return paCache.provisorios[ano];
-}
-function paProvRotulo(x){return PA_MESES_AB[x.mes-1].toLowerCase()+'/'+String(x.ano).slice(2);}
-async function paMostrarProvisorio(page){
-  var alvo=document.getElementById('pa-provisorio');if(!alvo)return;
-  if(PA_PAGINAS_SEM_PROVISORIO[page]){alvo.innerHTML='';return;}
-  var lst=await paProvisorios(paEstado.ano);
-  if(paEstado.page!==page||!document.getElementById('pa-provisorio'))return;
-  if(!lst.length){alvo.innerHTML='';return;}
-  var porMes={};lst.forEach(function(x){var k=x.mes;(porMes[k]=porMes[k]||[]).push(x);});
-  alvo.innerHTML=Object.keys(porMes).map(function(m){var xs=porMes[m];
-    return '<div class="pa-provisorio" title="'+paEsc(xs.map(function(x){return (x.tipo==='RECEITAS'?'Receitas':'Despesas')+': '+(x.observacao||'')+(x.marcado_por?' — '+x.marcado_por:'');}).join(' · '))+'">⚠ <b>'+paProvRotulo(xs[0])+' provisório</b> ('+xs.map(function(x){return x.tipo==='RECEITAS'?'receitas':'despesas';}).join(' e ')+') — números de planilha temporária; o mês ainda não está fechado. A etiqueta sai quando o definitivo for importado em Orçamento › Realizado.</div>';}).join('');
-}
-async function paMarcarProvisorio(ano,mes,tipo,marcar,obs){
-  if(!paPodeEditar())return;
-  var lst=await paProvisorios(ano,true),ex=lst.find(function(x){return x.mes===mes&&x.tipo===tipo;});
-  if(marcar&&!ex)await sb.post('cda_pa_mes_provisorio',{ano:ano,mes:mes,tipo:tipo,observacao:obs||null,marcado_por:(window.cu&&cu.email)||null});
-  if(!marcar&&ex)await sb.del('cda_pa_mes_provisorio',ex.id);
-  await paProvisorios(ano,true);
-}
-async function paAlternarProvisorio(ano,mes,tipo,marcar){
-  try{await paMarcarProvisorio(ano,mes,tipo,marcar,marcar?'Marcado manualmente na aba Realizado':null);showToast(marcar?'Mês marcado como provisório':'Mês marcado como definitivo','success');navigatePlanejamento('realizado');}
-  catch(e){paErro(e,'Não foi possível alterar a marca de provisório');}
-}
 var PA_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Estado da tela (filtros persistem entre páginas do módulo)
@@ -244,8 +214,7 @@ async function navigatePlanejamento(page){
   var banner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — você pode consultar, mas não alterar.</div>':'';
   var abas=p.tela?'<div class="pa-abas-tela" role="tablist">'+paAbasDe(p.tela).map(function(id){return '<button role="tab" aria-selected="'+(id===page)+'" class="'+(id===page?'on':'')+'" onclick="navigatePlanejamento(\''+id+'\')">'+PA_PAGES[id].aba+'</button>';}).join('')+'</div>':'';
   var trilha=(p.grupo&&PA_GRUPOS[p.grupo]?PA_GRUPOS[p.grupo].label+(p.sec?' › '+p.sec:''):'');
-  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual'+(trilha?' · '+trilha:'')+'</p></div>'+abas+'<div id="pa-provisorio"></div><div id="pa-root"><div class="card">Carregando…</div></div>';
-  paMostrarProvisorio(page);
+  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual'+(trilha?' · '+trilha:'')+'</p></div>'+abas+'<div id="pa-root"><div class="card">Carregando…</div></div>';
   if(p.fase){
     document.getElementById('pa-root').innerHTML='<div class="rec-box"><div class="rec-title">🚧 Em desenvolvimento — Fase '+p.fase+'</div><p>Este painel está sendo migrado do Manus. Enquanto isso, use o sistema antigo para esta consulta.</p></div>';
     return;
@@ -546,9 +515,6 @@ async function paOrcamentoRealizado(){
   var totMes={RECEITAS:0,DESPESAS:0};
   h.centros.forEach(function(cc){var c=h.contas.find(function(x){return x.id===cc.subconta.conta_id;});if(c)totMes[c.tipo]+=val[cc.id]||0;});
   html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b></div>';
-  var provs=await paProvisorios(ano,true);
-  html+='<div class="pa-info" style="margin-top:-4px">Situação de '+PA_MESES[mes-1]+': '+['RECEITAS','DESPESAS'].map(function(tp){var x=provs.find(function(y){return y.mes===mes&&y.tipo===tp;}),nm=tp==='RECEITAS'?'Receitas':'Despesas';
-    return nm+' <b style="color:'+(x?'var(--gold2)':'var(--green)')+'">'+(x?'⚠ provisório':'definitivo')+'</b>'+(podeEd?' <a class="pa-link" style="font-size:11.5px" onclick="paAlternarProvisorio('+ano+','+mes+',\''+tp+'\','+(!x)+')">'+(x?'marcar como definitivo':'marcar como provisório')+'</a>':'');}).join(' · ')+'</div>';
   html+='<div class="pa-kpis">'+paKpi('Receitas — '+PA_MESES[mes-1],paBRL(totMes.RECEITAS),'','var(--green)')+paKpi('Despesas — '+PA_MESES[mes-1],paBRL(totMes.DESPESAS),'','var(--red)')+paKpi('Resultado do mês',paBRL(totMes.RECEITAS-totMes.DESPESAS),'',(totMes.RECEITAS-totMes.DESPESAS)>=0?'var(--blue)':'var(--red)')+'</div>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th>Realizado — '+PA_MESES[mes-1]+'/'+ano+'</th><th>Origem</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
@@ -592,7 +558,6 @@ function paAbrirImportacao(){
     '<div class="pa-filtros"><label>Ano<input type="number" id="pa-imp-ano" value="'+paEstado.ano+'" style="width:100px"></label><label>Mês<select id="pa-imp-mes">'+mesOpts+'</select></label>'+
     '<label>Tipo (se a aba não indicar)<select id="pa-imp-tipo"><option value="">Pela aba</option><option value="RECEITAS">Receitas</option><option value="DESPESAS">Despesas</option></select></label>'+
     '<label>Arquivo<input type="file" id="pa-imp-arq" accept=".xls,.xlsx"></label></div>'+
-    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:4px 0 10px;cursor:pointer"><input type="checkbox" id="pa-imp-prov"> 📌 <b>Importação provisória</b> — planilha temporária, o mês ainda não fechou (as telas mostram a etiqueta “provisório”). Desmarcado = definitiva: a etiqueta daquele mês e conta sai.</label>'+
     '<div id="pa-imp-res" aria-live="polite"></div>'+
     '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal();if(paImport&&paImport.blocos.some(function(x){return x.importado;}))navigatePlanejamento(\'realizado\')">Fechar</button><button class="btn btn-primary" onclick="paImportarPrevia()">🔍 Pré-visualizar</button></div></div>');
 }
@@ -666,8 +631,6 @@ async function paImportarConfirmar(i){
     var r=await paRpc('cda_pa_importar_mes',{p_ano:paImport.ano,p_mes:paImport.mes,p_tipo:b.tipo,p_linhas:b.linhas,p_layout_vendedor:b.vendedor,p_simular:false});
     if(!r.gravado)throw new Error('Validação falhou em '+nomeT+' — pré-visualize de novo');
     b.importado=true;btn.textContent='✓ '+nomeT+' importada';btn.className='btn btn-ghost btn-sm';
-    var prov=!!(document.getElementById('pa-imp-prov')||{}).checked;
-    try{await paMarcarProvisorio(paImport.ano,paImport.mes,b.tipo,prov,prov?'Importação provisória de '+nomeT+' em '+new Date().toLocaleDateString('pt-BR'):null);}catch(eP){paErro(eP,'Importado, mas não foi possível '+(prov?'marcar':'desmarcar')+' o mês como provisório');}
     showToast(nomeT+' de '+PA_MESES[paImport.mes-1]+'/'+paImport.ano+': '+r.gravados+' centros gravados ('+r.removidos+' lançamentos anteriores substituídos)','success');
     paEstado.ano=paImport.ano;paEstado.mes=paImport.mes;
     var pend=paImport.blocos.filter(function(x){return x.ok&&!x.importado;}).length;
@@ -1186,7 +1149,7 @@ function paBadgeStatus(st){
 }
 (function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-badge.pa-st-ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.pa-st-warn{background:rgba(201,148,58,.18);color:var(--gold2)}.pa-badge.pa-st-err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.pa-st-int{background:#4c0519;color:#fecdd3;border:1px solid #be123c}.pa-badge.pa-st-mut{background:var(--card2);color:var(--muted2)}\n.pa-bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--card2);vertical-align:middle;margin-left:8px;overflow:hidden}.pa-bar i{display:block;height:100%;border-radius:3px}\n.pa-btn-auto{background:rgba(155,114,207,.15);color:var(--purple);border:1px solid rgba(155,114,207,.35);border-radius:6px;font-size:10.5px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap}.pa-btn-auto:hover{background:rgba(155,114,207,.28)}\n.pa-in.prov{color:var(--purple)}.pa-in.prov.neg{color:var(--red)}\n.pa-tut h3{font-family:var(--ff-d);font-size:16px;margin:18px 0 6px}.pa-tut p,.pa-tut li{font-size:13px;color:var(--muted2);line-height:1.6}.pa-tut ul{padding-left:20px}.pa-tut b{color:var(--white)}.pa-tut code{font-family:var(--ff-m);font-size:12px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--gold2)}';})();
 // Abas das telas consolidadas (menu de 02/11/2026)
-(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-abas-tela{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:3px;margin:-4px 0 16px}.pa-abas-tela button{background:transparent;border:0;color:var(--muted2);font-family:var(--ff-b);font-size:12.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer}.pa-abas-tela button:hover{color:var(--white)}.pa-abas-tela button.on{background:var(--red);color:#fff}\n.pa-provisorio{background:rgba(201,148,58,.14);border:1px solid rgba(201,148,58,.5);color:var(--gold2);border-radius:8px;padding:8px 12px;font-size:12.5px;margin:-6px 0 14px;line-height:1.5}.pa-provisorio b{color:var(--gold2)}';})();
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-abas-tela{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:3px;margin:-4px 0 16px}.pa-abas-tela button{background:transparent;border:0;color:var(--muted2);font-family:var(--ff-b);font-size:12.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer}.pa-abas-tela button:hover{color:var(--white)}.pa-abas-tela button.on{background:var(--red);color:#fff}';})();
 
 // Bloco de KPIs comum (Receitas, Despesas, Resultado)
 function paKpisPrevReal(tot,rotReal,mini){
@@ -2288,7 +2251,7 @@ function paBlocoComissoes(d,canais,ult,fGr){
 function paTutorial(){
   document.getElementById('pa-root').innerHTML='<div class="card pa-tut" style="max-width:900px">'+
   '<p>O <b>Planejamento Anual</b> organiza o orçamento de <b>Receitas e Despesas</b> da Ciclo da Arte em três níveis: <b>Conta</b> (Receitas/Despesas) → <b>Subconta</b> → <b>Centro de Custo</b>. Os valores do <b>Ano Anterior</b> servem de base; o <b>Ano Exercício</b> é planejado (previsto) e acompanhado mês a mês (realizado).</p>'+
-  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento › Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro no <b>Plano de Contas</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Planilha <b>temporária</b> (mês ainda não fechou)? Marque <b>📌 Importação provisória</b>: as telas mostram a etiqueta “mês provisório” até a importação definitiva (sem a marca), que tira a etiqueta sozinha.</li><li>Revise as <b>Provisões</b> e consulte o <b>Acompanhamento</b>.</li></ul>'+
+  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento › Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro no <b>Plano de Contas</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise as <b>Provisões</b> e consulte o <b>Acompanhamento</b>.</li></ul>'+
   '<h3>2. Menu — o ciclo de gestão</h3><p>O menu segue o ciclo do orçamento: montar a estrutura e definir as metas, orçar, acompanhar e decidir. Telas com o mesmo cálculo em recortes diferentes ficam numa entrada só, com <b>abas</b> no topo (cada uma reabre na última aba usada).</p><ul>'+
   '<li><b>⚙️ Estrutura</b> — <i>como o orçamento é organizado e onde as metas são definidas</i> (configuração, muda pouco).<ul>'+
     '<li><b>Plano de Contas</b> — cadastro da hierarquia Conta → Subconta → Centro de Custo. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro. A coluna <b>Vigente</b> guarda o valor que vale hoje, com data e motivo — o Orçado não muda. No fim da página, <b>Vínculos Receita × Despesa</b> liga cada despesa variável aos canais de receita.</li>'+
