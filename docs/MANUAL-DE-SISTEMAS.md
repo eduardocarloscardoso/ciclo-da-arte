@@ -977,6 +977,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
 - **Saldo de Compras do Ano (02/11/2026, Cardoso; só código):** um cenário só, **Pelo orçamento** (saíram
   "otimista" e "ritmo atual/conservador"); "Custo ideal pelo mix" numa linha só, já com Montagem (detalhe
   produto + Montagem em letra menor). A etiqueta de mês provisório foi descartada por Cardoso (sem tabela nova).
+  **🧮 Fórmula do Saldo Ideal** (02/11/2026): botão na linha "Pode comprar" e 🧮 em cada tipo de custo; janela com
+  o cálculo passo a passo (mix, custo ideal, receita do ano, teto, saldos, pode comprar) com os números do momento
+  (`paFormulaSaldo`). Só código.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 

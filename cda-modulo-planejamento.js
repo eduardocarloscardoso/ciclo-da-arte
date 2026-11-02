@@ -1669,10 +1669,13 @@ async function paSaldoCompras(){
   }
   calc(Tot);
   ordemT.forEach(function(k){calc(tipos[k]);});
+  // Contexto para a janela 🧮 Fórmula do Saldo Ideal (02/11/2026): números calculados na hora, os mesmos da tela
+  paCache.comprasCalc={M:M,T:T,recOrc:recOrc,restRec:restRec,restCompra:restCompra,tetoOrc:tetoOrc,Tot:Tot,tipos:tipos,realProduto:realProduto,perDesp:perDesp,ano:ano};
   function cel(v,forte){return '<td style="color:'+(v<-0.005?'var(--red)':'')+';'+(forte?'font-weight:700':'')+'">'+(v<-0.005?'−'+paValor(-v):paValor(v))+'</td>';}
-  function pode(v,cls){
-    if(v<=0.005)return '<td class="'+cls+'" style="color:var(--red);font-weight:700">já excedido<br><span class="pa-orig">'+paValor(Math.abs(v))+'</span></td>';
-    return '<td class="'+cls+'" style="font-weight:700;color:var(--green)">'+paValor(v)+(restCompra?'<br><span class="pa-orig">'+paValor(v/restCompra)+'/mês</span>':'')+'</td>';
+  function pode(v,cls,chave){
+    var bt=chave?' <button class="pa-btn-formula" title="🧮 Fórmula do Saldo Ideal — ver o cálculo passo a passo" onclick="paFormulaSaldo(\''+chave+'\')">🧮</button>':'';
+    if(v<=0.005)return '<td class="'+cls+'" style="color:var(--red);font-weight:700;white-space:nowrap">já excedido'+bt+'<br><span class="pa-orig">'+paValor(Math.abs(v))+'</span></td>';
+    return '<td class="'+cls+'" style="font-weight:700;color:var(--green);white-space:nowrap">'+paValor(v)+bt+(restCompra?'<br><span class="pa-orig">'+paValor(v/restCompra)+'/mês</span>':'')+'</td>';
   }
   var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'mix\')">🧩 Mix de Vendas</button><button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'provisao\')">🔮 Provisões</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'compras\')">ℹ️ Tutorial Informativo</button>';
@@ -1699,7 +1702,7 @@ async function paSaldoCompras(){
     '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td></tr>'+
     '<tr class="conta '+(Tot.saldoIdO>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+'</tr>'+
     '<tr class="cc"><td>Saldo pelo orçamento (Orçado '+paValor(Tot.prev)+' − Realizado − Provisões)</td>'+cel(Tot.saldoOrc)+'</tr>'+
-    '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span></td>'+pode(Tot.podeO,'')+'</tr>'+
+    '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span> <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paFormulaSaldo(\'total\')">🧮 Fórmula do Saldo Ideal</button></td>'+pode(Tot.podeO,'')+'</tr>'+
     '</tbody></table></div>';
   // Bloco 3 — por tipo de custo
   html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
@@ -1725,12 +1728,77 @@ async function paSaldoCompras(){
   lst.forEach(function(k){pcts(tipos[k],false);});pcts(Tot,true);
   lst.forEach(function(k){var t=tipos[k];
     html+='<tr class="cc"><td>'+paEsc(t.nome)+(t.orig.length?' <span class="pa-orig">('+t.orig.join(' + ')+')</span>':'')+'</td>'+cOrc(t)+cReal(t,false)+'<td>'+(t.prov?paValor(t.prov):'—')+'</td>'+cRP(t)+cRef(t)+
-      cel(t.saldoOrc)+cel(t.saldoIdO)+pode(t.podeO,'')+'</tr>';});
-  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+pode(Tot.podeO,'')+'</tr>';
+      cel(t.saldoOrc)+cel(t.saldoIdO)+pode(t.podeO,'',k)+'</tr>';});
+  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+pode(Tot.podeO,'','total')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">O ideal de cada tipo de custo do produto é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto; cada centro de Montagem Coleções usa o seu Mercado (definido em Grupos e Metas). <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
+
+// ─── 🧮 Fórmula do Saldo Ideal (02/11/2026, Cardoso): passo a passo do "Pode comprar", total ou por tipo de custo ─────
+function paFormulaSaldo(chave){
+  var C=paCache.comprasCalc;if(!C){showToast('Abra o Saldo de Compras do Ano primeiro.','info');return;}
+  var M=C.M,T=C.T,G=M.G,t=chave==='total'?C.Tot:C.tipos[chave];if(!t)return;
+  function v(x){return (x<-0.005?'−':'')+paValor(Math.abs(x));}
+  function pc(x){return x===null||x===undefined||!isFinite(x)?'—':x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+  function passo(n,tit,linhas,orig){
+    return '<div class="pa-form-passo"><div class="pa-form-tit"><span>'+n+'</span>'+tit+'</div><table class="pa-form-tbl">'+linhas.map(function(l){
+      return '<tr class="'+(l[3]||'')+'"><td>'+l[0]+'</td><td class="pa-form-conta">'+(l[1]||'')+'</td><td class="pa-form-val">'+(l[2]||'')+'</td></tr>';}).join('')+'</table>'+(orig?'<div class="pa-form-orig">Fonte: '+orig+'</div>':'')+'</div>';
+  }
+  var dirR=G.direta.real,atR=G.atacado.real,pD=M.partReal.direta,pA=M.partReal.atacado;
+  var restRec=C.restRec,orcMes=T.prev/12,recRest=orcMes*restRec,recAno=C.recOrc,per=M.periodo;
+  var ehTot=chave==='total',nome=ehTot?'Total da Produção (Varejo + Atacado + Montagem Coleções)':t.nome+(t.orig&&t.orig.length?' ('+t.orig.join(' + ')+')':'');
+  var h='<div class="modal-box pa-modal-wide"><div class="modal-title">🧮 Fórmula do Saldo Ideal — '+paEsc(nome)+'</div>'+
+    '<p class="pa-info" style="margin:4px 0 12px">Calculado agora com os mesmos dados da tela ('+C.ano+'). Os % aparecem com 2 casas; a conta usa todas as casas decimais, por isso o resultado bate com a tela.</p>';
+  var n=1;
+  h+=passo(n++,'Mix de vendas ('+per+')',[
+    ['Receita total realizada','',v(T.real)],
+    ['Receita atacado / B2B','',v(atR)],
+    ['Receita venda direta',v(T.real)+' − '+v(atR),v(dirR)],
+    ['% venda direta',v(dirR)+' ÷ '+v(T.real)+' × 100',pc(pD),'forte'],
+    ['% atacado',v(atR)+' ÷ '+v(T.real)+' × 100',pc(pA),'forte']],'Orçamento › Realizado (receitas) · tipo de cada canal em Mix de Vendas');
+  h+=passo(n++,'Custo ideal pelo mix',[
+    ['Venda direta',pc(pD)+' × '+pc(M.cd),pc(pD*M.cd/100)],
+    ['Atacado',pc(pA)+' × '+pc(M.ca),pc(pA*M.ca/100)],
+    ['Custo ideal do produto',pc(pD*M.cd/100)+' + '+pc(pA*M.ca/100),pc(M.idealReal)],
+    ['(+) Montagem Coleções (meta)','',pc(M.mont.meta)],
+    ['Custo ideal pelo mix',pc(M.idealReal)+' + '+pc(M.mont.meta),pc(M.idealRealTot),'forte']],'% de custo ideal em Mix de Vendas › ⚙ Referências · meta de Montagem em Grupos e Metas');
+  h+=passo(n++,'Receita do ano (pelo orçamento)',[
+    ['Orçado de receita no ano','',v(T.prev)],
+    ['Orçado por mês',v(T.prev)+' ÷ 12',v(orcMes)],
+    ['Meses que faltam','12 − '+(12-restRec),String(restRec)],
+    ['Receita orçada dos meses que faltam',v(orcMes)+' × '+restRec,v(recRest)],
+    ['Receita do ano',v(T.real)+' + '+v(recRest),v(recAno),'forte']],'Orçamento › Previsto (receitas) e Orçamento › Realizado');
+  var idealT=t.idealPct,teto=idealT/100*recAno;
+  if(!ehTot){
+    if(t.mont)h+=passo(n++,'Ideal deste tipo de custo',[
+      ['Meta de Montagem deste centro (Mercado %)','',pc(idealT),'forte']],'Estrutura › Grupos e Metas (Mercado % do centro)');
+    else h+=passo(n++,'Ideal deste tipo de custo',[
+      ['Realizado deste tipo ('+C.perDesp+')','',v(t.real)],
+      ['Realizado do custo do produto (Varejo + Atacado, sem Montagem)','',v(C.realProduto)],
+      ['Peso deste tipo no custo do produto',v(t.real)+' ÷ '+v(C.realProduto)+' × 100',pc(C.realProduto?t.real/C.realProduto*100:0)],
+      ['Ideal deste tipo',pc(M.idealReal)+' × '+pc(C.realProduto?t.real/C.realProduto*100:0),pc(idealT),'forte']],'O custo ideal do produto é distribuído pelo peso atual de cada tipo de custo');
+  }
+  h+=passo(n++,'Teto ideal no ano',[
+    ['Teto ideal',v(recAno)+' × '+pc(idealT),v(teto),'forte']]);
+  h+=passo(n++,'Saldo pelo ideal',[
+    ['Teto ideal','',v(teto)],
+    ['(−) Realizado '+C.perDesp,'',v(t.real)],
+    ['(−) Provisões já comprometidas','',v(t.prov)],
+    ['= Saldo pelo ideal',v(teto)+' − '+v(t.real)+' − '+v(t.prov),v(t.saldoIdO),'forte']],'Realizado: Orçamento › Realizado (despesas) · Provisões: Orçamento › Provisões');
+  h+=passo(n++,'Saldo pelo orçamento',[
+    ['Orçado no ano','',v(t.prev)],
+    ['(−) Realizado '+C.perDesp,'',v(t.real)],
+    ['(−) Provisões já comprometidas','',v(t.prov)],
+    ['= Saldo pelo orçamento',v(t.prev)+' − '+v(t.real)+' − '+v(t.prov),v(t.saldoOrc),'forte']],'Orçamento › Previsto (despesas)');
+  var rc=C.restCompra;
+  h+=passo(n++,'Pode comprar até o fim do exercício',[
+    ['Pode comprar','menor entre '+v(t.saldoIdO)+' e '+v(t.saldoOrc),t.podeO<=0.005?'já excedido ('+v(Math.abs(t.podeO))+')':v(t.podeO),'final'],
+    rc&&t.podeO>0.005?['Por mês',v(t.podeO)+' ÷ '+rc+' '+(rc===1?'mês':'meses'),v(t.podeO/rc)]:['','','']]);
+  h+='<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
+  openModal(h);
+}
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-btn-formula{background:transparent;border:1px solid var(--border2);border-radius:6px;padding:0 5px;margin-left:6px;cursor:pointer;font-size:12px;line-height:18px;vertical-align:middle}.pa-btn-formula:hover{background:var(--card2)}.pa-form-passo{border:1px solid var(--border2);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:var(--card2)}.pa-form-tit{font-weight:700;font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:8px}.pa-form-tit span{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--red);color:#fff;align-items:center;justify-content:center;font-size:11px}.pa-form-tbl{width:100%;border-collapse:collapse;font-size:12.5px}.pa-form-tbl td{padding:3px 6px;border-bottom:1px dashed var(--border2)}.pa-form-tbl tr:last-child td{border-bottom:0}.pa-form-conta{color:var(--muted2);font-family:var(--ff-m);font-size:11.5px;text-align:right}.pa-form-val{text-align:right;font-family:var(--ff-m);white-space:nowrap;width:130px}.pa-form-tbl tr.forte td{font-weight:700}.pa-form-tbl tr.final td{font-weight:700;color:var(--green);font-size:13.5px}.pa-form-orig{font-size:10.5px;color:var(--muted2);margin-top:4px}';})();
 
 // ─── Comparativo de Modelo — Ciclo × Mercado (Previsto vs. Realizado, antes da Visão Anual — 01/11/2026) — 27/10/2026 ─────
 // Por grupo do ecossistema e centro: Realizado (base da Estrutura: consolidado ou média), Mercado (meta Ciclo),
@@ -2417,6 +2485,7 @@ var PA_TUT={
   ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
   ['Tot. Real. + Prov. (bloco 3)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
   ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Grupos e Metas).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
+  ['🧮 Fórmula do Saldo Ideal','Botão na linha Pode comprar (total) e o 🧮 de cada tipo de custo: abre a conta passo a passo com os números do momento — mix de vendas, custo ideal, receita do ano, teto, saldos e pode comprar.'],
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
   ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado (Grupos e Metas).'],
   ['Provisões','Vêm de Orçamento › Provisões: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
