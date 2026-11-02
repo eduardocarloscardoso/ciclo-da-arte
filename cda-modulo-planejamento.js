@@ -40,6 +40,36 @@ var PA_GRUPOS = {
 };
 // Páginas (abas) de uma tela, na ordem do menu
 function paAbasDe(tela){return Object.keys(PA_PAGES).filter(function(id){return PA_PAGES[id].tela===tela;});}
+// ─── Mês provisório (02/11/2026): Realizado de planilha temporária, mês ainda não fechado ─────
+var PA_PAGINAS_SEM_PROVISORIO={tabela:1,grupos:1,tutorial:1};
+async function paProvisorios(ano,forcar){
+  paCache.provisorios=paCache.provisorios||{};
+  if(!forcar&&paCache.provisorios[ano])return paCache.provisorios[ano];
+  var r=[];try{r=await sb.get('cda_pa_mes_provisorio','ano=eq.'+ano+'&order=mes,tipo');}catch(e){console.warn('[Planejamento] meses provisórios',e);}
+  paCache.provisorios[ano]=r||[];return paCache.provisorios[ano];
+}
+function paProvRotulo(x){return PA_MESES_AB[x.mes-1].toLowerCase()+'/'+String(x.ano).slice(2);}
+async function paMostrarProvisorio(page){
+  var alvo=document.getElementById('pa-provisorio');if(!alvo)return;
+  if(PA_PAGINAS_SEM_PROVISORIO[page]){alvo.innerHTML='';return;}
+  var lst=await paProvisorios(paEstado.ano);
+  if(paEstado.page!==page||!document.getElementById('pa-provisorio'))return;
+  if(!lst.length){alvo.innerHTML='';return;}
+  var porMes={};lst.forEach(function(x){var k=x.mes;(porMes[k]=porMes[k]||[]).push(x);});
+  alvo.innerHTML=Object.keys(porMes).map(function(m){var xs=porMes[m];
+    return '<div class="pa-provisorio" title="'+paEsc(xs.map(function(x){return (x.tipo==='RECEITAS'?'Receitas':'Despesas')+': '+(x.observacao||'')+(x.marcado_por?' — '+x.marcado_por:'');}).join(' · '))+'">⚠ <b>'+paProvRotulo(xs[0])+' provisório</b> ('+xs.map(function(x){return x.tipo==='RECEITAS'?'receitas':'despesas';}).join(' e ')+') — números de planilha temporária; o mês ainda não está fechado. A etiqueta sai quando o definitivo for importado em Orçamento › Realizado.</div>';}).join('');
+}
+async function paMarcarProvisorio(ano,mes,tipo,marcar,obs){
+  if(!paPodeEditar())return;
+  var lst=await paProvisorios(ano,true),ex=lst.find(function(x){return x.mes===mes&&x.tipo===tipo;});
+  if(marcar&&!ex)await sb.post('cda_pa_mes_provisorio',{ano:ano,mes:mes,tipo:tipo,observacao:obs||null,marcado_por:(window.cu&&cu.email)||null});
+  if(!marcar&&ex)await sb.del('cda_pa_mes_provisorio',ex.id);
+  await paProvisorios(ano,true);
+}
+async function paAlternarProvisorio(ano,mes,tipo,marcar){
+  try{await paMarcarProvisorio(ano,mes,tipo,marcar,marcar?'Marcado manualmente na aba Realizado':null);showToast(marcar?'Mês marcado como provisório':'Mês marcado como definitivo','success');navigatePlanejamento('realizado');}
+  catch(e){paErro(e,'Não foi possível alterar a marca de provisório');}
+}
 var PA_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Estado da tela (filtros persistem entre páginas do módulo)
@@ -214,7 +244,8 @@ async function navigatePlanejamento(page){
   var banner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — você pode consultar, mas não alterar.</div>':'';
   var abas=p.tela?'<div class="pa-abas-tela" role="tablist">'+paAbasDe(p.tela).map(function(id){return '<button role="tab" aria-selected="'+(id===page)+'" class="'+(id===page?'on':'')+'" onclick="navigatePlanejamento(\''+id+'\')">'+PA_PAGES[id].aba+'</button>';}).join('')+'</div>':'';
   var trilha=(p.grupo&&PA_GRUPOS[p.grupo]?PA_GRUPOS[p.grupo].label+(p.sec?' › '+p.sec:''):'');
-  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual'+(trilha?' · '+trilha:'')+'</p></div>'+abas+'<div id="pa-root"><div class="card">Carregando…</div></div>';
+  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual'+(trilha?' · '+trilha:'')+'</p></div>'+abas+'<div id="pa-provisorio"></div><div id="pa-root"><div class="card">Carregando…</div></div>';
+  paMostrarProvisorio(page);
   if(p.fase){
     document.getElementById('pa-root').innerHTML='<div class="rec-box"><div class="rec-title">🚧 Em desenvolvimento — Fase '+p.fase+'</div><p>Este painel está sendo migrado do Manus. Enquanto isso, use o sistema antigo para esta consulta.</p></div>';
     return;
@@ -515,6 +546,9 @@ async function paOrcamentoRealizado(){
   var totMes={RECEITAS:0,DESPESAS:0};
   h.centros.forEach(function(cc){var c=h.contas.find(function(x){return x.id===cc.subconta.conta_id;});if(c)totMes[c.tipo]+=val[cc.id]||0;});
   html+='<div class="pa-info">Último mês realizado em '+ano+': <b>'+(ultimo?PA_MESES[ultimo-1]:'nenhum')+'</b></div>';
+  var provs=await paProvisorios(ano,true);
+  html+='<div class="pa-info" style="margin-top:-4px">Situação de '+PA_MESES[mes-1]+': '+['RECEITAS','DESPESAS'].map(function(tp){var x=provs.find(function(y){return y.mes===mes&&y.tipo===tp;}),nm=tp==='RECEITAS'?'Receitas':'Despesas';
+    return nm+' <b style="color:'+(x?'var(--gold2)':'var(--green)')+'">'+(x?'⚠ provisório':'definitivo')+'</b>'+(podeEd?' <a class="pa-link" style="font-size:11.5px" onclick="paAlternarProvisorio('+ano+','+mes+',\''+tp+'\','+(!x)+')">'+(x?'marcar como definitivo':'marcar como provisório')+'</a>':'');}).join(' · ')+'</div>';
   html+='<div class="pa-kpis">'+paKpi('Receitas — '+PA_MESES[mes-1],paBRL(totMes.RECEITAS),'','var(--green)')+paKpi('Despesas — '+PA_MESES[mes-1],paBRL(totMes.DESPESAS),'','var(--red)')+paKpi('Resultado do mês',paBRL(totMes.RECEITAS-totMes.DESPESAS),'',(totMes.RECEITAS-totMes.DESPESAS)>=0?'var(--blue)':'var(--red)')+'</div>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th>Realizado — '+PA_MESES[mes-1]+'/'+ano+'</th><th>Origem</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
@@ -558,6 +592,7 @@ function paAbrirImportacao(){
     '<div class="pa-filtros"><label>Ano<input type="number" id="pa-imp-ano" value="'+paEstado.ano+'" style="width:100px"></label><label>Mês<select id="pa-imp-mes">'+mesOpts+'</select></label>'+
     '<label>Tipo (se a aba não indicar)<select id="pa-imp-tipo"><option value="">Pela aba</option><option value="RECEITAS">Receitas</option><option value="DESPESAS">Despesas</option></select></label>'+
     '<label>Arquivo<input type="file" id="pa-imp-arq" accept=".xls,.xlsx"></label></div>'+
+    '<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;margin:4px 0 10px;cursor:pointer"><input type="checkbox" id="pa-imp-prov"> 📌 <b>Importação provisória</b> — planilha temporária, o mês ainda não fechou (as telas mostram a etiqueta “provisório”). Desmarcado = definitiva: a etiqueta daquele mês e conta sai.</label>'+
     '<div id="pa-imp-res" aria-live="polite"></div>'+
     '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn btn-ghost" onclick="closeModal();if(paImport&&paImport.blocos.some(function(x){return x.importado;}))navigatePlanejamento(\'realizado\')">Fechar</button><button class="btn btn-primary" onclick="paImportarPrevia()">🔍 Pré-visualizar</button></div></div>');
 }
@@ -631,6 +666,8 @@ async function paImportarConfirmar(i){
     var r=await paRpc('cda_pa_importar_mes',{p_ano:paImport.ano,p_mes:paImport.mes,p_tipo:b.tipo,p_linhas:b.linhas,p_layout_vendedor:b.vendedor,p_simular:false});
     if(!r.gravado)throw new Error('Validação falhou em '+nomeT+' — pré-visualize de novo');
     b.importado=true;btn.textContent='✓ '+nomeT+' importada';btn.className='btn btn-ghost btn-sm';
+    var prov=!!(document.getElementById('pa-imp-prov')||{}).checked;
+    try{await paMarcarProvisorio(paImport.ano,paImport.mes,b.tipo,prov,prov?'Importação provisória de '+nomeT+' em '+new Date().toLocaleDateString('pt-BR'):null);}catch(eP){paErro(eP,'Importado, mas não foi possível '+(prov?'marcar':'desmarcar')+' o mês como provisório');}
     showToast(nomeT+' de '+PA_MESES[paImport.mes-1]+'/'+paImport.ano+': '+r.gravados+' centros gravados ('+r.removidos+' lançamentos anteriores substituídos)','success');
     paEstado.ano=paImport.ano;paEstado.mes=paImport.mes;
     var pend=paImport.blocos.filter(function(x){return x.ok&&!x.importado;}).length;
@@ -1149,7 +1186,7 @@ function paBadgeStatus(st){
 }
 (function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-badge.pa-st-ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.pa-st-warn{background:rgba(201,148,58,.18);color:var(--gold2)}.pa-badge.pa-st-err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.pa-st-int{background:#4c0519;color:#fecdd3;border:1px solid #be123c}.pa-badge.pa-st-mut{background:var(--card2);color:var(--muted2)}\n.pa-bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--card2);vertical-align:middle;margin-left:8px;overflow:hidden}.pa-bar i{display:block;height:100%;border-radius:3px}\n.pa-btn-auto{background:rgba(155,114,207,.15);color:var(--purple);border:1px solid rgba(155,114,207,.35);border-radius:6px;font-size:10.5px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap}.pa-btn-auto:hover{background:rgba(155,114,207,.28)}\n.pa-in.prov{color:var(--purple)}.pa-in.prov.neg{color:var(--red)}\n.pa-tut h3{font-family:var(--ff-d);font-size:16px;margin:18px 0 6px}.pa-tut p,.pa-tut li{font-size:13px;color:var(--muted2);line-height:1.6}.pa-tut ul{padding-left:20px}.pa-tut b{color:var(--white)}.pa-tut code{font-family:var(--ff-m);font-size:12px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--gold2)}';})();
 // Abas das telas consolidadas (menu de 02/11/2026)
-(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-abas-tela{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:3px;margin:-4px 0 16px}.pa-abas-tela button{background:transparent;border:0;color:var(--muted2);font-family:var(--ff-b);font-size:12.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer}.pa-abas-tela button:hover{color:var(--white)}.pa-abas-tela button.on{background:var(--red);color:#fff}';})();
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-abas-tela{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:3px;margin:-4px 0 16px}.pa-abas-tela button{background:transparent;border:0;color:var(--muted2);font-family:var(--ff-b);font-size:12.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer}.pa-abas-tela button:hover{color:var(--white)}.pa-abas-tela button.on{background:var(--red);color:#fff}\n.pa-provisorio{background:rgba(201,148,58,.14);border:1px solid rgba(201,148,58,.5);color:var(--gold2);border-radius:8px;padding:8px 12px;font-size:12.5px;margin:-6px 0 14px;line-height:1.5}.pa-provisorio b{color:var(--gold2)}';})();
 
 // Bloco de KPIs comum (Receitas, Despesas, Resultado)
 function paKpisPrevReal(tot,rotReal,mini){
@@ -1622,7 +1659,7 @@ async function paMixVendas(){
     '<tr class="cc"><td>Atacado / B2B × custo ideal</td><td>'+fp(M.ca)+' do preço'+(adm?'':' 🔒')+'</td><td>'+fp(M.partOrc.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partOrc.atacado*M.ca/100)+'</b></td><td class="pa-c-atual">'+fp(M.partReal.atacado)+' × '+fp(M.ca)+' = <b>'+fp(M.partReal.atacado*M.ca/100)+'</b></td></tr>'+
     '<tr class="sub"><td>Custo ideal do produto (Varejo + Atacado ÷ receita)</td><td></td><td><b>'+fp(M.idealOrc)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealReal)+'</b></td></tr>'+
     '<tr class="cc"><td>(+) Montagem Coleções — meta (Σ Mercado dos centros)</td><td>'+fp(M.mont.meta)+' da receita</td><td>'+fp(M.mont.meta)+'</td><td class="pa-c-atual">'+fp(M.mont.meta)+'</td></tr>'+
-    '<tr class="sub"><td>Produção ideal (Varejo + Atacado + Montagem)</td><td></td><td><b>'+fp(M.idealOrcTot)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealRealTot)+'</b></td></tr>'+
+    '<tr class="sub"><td>Custo ideal pelo mix (produto + Montagem)</td><td></td><td><b>'+fp(M.idealOrcTot)+'</b></td><td class="pa-c-atual"><b>'+fp(M.idealRealTot)+'</b></td></tr>'+
     '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções) no período<br><span class="pa-orig">Montagem: '+paValor(M.mont.orcPer)+' orçado · '+paValor(M.mont.real)+' realizado</span></td><td></td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
     '<tr class="cc"><td>÷ Receita do período</td><td></td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
     '<tr class="conta '+(difReal>0?'desp':'rec')+'"><td>'+(difReal>0?'Acima do ideal':'Dentro do ideal')+'</td><td></td><td>'+fpp(difOrc)+'</td><td>'+fpp(difReal)+(ult?'<br><span class="pa-orig">'+(excesso>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(excesso)/ult)+'/mês</span>':'')+'</td></tr>'+
@@ -1660,12 +1697,12 @@ async function paSaldoCompras(){
     else t.idealPct=realProduto?M.idealReal*t.real/realProduto:0;});
   Tot.idealPct=M.idealRealTot;
   // Receita do ano em dois cenários e teto ideal de produção
-  var recOrc=T.real+T.prev*restRec/12,recRitmo=T.real+(ultRec?T.real/ultRec:0)*restRec;
-  var tetoOrc=M.idealRealTot/100*recOrc,tetoRitmo=M.idealRealTot/100*recRitmo;
+  var recOrc=T.real+T.prev*restRec/12;
+  var tetoOrc=M.idealRealTot/100*recOrc;
   function calc(o){
     o.saldoOrc=o.prev-o.real-o.prov;
-    o.saldoIdO=o.idealPct/100*recOrc-o.real-o.prov;o.saldoIdR=o.idealPct/100*recRitmo-o.real-o.prov;
-    o.podeO=Math.min(o.saldoOrc,o.saldoIdO);o.podeR=Math.min(o.saldoOrc,o.saldoIdR);return o;
+    o.saldoIdO=o.idealPct/100*recOrc-o.real-o.prov;
+    o.podeO=Math.min(o.saldoOrc,o.saldoIdO);return o;
   }
   calc(Tot);
   ordemT.forEach(function(k){calc(tipos[k]);});
@@ -1677,35 +1714,36 @@ async function paSaldoCompras(){
   var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'mix\')">🧩 Mix de Vendas</button><button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'provisao\')">🔮 Provisões</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'compras\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
-  html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealReal)+'</b> + Montagem <b>'+fp(M.mont.meta)+'</b> = <b>'+fp(M.idealRealTot)+'</b> da receita</span></div>';
+  html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealRealTot)+'</b> da receita <span class="pa-orig">(produto '+fp(M.idealReal)+' + Montagem '+fp(M.mont.meta)+')</span></span></div>';
   // Bloco 1 — resumo (do Mix)
   var P=M.prod,difO=M.prodPctOrc-M.idealOrcTot,difR=M.prodPctReal-M.idealRealTot,exc=P.real-M.idealRealTot/100*T.real;
   html+='<h3 class="pa-h3">1. Resumo — custo de produção × receita ('+M.periodo+')</h3>';
   html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado</th><th class="pa-c-atual">Realizado</th></tr></thead><tbody>'+
     '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções)</td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
     '<tr class="cc"><td>÷ Receita do período</td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
-    '<tr class="cc"><td>Custo ideal pelo mix + Montagem ('+fp(M.mont.meta)+')</td><td>'+fp(M.idealOrcTot)+'</td><td class="pa-c-atual">'+fp(M.idealRealTot)+'</td></tr>'+
+    '<tr class="cc"><td>Custo ideal pelo mix<br><span class="pa-orig">produto '+fp(M.idealOrc)+' / '+fp(M.idealReal)+' + Montagem Coleções '+fp(M.mont.meta)+'</span></td><td>'+fp(M.idealOrcTot)+'</td><td class="pa-c-atual">'+fp(M.idealRealTot)+'</td></tr>'+
     '<tr class="conta '+(difR>0.005?'desp':'rec')+'"><td>'+(difR>0.005?'Acima do ideal':'Dentro do ideal')+'</td><td>'+fpp(difO)+'</td><td>'+fpp(difR)+(ultRec?'<br><span class="pa-orig">'+(exc>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(exc)/ultRec)+'/mês</span>':'')+'</td></tr>'+
     '</tbody></table></div>';
   // Bloco 2 — receita do ano e teto ideal
-  html+='<h3 class="pa-h3">2. Teto ideal de produção no ano — dois cenários de receita</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th title="Supõe que out–dez vão bater o orçado">Pelo orçamento<br><span style="font-weight:400;text-transform:none">otimista</span></th><th title="Supõe que out–dez seguem a média mensal realizada">Pelo ritmo atual<br><span style="font-weight:400;text-transform:none">conservador</span></th></tr></thead><tbody>'+
-    '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td><td>'+paValor(T.real)+'</td></tr>'+
-    '<tr class="cc"><td>Receita estimada dos '+restRec+' meses restantes</td><td>'+paValor(recOrc-T.real)+'<br><span class="pa-orig">orçado '+paValor(T.prev/12)+'/mês</span></td><td>'+paValor(recRitmo-T.real)+'<br><span class="pa-orig">média '+paValor(ultRec?T.real/ultRec:0)+'/mês</span></td></tr>'+
-    '<tr class="sub"><td>Receita do ano</td><td>'+paValor(recOrc)+'</td><td>'+paValor(recRitmo)+'</td></tr>'+
-    '<tr class="cc"><td>× Custo ideal pelo mix + Montagem ('+fp(M.idealRealTot)+') = Teto ideal de produção</td><td>'+paValor(tetoOrc)+'</td><td>'+paValor(tetoRitmo)+'</td></tr>'+
-    '<tr class="cc"><td>(−) Produção realizada '+perDesp+'</td><td>'+paValor(Tot.real)+'</td><td>'+paValor(Tot.real)+'</td></tr>'+
-    '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td><td>'+paValor(Tot.prov)+'</td></tr>'+
-    '<tr class="conta '+(Tot.saldoIdR>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+'</tr>'+
-    '<tr class="cc"><td>Saldo pelo orçamento (Orçado '+paValor(Tot.prev)+' − Realizado − Provisões)</td>'+cel(Tot.saldoOrc)+cel(Tot.saldoOrc)+'</tr>'+
-    '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span></td>'+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>'+
+  // 02/11/2026 (Cardoso): um cenário só — Pelo Orçamento (meses restantes vendem o orçado)
+  html+='<h3 class="pa-h3">2. Teto ideal de produção no ano — receita pelo orçamento</h3>';
+  html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th title="Receita realizada + orçado dos meses que faltam">Pelo orçamento</th></tr></thead><tbody>'+
+    '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td></tr>'+
+    '<tr class="cc"><td>Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes')+'</td><td>'+paValor(recOrc-T.real)+'<br><span class="pa-orig">orçado '+paValor(T.prev/12)+'/mês</span></td></tr>'+
+    '<tr class="sub"><td>Receita do ano</td><td>'+paValor(recOrc)+'</td></tr>'+
+    '<tr class="cc"><td>× Custo ideal pelo mix ('+fp(M.idealRealTot)+') = Teto ideal de produção no ano</td><td>'+paValor(tetoOrc)+'</td></tr>'+
+    '<tr class="cc"><td>(−) Produção realizada '+perDesp+'</td><td>'+paValor(Tot.real)+'</td></tr>'+
+    '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td></tr>'+
+    '<tr class="conta '+(Tot.saldoIdO>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+'</tr>'+
+    '<tr class="cc"><td>Saldo pelo orçamento (Orçado '+paValor(Tot.prev)+' − Realizado − Provisões)</td>'+cel(Tot.saldoOrc)+'</tr>'+
+    '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span></td>'+pode(Tot.podeO,'')+'</tr>'+
     '</tbody></table></div>';
   // Bloco 3 — por tipo de custo
   html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas pa-compras3"><thead><tr><th>Tipo de custo</th><th>Orçado ano</th><th class="pa-c-atual">Realizado<br>'+perDesp+'</th><th title="Provisão Prevista: valores já comprometidos e ainda não lançados">Provisões</th>'+
     '<th title="Realizado + Provisões: total já gasto ou comprometido, e o % da receita do período. Vermelho = passou o Ideal Ciclo (limite de compras). Em branco quando não há provisão">Tot. Real.<br>+ Prov.</th>'+
-    '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Grupos e Metas)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
-    '<th title="Menor entre saldo pelo orçamento e saldo ideal (orçamento)">Pode comprar<br>(otimista)</th><th title="Menor entre saldo pelo orçamento e saldo ideal (ritmo atual)">Pode comprar<br>(conservador)</th></tr></thead><tbody>';
+    '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Grupos e Metas)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Ideal do tipo × receita do ano pelo orçamento − Realizado − Provisões">Saldo<br>ideal</th>'+
+    '<th title="Menor entre saldo pelo orçamento e saldo ideal">Pode<br>comprar</th></tr></thead><tbody>';
   // % por tipo (28/10/2026): orçado ÷ receita orçada; realizado ÷ receita (mesma base do bloco 1) e peso na produção; ideal Ciclo e marca comum
   var marcaTot=0,temMarca=false;
   function pcts(t,total){
@@ -1724,8 +1762,8 @@ async function paSaldoCompras(){
   lst.forEach(function(k){pcts(tipos[k],false);});pcts(Tot,true);
   lst.forEach(function(k){var t=tipos[k];
     html+='<tr class="cc"><td>'+paEsc(t.nome)+(t.orig.length?' <span class="pa-orig">('+t.orig.join(' + ')+')</span>':'')+'</td>'+cOrc(t)+cReal(t,false)+'<td>'+(t.prov?paValor(t.prov):'—')+'</td>'+cRP(t)+cRef(t)+
-      cel(t.saldoOrc)+cel(t.saldoIdO)+cel(t.saldoIdR)+pode(t.podeO,'')+pode(t.podeR,'')+'</tr>';});
-  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>';
+      cel(t.saldoOrc)+cel(t.saldoIdO)+pode(t.podeO,'')+'</tr>';});
+  html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+pode(Tot.podeO,'')+'</tr>';
   html+='</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:10px">O ideal de cada tipo de custo do produto é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto; cada centro de Montagem Coleções usa o seu Mercado (definido em Grupos e Metas). <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
   document.getElementById('pa-root').innerHTML=html;
@@ -2250,7 +2288,7 @@ function paBlocoComissoes(d,canais,ult,fGr){
 function paTutorial(){
   document.getElementById('pa-root').innerHTML='<div class="card pa-tut" style="max-width:900px">'+
   '<p>O <b>Planejamento Anual</b> organiza o orçamento de <b>Receitas e Despesas</b> da Ciclo da Arte em três níveis: <b>Conta</b> (Receitas/Despesas) → <b>Subconta</b> → <b>Centro de Custo</b>. Os valores do <b>Ano Anterior</b> servem de base; o <b>Ano Exercício</b> é planejado (previsto) e acompanhado mês a mês (realizado).</p>'+
-  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento › Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro no <b>Plano de Contas</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise as <b>Provisões</b> e consulte o <b>Acompanhamento</b>.</li></ul>'+
+  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento › Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro no <b>Plano de Contas</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Planilha <b>temporária</b> (mês ainda não fechou)? Marque <b>📌 Importação provisória</b>: as telas mostram a etiqueta “mês provisório” até a importação definitiva (sem a marca), que tira a etiqueta sozinha.</li><li>Revise as <b>Provisões</b> e consulte o <b>Acompanhamento</b>.</li></ul>'+
   '<h3>2. Menu — o ciclo de gestão</h3><p>O menu segue o ciclo do orçamento: montar a estrutura e definir as metas, orçar, acompanhar e decidir. Telas com o mesmo cálculo em recortes diferentes ficam numa entrada só, com <b>abas</b> no topo (cada uma reabre na última aba usada).</p><ul>'+
   '<li><b>⚙️ Estrutura</b> — <i>como o orçamento é organizado e onde as metas são definidas</i> (configuração, muda pouco).<ul>'+
     '<li><b>Plano de Contas</b> — cadastro da hierarquia Conta → Subconta → Centro de Custo. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro. A coluna <b>Vigente</b> guarda o valor que vale hoje, com data e motivo — o Orçado não muda. No fim da página, <b>Vínculos Receita × Despesa</b> liga cada despesa variável aos canais de receita.</li>'+
@@ -2410,7 +2448,7 @@ var PA_TUT={
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
  compras:{t:'Saldo de Compras do Ano (Compras de Produção)',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
   ['1. Resumo','Custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix (o mesmo bloco do Mix de Vendas).'],
-  ['2. Dois cenários de receita','Pelo orçamento (otimista): out–dez batem o orçado. Pelo ritmo atual (conservador): out–dez seguem a média mensal realizada. Receita do ano × (custo ideal do mix + meta de Montagem) = teto ideal de produção.','Teto = Receita do ano × (Custo ideal % + Montagem %)'],
+  ['2. Teto ideal de produção no ano','Receita do ano pelo orçamento: o realizado até o último mês fechado + o orçado dos meses que faltam. × Custo ideal pelo mix (produto + Montagem Coleções) = o máximo que a Produção deveria custar no ano inteiro.','Teto = (Receita realizada + orçado dos meses restantes) × Custo ideal pelo mix %'],
   ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
   ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
