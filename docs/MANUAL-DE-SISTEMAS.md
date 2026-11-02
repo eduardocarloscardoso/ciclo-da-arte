@@ -1000,6 +1000,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Varejo e Atacado pelo **custo ideal da receita restante** (receita orçada dos meses restantes × 30% / 50%) — não
   pela participação na receita nem pela separação VJ/AT da Produção, que ainda não é controlada na origem.
   Segmento escolhido antes do grupo (filtra os grupos); tabela e totais na ordem Segmento › Grupo › Centro.
+- **Reprevisão de receitas 2026 — Shows de artistas e Feiras e bazares (02/11/2026, pedido de Cardoso):**
+  `cda_pa_orcamento_previsto` (ano 2026) = realizado jan–out + projeção do Calendário Comercial nov–dez (eventos não
+  cancelados). SHOWS LUEDJI LUNA (19): 100.000,00 → **126.989,50** (86.289,25 + 40.700,25); SHOWS GILSONS (21):
+  100.000,00 → **91.354,62** (82.740,70 + 8.613,92); FEIRAS E BAZARES (13): 120.000,00 → **146.702,71**
+  (80.601,31 + 66.101,40). Centros de shows sem evento em nov–dez mantidos com o previsto atual (novos eventos ainda
+  entram no Calendário). Grupo Shows 248.000,00 → 266.344,12; Feiras 120.000,00 → 146.702,71; total de receitas
+  2026: 1.436.000,00 → 1.481.046,83. Backup de todo o previsto 2026 antes da alteração: tabela
+  `bkp_pa_previsto_20261102` (94 linhas, total 3.058.700,00). Obs.: o realizado de outubro ainda é o provisório de 31/10.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
