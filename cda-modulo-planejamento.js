@@ -1983,7 +1983,7 @@ function paFormulaPecas(){
   h+='<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
   openModal(h);
 }
-(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-pc-form{margin-bottom:12px;padding:12px}.pa-pc-tbl tr.pa-pc-enc td{opacity:.65}.pa-pc-tbl td:nth-child(2),.pa-pc-tbl td:nth-child(3),.pa-pc-tbl td:nth-child(5),.pa-pc-tbl th:nth-child(2),.pa-pc-tbl th:nth-child(3){text-align:left;font-family:var(--ff-b)}.pa-pc-tots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.pa-pc-tt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin:0 0 4px}@media(max-width:900px){.pa-pc-tots{grid-template-columns:1fr}}';})();
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-pc-form{margin-bottom:12px;padding:12px}.pa-pc-tbl tr.pa-pc-enc td{opacity:.65}.pa-pc-tbl td:nth-child(2),.pa-pc-tbl td:nth-child(3),.pa-pc-tbl td:nth-child(5),.pa-pc-tbl th:nth-child(2),.pa-pc-tbl th:nth-child(3),.pa-pc-tbl th:nth-child(5){text-align:left;font-family:var(--ff-b)}.pa-pc-tots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.pa-pc-tt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin:0 0 4px}@media(max-width:900px){.pa-pc-tots{grid-template-columns:1fr}}';})();
 
 // ─── Comparativo de Modelo — Ciclo × Mercado (Previsto vs. Realizado, antes da Visão Anual — 01/11/2026) — 27/10/2026 ─────
 // Por grupo do ecossistema e centro: Realizado (base da Estrutura: consolidado ou média), Mercado (meta Ciclo),
