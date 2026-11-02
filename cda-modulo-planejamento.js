@@ -1822,60 +1822,78 @@ function paFormulaSaldo(chave){
 var paPecas={editId:null};
 var PA_SEG_NOME={varejo:'Varejo',atacado:'Atacado'};
 async function paPecasComprar(){
+  // Reorganizada em 02/11/2026 (Cardoso): 1. Pode comprar (o mesmo da tela em R$) → 2. Previsto por segmento e grupo
+  // (receita de nov–dez pelo Calendário nos grupos com eventos, pelo Orçamento nos demais) → 3. Tabela de Peças a Comprar
   var ano=paEstado.ano;
-  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_v_vendas_canal_mes','select=ano_mes,canal_id,pecas,valor&ano_mes=gte.'+ano+'-01&ano_mes=lte.'+ano+'-12').catch(function(){return [];}),sb.get('canais','select=id,grupo_id').catch(function(){return [];}),sb.get('cda_pa_pecas_compra','ano=eq.'+ano+'&order=mes,id').catch(function(e){console.warn('[Planejamento] peças a comprar',e);return null;})]);
+  var r=await Promise.all([paDadosAno(ano),paMetasEstrutura(ano),sb.get('cda_v_vendas_canal_mes','select=ano_mes,canal_id,pecas,valor&ano_mes=gte.'+ano+'-01&ano_mes=lte.'+ano+'-12').catch(function(){return [];}),sb.get('canais','select=id,grupo_id,exige_eventos').catch(function(){return [];}),sb.get('cda_pa_pecas_compra','ano=eq.'+ano+'&order=mes,id').catch(function(e){console.warn('[Planejamento] peças a comprar',e);return null;}),sb.get('cda_cal_evento','select=id,evento,inicio,ano,mes,status,projecao,centro_custo_id,grupo_id&ano=eq.'+ano).catch(function(){return [];})]);
   var d=r[0],metas=paMercadoSomado(r[0],r[1].m),podeEd=paPodeEditar();paCache.metasEstr=metas;
   var M=paCalcMix(d,metas),SC=paCalcSaldoCompras(d,metas,M),ult=M.ultRec,restRec=SC.restRec,ultDesp=d.ultimo||0,restCompra=Math.max(12-ultDesp,0);
   var grupos=(paCache.grupos||[]).filter(function(g){return g.tipo==='Receita';}),grupoDe={};grupos.forEach(function(g){grupoDe[String(g.id)]=g;});
   function segDe(gid){var g=grupoDe[String(gid)];return (g&&g.segmento)==='atacado'?'atacado':'varejo';}
-  // Ticket médio por peça por segmento (Histórico de Compras, meses de receita fechada, sem notas consolidadas > R$ 1.000/peça)
-  var canalGrupo={};(r[3]||[]).forEach(function(c){canalGrupo[String(c.id)]=c.grupo_id;});
-  var V={varejo:{pecas:0,valor:0},atacado:{pecas:0,valor:0}};
-  (r[2]||[]).forEach(function(x){var m=+String(x.ano_mes).slice(5,7),pc=+x.pecas||0,vl=+x.valor||0;if(!pc||m>ult||vl/pc>1000)return;var sg=segDe(canalGrupo[String(x.canal_id)]);V[sg].pecas+=pc;V[sg].valor+=vl;});
-  var pctIdeal={varejo:M.cd,atacado:M.ca},seg=['varejo','atacado'],R={};
-  var prevSeg={varejo:M.G.direta.prev,atacado:M.G.atacado.prev},prevTot=prevSeg.varejo+prevSeg.atacado;
-  // Linhas da tabela (02/11/2026: custo unitário de compra + preço unitário de venda)
-  var linhas=r[4]||[],ccDe={};d.h.centros.forEach(function(cc){ccDe[String(cc.id)]=cc;});
+  var pctIdeal={varejo:M.cd,atacado:M.ca},seg=['varejo','atacado'];
+  var ccDe={};d.h.centros.forEach(function(cc){ccDe[String(cc.id)]=cc;});
+  // Ticket médio de venda por peça (Histórico de Compras, meses de receita fechada, sem notas consolidadas > R$ 1.000/peça), por grupo e por segmento
+  var canalGrupo={},grupoEvento={};(r[3]||[]).forEach(function(c){canalGrupo[String(c.id)]=c.grupo_id;if(c.exige_eventos&&c.grupo_id)grupoEvento[String(c.grupo_id)]=1;});
+  var VG={},VS={varejo:{pecas:0,valor:0},atacado:{pecas:0,valor:0}};
+  (r[2]||[]).forEach(function(x){var m=+String(x.ano_mes).slice(5,7),pc=+x.pecas||0,vl=+x.valor||0;if(!pc||m>ult||vl/pc>1000)return;var gid=canalGrupo[String(x.canal_id)];if(!gid)return;var k=String(gid);
+    VG[k]=VG[k]||{pecas:0,valor:0};VG[k].pecas+=pc;VG[k].valor+=vl;VS[segDe(gid)].pecas+=pc;VS[segDe(gid)].valor+=vl;});
+  // Receita prevista dos meses restantes por grupo: Calendário (eventos não cancelados) nos grupos de evento — os grupos com canais que
+  // "Exigem registro de eventos" (Shows de artistas, Feiras e bazares); nos demais (E-commerce, Private Label…), Orçamento ÷ 12 × meses,
+  // porque os eventos deles no Calendário são campanhas, não a receita inteira do mês
+  var cal={};(r[5]||[]).forEach(function(e){if(e.status==='Cancelado')return;var m=e.inicio?+String(e.inicio).slice(5,7):+e.mes;if(!m||m<=ult)return;
+    var gid=e.grupo_id||(e.centro_custo_id&&ccDe[String(e.centro_custo_id)]?ccDe[String(e.centro_custo_id)].grupo_id:null);if(!gid||!grupoEvento[String(gid)])return;var k=String(gid);cal[k]=cal[k]||{v:0,n:0};cal[k].v+=Number(e.projecao)||0;cal[k].n++;});
+  var orc={};d.h.centros.forEach(function(cc){if(!(cc.conta&&cc.conta.tipo==='RECEITAS')||!cc.grupo_id)return;var k=String(cc.grupo_id);orc[k]=(orc[k]||0)+(d.prev[cc.id]||0)*restRec/12;});
+  // Tabela de peças
+  var linhas=r[4]||[];
   var T0=function(){return {q:0,c:0,rv:0,qp:0,cp:0,rp:0};},porSeg={varejo:T0(),atacado:T0()},porMes={},porGrupo={},tot0=T0();
   function soma(o,l){var q=+l.quantidade||0,c=q*(+l.valor_unitario||0),rv=q*(+l.preco_venda||0);o.q+=q;o.c+=c;o.rv+=rv;if(l.status!=='encomendada'){o.qp+=q;o.cp+=c;o.rp+=rv;}}
   linhas.forEach(function(l){var s=segDe(l.grupo_id),cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null;
     soma(porSeg[s],l);soma(tot0,l);porMes[l.mes]=porMes[l.mes]||T0();soma(porMes[l.mes],l);
     var kg=String(l.grupo_id);porGrupo[kg]=porGrupo[kg]||{t:T0(),c:{}};soma(porGrupo[kg].t,l);var kc=cc?String(cc.id):'geral';porGrupo[kg].c[kc]=porGrupo[kg].c[kc]||T0();soma(porGrupo[kg].c[kc],l);});
-  // 02/11/2026: o total é o mesmo Pode comprar da tela em R$ (Produção total); a Montagem tem a sua reserva; o resto vai
-  // para as peças, dividido pelo custo ideal da receita que cada segmento ainda vai vender (receita restante × % ideal)
+  // 1. Pode comprar (o mesmo da tela em R$) − reserva Montagem = disponível para peças
   var podeTot=Math.max(SC.Tot.podeO,0),reservaMont=0;SC.ordemT.forEach(function(k){var t=SC.tipos[k];if(t.mont)reservaMont+=Math.max(t.podeO,0);});
   reservaMont=Math.min(reservaMont,podeTot);var podePecas=podeTot-reservaMont;
-  var need={},needTot=0;seg.forEach(function(s){need[s]=prevSeg[s]*restRec/12*pctIdeal[s]/100;needTot+=need[s];});
-  seg.forEach(function(s){var t=V[s].pecas?V[s].valor/V[s].pecas:null,alvo=t!==null?t*pctIdeal[s]/100:null,share=needTot?need[s]/needTot:0,
-    pode=podePecas*share,recRest=prevSeg[s]*restRec/12,ps=porSeg[s],cmPlano=ps.qp?ps.cp/ps.qp:null;
-    R[s]={need:need[s],ticket:t,alvo:alvo,share:share,pode:pode,cabemAlvo:alvo?pode/alvo:null,cmPlano:cmPlano,cabemPlano:cmPlano?pode/cmPlano:null,recRest:recRest,neces:t?recRest/t:null,pecasHist:V[s].pecas,valorHist:V[s].valor};
-    R[s].cabem=R[s].cabemPlano!==null?R[s].cabemPlano:R[s].cabemAlvo;});
-  paCache.pecasCalc={M:M,SC:SC,R:R,ult:ult,restRec:restRec,restCompra:restCompra,ano:ano,pctIdeal:pctIdeal,prevSeg:prevSeg,porSeg:porSeg,podeTot:podeTot,reservaMont:reservaMont,podePecas:podePecas,needTot:needTot};
+  // 2. Divisão por grupo: custo ideal da receita prevista (receita × % ideal do segmento)
+  var G=[],needTot=0;
+  grupos.forEach(function(g){var k=String(g.id),sg=segDe(g.id),c=cal[k],rec=c?c.v:(orc[k]||0),pl=porGrupo[k]?porGrupo[k].t:T0();
+    if(!rec&&!pl.q)return;
+    var need=rec*pctIdeal[sg]/100;needTot+=need;
+    var tk=VG[k]&&VG[k].pecas?{v:VG[k].valor/VG[k].pecas,fonte:'grupo',pc:VG[k].pecas}:(VS[sg].pecas?{v:VS[sg].valor/VS[sg].pecas,fonte:'segmento',pc:VS[sg].pecas}:{v:null,fonte:'',pc:0});
+    G.push({id:k,nome:g.nome,seg:sg,rec:rec,fonte:c?'cal':'orc',nEv:c?c.n:0,need:need,ticket:tk.v,tkFonte:tk.fonte,tkPc:tk.pc,pl:pl});});
+  G.forEach(function(x){x.share=needTot?x.need/needTot:0;x.disp=podePecas*x.share;x.alvo=x.ticket!==null?x.ticket*pctIdeal[x.seg]/100:null;
+    x.cmPlano=x.pl.qp?x.pl.cp/x.pl.qp:null;x.custo=x.cmPlano!==null?x.cmPlano:x.alvo;x.custoFonte=x.cmPlano!==null?'plano':'alvo';x.pecas=x.custo?x.disp/x.custo:null;x.saldo=x.disp-x.pl.cp;});
+  G.sort(function(a,b){return (a.seg===b.seg?0:(a.seg==='varejo'?-1:1))||b.disp-a.disp;});
+  paCache.pecasCalc={M:M,SC:SC,G:G,ult:ult,restRec:restRec,restCompra:restCompra,ano:ano,pctIdeal:pctIdeal,podeTot:podeTot,reservaMont:reservaMont,podePecas:podePecas,needTot:needTot};
   function n0(v){return v===null||v===undefined||!isFinite(v)?'—':Math.round(v).toLocaleString('pt-BR');}
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   function pctCusto(c,rv,s){if(!rv)return '<span class="pa-mut">—</span>';var p=c/rv*100,lim=s?pctIdeal[s]:null,ok=lim===null||p<=lim+0.005;return '<span style="font-weight:700;color:'+(lim===null?'inherit':(ok?'var(--green)':'var(--gold2)'))+'" title="'+(lim===null?'':'Ideal do segmento: '+fp(lim))+'">'+fp(p)+(lim===null?'':(ok?' ✓':' ⚠'))+'</span>';}
-  var per=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—',mesesRest=restCompra?PA_MESES_AB[12-restCompra].toLowerCase()+(restCompra>1?'–dez':'')+'/'+String(ano).slice(2):'—';
+  function sit(v){return v>=-0.005?'<span style="color:var(--green);font-weight:700">'+paValor(v)+'</span>':'<span style="color:var(--red);font-weight:700">−'+paValor(-v)+'</span><br><span class="pa-orig">excede</span>';}
+  var mesesRest=restRec?PA_MESES_AB[12-restRec].toLowerCase()+(restRec>1?'–dez':'')+'/'+String(ano).slice(2):'—';
   var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'compras\')">🛒 Saldo de Compras Anual (R$)</button><button class="btn btn-ghost btn-sm" onclick="paFormulaPecas()">🧮 Fórmula das peças</button><button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'pecas\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
-  html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+per+'</b> · Período de compra: <b>'+mesesRest+'</b> ('+restCompra+' '+(restCompra===1?'mês':'meses')+') · Pode comprar no ano: <b>'+paBRL(podeTot)+'</b> (o mesmo do Saldo de Compras Anual R$) · Reserva Montagem: <b>'+paBRL(reservaMont)+'</b> · Disponível para peças: <b>'+paBRL(podePecas)+'</b></span></div>';
-  // Bloco 1 — referência
-  function linha(rot,f,cls,tit,ftot){return '<tr class="'+(cls||'cc')+'"><td'+(tit?' title="'+paEsc(tit)+'"':'')+'>'+rot+'</td>'+seg.map(function(s){return '<td>'+f(R[s],s)+'</td>';}).join('')+'<td>'+(ftot?ftot():'')+'</td></tr>';}
-  function somaR(k){return R.varejo[k]!==null&&R.atacado[k]!==null?R.varejo[k]+R.atacado[k]:null;}
-  html+='<h3 class="pa-h3">1. Referência — quantas peças o saldo compra e quantas a meta pede</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:960px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Varejo</th><th>Atacado</th><th>Total</th></tr></thead><tbody>'+
-    linha('Ticket médio por peça ('+per+', Histórico de Compras)',function(x){return x.ticket===null?'—':paValor(x.ticket)+'<br><span class="pa-orig">'+n0(x.pecasHist)+' pç vendidas</span>';},'cc','Vendas ÷ peças do Histórico de Compras; notas consolidadas (acima de R$ 1.000 por peça) ficam de fora')+
-    linha('× Custo ideal do segmento',function(x,s){return fp(pctIdeal[s]);})+
-    linha('= Custo-alvo por peça <span class="pa-orig">(média geral — referência)</span>',function(x){return x.alvo===null?'—':paValor(x.alvo);},'cc')+
-    linha('Custo médio das peças planejadas <span class="pa-orig">(da tabela abaixo)</span>',function(x){return x.cmPlano===null?'<span class="pa-mut">sem peças planejadas</span>':'<b>'+paValor(x.cmPlano)+'</b>';},'sub','Custo total planejado ÷ peças planejadas do segmento — usa o custo de compra real de cada peça')+
-    linha('Custo ideal da receita restante <span class="pa-orig">(receita orçada × % ideal)</span>',function(x){return paValor(x.need)+'<br><span class="pa-orig">'+fp(x.share*100)+'</span>';},'cc','Receita orçada dos meses restantes × custo ideal do segmento: define a fatia de cada segmento',function(){return paValor(needTot);})+
-    linha('Disponível para peças, dividido pelo custo ideal',function(x){return '<b>'+paValor(x.pode)+'</b>';},'sub','Pode comprar no ano (o mesmo da tela em R$) − reserva da Montagem Coleções, dividido pela fatia de cada segmento no custo ideal da receita restante',function(){return '<b>'+paValor(podePecas)+'</b>';})+
-    linha('<b>Peças que cabem no saldo</b>',function(x){return '<b>'+n0(x.cabem)+'</b><br><span class="pa-orig">'+(x.cabemPlano!==null?'pelo custo do plano':'pelo custo-alvo')+(restCompra&&x.cabem?' · '+n0(x.cabem/restCompra)+'/mês':'')+'</span>';},'conta rec','Pode comprar ÷ custo médio das peças planejadas; sem peças planejadas, ÷ custo-alvo',function(){return '<b>'+n0(somaR('cabem'))+'</b>';})+
-    linha('Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes'),function(x){return paValor(x.recRest);},'cc','',function(){return paValor(R.varejo.recRest+R.atacado.recRest);})+
-    linha('<b>Peças necessárias para a meta</b> (÷ ticket)',function(x){return '<b>'+n0(x.neces)+'</b>';},'conta desp','Peças que precisam ser vendidas para bater o orçado dos meses restantes — o estoque atual cobre parte delas',function(){return '<b>'+n0(somaR('neces'))+'</b>';})+
-    '</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:6px">A diferença entre as peças necessárias e as que cabem precisa vir do <b>estoque</b>. Monte a compra na tabela abaixo olhando o estoque de cada peça.</p>';
-  // Bloco 2 — Tabela de Peças a Comprar
-  html+='<h3 class="pa-h3">2. 📋 Tabela de Peças a Comprar</h3>';
+  // Bloco 1
+  html+='<h3 class="pa-h3">1. Pode comprar até o fim do exercício</h3>';
+  html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><tbody>'+
+    '<tr class="cc"><td>Pode comprar — <a class="pa-link" onclick="navigatePlanejamento(\'compras\')">Saldo de Compras Anual (R$)</a></td><td>'+paValor(podeTot)+(restCompra?'<br><span class="pa-orig">'+paValor(podeTot/restCompra)+'/mês</span>':'')+'</td></tr>'+
+    '<tr class="cc"><td>(−) Reserva para Montagem Coleções <span class="pa-orig">(o que a Montagem ainda pode comprar)</span></td><td>'+paValor(reservaMont)+'</td></tr>'+
+    '<tr class="conta rec"><td>= DISPONÍVEL PARA PEÇAS</td><td><b>'+paValor(podePecas)+'</b>'+(restCompra?'<br><span class="pa-orig">'+paValor(podePecas/restCompra)+'/mês</span>':'')+'</td></tr></tbody></table></div>';
+  // Bloco 2
+  html+='<h3 class="pa-h3">2. Previsto por segmento e grupo — receita de '+mesesRest+'</h3>';
+  function linhaG(x){
+    var fonte=x.fonte==='cal'?'<span class="pa-badge pa-st-ok" title="Soma da projeção dos eventos do Calendário Comercial">📅 Calendário · '+x.nEv+' evento'+(x.nEv===1?'':'s')+'</span>':'<span class="pa-badge mut" title="Orçamento previsto ÷ 12 × meses restantes">Orçamento</span>';
+    return '<tr class="cc"><td style="text-align:left;padding-left:18px">'+paEsc(x.nome)+'</td><td>'+paValor(x.rec)+'<br>'+fonte+'</td><td>'+paValor(x.disp)+'<br><span class="pa-orig">'+fp(x.share*100)+'</span></td>'+
+      '<td>'+(x.ticket===null?'—':paValor(x.ticket)+'<br><span class="pa-orig">'+(x.tkFonte==='grupo'?'do grupo':'do segmento')+'</span>')+'</td><td>'+(x.custo===null?'—':paValor(x.custo)+'<br><span class="pa-orig">'+(x.custoFonte==='plano'?'custo do plano':'ticket × '+fp(pctIdeal[x.seg]))+'</span>')+'</td>'+
+      '<td><b>'+n0(x.pecas)+'</b>'+(restCompra&&x.pecas?'<br><span class="pa-orig">'+n0(x.pecas/restCompra)+'/mês</span>':'')+'</td><td>'+n0(x.pl.qp)+' pç<br><span class="pa-orig">'+paValor(x.pl.cp)+'</span></td><td>'+sit(x.saldo)+'</td></tr>';}
+  var corpoG=seg.map(function(sg){var xs=G.filter(function(x){return x.seg===sg;});if(!xs.length)return '';
+    var t={rec:0,disp:0,pecas:0,temP:true,qp:0,cp:0,saldo:0};xs.forEach(function(x){t.rec+=x.rec;t.disp+=x.disp;if(x.pecas===null)t.temP=false;else t.pecas+=x.pecas;t.qp+=x.pl.qp;t.cp+=x.pl.cp;t.saldo+=x.saldo;});
+    return '<tr class="sub"><td style="text-align:left">'+paSimSegTag(sg)+' <b>'+PA_SEG_NOME[sg].toUpperCase()+'</b> <span class="pa-orig">custo ideal '+fp(pctIdeal[sg])+'</span></td><td>'+paValor(t.rec)+'</td><td>'+paValor(t.disp)+'</td><td></td><td></td><td><b>'+(t.temP?n0(t.pecas):'—')+'</b></td><td>'+n0(t.qp)+' pç<br><span class="pa-orig">'+paValor(t.cp)+'</span></td><td>'+sit(t.saldo)+'</td></tr>'+xs.map(linhaG).join('');}).join('');
+  var TT={rec:0,disp:0,pecas:0,qp:0,cp:0,saldo:0};G.forEach(function(x){TT.rec+=x.rec;TT.disp+=x.disp;TT.pecas+=x.pecas||0;TT.qp+=x.pl.qp;TT.cp+=x.pl.cp;TT.saldo+=x.saldo;});
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-pc-grp"><thead><tr><th style="text-align:left">Segmento / Grupo</th><th>Receita prevista<br>'+mesesRest+'</th><th title="Disponível para peças dividido pelo custo ideal da receita prevista de cada grupo (receita × % ideal do segmento)">R$ disponível</th><th title="Vendas ÷ peças do Histórico de Compras">Ticket médio<br>(venda por peça)</th><th title="Custo médio das peças planejadas do grupo; sem peças planejadas, ticket × custo ideal">Custo<br>por peça</th><th>Peças<br>previstas</th><th title="Só as peças planejadas (as encomendadas já estão nas Provisões)">Planejado<br>na tabela</th><th title="R$ disponível − R$ planejado">Saldo<br>(R$)</th></tr></thead><tbody>'+
+    (corpoG||'<tr class="cc"><td colspan="8" class="pa-mut" style="text-align:center">Sem receita prevista para '+mesesRest+'.</td></tr>')+
+    '<tr class="conta rec"><td style="text-align:left">TOTAL</td><td>'+paValor(TT.rec)+'</td><td>'+paValor(TT.disp)+'</td><td></td><td></td><td><b>'+n0(TT.pecas)+'</b></td><td>'+n0(TT.qp)+' pç<br><span class="pa-orig">'+paValor(TT.cp)+'</span></td><td>'+sit(TT.saldo)+'</td></tr></tbody></table></div>';
+  html+='<p class="pa-info" style="margin-top:6px"><b>Receita prevista:</b> 📅 Calendário (soma da projeção dos eventos não cancelados) nos grupos de eventos — Shows de artistas e Feiras e bazares (canais que exigem registro de eventos); nos demais, Orçamento previsto ÷ 12 × meses restantes. <b>R$ disponível</b> = disponível para peças × (receita × custo ideal do grupo) ÷ soma de todos os grupos. <b>Peças previstas</b> = R$ disponível ÷ custo por peça. A diferença entre as peças que a venda pede e as que cabem vem do estoque.</p>';
+  // Bloco 3 — Tabela de Peças a Comprar
+  html+='<h3 class="pa-h3">3. 📋 Tabela de Peças a Comprar</h3>';
   if(r[4]===null){html+='<div class="card">A Tabela de Peças a Comprar ainda não está disponível no banco de dados.</div>';document.getElementById('pa-root').innerHTML=html;return;}
   paPecas.linhas=linhas;
   paPecas.centrosRec=d.h.centros.filter(function(cc){return cc.ativo&&cc.conta&&cc.conta.tipo==='RECEITAS'&&cc.grupo_id;});
@@ -1888,27 +1906,16 @@ async function paPecasComprar(){
   }).join('');
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-pc-tbl"><thead><tr><th>Mês</th><th>Segmento</th><th>Grupo</th><th>Centro de receita</th><th>Peça</th><th>Qtd</th><th>Custo unit.<br>(compra)</th><th>Preço unit.<br>(venda)</th><th>Custo<br>total</th><th>Receita<br>total</th><th title="Custo ÷ preço de venda, comparado ao ideal do segmento">% custo</th><th>Status</th><th></th></tr></thead><tbody>'+
     (corpo||'<tr class="cc"><td colspan="13" class="pa-mut" style="text-align:center;padding:14px">Nenhuma peça lançada para '+ano+'. '+(podeEd?'Use o formulário acima.':'')+'</td></tr>')+'</tbody></table></div>';
-  // Totalizadores
+  // Totalizadores da tabela
   function tl(rot,o,cls,s){return '<tr class="'+(cls||'cc')+'"><td>'+rot+'</td><td>'+n0(o.q)+'</td><td>'+paValor(o.c)+'</td><td>'+paValor(o.rv)+'</td><td>'+pctCusto(o.c,o.rv,s)+'</td><td>'+n0(o.qp)+'</td><td>'+paValor(o.cp)+'</td><td>'+paValor(o.rp)+'</td></tr>';}
   var th='<thead><tr><th></th><th>Peças</th><th>Custo<br>total</th><th>Receita<br>total</th><th>% custo</th><th title="Só as planejadas (as encomendadas já estão nas Provisões)">Peças<br>planejadas</th><th>Custo<br>planejado</th><th>Receita<br>planejada</th></tr></thead>';
-  var tSeg=seg.map(function(s){return tl(PA_SEG_NOME[s],porSeg[s],'cc',s);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
   var tMes=Object.keys(porMes).sort(function(a,b){return a-b;}).map(function(m){return tl(PA_MESES[m-1]+'/'+ano,porMes[m]);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
   var tGr=seg.map(function(sg){var ks=Object.keys(porGrupo).filter(function(kg){return segDe(kg)===sg;});if(!ks.length)return '';
-    return tl('<b>'+PA_SEG_NOME[sg].toUpperCase()+'</b> '+paSimSegTag(sg),porSeg[sg],'sub',sg)+ks.map(function(kg){var G=porGrupo[kg],g=grupoDe[kg];
-      return tl('<span style="padding-left:12px;font-weight:600">'+paEsc(g?g.nome:'#'+kg)+'</span>',G.t,'cc',sg)+Object.keys(G.c).map(function(kc){return tl('<span style="padding-left:28px">'+(kc==='geral'?'<span class="pa-mut">Geral do grupo</span>':paEsc((ccDe[kc]||{}).nome||'#'+kc))+'</span>',G.c[kc],'cc',sg);}).join('');}).join('');}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
-  html+='<div class="pa-pc-tots"><div style="grid-column:1/-1"><div class="pa-pc-tt">Por segmento</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tSeg+'</tbody></table></div>'+
-    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div>'+
-    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Por segmento, grupo e centro de receita</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tGr+'</tbody></table></div></div>';
-  html+='<p class="pa-info" style="margin-top:6px"><b>Receita total é potencial:</b> supõe que todas as peças compradas sejam vendidas no período, pelo preço cheio (sem desconto e sem sobra para o estoque).</p>';
-  // Bloco 3 — confronto
-  function sit(plan,lim,fmt){if(lim===null||lim===undefined||!isFinite(lim))return '<span class="pa-mut">—</span>';var f=lim-plan;return f>=-0.005?'<span style="color:var(--green);font-weight:700">cabe</span><br><span class="pa-orig">sobram '+fmt(f)+'</span>':'<span style="color:var(--red);font-weight:700">excede</span><br><span class="pa-orig">'+fmt(-f)+' acima</span>';}
-  function cob(rec,meta){if(!meta)return '<span class="pa-mut">—</span>';var p=rec/meta*100;return '<b>'+fp(p)+'</b><br><span class="pa-orig">'+(p>=99.995?'cobre a meta':'faltam '+paValor(meta-rec)+' (estoque)')+'</span>';}
-  var fR=function(v){return paValor(v);},fQ=function(v){return n0(v)+' pç';},cabTot=somaR('cabem'),recRestTot=R.varejo.recRest+R.atacado.recRest;
-  html+='<h3 class="pa-h3">3. Confronto — plano × saldo e × meta de receita</h3>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Custo<br>planejado</th><th>Pode comprar<br>(R$)</th><th>Situação<br>(R$)</th><th>Peças<br>planejadas</th><th>Peças que<br>cabem</th><th>Situação<br>(peças)</th><th title="Receita total de todas as peças da tabela (planejadas + encomendadas): tudo vira estoque para vender">Receita das<br>peças</th><th>Receita orçada<br>meses restantes</th><th>Cobertura<br>da meta</th></tr></thead><tbody>'+
-    seg.map(function(s){var o=porSeg[s],x=R[s];return '<tr class="cc"><td>'+PA_SEG_NOME[s]+'</td><td>'+paValor(o.cp)+'</td><td>'+paValor(x.pode)+'</td><td>'+sit(o.cp,x.pode,fR)+'</td><td>'+n0(o.qp)+'</td><td>'+n0(x.cabem)+'</td><td>'+sit(o.qp,x.cabem,fQ)+'</td><td>'+paValor(o.rv)+'</td><td>'+paValor(x.recRest)+'</td><td>'+cob(o.rv,x.recRest)+'</td></tr>';}).join('')+
-    '<tr class="conta rec"><td>TOTAL</td><td>'+paValor(tot0.cp)+'</td><td>'+paValor(podePecas)+'</td><td>'+sit(tot0.cp,podePecas,fR)+'</td><td>'+n0(tot0.qp)+'</td><td>'+n0(cabTot)+'</td><td>'+sit(tot0.qp,cabTot,fQ)+'</td><td>'+paValor(tot0.rv)+'</td><td>'+paValor(recRestTot)+'</td><td>'+cob(tot0.rv,recRestTot)+'</td></tr></tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:8px">Custo e peças: só as <b>planejadas</b> entram no confronto com o saldo — as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a>, já descontadas do Pode comprar. Receita: entram todas as peças da tabela. Centro de receita em branco = <b>Geral do grupo</b> (não é um centro do Plano de Contas). Montagem Coleções não entra na conta de peças.</p>';
+    return tl('<b>'+PA_SEG_NOME[sg].toUpperCase()+'</b> '+paSimSegTag(sg),porSeg[sg],'sub',sg)+ks.map(function(kg){var Gx=porGrupo[kg],g=grupoDe[kg];
+      return tl('<span style="padding-left:12px;font-weight:600">'+paEsc(g?g.nome:'#'+kg)+'</span>',Gx.t,'cc',sg)+Object.keys(Gx.c).map(function(kc){return tl('<span style="padding-left:28px">'+(kc==='geral'?'<span class="pa-mut">Geral do grupo</span>':paEsc((ccDe[kc]||{}).nome||'#'+kc))+'</span>',Gx.c[kc],'cc',sg);}).join('');}).join('');}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
+  if(linhas.length)html+='<div class="pa-pc-tots"><div style="grid-column:1/-1"><div class="pa-pc-tt">Totais por segmento, grupo e centro de receita</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tGr+'</tbody></table></div>'+
+    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Totais por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div></div>'+
+    '<p class="pa-info" style="margin-top:6px"><b>Receita total é potencial:</b> supõe que todas as peças sejam vendidas no período, pelo preço cheio. Só as peças <b>planejadas</b> entram no saldo do item 2 — as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a>, já descontadas do Pode comprar.</p>';
   document.getElementById('pa-root').innerHTML=html;
   if(podeEd)paPecasGrupoMudou();
 }
@@ -1979,37 +1986,29 @@ async function paPecasExcluir(id){
 }
 function paFormulaPecas(){
   var C=paCache.pecasCalc;if(!C){showToast('Abra a tela primeiro.','info');return;}
-  var R=C.R,SC=C.SC,M=C.M;
   function v(x){return x===null||x===undefined||!isFinite(x)?'—':(x<-0.005?'−':'')+paValor(Math.abs(x));}
   function pc(x){return x===null||x===undefined||!isFinite(x)?'—':x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
   function n0(x){return x===null||x===undefined||!isFinite(x)?'—':Math.round(x).toLocaleString('pt-BR');}
   function passo(n,tit,linhas,orig){return '<div class="pa-form-passo"><div class="pa-form-tit"><span>'+n+'</span>'+tit+'</div><table class="pa-form-tbl">'+linhas.map(function(l){return '<tr class="'+(l[3]||'')+'"><td>'+l[0]+'</td><td class="pa-form-conta">'+(l[1]||'')+'</td><td class="pa-form-val">'+(l[2]||'')+'</td></tr>';}).join('')+'</table>'+(orig?'<div class="pa-form-orig">Fonte: '+orig+'</div>':'')+'</div>';}
   var h='<div class="modal-box pa-modal-wide"><div class="modal-title">🧮 Fórmula das peças — Saldo de Compras Anual (Peças)</div><p class="pa-info" style="margin:4px 0 12px">Calculado agora com os mesmos dados da tela ('+C.ano+'). A conta usa todas as casas decimais.</p>',n=1;
   h+=passo(n++,'Disponível para peças',[
-    ['Pode comprar no ano (Produção total — o mesmo da tela em R$)','',v(C.podeTot)],
-    ['(−) Reserva para Montagem Coleções (o que a Montagem ainda pode comprar)','',v(C.reservaMont)],
+    ['Pode comprar (Saldo de Compras Anual R$)','',v(C.podeTot)],
+    ['(−) Reserva para Montagem Coleções','',v(C.reservaMont)],
     ['= Disponível para peças',v(C.podeTot)+' − '+v(C.reservaMont),v(C.podePecas),'forte']],'Saldo de Compras Anual (R$) — 🧮 Fórmula do Saldo Ideal');
-  h+=passo(n++,'Divisão pelo custo ideal da receita restante',[
-    ['Varejo',v(C.prevSeg.varejo)+' × '+C.restRec+' ÷ 12 × '+pc(C.pctIdeal.varejo),v(R.varejo.need)],
-    ['Atacado',v(C.prevSeg.atacado)+' × '+C.restRec+' ÷ 12 × '+pc(C.pctIdeal.atacado),v(R.atacado.need)],
-    ['Total','',v(C.needTot)],
-    ['Fatia do Varejo',v(R.varejo.need)+' ÷ '+v(C.needTot),pc(R.varejo.share*100),'forte'],
-    ['Fatia do Atacado',v(R.atacado.need)+' ÷ '+v(C.needTot),pc(R.atacado.share*100),'forte']],'Receita: Orçamento › Previsto · % ideal: Mix de Vendas › ⚙ Referências');
-  ['varejo','atacado'].forEach(function(s){var x=R[s],nm=PA_SEG_NOME[s],ps=C.porSeg[s];
-    var ls=[
-      ['Disponível para o segmento',v(C.podePecas)+' × '+pc(x.share*100),v(x.pode)],
-      ['Ticket médio por peça (Histórico)',v(x.valorHist)+' ÷ '+n0(x.pecasHist)+' pç',v(x.ticket)],
-      ['Custo-alvo por peça (referência)',v(x.ticket)+' × '+pc(C.pctIdeal[s]),v(x.alvo)]];
-    if(x.cmPlano!==null){ls.push(['Custo médio das peças planejadas',v(ps.cp)+' ÷ '+n0(ps.qp)+' pç',v(x.cmPlano),'forte']);ls.push(['Peças que cabem (pelo custo do plano)',v(x.pode)+' ÷ '+v(x.cmPlano),n0(x.cabemPlano),'final']);}
-    else ls.push(['Peças que cabem (pelo custo-alvo — sem peças planejadas)',v(x.pode)+' ÷ '+v(x.alvo),n0(x.cabemAlvo),'final']);
-    ls.push(['Receita orçada dos meses restantes',v(C.prevSeg[s])+' × '+C.restRec+' ÷ 12',v(x.recRest)]);
-    ls.push(['Peças necessárias para a meta',v(x.recRest)+' ÷ '+v(x.ticket),n0(x.neces),'forte']);
-    if(ps.rv)ls.push(['Cobertura da meta pelas peças da tabela',v(ps.rv)+' ÷ '+v(x.recRest)+' × 100',pc(x.recRest?ps.rv/x.recRest*100:null),'forte']);
-    h+=passo(n++,nm,ls,'Ticket: Histórico de Compras (sem notas consolidadas) · custo ideal: Mix de Vendas › ⚙ Referências · receita: Orçamento › Previsto · custo e preço das peças: Tabela de Peças a Comprar');});
+  h+=passo(n++,'Custo ideal da receita prevista de cada grupo',C.G.map(function(x){return [paEsc(x.nome)+' <span class="pa-orig">('+(x.fonte==='cal'?'Calendário':'Orçamento')+')</span>',v(x.rec)+' × '+pc(C.pctIdeal[x.seg]),v(x.need)];}).concat([['Total','',v(C.needTot),'forte']]),'Receita: Calendário Comercial (eventos não cancelados) ou Orçamento › Previsto ÷ 12 × meses restantes · % ideal: Mix de Vendas › ⚙ Referências');
+  C.G.forEach(function(x){
+    var ls=[['Fatia do grupo',v(x.need)+' ÷ '+v(C.needTot),pc(x.share*100)],
+      ['R$ disponível',v(C.podePecas)+' × '+pc(x.share*100),v(x.disp),'forte'],
+      ['Ticket médio de venda por peça ('+(x.tkFonte==='grupo'?'do grupo':'do segmento')+', '+n0(x.tkPc)+' pç no Histórico)','',v(x.ticket)]];
+    if(x.custoFonte==='plano')ls.push(['Custo por peça (média das peças planejadas)',v(x.pl.cp)+' ÷ '+n0(x.pl.qp)+' pç',v(x.custo)]);
+    else ls.push(['Custo por peça (ticket × custo ideal)',v(x.ticket)+' × '+pc(C.pctIdeal[x.seg]),v(x.custo)]);
+    ls.push(['Peças previstas',v(x.disp)+' ÷ '+v(x.custo),n0(x.pecas),'final']);
+    ls.push(['Saldo após o planejado',v(x.disp)+' − '+v(x.pl.cp),v(x.saldo)]);
+    h+=passo(n++,paEsc(x.nome)+' · '+PA_SEG_NOME[x.seg],ls);});
   h+='<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
   openModal(h);
 }
-(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-pc-form{margin-bottom:12px;padding:12px}.pa-pc-tbl tr.pa-pc-enc td{opacity:.65}.pa-pc-tbl td:nth-child(3),.pa-pc-tbl td:nth-child(4),.pa-pc-tbl td:nth-child(5),.pa-pc-tbl th:nth-child(3),.pa-pc-tbl th:nth-child(4),.pa-pc-tbl th:nth-child(5){text-align:left;font-family:var(--ff-b)}.pa-pc-tots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.pa-pc-tt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin:0 0 4px}@media(max-width:900px){.pa-pc-tots{grid-template-columns:1fr}}';})();
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-pc-form{margin-bottom:12px;padding:12px}.pa-pc-tbl tr.pa-pc-enc td{opacity:.65}.pa-pc-tbl td:nth-child(3),.pa-pc-tbl td:nth-child(4),.pa-pc-tbl td:nth-child(5),.pa-pc-tbl th:nth-child(3),.pa-pc-tbl th:nth-child(4),.pa-pc-tbl th:nth-child(5){text-align:left;font-family:var(--ff-b)}.pa-pc-grp td:first-child{white-space:normal}.pa-pc-tots{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}.pa-pc-tt{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2);margin:0 0 4px}@media(max-width:900px){.pa-pc-tots{grid-template-columns:1fr}}';})();
 
 // ─── Comparativo de Modelo — Ciclo × Mercado (Previsto vs. Realizado, antes da Visão Anual — 01/11/2026) — 27/10/2026 ─────
 // Por grupo do ecossistema e centro: Realizado (base da Estrutura: consolidado ou média), Mercado (meta Ciclo),
@@ -2701,19 +2700,16 @@ var PA_TUT={
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
   ['2. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado (Grupos e Metas).'],
   ['Provisões','Vêm de Orçamento › Provisões: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
- pecas:{t:'Saldo de Compras Anual (Peças)',d:'O Saldo de Compras em quantidade: quantas peças o dinheiro que ainda pode ser gasto compra, quantas peças a meta de vendas pede e o plano de compra peça a peça.',c:[
-  ['Ticket médio por peça','Vendas ÷ peças do Histórico de Compras nos meses de receita fechada, por segmento. Notas consolidadas (acima de R$ 1.000 por peça) ficam de fora.','Vendas ÷ peças'],
-  ['Custo-alvo por peça','Quanto cada peça deveria custar para ficar no custo ideal do segmento (Mix de Vendas › ⚙ Referências: venda direta para Varejo, atacado para Atacado).','Ticket por peça × custo ideal %'],
-  ['Disponível para peças','O mesmo Pode comprar do Saldo de Compras Anual (R$), menos a reserva da Montagem Coleções (o que ela ainda pode comprar; zero quando já passou da meta).','Pode comprar no ano − reserva Montagem'],
-  ['Divisão por segmento','Pelo custo ideal da receita que cada segmento ainda vai vender: receita orçada dos meses restantes × % ideal (Varejo 30%, Atacado 50%). Não depende de onde a Produção foi lançada (Varejo ou Atacado), separação que ainda não é controlada.','Fatia = (receita restante × % ideal) ÷ soma dos segmentos'],
-  ['Peças necessárias','Peças que precisam ser vendidas para bater a receita orçada dos meses restantes. A diferença para as que cabem vem do estoque.','Receita orçada dos meses restantes ÷ ticket por peça'],
-  ['📋 Tabela de Peças a Comprar','Uma linha por peça: mês da compra, segmento (escolhido primeiro; filtra os grupos), grupo (obrigatório; o segmento vem do cadastro do grupo), centro de receita (opcional — em branco = Geral do grupo, não é um centro do Plano de Contas), peça, quantidade, custo unitário de compra, preço unitário de venda e status.'],
-  ['Custo total · Receita total · % custo','Custo total = quantidade × custo de compra. Receita total = quantidade × preço de venda (potencial: supõe que tudo seja vendido no período, pelo preço cheio). % custo = custo ÷ preço de venda, com ✓ dentro ou ⚠ acima do ideal do segmento (Varejo 30%, Atacado 50%).','Custo ÷ preço de venda × 100'],
-  ['Peças que cabem','Com peças planejadas na tabela, usa o custo médio delas (custo planejado ÷ peças planejadas), que reflete o preço real de cada produto. Sem peças planejadas, usa o custo-alvo médio como referência.','Pode comprar do segmento ÷ custo médio do plano'],
-  ['Cobertura da meta','Receita total das peças da tabela (planejadas + encomendadas) ÷ receita orçada dos meses restantes. O que faltar precisa vir do estoque.'],
-  ['Planejada × Encomendada','Planejada entra no confronto com o saldo. Encomendada já deve estar em Orçamento › Provisões (que já foi descontada do pode comprar), por isso fica fora do confronto para não contar duas vezes.'],
-  ['Totais e confronto','Por segmento, por mês, por grupo e centro e o total do período, em peças e R$. O confronto compara o planejado com o pode comprar (R$) e com as peças que cabem.'],
-  ['🧮 Fórmula das peças','Abre a conta passo a passo com os números do momento.']]},
+ pecas:{t:'Saldo de Compras Anual (Peças)',d:'O Saldo de Compras em quantidade: quanto pode ser comprado, como isso se divide entre os grupos pela receita que cada um ainda vai vender, quantas peças isso dá e o plano de compra peça a peça.',c:[
+  ['1. Pode comprar','O mesmo Pode comprar do Saldo de Compras Anual (R$), menos a reserva da Montagem Coleções (o que ela ainda pode comprar; zero quando já passou da meta) = disponível para peças.','Pode comprar − reserva Montagem'],
+  ['2. Receita prevista do grupo','📅 Calendário: soma da projeção dos eventos não cancelados dos meses restantes, nos grupos de eventos (canais que exigem registro de eventos: Shows de artistas, Feiras e bazares). Orçamento: previsto ÷ 12 × meses restantes, nos demais — E-commerce, Private Label e outros têm no Calendário só as campanhas, não a receita inteira do mês.'],
+  ['R$ disponível do grupo','O disponível para peças dividido pelo custo ideal da receita prevista de cada grupo (receita × 30% no Varejo, × 50% no Atacado). Não depende de onde a Produção foi lançada (Varejo ou Atacado).','Disponível × (receita do grupo × % ideal) ÷ soma dos grupos'],
+  ['Ticket médio','Vendas ÷ peças do Histórico de Compras do grupo nos meses de receita fechada (sem notas consolidadas). Grupo sem vendas no Histórico usa o ticket do segmento.'],
+  ['Custo por peça','Custo médio das peças planejadas do grupo na tabela; sem peças planejadas, ticket × custo ideal do segmento.'],
+  ['Peças previstas','Quantas peças o R$ disponível do grupo compra.','R$ disponível ÷ custo por peça'],
+  ['Planejado e saldo','Peças planejadas do grupo na tabela (as encomendadas já estão nas Provisões) e o saldo em R$ (vermelho = excede).','R$ disponível − R$ planejado'],
+  ['3. 📋 Tabela de Peças a Comprar','Uma linha por peça: mês, segmento (filtra os grupos), grupo, centro de receita (opcional — em branco = Geral do grupo), peça, quantidade, custo unitário de compra, preço unitário de venda e status planejada/encomendada. Custo total, receita total (potencial) e % custo ✓/⚠ contra o ideal do segmento.'],
+  ['🧮 Fórmula das peças','Abre a conta passo a passo com os números do momento, grupo a grupo.']]},
  estrutura:{t:'Plano de Redução de Custos › Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
   ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; o total da empresa e o Resultado anual não mudam.'],
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],

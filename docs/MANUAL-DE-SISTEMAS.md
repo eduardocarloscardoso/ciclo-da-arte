@@ -1003,6 +1003,13 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Varejo e Atacado pelo **custo ideal da receita restante** (receita orçada dos meses restantes × 30% / 50%) — não
   pela participação na receita nem pela separação VJ/AT da Produção, que ainda não é controlada na origem.
   Segmento escolhido antes do grupo (filtra os grupos); tabela e totais na ordem Segmento › Grupo › Centro.
+  **Reorganização (02/11/2026, Cardoso; só código):** 1. Pode comprar (o mesmo da tela em R$) − reserva Montagem =
+  disponível para peças; 2. Previsto por segmento e grupo: receita dos meses restantes pelo **Calendário** nos grupos de
+  eventos (canais com "Exige registro de eventos": Shows de artistas, Feiras e bazares) e pelo Orçamento ÷ 12 nos demais
+  (E-commerce/Private Label têm no Calendário só campanhas); R$ disponível por grupo pelo custo ideal da receita
+  (× 30% / 50%), ticket médio do grupo (Histórico; senão do segmento), custo por peça (média do plano ou ticket × %
+  ideal), peças previstas, planejado e saldo; 3. Tabela de Peças a Comprar. Saíram a caixa "Referência" e o confronto
+  separado (o confronto está nas colunas Planejado/Saldo).
 - **Reprevisão de receitas 2026 — Shows de artistas e Feiras e bazares (02/11/2026, pedido de Cardoso):**
   `cda_pa_orcamento_previsto` (ano 2026) = realizado jan–out + projeção do Calendário Comercial nov–dez (eventos não
   cancelados). SHOWS LUEDJI LUNA (19): 100.000,00 → **126.989,50** (86.289,25 + 40.700,25); SHOWS GILSONS (21):
