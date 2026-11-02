@@ -995,6 +995,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   receita total (potencial), % custo ✓/⚠ contra o ideal do segmento. "Peças que cabem" passa a usar o custo médio
   das peças planejadas (custo-alvo médio só como referência). Confronto ganha receita das peças × receita orçada
   dos meses restantes (cobertura da meta; o que faltar vem do estoque).
+  **Ajuste (02/11/2026, Cardoso; só código):** a tela de Peças parte do **mesmo Pode comprar da tela em R$**
+  (Produção total), tira a reserva da Montagem Coleções (o que ela ainda pode comprar) e divide o disponível entre
+  Varejo e Atacado pelo **custo ideal da receita restante** (receita orçada dos meses restantes × 30% / 50%) — não
+  pela participação na receita nem pela separação VJ/AT da Produção, que ainda não é controlada na origem.
+  Segmento escolhido antes do grupo (filtra os grupos); tabela e totais na ordem Segmento › Grupo › Centro.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
