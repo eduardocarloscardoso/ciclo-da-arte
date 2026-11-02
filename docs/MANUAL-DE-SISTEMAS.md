@@ -966,6 +966,14 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Orçamento Realizado, Provisão Prevista, Comparativo Mensal, Visão Trimestral/Anual Acumulada,
   Comparativo de Metas, Comparativo de Modelo, Estrutura de Custos Fixos/Variáveis, grupo Simulações.
   Ids das páginas mantidos (`PA_PAGES`, campos `tela`/`aba`); cada tela com abas lembra a última aba.
+- **Ajustes do menu (02/11/2026, aprovados por Cardoso; só código, sem dados):** Grupos e Segmentos →
+  **Grupos e Metas**, onde passa a ser digitado o **Mercado % (meta Ciclo)** de cada centro (antes na tela de
+  custos; só admin; Produção 🔗 continua calculada pelo Mix) — junto com Marca comum e motivo. **Orçamento**
+  vira item único com abas Previsto · Realizado · Provisões (abre em Realizado na primeira vez).
+  **Previsto × Realizado** ganha a aba **Desvios e Projeção** (ex-Comparativo de Metas). **Ciclo × Mercado**
+  vira item próprio no Acompanhamento, com atalho "✏ editar metas → Grupos e Metas". Estrutura de Custos →
+  **Plano de Redução de Custos** (Análises e Decisões › Custos; Mercado só leitura com ✏). "Metas" só aparece
+  em Grupos e Metas.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
