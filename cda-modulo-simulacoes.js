@@ -6,7 +6,7 @@
 // provisões já comprometidas, comparadas com o saldo do orçamento. Cenários salvos por campanha.
 // Segmento Varejo/Atacado vem do grupo (cda_grupo.segmento). Depende de cda-modulo-planejamento.js.
 // ════════════════════════════════════════════════════════════════════
-// Menu de 02/11/2026: Análises e Decisões › Compras de Produção (junto do Saldo de Compras do Ano)
+// Menu de 02/11/2026: Análises e Decisões › Compras de Produção (junto do Saldo de Compras Anual R$ e Peças)
 PA_PAGES.simcampanha = {icon:'🛍', label:'Simulação por Campanha', grupo:'ana', sec:'Compras de Produção'};
 // a página Tutorial continua por último no menu
 (function(){var t=PA_PAGES.tutorial;delete PA_PAGES.tutorial;PA_PAGES.tutorial=t;})();

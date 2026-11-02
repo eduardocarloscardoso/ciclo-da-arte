@@ -980,6 +980,16 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   **🧮 Fórmula do Saldo Ideal** (02/11/2026): botão na linha "Pode comprar" e 🧮 em cada tipo de custo; janela com
   o cálculo passo a passo (mix, custo ideal, receita do ano, teto, saldos, pode comprar) com os números do momento
   (`paFormulaSaldo`). Só código.
+- **Saldo de Compras Anual (R$) e (Peças) (02/11/2026, Cardoso):** a tela de saldo passou a se chamar "Saldo de
+  Compras Anual (R$)"; nova tela **Saldo de Compras Anual (Peças)** em Compras de Produção (`paPecasComprar`):
+  custo-alvo por peça (ticket médio por peça do Histórico × custo ideal do segmento), peças que cabem no pode
+  comprar do custo do produto (sem Montagem, repartido pela receita orçada) e peças necessárias para a meta; e a
+  **📋 Tabela de Peças a Comprar** — nova tabela `cda_pa_pecas_compra` (SQL
+  `docs/sql/planejamento_anual_18_pecas_comprar.sql`; sem dados antigos): mês, grupo (obrigatório, segmento vem do
+  grupo), centro de receita opcional ("Geral do grupo" = vazio, nenhum centro criado no Plano de Contas), peça
+  (texto livre; no futuro, cadastro de produtos), quantidade, valor unitário, status planejada/encomendada (só
+  planejadas no confronto). Totais por segmento, mês, grupo/centro e período; confronto com o saldo; 🧮 Fórmula.
+  Estoque: fica a cargo de quem monta a tabela (integração Bling no futuro).
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
