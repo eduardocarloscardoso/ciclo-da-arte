@@ -465,8 +465,8 @@ tr:hover td{background:#faf7f0;}
       <h4>2. Relatórios do BLING usados no ecossistema</h4>
       <table class="tb-t"><thead><tr><th>Relatório BLING</th><th>Onde é importado</th><th>Para onde vai</th></tr></thead><tbody>
         <tr><td>Relatório de Vendas — por produto</td><td>Financeiro › Importar Planilha Bling (esta tela)</td><td>Prestação de Contas + Histórico de Compras</td></tr>
-        <tr><td>Relatório de Vendas — total por vendedor (colunas "Vendedor" e "Total Venda")</td><td>Planejamento Anual › Orçamento Realizado › Importar (Receitas)</td><td>Realizado mensal por centro de custo (canal → centro)</td></tr>
-        <tr><td>Relatório de Pagamentos (1ª coluna = categoria/centro; 2ª = valor)</td><td>Planejamento Anual › Orçamento Realizado › Importar (Despesas)</td><td>Realizado mensal por centro de custo</td></tr>
+        <tr><td>Relatório de Vendas — total por vendedor (colunas "Vendedor" e "Total Venda")</td><td>Planejamento Anual › Orçamento › Realizado › Importar (Receitas)</td><td>Realizado mensal por centro de custo (canal → centro)</td></tr>
+        <tr><td>Relatório de Pagamentos (1ª coluna = categoria/centro; 2ª = valor)</td><td>Planejamento Anual › Orçamento › Realizado › Importar (Despesas)</td><td>Realizado mensal por centro de custo</td></tr>
       </tbody></table>
       <ul>
         <li>As linhas 1 e 2 vêm do <b>mesmo relatório de vendas</b>: a soma das prestações do mês deve bater com a Receita do Orçamento Realizado.</li>
@@ -477,8 +477,8 @@ tr:hover td{background:#faf7f0;}
       <h4>3. Importações por Excel no ecossistema (levantamento 29/10/2026)</h4>
       <table class="tb-t"><thead><tr><th>Módulo › tela</th><th>Planilha</th><th>Origem</th><th>Destino na centralização</th></tr></thead><tbody>
         <tr><td>Financeiro › Importar Planilha Bling</td><td>Vendas por produto</td><td>BLING</td><td>Vai para a Integração API Bling (tela 3)</td></tr>
-        <tr><td>Planejamento Anual › Orçamento Realizado › Importar</td><td>Vendas por vendedor · Pagamentos</td><td>BLING</td><td>Vai para a Integração API Bling (telas 1 e 2)</td></tr>
-        <tr><td>Planejamento Anual › Orçamento Anual › Importar</td><td>Previsto do ano + Realizado do ano anterior (layout Manus)</td><td>Planilha própria</td><td>Fica onde está</td></tr>
+        <tr><td>Planejamento Anual › Orçamento › Realizado › Importar</td><td>Vendas por vendedor · Pagamentos</td><td>BLING</td><td>Vai para a Integração API Bling (telas 1 e 2)</td></tr>
+        <tr><td>Planejamento Anual › Orçamento › Previsto › Importar</td><td>Previsto do ano + Realizado do ano anterior (layout Manus)</td><td>Planilha própria</td><td>Fica onde está</td></tr>
         <tr><td>Painel › Ações › Importar Excel</td><td>Tarefas do plano de ação</td><td>Planilha própria</td><td>Fica onde está</td></tr>
       </tbody></table>
       <p class="tb-mut">Backups (JSON), PDFs de cardápio e Word dos tutoriais não são importações de Excel. Estoque, Comercial e Marketing não importam Excel.</p>
@@ -496,7 +496,7 @@ tr:hover td{background:#faf7f0;}
         <li>Permissões: telas 1 e 2 gravam no Planejamento Anual (regra de escrita de lá — administrador); tela 3 mantém a permissão atual do Financeiro.</li>
         <li>O botão Importar do Orçamento Realizado passará a abrir este submódulo (um só caminho).</li>
         <li>Rateio do Uber aplicado automaticamente a cada atualização de despesas; coluna Origem passa a mostrar "Bling".</li>
-        <li><b>Provisão automática</b> (decisão de 29/10/2026): provisão = compromisso já assumido e ainda não pago. Com a API, a <b>Provisão Prevista de despesas</b> passa a ser as <b>contas a pagar em aberto</b> no BLING (por categoria → centro) e a de <b>receitas</b>, as <b>contas a receber em aberto</b>. Ao pagar/receber, o valor sai da provisão e entra no Realizado — sem relançar provisões no fechamento e sem contar duas vezes. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais. Na tela Provisão Prevista os botões ⚡ Auto passaram a se chamar <b>⚡ Bling</b> como lembrete (hoje ainda gravam Previsto − Realizado).</li>
+        <li><b>Provisão automática</b> (decisão de 29/10/2026): provisão = compromisso já assumido e ainda não pago. Com a API, a <b>Provisão Prevista de despesas</b> passa a ser as <b>contas a pagar em aberto</b> no BLING (por categoria → centro) e a de <b>receitas</b>, as <b>contas a receber em aberto</b>. Ao pagar/receber, o valor sai da provisão e entra no Realizado — sem relançar provisões no fechamento e sem contar duas vezes. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais. Na tela Orçamento › Provisões os botões ⚡ Auto passaram a se chamar <b>⚡ Bling</b> como lembrete (hoje ainda gravam Previsto − Realizado).</li>
       </ul>
 
       <h4>5. Dados da API a criar no BLING (API v3)</h4>

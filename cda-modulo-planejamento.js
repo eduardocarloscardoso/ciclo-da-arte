@@ -12,31 +12,42 @@
 // ════════════════════════════════════════════════════════════════════
 
 var PA_PROJETO = 'planejamento_anual';
+// Menu reorganizado em 02/11/2026 (Cardoso): ciclo de gestão — Estrutura → Orçamento → Acompanhamento → Análises e Decisões.
+// Telas com o mesmo cálculo em recortes diferentes viram uma entrada só, com abas (campo `tela`; `aba` = rótulo da aba).
+// Os ids das páginas não mudaram (links internos e memória da última tela continuam valendo).
 var PA_PAGES = {
-  tabela:      {icon:'🗂', label:'Tabelas Contábeis'},
-  grupos:      {icon:'🧩', label:'Tabela de Grupos'},
-  orcamento:   {icon:'🎯', label:'Orçamento Anual'},
-  realizado:   {icon:'🧾', label:'Orçamento Realizado'},
-  provisao:    {icon:'🔮', label:'Provisão Prevista'},
-  comparativo: {icon:'📊', label:'Comparativo Mensal', grupo:'pxr'},
-  trimestral:  {icon:'📅', label:'Visão Trimestral Acumulada', grupo:'pxr'},
-  modelo:      {icon:'⚖', label:'Comparativo de Modelo — Ciclo × Mercado', grupo:'pxr'},
-  anual:       {icon:'📈', label:'Visão Anual Acumulada', grupo:'pxr'},
-  metas:       {icon:'🏁', label:'Comparativo de Metas', grupo:'pxr'},
-  mix:         {icon:'🧩', label:'Mix de Vendas e Custo Ideal', grupo:'ae', sec:'Receitas'},
-  compras:     {icon:'🛒', label:'Saldo de Compras de Produção', grupo:'ae', sec:'Receitas'},
-  estrutura:   {icon:'🏛', label:'Estrutura de Custos Fixos', grupo:'ae', sec:'Despesas'},
-  variaveis:   {icon:'⚖️', label:'Estrutura de Custos Variáveis', grupo:'ae', sec:'Despesas'},
-  margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ae', sec:'Despesas'},
+  tabela:      {icon:'🗂', label:'Plano de Contas', grupo:'est'},
+  grupos:      {icon:'🏷', label:'Grupos e Segmentos', grupo:'est'},
+  orcamento:   {icon:'📝', label:'Previsto', grupo:'orc'},
+  realizado:   {icon:'🧾', label:'Realizado', grupo:'orc'},
+  provisao:    {icon:'🔮', label:'Provisões', grupo:'orc'},
+  comparativo: {icon:'📊', label:'Previsto × Realizado', tela:'pxr', aba:'Mês', grupo:'aco'},
+  trimestral:  {icon:'📊', label:'Previsto × Realizado', tela:'pxr', aba:'Trimestre', grupo:'aco'},
+  anual:       {icon:'📊', label:'Previsto × Realizado', tela:'pxr', aba:'Ano acumulado', grupo:'aco'},
+  metas:       {icon:'🏁', label:'Metas e Mercado', tela:'mm', aba:'Metas', grupo:'aco'},
+  modelo:      {icon:'🏁', label:'Metas e Mercado', tela:'mm', aba:'Ciclo × Mercado', grupo:'aco'},
+  mix:         {icon:'🧩', label:'Mix de Vendas e Custo Ideal', grupo:'ana', sec:'Receitas e Canais'},
+  margem:      {icon:'🧮', label:'Margem por Canal', grupo:'ana', sec:'Receitas e Canais'},
+  estrutura:   {icon:'🏛', label:'Estrutura de Custos', tela:'ec', aba:'Fixos', grupo:'ana', sec:'Custos'},
+  variaveis:   {icon:'🏛', label:'Estrutura de Custos', tela:'ec', aba:'Variáveis', grupo:'ana', sec:'Custos'},
+  compras:     {icon:'🛒', label:'Saldo de Compras do Ano', grupo:'ana', sec:'Compras de Produção'},
   tutorial:    {icon:'📘', label:'Tutorial'}
 };
-var PA_GRUPOS = {pxr:{icon:'📉', label:'Previsto vs. Realizado'}, ae:{icon:'🧭', label:'Análises Estratégicas'}};
+var PA_GRUPOS = {
+  est:{icon:'⚙️', label:'Estrutura', desc:'Como o orçamento é organizado'},
+  orc:{icon:'🎯', label:'Orçamento', desc:'O que planejamos e o que aconteceu'},
+  aco:{icon:'📉', label:'Acompanhamento', desc:'Estamos dentro do plano?'},
+  ana:{icon:'🧭', label:'Análises e Decisões', desc:'O que fazer daqui para frente'}
+};
+// Páginas (abas) de uma tela, na ordem do menu
+function paAbasDe(tela){return Object.keys(PA_PAGES).filter(function(id){return PA_PAGES[id].tela===tela;});}
 var PA_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Estado da tela (filtros persistem entre páginas do módulo)
 var paEstado = {
   page: 'tabela',
-  grupoAberto: {pxr:false, ae:false},
+  grupoAberto: {est:false, orc:false, aco:false, ana:false},
+  abaTela: {},             // última aba aberta de cada tela com abas
   ano: new Date().getFullYear(),
   mes: null,               // definido pelo último mês realizado
   tipo: '',                // '' | RECEITAS | DESPESAS
@@ -169,21 +180,23 @@ function paErro(e, padrao){var m=paMsgErro(e,padrao);showToast(m,'error');return
 // ─── Sidebar e navegação ─────────────────────────────────────────────
 function paRenderSidebar(nav){
   nav.innerHTML+='<div class="sb-section">Planejamento Anual</div>';
-  var feitos={};
+  var feitos={},atual=PA_PAGES[paEstado.page]||{};
   function item(id,recuo){
-    var p=PA_PAGES[id];
-    return '<div class="nav-item '+(paEstado.page===id?'active':'')+'" id="nav-pa-'+id+'" onclick="navigatePlanejamento(\''+id+'\')" style="padding-left:'+recuo+'px;font-size:11.5px'+(p.fase?';opacity:.55':'')+'" title="'+(p.fase?'Em desenvolvimento — Fase '+p.fase:'')+'"><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
+    var p=PA_PAGES[id],ativo=paEstado.page===id||(p.tela&&p.tela===atual.tela);
+    var destino=p.tela?(paEstado.abaTela[p.tela]||id):id;
+    return '<div class="nav-item '+(ativo?'active':'')+'" id="nav-pa-'+(p.tela?'tela-'+p.tela:id)+'" onclick="navigatePlanejamento(\''+destino+'\')" style="padding-left:'+recuo+'px;font-size:11.5px'+(p.fase?';opacity:.55':'')+'"'+(p.tela?' title="'+paEsc(paAbasDe(p.tela).map(function(x){return PA_PAGES[x].aba;}).join(' · '))+'"':'')+'><span class="nav-icon">'+p.icon+'</span>'+p.label+'</div>';
   }
   Object.keys(PA_PAGES).forEach(function(id){
     var g=PA_PAGES[id].grupo;
     if(!g){nav.innerHTML+=item(id,32);return;}
     if(feitos[g])return;feitos[g]=1;
-    var dentro=PA_PAGES[paEstado.page]&&PA_PAGES[paEstado.page].grupo===g;
+    var dentro=atual.grupo===g;
     var aberto=paEstado.grupoAberto[g]||dentro;
-    nav.innerHTML+='<div class="nav-item'+(dentro?' active':'')+'" id="nav-pa-grupo-'+g+'" onclick="paAlternarGrupo(\''+g+'\')" style="padding-left:32px;font-size:11.5px" role="button" aria-expanded="'+aberto+'"><span class="nav-icon">'+PA_GRUPOS[g].icon+'</span>'+PA_GRUPOS[g].label+'<span style="margin-left:auto;font-size:10px;opacity:.7">'+(aberto?'▾':'▸')+'</span></div>';
-    var secAtual=null;
-    if(aberto)Object.keys(PA_PAGES).forEach(function(sid){if(PA_PAGES[sid].grupo!==g)return;
-      var sc=PA_PAGES[sid].sec;if(sc&&sc!==secAtual){secAtual=sc;nav.innerHTML+='<div class="pa-nav-sec" style="padding:8px 0 2px 52px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);opacity:.8">'+sc+'</div>';}
+    nav.innerHTML+='<div class="nav-item'+(dentro?' active':'')+'" id="nav-pa-grupo-'+g+'" onclick="paAlternarGrupo(\''+g+'\')" style="padding-left:32px;font-size:11.5px" role="button" aria-expanded="'+aberto+'" title="'+paEsc(PA_GRUPOS[g].desc||'')+'"><span class="nav-icon">'+PA_GRUPOS[g].icon+'</span>'+PA_GRUPOS[g].label+'<span style="margin-left:auto;font-size:10px;opacity:.7">'+(aberto?'▾':'▸')+'</span></div>';
+    var secAtual=null,telas={};
+    if(aberto)Object.keys(PA_PAGES).forEach(function(sid){var sp=PA_PAGES[sid];if(sp.grupo!==g)return;
+      if(sp.tela){if(telas[sp.tela])return;telas[sp.tela]=1;}
+      var sc=sp.sec;if(sc&&sc!==secAtual){secAtual=sc;nav.innerHTML+='<div class="pa-nav-sec" style="padding:8px 0 2px 52px;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted2);opacity:.8">'+sc+'</div>';}
       nav.innerHTML+=item(sid,48);});
   });
 }
@@ -195,10 +208,13 @@ async function navigatePlanejamento(page){
   currentProject=PA_PROJETO;paEstado.page=page;renderSidebarNav();
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');if(iframeWrap)iframeWrap.style.display='none';
   var p=PA_PAGES[page];
-  document.getElementById('page-title').textContent='Planejamento Anual · '+p.label;
+  if(p.tela)paEstado.abaTela[p.tela]=page;
+  document.getElementById('page-title').textContent='Planejamento Anual · '+p.label+(p.aba?' · '+p.aba:'');
   var el=document.getElementById('main-content');
   var banner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — você pode consultar, mas não alterar.</div>':'';
-  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual · Receitas e Despesas</p></div><div id="pa-root"><div class="card">Carregando…</div></div>';
+  var abas=p.tela?'<div class="pa-abas-tela" role="tablist">'+paAbasDe(p.tela).map(function(id){return '<button role="tab" aria-selected="'+(id===page)+'" class="'+(id===page?'on':'')+'" onclick="navigatePlanejamento(\''+id+'\')">'+PA_PAGES[id].aba+'</button>';}).join('')+'</div>':'';
+  var trilha=(p.grupo&&PA_GRUPOS[p.grupo]?PA_GRUPOS[p.grupo].label+(p.sec?' › '+p.sec:''):'Planejamento Anual');
+  el.innerHTML=banner+'<div class="ph"><h1>'+p.icon+' '+p.label+'</h1><p>Planejamento Anual · '+trilha+'</p></div>'+abas+'<div id="pa-root"><div class="card">Carregando…</div></div>';
   if(p.fase){
     document.getElementById('pa-root').innerHTML='<div class="rec-box"><div class="rec-title">🚧 Em desenvolvimento — Fase '+p.fase+'</div><p>Este painel está sendo migrado do Manus. Enquanto isso, use o sistema antigo para esta consulta.</p></div>';
     return;
@@ -666,7 +682,7 @@ async function paTabelaContabil(){
   var semG=0,confG=0;h.centros.forEach(function(x){if(!x.conta||!x.ativo)return;var rec=x.conta.tipo==='RECEITAS',g=paGrupoDe(x);if(!g)semG++;else if(g.tipo!==(rec?'Receita':'Despesa'))confG++;});
   if(semG||confG)html+='<div class="pa-info" style="color:var(--gold2)">⚠ '+(semG?semG+' centro(s) sem grupo':'')+(semG&&confG?' · ':'')+(confG?confG+' centro(s) em grupo do tipo errado':'')+' — ajuste na coluna Grupo.</div>';
   html+='<div class="pa-info">'+h.contas.length+' contas · '+h.subcontas.length+' subcontas · '+tot+' centros de custo ('+ativos+' ativos)'+(podeEd?' · <b>✏️ Clique no nome</b> para renomear · <b>⏸</b> inativa / <b>▶</b> reativa · <b>🗑</b> exclui (só sem lançamentos) · <b>＋ Novo cadastro</b> inclui conta, subconta ou centro':'')+'</div>';
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda) ou fixa (estrutura). Vem do GRUPO do centro — para mudar, troque o grupo na coluna Grupo. Na subconta, resumo dos centros. Receitas: sem natureza fixa/variável.">Natureza</th><th style="text-align:center" title="Grupo do ecossistema (Tabelas Contábeis › Grupos). A natureza do centro precisa ser a mesma do grupo.">Grupo</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th style="text-align:center" title="Despesas: variável (acompanha a venda) ou fixa (estrutura). Vem do GRUPO do centro — para mudar, troque o grupo na coluna Grupo. Na subconta, resumo dos centros. Receitas: sem natureza fixa/variável.">Natureza</th><th style="text-align:center" title="Grupo do ecossistema (Grupos e Segmentos). A natureza do centro precisa ser a mesma do grupo.">Grupo</th><th style="text-align:center" title="Valor que vale hoje (reprevisão): R$/mês para despesas fixas e financeiras e receitas recorrentes; % sobre a receita vinculada para despesas variáveis. Em branco = o sistema usa a média dos últimos 3 meses.">Vigente</th><th style="text-align:center">Situação</th><th style="text-align:center">Ações</th></tr></thead><tbody>';
   paContasFiltradas(h).forEach(function(g){
     var c=g.conta;
     if(paEstado.centroId&&!g.subcontas.some(function(s){return s.centros.some(function(x){return String(x.id)===String(paEstado.centroId);});}))return;
@@ -1038,7 +1054,7 @@ function paFormCadastro(){
     '<label id="pa-nv-tipo-l" style="display:none">Tipo<select id="pa-nv-tipo"><option>RECEITAS</option><option>DESPESAS</option></select></label>'+
     '<label>Nome<input id="pa-nv-nome" maxlength="160" style="min-width:260px"></label>'+
     '<button class="btn btn-primary btn-sm" onclick="paSalvarCadastro()">Salvar</button><button class="btn btn-ghost btn-sm" onclick="document.getElementById(\'pa-form\').innerHTML=\'\'">Cancelar</button></div>'+
-    '<p class="pa-info" style="margin:0">Novos centros de custo já aparecem no Orçamento Anual e no Realizado com valor zero.</p></div>';
+    '<p class="pa-info" style="margin:0">Novos centros de custo já aparecem no Previsto e no Realizado com valor zero.</p></div>';
   paFormNivel();
 }
 function paFormNivel(){
@@ -1128,6 +1144,8 @@ function paBadgeStatus(st){
   return '<span class="pa-badge pa-st-'+c+'">'+st+'</span>';
 }
 (function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-badge.pa-st-ok{background:rgba(62,201,122,.15);color:var(--green)}.pa-badge.pa-st-warn{background:rgba(201,148,58,.18);color:var(--gold2)}.pa-badge.pa-st-err{background:rgba(232,51,74,.15);color:var(--red)}.pa-badge.pa-st-int{background:#4c0519;color:#fecdd3;border:1px solid #be123c}.pa-badge.pa-st-mut{background:var(--card2);color:var(--muted2)}\n.pa-bar{display:inline-block;width:70px;height:6px;border-radius:3px;background:var(--card2);vertical-align:middle;margin-left:8px;overflow:hidden}.pa-bar i{display:block;height:100%;border-radius:3px}\n.pa-btn-auto{background:rgba(155,114,207,.15);color:var(--purple);border:1px solid rgba(155,114,207,.35);border-radius:6px;font-size:10.5px;font-weight:700;padding:3px 8px;cursor:pointer;font-family:var(--ff-b);white-space:nowrap}.pa-btn-auto:hover{background:rgba(155,114,207,.28)}\n.pa-in.prov{color:var(--purple)}.pa-in.prov.neg{color:var(--red)}\n.pa-tut h3{font-family:var(--ff-d);font-size:16px;margin:18px 0 6px}.pa-tut p,.pa-tut li{font-size:13px;color:var(--muted2);line-height:1.6}.pa-tut ul{padding-left:20px}.pa-tut b{color:var(--white)}.pa-tut code{font-family:var(--ff-m);font-size:12px;background:var(--card2);padding:1px 6px;border-radius:4px;color:var(--gold2)}';})();
+// Abas das telas consolidadas (menu de 02/11/2026)
+(function(){var s=document.getElementById('pa-estilos');if(s)s.textContent+='\n.pa-abas-tela{display:inline-flex;gap:2px;background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:3px;margin:-4px 0 16px}.pa-abas-tela button{background:transparent;border:0;color:var(--muted2);font-family:var(--ff-b);font-size:12.5px;font-weight:600;padding:7px 16px;border-radius:7px;cursor:pointer}.pa-abas-tela button:hover{color:var(--white)}.pa-abas-tela button.on{background:var(--red);color:#fff}';})();
 
 // Bloco de KPIs comum (Receitas, Despesas, Resultado)
 function paKpisPrevReal(tot,rotReal,mini){
@@ -1483,7 +1501,7 @@ async function paAbrirResultado(){
     '</tbody></table>';
   if(merc&&m){
     var pReal=real.luc/m*100,pMerc=merc.luc/m*100,gap=pMerc-pReal,gMc=R.mcMerc-real.mc/m*100,gFx=real.fix/m*100-R.fxMerc;
-    html+='<div class="pa-res-concl">'+(gap>0.05?'<b>Para chegar ao lucro de mercado faltam '+fp(gap).replace('%',' p.p.')+' (≈ '+paBRL(merc.luc-real.luc)+'/mês):</b> '+fp(gMc).replace('%',' p.p.')+' vêm da margem e '+fp(gFx).replace('%',' p.p.')+' dos custos fixos.'+(gMc>gFx?' O maior ganho está em reduzir custos variáveis ou subir preço — veja a Margem por Canal.':' O maior ganho está nos custos fixos — veja a Estrutura de Custos Fixos.'):'<b>O lucro realizado está no nível de mercado ou acima.</b>')+'</div>';
+    html+='<div class="pa-res-concl">'+(gap>0.05?'<b>Para chegar ao lucro de mercado faltam '+fp(gap).replace('%',' p.p.')+' (≈ '+paBRL(merc.luc-real.luc)+'/mês):</b> '+fp(gMc).replace('%',' p.p.')+' vêm da margem e '+fp(gFx).replace('%',' p.p.')+' dos custos fixos.'+(gMc>gFx?' O maior ganho está em reduzir custos variáveis ou subir preço — veja a Margem por Canal.':' O maior ganho está nos custos fixos — veja a Estrutura de Custos › Fixos.'):'<b>O lucro realizado está no nível de mercado ou acima.</b>')+'</div>';
   }
   var mcP=m?real.mc/m:0;
   html+='<p class="pa-info" style="margin-top:10px">'+(mcP>0?'Ponto de equilíbrio com a margem atual ('+fp(mcP*100)+'): receita de ≈ <b>'+paBRL(real.fix/mcP)+'/mês</b> para cobrir '+paBRL(real.fix)+' de custos fixos.':'Margem atual negativa: não há ponto de equilíbrio.')+
@@ -1605,7 +1623,7 @@ async function paMixVendas(){
     '<tr class="cc"><td>÷ Receita do período</td><td></td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
     '<tr class="conta '+(difReal>0?'desp':'rec')+'"><td>'+(difReal>0?'Acima do ideal':'Dentro do ideal')+'</td><td></td><td>'+fpp(difOrc)+'</td><td>'+fpp(difReal)+(ult?'<br><span class="pa-orig">'+(excesso>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(excesso)/ult)+'/mês</span>':'')+'</td></tr>'+
     '</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tipo do canal: <b>Direta</b> = consumidor final (inclui Revendas, comissionadas como vendedores e artistas) · <b>Atacado/B2B</b> = Private Label. '+(adm?'Altere o tipo na coluna Tipo; os % de custo ideal ficam em ⚙ Referências.':'Tipo e % de custo ideal: só o administrador altera.')+' O custo ideal do produto também é o Mercado da Produção (Varejo + Atacado) na Estrutura de Custos Variáveis; Montagem Coleções mantém o Mercado de cada centro. Período só com meses de receita fechada (a receita hipotética do mês em aberto não entra, porque não se divide por canal).</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tipo do canal: <b>Direta</b> = consumidor final (inclui Revendas, comissionadas como vendedores e artistas) · <b>Atacado/B2B</b> = Private Label. '+(adm?'Altere o tipo na coluna Tipo; os % de custo ideal ficam em ⚙ Referências.':'Tipo e % de custo ideal: só o administrador altera.')+' O custo ideal do produto também é o Mercado da Produção (Varejo + Atacado) na Estrutura de Custos › Variáveis; Montagem Coleções mantém o Mercado de cada centro. Período só com meses de receita fechada (a receita hipotética do mês em aberto não entra, porque não se divide por canal).</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 async function paSalvarTipoVenda(id,tipo){
@@ -1682,7 +1700,7 @@ async function paSaldoCompras(){
   html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas pa-compras3"><thead><tr><th>Tipo de custo</th><th>Orçado ano</th><th class="pa-c-atual">Realizado<br>'+perDesp+'</th><th title="Provisão Prevista: valores já comprometidos e ainda não lançados">Provisões</th>'+
     '<th title="Realizado + Provisões: total já gasto ou comprometido, e o % da receita do período. Vermelho = passou o Ideal Ciclo (limite de compras). Em branco quando não há provisão">Tot. Real.<br>+ Prov.</th>'+
-    '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Tabelas Contábeis › Grupos)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
+    '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Grupos e Segmentos)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Teto ideal (cenário orçamento) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(orçamento)</th><th class="pa-c-merc" title="Teto ideal (cenário ritmo atual) × peso do tipo − Realizado − Provisões">Saldo ideal<br>(ritmo atual)</th>'+
     '<th title="Menor entre saldo pelo orçamento e saldo ideal (orçamento)">Pode comprar<br>(otimista)</th><th title="Menor entre saldo pelo orçamento e saldo ideal (ritmo atual)">Pode comprar<br>(conservador)</th></tr></thead><tbody>';
   // % por tipo (28/10/2026): orçado ÷ receita orçada; realizado ÷ receita (mesma base do bloco 1) e peso na produção; ideal Ciclo e marca comum
   var marcaTot=0,temMarca=false;
@@ -1705,7 +1723,7 @@ async function paSaldoCompras(){
       cel(t.saldoOrc)+cel(t.saldoIdO)+cel(t.saldoIdR)+pode(t.podeO,'')+pode(t.podeR,'')+'</tr>';});
   html+='<tr class="conta desp"><td>TOTAL PRODUÇÃO</td>'+cOrc(Tot)+cReal(Tot,true)+'<td>'+paValor(Tot.prov)+'</td>'+cRP(Tot)+cRef(Tot)+cel(Tot.saldoOrc,true)+cel(Tot.saldoIdO,true)+cel(Tot.saldoIdR,true)+pode(Tot.podeO,'')+pode(Tot.podeR,'')+'</tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">O ideal de cada tipo de custo do produto é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto; cada centro de Montagem Coleções usa o seu Mercado (Estrutura de Custos). <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Provisão Prevista</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
+  html+='<p class="pa-info" style="margin-top:10px">O ideal de cada tipo de custo do produto é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto; cada centro de Montagem Coleções usa o seu Mercado (Estrutura de Custos). <b>Pode comprar</b> = o menor entre o saldo pelo orçamento e o saldo pelo ideal; abaixo, o valor por mês nos '+restCompra+' meses restantes. Provisões vêm da tela <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a> — mantenha-as atualizadas com o que já foi encomendado.</p>';
   document.getElementById('pa-root').innerHTML=html;
 }
 
@@ -1815,7 +1833,7 @@ async function paComparativoModelo(){
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-modelo"><thead><tr><th>Grupo / centro de custo</th>'+
     '<th title="Base de comparação da Estrutura: valor consolidado quando cadastrado, senão a média jan–último mês">Realizado Ciclo<br>R$/mês · %</th>'+
     '<th title="Meta da Ciclo (Mercado %), definida na Estrutura de Custos. Produção 🔗 = custo ideal do Mix de Vendas">Mercado<br>(meta Ciclo)</th>'+
-    '<th title="Referência: marca saudável do mesmo porte, sem loja própria (Tabelas Contábeis › Grupos)">Marca<br>comum</th>'+
+    '<th title="Referência: marca saudável do mesmo porte, sem loja própria (Grupos e Segmentos)">Marca<br>comum</th>'+
     '<th title="Realizado − Marca comum, em p.p. da receita e R$/mês">Diferença total<br>Ciclo − Marca</th>'+
     '<th title="Mercado − Marca comum: parte da diferença que é escolha do modelo da Ciclo, já aceita na meta (ver Motivo)">Parte do<br>modelo (p.p.)</th>'+
     '<th title="Realizado − Mercado: quanto a Ciclo está acima da própria meta">A reduzir<br>(acima da meta)</th>'+
@@ -2183,7 +2201,7 @@ async function paMargemCanal(){
   html+='<tr class="conta desp"><td>(−) CUSTOS FIXOS</td>'+paCelula(paValor(fixos.prev))+paCelula(fp(pct(fixos.prev,tot.prev)))+'<td></td>'+paCelula(paValor(fixos.real))+'<td></td>'+paCelula(fp(pct(fixos.real,tot.real)))+'<td></td><td></td><td></td><td></td></tr>';
   html+='<tr class="conta '+(res.real>=0?'rec':'desp')+'"><td>= RESULTADO</td>'+paCelula(paValor(res.prev),res.prev<0?'var(--red)':'var(--green)')+paCelula(fp(pct(res.prev,tot.prev)))+'<td></td><td></td>'+paCelula(paValor(res.real),res.real<0?'var(--red)':'var(--green)',600)+paCelula(fp(pct(res.real,tot.real)),res.real<0?'var(--red)':'var(--green)',600)+'<td></td><td></td><td></td><td></td></tr>';
   html+='</tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. Margem do canal = Receita do canal − despesas variáveis rateadas para ele. Status: com meta de margem — atingida = <b>OK</b> · até 5 p.p. abaixo = <b>Atenção</b> · mais de 5 p.p. abaixo = <b>Fora de controle</b>; sem meta, só acusa margem negativa. Canais ordenados pela margem em R$. Os custos fixos não são rateados entre canais (veja a <a class="pa-link" onclick="navigatePlanejamento(\'estrutura\')">Estrutura de Custos Fixos</a>).</p>';
+  html+='<p class="pa-info" style="margin-top:10px">Tabela em R$. Margem do canal = Receita do canal − despesas variáveis rateadas para ele. Status: com meta de margem — atingida = <b>OK</b> · até 5 p.p. abaixo = <b>Atenção</b> · mais de 5 p.p. abaixo = <b>Fora de controle</b>; sem meta, só acusa margem negativa. Canais ordenados pela margem em R$. Os custos fixos não são rateados entre canais (veja a <a class="pa-link" onclick="navigatePlanejamento(\'estrutura\')">Estrutura de Custos › Fixos</a>).</p>';
   html+=paBlocoComissoes(d,canaisFin,ult,fGr);
   document.getElementById('pa-root').innerHTML=html;
 }
@@ -2228,20 +2246,25 @@ function paBlocoComissoes(d,canais,ult,fGr){
 function paTutorial(){
   document.getElementById('pa-root').innerHTML='<div class="card pa-tut" style="max-width:900px">'+
   '<p>O <b>Planejamento Anual</b> organiza o orçamento de <b>Receitas e Despesas</b> da Ciclo da Arte em três níveis: <b>Conta</b> (Receitas/Despesas) → <b>Subconta</b> → <b>Centro de Custo</b>. Os valores do <b>Ano Anterior</b> servem de base; o <b>Ano Exercício</b> é planejado (previsto) e acompanhado mês a mês (realizado).</p>'+
-  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro na <b>Tabela Contábil</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise a <b>Provisão Prevista</b> e consulte os painéis de <b>Previsto vs. Realizado</b>.</li></ul>'+
-  '<h3>2. Telas</h3><ul>'+
-  '<li><b>Tabelas Contábeis</b> — cadastro da hierarquia. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro (a subconta dá o padrão; o centro pode ter exceção). A coluna <b>Vigente</b> guarda o valor que vale hoje, com data e motivo (R$/mês para fixas e financeiras; % da receita para variáveis) — o Orçado não muda. No fim da página, <b>Vínculos Receita × Despesa</b> liga cada despesa variável aos canais de receita. Na <b>Tabela de Grupos</b>, em Grupos de Receita, a coluna <b>Segmento</b> (Varejo / Atacado) diz a que segmento pertence cada grupo; os eventos do Calendário Comercial e as Simulações herdam o segmento pelo grupo do canal (regra: tudo é Varejo, menos Atacado / Private Label).</li>'+
-  '<li><b>Análises Estratégicas › Margem por Canal</b> — margem de contribuição de cada canal de receita, com as despesas variáveis rateadas pelos vínculos da Tabela Contábil, meta de margem por canal e o resultado (margens − fixos).</li>'+
-  '<li><b>Análises Estratégicas › Estrutura de Custos Fixos</b> — fixos e financeiros como % da receita total (prevista e realizada), com referência de mercado, meta interna editável, status e o teste de fechamento das metas.</li>'+
-  '<li><b>Orçamento Anual</b> — Realizado do ano anterior, <b>Previsto</b> do exercício (editável), Previsto do mês, Realizado acumulado e Saldo Mensal a Realizar.</li>'+
-  '<li><b>Orçamento Realizado</b> — valores de cada mês por centro; edição manual, importação Excel e <b>Limpar Período</b> (somente administradores).</li>'+
-  '<li><b>Provisão Prevista</b> — quanto ainda se espera realizar até o fim do ano. Digite o valor ou use <b>⚡ Bling</b> (hoje: Provisão = Previsto − Realizado; em breve: contas em aberto no BLING) por centro, subconta ou conta. Pode ser negativa (roxo = positiva, vermelho = negativa).</li>'+
-  '<li><b>Comparativo Mensal</b> — previsto × realizado de um mês ou do total de meses, com variação e status.</li>'+
-  '<li><b>Visão Trimestral Acumulada</b> — os três meses do trimestre lado a lado, com totais do ano.</li>'+
-  '<li><b>Visão Anual Acumulada</b> — previsto anual, total realizado e % executado.</li>'+
-  '<li><b>Comparativo de Metas</b> — desvio contra o previsto acumulado, status e projeções; filtre por status para focar no que precisa de ação.</li></ul>'+
+  '<h3>1. Rotina mensal recomendada</h3><ul><li>Feche o mês e gere a planilha de Receitas e de Despesas (uma aba para cada, com "Receita" ou "Despesa" no nome da aba).</li><li>Em <b>Orçamento › Realizado</b>, clique em <b>⬆ Importar Excel</b>, escolha o mês e clique em <b>Pré-visualizar</b>.</li><li>Se aparecer <b>centro não encontrado</b>, nada é gravado: cadastre o centro no <b>Plano de Contas</b> ou crie um <b>apelido</b> e pré-visualize de novo.</li><li>Confirme. A planilha <b>substitui o mês inteiro</b> daquela conta — reimportar é seguro.</li><li>Revise as <b>Provisões</b> e consulte o <b>Acompanhamento</b>.</li></ul>'+
+  '<h3>2. Menu — o ciclo de gestão</h3><p>O menu segue o ciclo do orçamento: montar a estrutura, orçar, acompanhar e decidir. Telas com o mesmo cálculo em recortes diferentes ficam numa entrada só, com <b>abas</b> no topo.</p><ul>'+
+  '<li><b>⚙️ Estrutura</b> — <i>como o orçamento é organizado</i> (configuração, muda pouco).<ul>'+
+    '<li><b>Plano de Contas</b> — cadastro da hierarquia Conta → Subconta → Centro de Custo. Renomeie direto na linha; use <b>Inativar</b> em vez de excluir quando já houver valores. Apelidos de importação ficam no fim da página. Nas despesas, a coluna <b>Natureza</b> define se o custo é variável, fixo ou financeiro. A coluna <b>Vigente</b> guarda o valor que vale hoje, com data e motivo — o Orçado não muda. No fim da página, <b>Vínculos Receita × Despesa</b> liga cada despesa variável aos canais de receita.</li>'+
+    '<li><b>Grupos e Segmentos</b> — grupos do ecossistema (despesa e receita), referência de mercado e marca comum. Em Grupos de Receita, a coluna <b>Segmento</b> (Varejo / Atacado) define o segmento de cada grupo; o Calendário Comercial e a Simulação por Campanha herdam o segmento pelo grupo do canal (regra: tudo é Varejo, menos Atacado / Private Label).</li></ul></li>'+
+  '<li><b>🎯 Orçamento</b> — <i>o que planejamos e o que aconteceu</i> (lançamentos do mês).<ul>'+
+    '<li><b>Previsto</b> — Realizado do ano anterior, <b>Previsto</b> do exercício (editável), Previsto do mês, Realizado acumulado e Saldo Mensal a Realizar.</li>'+
+    '<li><b>Realizado</b> — valores de cada mês por centro; edição manual, importação Excel e <b>Limpar Período</b> (somente administradores).</li>'+
+    '<li><b>Provisões</b> — quanto ainda se espera realizar até o fim do ano (já comprometido e não lançado). Digite o valor ou use <b>⚡ Bling</b> por centro, subconta ou conta. Pode ser negativa (roxo = positiva, vermelho = negativa).</li></ul></li>'+
+  '<li><b>📉 Acompanhamento</b> — <i>estamos dentro do plano?</i> (reunião mensal de resultado).<ul>'+
+    '<li><b>Previsto × Realizado</b> — abas <b>Mês</b> (um mês ou o total de meses, com variação e status), <b>Trimestre</b> (os três meses lado a lado, com totais do ano) e <b>Ano acumulado</b> (previsto anual, total realizado e % executado).</li>'+
+    '<li><b>Metas e Mercado</b> — abas <b>Metas</b> (desvio contra o previsto acumulado, status e projeções; filtre por status) e <b>Ciclo × Mercado</b> (o realizado contra a meta da Ciclo e a marca comum, por grupo e centro).</li></ul></li>'+
+  '<li><b>🧭 Análises e Decisões</b> — <i>o que fazer daqui para frente</i>.<ul>'+
+    '<li><b>Receitas e Canais › Mix de Vendas e Custo Ideal</b> — de onde vem a venda e qual deveria ser o custo da Produção para esse mix.</li>'+
+    '<li><b>Receitas e Canais › Margem por Canal</b> — margem de contribuição de cada canal, com as despesas variáveis rateadas pelos vínculos, meta de margem e o resultado (margens − fixos).</li>'+
+    '<li><b>Custos › Estrutura de Custos</b> — abas <b>Fixos</b> (fixos e financeiros) e <b>Variáveis</b>, como % da receita, com mercado, meta, status, redução mensal e plano de ação.</li>'+
+    '<li><b>Compras de Produção › Saldo de Compras do Ano</b> e <b>Simulação por Campanha</b> — quanto ainda se pode comprar de Produção (Varejo, Atacado e Montagem Coleções) no ano e numa campanha do Calendário, sem estourar orçamento nem custo ideal.</li></ul></li></ul>'+
   '<h3>3. Fórmulas</h3><ul><li><code>Previsto Mês = Previsto Anual ÷ 12</code></li><li><code>Saldo Total a Realizar = Previsto − (Realizado + Provisão)</code></li><li><code>Meses restantes = 12 − último mês realizado</code></li><li><code>Saldo Mensal a Realizar = Saldo Total ÷ meses restantes</code></li><li><code>% Desvio (Metas) = (Realizado − Previsto Mês × meses com lançamento) ÷ previsto acumulado</code></li><li><code>Projeção Anual = Realizado + Saldo ÷ meses sem lançamento × meses sem lançamento</code></li></ul>'+
-  '<h3>4. Cores e status</h3><ul><li><b>Receitas</b>: realizar abaixo do previsto é desfavorável (vermelho). <b>Despesas</b>: gastar acima do previsto é desfavorável (vermelho).</li><li>Comparativo Mensal: <b>OK</b> até 10% · <b>Atenção</b> 10–30% · <b>Crítico</b> acima de 30%.</li><li>Comparativo de Metas: <b>OK</b> favorável · <b>Atenção</b> até 10% · <b>Crítico</b> 10–20% · <b>Intervenção</b> acima de 20%.</li></ul>'+
+  '<h3>4. Cores e status</h3><ul><li><b>Receitas</b>: realizar abaixo do previsto é desfavorável (vermelho). <b>Despesas</b>: gastar acima do previsto é desfavorável (vermelho).</li><li>Previsto × Realizado (Mês): <b>OK</b> até 10% · <b>Atenção</b> 10–30% · <b>Crítico</b> acima de 30%.</li><li>Metas e Mercado (Metas): <b>OK</b> favorável · <b>Atenção</b> até 10% · <b>Crítico</b> 10–20% · <b>Intervenção</b> acima de 20%.</li></ul>'+
   '<h3>5. Filtros</h3><p>Todas as telas têm <b>Ano</b>, <b>Conta</b>, <b>Subconta</b> e o modo <b>Analítico/Sintético</b> (Sintético mostra só os totais por subconta). Os painéis consideram apenas cadastros <b>ativos</b>.</p>'+
   '<h3>6. Acesso</h3><p>Liberado em <b>Credenciamento</b> marcando o projeto <b>Planejamento Anual</b>. Usuários "somente leitura" consultam sem editar. Exclusões e limpeza de período são exclusivas de administradores.</p></div>';
 }
@@ -2255,7 +2278,7 @@ var PA_TUT_COMUM=[
  ['Cadastros considerados','Somente contas, subcontas e centros de custo ATIVOS na Tabela Contábil.']
 ];
 var PA_TUT={
- realizado:{t:'Orçamento Realizado',d:'Valores realizados mês a mês, por centro de custo. Os dados vêm do sistema ERP BLING, exportados em planilha Excel e importados aqui. Em breve a planilha será substituída por integração direta (API) com o BLING.',c:[
+ realizado:{t:'Orçamento › Realizado',d:'Valores realizados mês a mês, por centro de custo. Os dados vêm do sistema ERP BLING, exportados em planilha Excel e importados aqui. Em breve a planilha será substituída por integração direta (API) com o BLING.',c:[
   ['Origem dos dados — Receitas','BLING › Relatório de Vendas. Na planilha, a coluna "Vendedor" é o canal de venda (centro de receita) e "Total Venda" é o valor.'],
   ['Origem dos dados — Despesas','BLING › Relatório de Pagamentos. 1ª coluna = centro de custo (categoria do BLING), 2ª coluna = valor pago no mês.'],
   ['⬆ Importar Excel','Escolha ano e mês e o arquivo. Cada aba precisa ter "Receita" ou "Despesa" no nome (ou escolha o tipo). Cada aba substitui o mês inteiro daquela conta. Antes de gravar aparece a prévia: centros reconhecidos, apelidos e nomes não encontrados.'],
@@ -2265,7 +2288,7 @@ var PA_TUT={
   ['Origem','De onde veio o valor: Excel (importação da planilha do BLING), Manual (corrigido na tela ou ajuste registrado, ex.: separações de VT, Uber, Impostos/Parcelamento), Manus (migração do sistema antigo, já desativado).'],
   ['🗑 Limpar Período','Administrador: apaga os lançamentos de um período para reimportar. Use com cuidado.'],
   ['Integração futura','A importação por planilha será substituída por API direta com o BLING (Receitas e Pagamentos), sem precisar exportar Excel.']]},
- provisao:{t:'Provisão Prevista',d:'Valor ainda a realizar no ano que já está comprometido ou esperado por centro de custo (ex.: impostos e comissões a pagar, receitas contratadas). A provisão entra no Saldo Total e nos relatórios "com Provisão".',c:[
+ provisao:{t:'Orçamento › Provisões',d:'Valor ainda a realizar no ano que já está comprometido ou esperado por centro de custo (ex.: impostos e comissões a pagar, receitas contratadas). A provisão entra no Saldo Total e nos relatórios "com Provisão".',c:[
   ['Último mês realizado / Meses restantes','Acima da tabela: o último mês com lançamentos no ano e quantos meses faltam até dezembro. Os meses restantes dividem o Saldo Total no Saldo Mensal.','Meses restantes = 12 − último mês realizado'],
   ['Previsto Anual','Orçamento do ano do centro de custo (Orçamento Anual).'],
   ['Total Realizado','Soma dos meses já lançados no ano (Orçamento Realizado).'],
@@ -2278,7 +2301,7 @@ var PA_TUT={
   ['⚡ Bling Sub / ⚡ Bling Conta','Aplicam o mesmo cálculo em todos os centros da subconta ou da conta inteira, após confirmação. Os valores manuais são substituídos.'],
   ['Cartões do topo','Provisão Receitas, Provisão Despesas e Realizado + Provisão (Resultado) = (Receitas realizadas + provisão) − (Despesas realizadas + provisão).'],
   ['Integração futura','Etapa prevista na Integração API Bling (Financeiro): provisão automática pelas contas a pagar/receber em aberto. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais.']]},
- orcamento:{t:'Orçamento Anual',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
+ orcamento:{t:'Orçamento › Previsto',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
   ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
   ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],
   ['Previsto Mês','Previsto do ano dividido por 12.','Previsto ano ÷ 12'],
@@ -2292,7 +2315,7 @@ var PA_TUT={
   ['Subconta × centro (exceção)','A subconta define o padrão para todos os seus centros; um centro de custo pode ter vínculo próprio, marcado como exceção, que substitui o da subconta.'],
   ['Rateio entre canais','Automático, proporcional à receita de cada canal vinculado. Se preferir, informe o % de cada canal — todos preenchidos e somando 100%.','Parte do canal = despesa × receita do canal ÷ receita dos canais vinculados'],
   ['✏️ Ações','Abre a janela para marcar os canais e, se quiser, os percentuais de rateio.']]},
- grupos:{t:'Tabela de Grupos',d:'Grupos do ecossistema (o mesmo cadastro vale para o Planejamento e o Financeiro). Cada centro de custo — e cada canal de venda do Financeiro — pertence a um grupo. O grupo não guarda percentual: os valores do grupo são sempre a soma dos centros (Σ). O grupo de um centro se troca em Tabela Contábil › coluna Grupo.',c:[
+ grupos:{t:'Grupos e Segmentos',d:'Grupos do ecossistema (o mesmo cadastro vale para o Planejamento e o Financeiro). Cada centro de custo — e cada canal de venda do Financeiro — pertence a um grupo. O grupo não guarda percentual: os valores do grupo são sempre a soma dos centros (Σ). O grupo de um centro se troca em Tabela Contábil › coluna Grupo.',c:[
   ['Geral — Filtros','Conta (Receitas mostra só os grupos de receita; Despesas, só os de despesa) · Grupo · Subconta · Centro · Buscar (nome do centro ou do grupo). Com filtro, os totais aparecem como "(filtrado)" e a linha Resultado não aparece. Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.'],
   ['Geral — Analítico / Sintético','Analítico: grupos abertos com os centros (clique no grupo fecha). Sintético: só a linha de cada grupo (clique abre).'],
   ['Geral — Avisos','Aparecem na tela só quando há algo a corrigir: canal do Financeiro sem grupo, ou centro sem o motivo obrigatório.'],
@@ -2308,19 +2331,19 @@ var PA_TUT={
   ['Despesa — Diferença Mercado − Marca','Quanto a meta da Ciclo aceita a mais (vermelho) ou a menos (verde) que a marca comum. A partir de 0,5 p.p. o motivo é obrigatório.','Mercado % − Marca comum %'],
   ['Despesa — Motivo da diferença','Explica por que a Ciclo difere da referência (ex.: modelo de negócio, ajuste do Cardoso com o % proposto antes). Aparece também no Comparativo de Modelo (ⓘ).'],
   ['Despesa — Totais e Resultado','Total Fixos e Total Variáveis (Σ dos centros) e o Resultado = 100% − variáveis − fixos, na meta da Ciclo e na marca comum. A marca comum precisa fechar com lucro de pelo menos o mínimo definido em ⚙ Referências (hoje 0%).','Resultado = 100% − Σ variáveis − Σ fixos']]},
- modelo:{t:'Comparativo de Modelo — Ciclo × Mercado',d:'Compara, por grupo e centro de custo, quanto a Ciclo gasta (Realizado) com a sua própria meta (Mercado) e com uma marca saudável do mesmo porte, sem loja própria (Marca comum). Separa a diferença em duas partes: o que é escolha do modelo da Ciclo (já aceito na meta) e o que está acima da meta (a reduzir). Tudo em % da receita base e em R$ por mês.',c:[
+ modelo:{t:'Metas e Mercado › Ciclo × Mercado',d:'Compara, por grupo e centro de custo, quanto a Ciclo gasta (Realizado) com a sua própria meta (Mercado) e com uma marca saudável do mesmo porte, sem loja própria (Marca comum). Separa a diferença em duas partes: o que é escolha do modelo da Ciclo (já aceito na meta) e o que está acima da meta (a reduzir). Tudo em % da receita base e em R$ por mês.',c:[
   ['Abas','Despesas Fixas, Despesas Variáveis e Despesas Globais (variáveis + fixos, com Margem de contribuição e Resultado operacional nas três visões).'],
-  ['Grupo','Grupo do ecossistema ao qual o centro está ligado (Tabelas Contábeis › coluna Grupo). Os valores do grupo são a soma dos centros.'],
+  ['Grupo','Grupo do ecossistema ao qual o centro está ligado (Plano de Contas › coluna Grupo). Os valores do grupo são a soma dos centros.'],
   ['Realizado Ciclo','Mesma base da Estrutura de Custos: valor consolidado quando cadastrado, senão a média de janeiro até o último mês lançado.','Base ÷ receita base do mês'],
   ['Mercado (meta Ciclo)','Meta definida pela Ciclo para o centro (Estrutura de Custos). Produção 🔗 = custo ideal do Mix de Vendas, distribuído pelo peso de cada tipo de custo.'],
-  ['Marca comum','Referência de uma marca saudável do mesmo porte, sem loja própria, que vende em feiras, shows, casas de show e lojas parceiras. Definida por centro em Tabelas Contábeis › Grupos.'],
+  ['Marca comum','Referência de uma marca saudável do mesmo porte, sem loja própria, que vende em feiras, shows, casas de show e lojas parceiras. Definida por centro em Grupos e Segmentos.'],
   ['Diferença total','Quanto a Ciclo gasta a mais (vermelho) ou a menos (verde) que a marca comum.','Realizado % − Marca comum %'],
   ['Parte do modelo','Parte da diferença que a própria meta da Ciclo já aceita — escolhas do modelo de negócio, explicadas no Motivo (ⓘ).','Mercado % − Marca comum %'],
   ['A reduzir','Quanto a Ciclo está acima da própria meta, em R$/mês e p.p. "dentro" = abaixo da meta (folga).','Realizado % − Mercado %'],
   ['Conta da diferença','A diferença total é sempre a soma das duas partes.','Diferença total = Parte do modelo + A reduzir'],
   ['Margem de contribuição','O que sobra da receita depois dos custos variáveis, nas três visões (Ciclo, meta e marca comum).','100% − Total variáveis'],
   ['Filtros','Ano, Conta, Subconta, Centro, Buscar (nome do centro ou do grupo) e Analítico/Sintético (Sintético mostra só os grupos).']]},
- comparativo:{t:'Comparativo Mensal',d:'Compara, centro a centro, o previsto e o realizado de um mês (ou do total de meses já realizados) e mostra quanto falta realizar por mês até o fim do ano.',c:[
+ comparativo:{t:'Previsto × Realizado › Mês',d:'Compara, centro a centro, o previsto e o realizado de um mês (ou do total de meses já realizados) e mostra quanto falta realizar por mês até o fim do ano.',c:[
   ['Mês','Mês analisado nas colunas Previsto Mês, Realizado, Variação e Status. "Total Meses" soma de janeiro até o último mês com lançamentos.'],
   ['Previsto Ano','Valor previsto para o ano inteiro no Orçamento Anual.'],
   ['Previsto Mês / Total Prev. Meses','Previsto Ano ÷ 12. Em "Total Meses": (Previsto Ano ÷ 12) × meses já realizados.','Previsto Ano ÷ 12'],
@@ -2328,11 +2351,11 @@ var PA_TUT={
   ['Variação R$','Diferença entre o realizado e o previsto do período. Em "Total Meses" compara com o previsto acumulado.','Variação = Realizado do mês − Previsto Mês · Total Meses: Previsto acumulado = Previsto Mês × meses realizados'],
   ['Var %','Variação em percentual do previsto do período.','(Realizado − Previsto Mês) ÷ Previsto Mês × 100'],
   ['Status','Situação do desvio desfavorável: OK até 10% · Atenção de 10% a 30% · Crítico acima de 30%.'],
-  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado em Orçamento › Provisões.'],
   ['Total Real + Prov','Tudo o que já foi realizado no ano até o último Orçamento Realizado lançado (mesmo parcial), somado ao que está provisionado. Não muda com o mês filtrado.','Realizado acumulado (jan até o último mês realizado) + Provisão Prevista'],
   ['Saldo Mensal Anual pendente a Real.','Quanto precisa ser realizado por mês, nos meses que faltam após o último Orçamento Realizado lançado (exibido acima da tabela, com os meses restantes), para atingir o previsto do ano. Não muda com o mês filtrado.','Saldo Mensal = (Previsto Ano − Total Real + Prov) ÷ meses restantes (12 − último mês realizado)'],
   ['Mês sem lançamentos','Se escolher um mês posterior ao último realizado, aparece o aviso "mês sem lançamentos" e Previsto Mês/Realizado ficam zerados.']]},
- trimestral:{t:'Visão Trimestral Acumulada',d:'Mostra os três meses do trimestre lado a lado e o acumulado do ano até o fim do trimestre, com a média mensal realizada para comparar com o previsto mensal.',c:[
+ trimestral:{t:'Previsto × Realizado › Trimestre',d:'Mostra os três meses do trimestre lado a lado e o acumulado do ano até o fim do trimestre, com a média mensal realizada para comparar com o previsto mensal.',c:[
   ['1ºT a 4ºT','Escolhe o trimestre (1ºT = jan–mar … 4ºT = out–dez) — a tabela exibe os três meses dele (ex.: 2ºT = Abril a Junho). Abre no trimestre do último mês realizado. Valores da tabela em R$.'],
   ['Último mês realizado','Último mês com Orçamento Realizado no ano (hoje aparece no Orçamento Realizado e nas demais telas). Define quantos meses entram na Média Mensal Realizada.'],
   ['Cartões "até o nºT"','Prev. (previsto) e Real. (realizado) acumulados de janeiro até o fim do trimestre escolhido, por Receitas e Despesas, e o Resultado (Receitas − Despesas).','Previsto = Prev. Mês × meses até o fim do trimestre · Realizado = soma de jan até o fim do trimestre'],
@@ -2343,14 +2366,14 @@ var PA_TUT={
   ['Total Trimestral','Soma dos três meses exibidos. Verde = dentro do Prev. Tri; vermelho = Receitas abaixo ou Despesas acima (só colore quando o trimestre já tem Orçamento Realizado).','Mês 1 + Mês 2 + Mês 3'],
   ['Total Real. até o nºT','Tudo o que foi realizado de janeiro até o fim do trimestre (mesmo valor do cartão).','Soma de jan até o último mês do trimestre'],
   ['Média Mensal Realizada Acum.','Média mensal do que foi realizado até o trimestre, para comparar com o Prev. Mês. Divide só pelos meses que já têm Orçamento Realizado (ex.: 4ºT com outubro lançado → 10 meses). Verde = dentro do previsto; vermelho = Receitas abaixo ou Despesas acima do Prev. Mês.','Total Real. até o nºT ÷ meses com Orçamento Realizado até o trimestre']]},
- anual:{t:'Visão Anual Acumulada',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta. Valores da tabela em R$. Acima da tabela: último mês realizado e meses restantes.',c:[
+ anual:{t:'Previsto × Realizado › Ano acumulado',d:'Resumo do ano: quanto do previsto já foi executado e quanto falta. Valores da tabela em R$. Acima da tabela: último mês realizado e meses restantes.',c:[
   ['Cartões do topo','Total Receitas, Total Despesas e Resultado: Prev. (previsto anual) e Real. (realizado no ano, sem provisão — a provisão aparece na tabela).'],
   ['Tributos parcelados (aviso)','Tributos do ano renegociados em parcelamento de longo prazo (ex.: 2026, mar–out, 60 meses). Não são provisão nem saem do caixa no ano — as parcelas entram mês a mês no centro "Impostos - Parcelamento". O aviso mostra o valor porque, economicamente, é custo das vendas do ano: sem ele a margem parece melhor do que foi. Não entra no saldo nem nos cartões.'],
   ['Prev. Anual','Valor previsto para o ano inteiro.'],
   ['Total Real.','Soma de todos os meses realizados no ano.'],
   ['Provisão Prev.','Valor ainda esperado até o fim do ano.'],
   ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado — é o valor que o Saldo Total desconta do previsto.','Total Real. + Provisão Prev.'],
-  ['% Exec. c/ Prov.','Quanto do previsto já foi realizado ou comprometido (provisão = compromisso já assumido e ainda não pago). Mesmo cálculo do Comparativo de Metas. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. com Prov. ÷ Previsto Anual × 100'],
+  ['% Exec. c/ Prov.','Quanto do previsto já foi realizado ou comprometido (provisão = compromisso já assumido e ainda não pago). Mesmo cálculo de Metas e Mercado › Metas. A barra mostra o progresso (verde = meta atingida em Receitas ou dentro do previsto em Despesas).','Total Real. com Prov. ÷ Previsto Anual × 100'],
   ['Saldo Total a Real.','Quanto ainda falta para atingir o previsto.','Previsto Anual − Total Real. com Prov.'],
   ['Saldo Mensal Anual pendente a Real.','Saldo total distribuído pelos meses que faltam.','Saldo Total ÷ (12 − último mês realizado)']]},
  margem:{t:'Margem por Canal',d:'Mostra quanto cada canal de receita deixa de margem de contribuição depois das despesas variáveis que ele gera. A soma das margens paga os custos fixos; o que sobra é o resultado.',c:[
@@ -2372,11 +2395,11 @@ var PA_TUT={
   ['Orçado Mês / Realizado Mês','Orçamento anual ÷ 12 e realizado do período ÷ nº de meses.'],
   ['Saldo Mês','Quanto o canal vende acima (verde) ou abaixo (vermelho) do orçado, em média por mês.','Realizado Mês − Orçado Mês'],
   ['Meta Mês até Fim Exerc.','Quanto o canal precisa vender por mês, nos meses que faltam, para fechar o orçamento do ano.','(Orçamento anual − Realizado do período) ÷ meses restantes'],
-  ['Custo ideal da Produção','Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, "keystone"); atacado 50% do preço de atacado. Ajustável em ⚙ Referências (admin). Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos Variáveis.','Part. direta × 30% + Part. atacado × 50%'],
+  ['Custo ideal da Produção','Meta da Ciclo: venda direta 30% do preço (padrão do setor ≈ 25%, "keystone"); atacado 50% do preço de atacado. Ajustável em ⚙ Referências (admin). Ponderado pelo mix, dá o % ideal do custo do produto sobre a receita — que vira o Mercado da Produção na Estrutura de Custos › Variáveis.','Part. direta × 30% + Part. atacado × 50%'],
   ['No orçamento × No realizado','No orçamento: com o mix de vendas planejado, qual seria o custo ideal do produto, comparado ao custo de produção orçado (o orçamento já nasceu acima do ideal?). No realizado: com o mix que de fato aconteceu, comparado ao custo de produção gasto (onde estamos hoje).'],
   ['Montagem Coleções na Produção','Desde 01/11/2026 a Produção soma Montagem Coleções (telas, designer, fotos, modelos, pilotagem). O ideal da Produção = custo ideal do produto pelo mix + a meta de Montagem (soma do Mercado dos seus centros na Estrutura de Custos; 2,5% aprovado em 27/10/2026).','Produção ideal = custo ideal do produto + meta de Montagem'],
   ['Acima / Dentro do ideal','Custo de produção (Varejo + Atacado + Montagem Coleções) do período ÷ receita, comparado com a Produção ideal. Em R$/mês: quanto reduzir o custo do produto (ou subir preço) para chegar ao padrão.']]},
- variaveis:{t:'Estrutura de Custos Variáveis',d:'Mesmo layout e cálculos da Estrutura de Custos Fixos, para as despesas de natureza variável, sobre a receita total: orçado, realizado médio, consolidado, mercado (ideal), meta mensal de redução, status e plano de ação.',c:[
+ variaveis:{t:'Estrutura de Custos › Variáveis',d:'Mesmo layout e cálculos da aba Fixos, para as despesas de natureza variável, sobre a receita total: orçado, realizado médio, consolidado, mercado (ideal), meta mensal de redução, status e plano de ação.',c:[
   ['Base','Receita base mensal da empresa (a mesma dos fixos e do Resultado anual). Todos os % são sobre ela.'],
   ['Produção (Varejo + Atacado + Montagem Coleções)','Os centros VJ e AT são somados por tipo de custo (tecidos, fábricas, facção, silk…), porque o custo é o mesmo para varejo e atacado. O cadastro na Tabela Contábil continua separado. Os centros de Montagem Coleções entram na mesma linha, cada um com o seu Mercado.'],
   ['Mercado da Produção 🔗','Calculado pelo Mix de Vendas e Custo Ideal (venda direta × 30% + atacado × 50%) e distribuído pelo peso atual de cada tipo de custo. Não se digita.'],
@@ -2384,18 +2407,18 @@ var PA_TUT={
   ['Mercado (ideal)','% da receita total por centro (admin). Para custos de um canal, converta: % do canal × participação do canal (ex.: 25% do E-commerce × 16,2% = 4,05%).'],
   ['Rateio do Uber (conta única)','O Uber é pago numa conta só e cai em Eventos - Transporte Uber/Outros. Regra combinada em 27/10/2026: a cada mês, R$ 500 (ou o valor do mês, se menor) vão para Produção - Transporte (Combustíveis, Uber), em Administrativas (Uber de fábricas, facções, lavanderia, aviamentos); o restante fica em Eventos (Uber dos vendedores). Aplicado em jan–out/2026 e a cada nova importação, até o Uber ser separado na origem (Uber Empresas com códigos de despesa ou cartões distintos).','Produção = mín(R$ 500; Uber do mês) · Eventos = Uber do mês − Produção'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
- compras:{t:'Saldo de Compras de Produção',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
+ compras:{t:'Saldo de Compras do Ano (Compras de Produção)',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
   ['1. Resumo','Custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix (o mesmo bloco do Mix de Vendas).'],
   ['2. Dois cenários de receita','Pelo orçamento (otimista): out–dez batem o orçado. Pelo ritmo atual (conservador): out–dez seguem a média mensal realizada. Receita do ano × (custo ideal do mix + meta de Montagem) = teto ideal de produção.','Teto = Receita do ano × (Custo ideal % + Montagem %)'],
   ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
   ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
   ['Tot. Real. + Prov. (bloco 3)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
-  ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Tabelas Contábeis › Grupos).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
+  ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Grupos e Segmentos).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
   ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado na Estrutura de Custos.'],
-  ['Provisões','Vêm da tela Provisão Prevista: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
- estrutura:{t:'Estrutura de Custos Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
+  ['Provisões','Vêm de Orçamento › Provisões: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
+ estrutura:{t:'Estrutura de Custos › Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
   ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; o total da empresa e o Resultado anual não mudam.'],
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],
   ['Orçado Mês','Previsto do exercício (Orçamento Anual) dividido por 12.','Ano Exerc. ÷ 12'],
@@ -2409,15 +2432,15 @@ var PA_TUT={
   ['Estatísticas','O botão "Mostrar estatísticas" exibe Previsto anual e Realizado do período (com a variação contra o ano anterior).'],
   ['Resultado anual (📊)','Painel com o resultado em cascata, por mês: Receita base → Custos variáveis → Margem de contribuição → Custos fixos → Lucro, comparando Realizado, Mercado (ideal) e Orçado, com a explicação de cada linha, o quanto falta para o lucro de mercado e o ponto de equilíbrio.','Lucro = Receita − Variáveis − Fixos'],
   ['Referências (⚙)','Receita do mês em aberto (simulação), Margem de contribuição (mercado/meta) e Alvo de custos fixos (mercado/meta). Mercado % só o administrador altera (🔒).']]},
- metas:{t:'Comparativo de Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
+ metas:{t:'Metas e Mercado › Metas',d:'Mede o desvio contra o previsto proporcional aos meses já passados e projeta o fechamento do ano. Sempre parte do último Orçamento Realizado lançado, mesmo parcial (ex.: outubro → 10 meses passados, 2 restantes), igual para todos os centros de custo.',c:[
   ['Status (filtro)','Mostra apenas os centros com o status escolhido.'],
   ['Prev. Ano','Valor previsto para o ano inteiro.'],
   ['Prev. Mês','Previsto Ano dividido por 12.','Previsto Ano ÷ 12'],
-  ['Total Real.','Soma de todos os meses com Orçamento Realizado no ano, de janeiro até o último mês lançado (mesmo parcial). Não inclui a provisão. Mesmo valor do Total Real. da Visão Anual Acumulada.','Realizado jan + … + último mês realizado'],
-  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado na tela Provisão Prevista.'],
+  ['Total Real.','Soma de todos os meses com Orçamento Realizado no ano, de janeiro até o último mês lançado (mesmo parcial). Não inclui a provisão. Mesmo valor do Total Real. de Previsto × Realizado › Ano acumulado.','Realizado jan + … + último mês realizado'],
+  ['Provisão Prev.','Valor ainda esperado até o fim do ano, lançado em Orçamento › Provisões.'],
   ['Total Real. com Prov.','O que já foi realizado mais o que ainda está provisionado.','Total Real. + Provisão Prev.'],
   ['Saldo a Real.','Quanto ainda falta para atingir o previsto.','Previsto Ano − Total Real. com Prov.'],
-  ['% Exec. c/ Prov.','Quanto do previsto já está realizado ou provisionado. Atenção: na Visão Anual Acumulada o % Exec. é calculado sem a provisão.','Total Real. com Prov. ÷ Previsto Ano × 100'],
+  ['% Exec. c/ Prov.','Quanto do previsto já está realizado ou provisionado. Atenção: em Previsto × Realizado › Ano acumulado o % Exec. é calculado sem a provisão.','Total Real. com Prov. ÷ Previsto Ano × 100'],
   ['Último mês realizado / Meses restantes','Acima da tabela. Os meses realizados (ex.: outubro → 10) formam o previsto acumulado do % Desvio; os meses restantes dividem o Saldo na Proj. Mensal.'],
   ['% Desvio c/ Prov.','Desvio do que já foi realizado ou comprometido (provisão = compromisso já assumido e ainda não pago) contra o previsto proporcional aos meses já passados. Ex. Despesas 29/10/2026: (1.416.147,31 − 1.352.250,00) ÷ 1.352.250,00 = +4,7% → gastamos/comprometemos 4,7% acima do previsto para jan–out.','% Desvio c/ Prov. = (Total Real. com Prov. − Prev. Mês × meses realizados) ÷ (Prev. Mês × meses realizados) × 100'],
   ['Status','Calculado sobre o % Desvio c/ Prov. Desvio favorável = OK · desfavorável até 10% = Atenção · 10% a 20% = Crítico · acima de 20% = Intervenção · sem previsto acumulado = Sem Dados.'],

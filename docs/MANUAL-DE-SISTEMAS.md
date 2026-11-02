@@ -957,6 +957,15 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Montagem mantém o seu Mercado. Simulação: linha própria "MC" = meta de receita total × 2,5% (ou ×
   proporção real de Montagem), menos a provisão de Montagem. Jan–set/2026: Produção 40,96% da receita ×
   ideal 39,28% (antes: 38,18% × 36,78%, sem Montagem).
+- **Menu reorganizado (02/11/2026, aprovado por Cardoso; só código):** ciclo de gestão em 4 grupos —
+  ⚙️ Estrutura (Plano de Contas · Grupos e Segmentos), 🎯 Orçamento (Previsto · Realizado · Provisões),
+  📉 Acompanhamento (Previsto × Realizado com abas Mês/Trimestre/Ano acumulado · Metas e Mercado com abas
+  Metas/Ciclo × Mercado), 🧭 Análises e Decisões (Receitas e Canais: Mix de Vendas, Margem por Canal ·
+  Custos: Estrutura de Custos com abas Fixos/Variáveis · Compras de Produção: Saldo de Compras do Ano,
+  Simulação por Campanha) e Tutorial. Antigos nomes: Tabelas Contábeis, Tabela de Grupos, Orçamento Anual,
+  Orçamento Realizado, Provisão Prevista, Comparativo Mensal, Visão Trimestral/Anual Acumulada,
+  Comparativo de Metas, Comparativo de Modelo, Estrutura de Custos Fixos/Variáveis, grupo Simulações.
+  Ids das páginas mantidos (`PA_PAGES`, campos `tela`/`aba`); cada tela com abas lembra a última aba.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 

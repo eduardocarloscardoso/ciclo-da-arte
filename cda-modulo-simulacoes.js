@@ -6,9 +6,8 @@
 // provisões já comprometidas, comparadas com o saldo do orçamento. Cenários salvos por campanha.
 // Segmento Varejo/Atacado vem do grupo (cda_grupo.segmento). Depende de cda-modulo-planejamento.js.
 // ════════════════════════════════════════════════════════════════════
-PA_PAGES.simcampanha = {icon:'🛍', label:'Simulação de Compras por Campanha', grupo:'sim'};
-PA_GRUPOS.sim = {icon:'🧪', label:'Simulações'};
-paEstado.grupoAberto.sim = false;
+// Menu de 02/11/2026: Análises e Decisões › Compras de Produção (junto do Saldo de Compras do Ano)
+PA_PAGES.simcampanha = {icon:'🛍', label:'Simulação por Campanha', grupo:'ana', sec:'Compras de Produção'};
 // a página Tutorial continua por último no menu
 (function(){var t=PA_PAGES.tutorial;delete PA_PAGES.tutorial;PA_PAGES.tutorial=t;})();
 
@@ -170,7 +169,7 @@ function paSimRender(){
   if(B.mont.tem)notas.push('Montagem Coleções não tem segmento: a compra usa a meta de receita total (Varejo + Atacado) × a meta de Montagem (Σ Mercado dos centros, Estrutura de Custos) ou × a proporção real de Montagem sobre a receita do ano.');
   if(B.semCanal.length)notas.push(B.semCanal.length+' evento(s) da campanha sem canal / grupo não entram: '+B.semCanal.map(function(e){return paEsc(e.evento);}).join(', ')+'.');
   var semSeg=B.ordem.filter(function(k){return B.G[k].semSeg;});
-  if(semSeg.length)notas.push('<span style="color:var(--gold2)">Grupo(s) sem Segmento, tratados como Varejo: '+semSeg.map(function(k){return paEsc(B.G[k].nome);}).join(', ')+' (defina em Tabela de Grupos).</span>');
+  if(semSeg.length)notas.push('<span style="color:var(--gold2)">Grupo(s) sem Segmento, tratados como Varejo: '+semSeg.map(function(k){return paEsc(B.G[k].nome);}).join(', ')+' (defina em Estrutura › Grupos e Segmentos).</span>');
   if(notas.length)h+='<p class="pa-info" style="margin-top:8px">'+notas.join('<br>')+'</p>';
   // Bloco 2 — por grupo e canal
   h+='<h3 class="pa-h3">2. Por grupo e canal</h3>';
@@ -260,9 +259,9 @@ async function paSimExcluirCenario(){
 }
 
 // ─── Tutorial ────────────────────────────────────────────────────────
-PA_TUT.simcampanha={t:'Simulação de Compras por Campanha',d:'Quanto comprar de Produção Varejo e Atacado para atender a receita de uma campanha do Calendário Comercial (ex.: Black Friday / Natal 2026), descontando as provisões já comprometidas e comparando com o saldo do orçamento. Você pode usar a projeção do Calendário ou digitar metas de receita e salvar cenários.',c:[
+PA_TUT.simcampanha={t:'Simulação por Campanha (Compras de Produção)',d:'Quanto comprar de Produção Varejo e Atacado para atender a receita de uma campanha do Calendário Comercial (ex.: Black Friday / Natal 2026), descontando as provisões já comprometidas e comparando com o saldo do orçamento. Você pode usar a projeção do Calendário ou digitar metas de receita e salvar cenários.',c:[
   ['Campanha','Escolhida no topo. Os eventos e as projeções vêm do Calendário Comercial (🏷 Campanhas). O orçamento usado é o do ano em que a campanha começa.'],
-  ['Segmento (VJ / AT)','Vem do grupo de cada canal (Planejamento › Tabela de Grupos › coluna Segmento). Regra: tudo é Varejo, menos Atacado / Private Label.'],
+  ['Segmento (VJ / AT)','Vem do grupo de cada canal (Planejamento › Estrutura › Grupos e Segmentos › coluna Segmento). Regra: tudo é Varejo, menos Atacado / Private Label.'],
   ['Receita Calendário','Soma da projeção dos eventos da campanha. Eventos sem canal ou "a definir" sem projeção não entram (aparecem no aviso abaixo do bloco 1).'],
   ['Meta de receita','Começa igual à projeção do Calendário. Digite por grupo (bloco 2) ou o total de Varejo e de Atacado (bloco 1): o total é distribuído pelos grupos na proporção da projeção. A meta do canal é a do grupo distribuída do mesmo jeito.'],
   ['Compra pela meta de custo','Meta de receita × custo ideal do produto definido em Mix de Vendas › ⚙ Referências (venda direta para o Varejo; atacado/B2B para o Atacado). Os % em uso aparecem na barra do topo.','Meta × custo ideal (VJ: venda direta · AT: atacado)'],

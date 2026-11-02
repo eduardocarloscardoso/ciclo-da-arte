@@ -319,7 +319,7 @@ async function canAtualizarEventos(canalId){
 function canTutorial(){
   var l=[
     ['Para que serve','Cadastro único dos canais de venda do ecossistema (tabela canais): quem vende, em que condições (comissão, impostos, op., CS, frete), a que grupo e segmento pertence, e o desempenho no período. É usado pela Prestação de Contas, Histórico de Compras, Clientes, Segmentação, Comercial, Planejamento e Calendário.'],
-    ['Grupo e Segmento','O grupo vem da Tabela de Grupos do Planejamento (Shows de artistas, Feiras e bazares, E-commerce…). O Segmento (Varejo / Atacado) é do grupo — não se digita no canal. Canal sem grupo aparece na seção "Sem grupo".'],
+    ['Grupo e Segmento','O grupo vem de Planejamento › Estrutura › Grupos e Segmentos (Shows de artistas, Feiras e bazares, E-commerce…). O Segmento (Varejo / Atacado) é do grupo — não se digita no canal. Canal sem grupo aparece na seção "Sem grupo".'],
     ['Filtros','Segmento · Grupo · Collab · Canal (digite e escolha na lista) · Período — os mesmos de Collabs / Vendedores, e compartilhados entre as duas telas.'],
     ['Período','Ano atual, últimos 12 meses, todo o histórico ou personalizado (de/até). Vale para os cartões do topo e os números de cada canal.'],
     ['Vendas · Peças · Ticket','Do Histórico de Compras do canal no período. Ticket = valor ÷ peças (preço médio por peça).'],
