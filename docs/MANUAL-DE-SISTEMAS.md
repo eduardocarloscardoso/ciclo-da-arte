@@ -980,6 +980,9 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   **🧮 Fórmula do Saldo Ideal** (02/11/2026): botão na linha "Pode comprar" e 🧮 em cada tipo de custo; janela com
   o cálculo passo a passo (mix, custo ideal, receita do ano, teto, saldos, pode comprar) com os números do momento
   (`paFormulaSaldo`). Só código.
+  **Ordem da tela (02/11/2026):** 1. Receita do ano e quanto ainda podemos comprar (receitas → teto → saldos → pode
+  comprar); 2. Por tipo de custo. O antigo bloco "Resumo — custo de produção × receita" saiu da tela e virou o popup
+  **📊 Custo × receita até agora** (botão na linha do teto). Só código.
 - **Saldo de Compras Anual (R$) e (Peças) (02/11/2026, Cardoso):** a tela de saldo passou a se chamar "Saldo de
   Compras Anual (R$)"; nova tela **Saldo de Compras Anual (Peças)** em Compras de Produção (`paPecasComprar`):
   custo-alvo por peça (ticket médio por peça do Histórico × custo ideal do segmento), peças que cabem no pode

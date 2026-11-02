@@ -1691,23 +1691,23 @@ async function paSaldoCompras(){
     '<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'compras\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
   html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealRealTot)+'</b> da receita <span class="pa-orig">(produto '+fp(M.idealReal)+' + Montagem '+fp(M.mont.meta)+')</span></span></div>';
-  // Bloco 1 — resumo (do Mix)
+  // Resumo custo × receita até agora — saiu da tela e virou popup na caixa de receitas (02/11/2026, Cardoso)
   var P=M.prod,difO=M.prodPctOrc-M.idealOrcTot,difR=M.prodPctReal-M.idealRealTot,exc=P.real-M.idealRealTot/100*T.real;
-  html+='<h3 class="pa-h3">1. Resumo — custo de produção × receita ('+M.periodo+')</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado</th><th class="pa-c-atual">Realizado</th></tr></thead><tbody>'+
+  var resumo='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado</th><th class="pa-c-atual">Realizado</th></tr></thead><tbody>'+
     '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções)</td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
     '<tr class="cc"><td>÷ Receita do período</td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
     '<tr class="cc"><td>Custo ideal pelo mix<br><span class="pa-orig">produto '+fp(M.idealOrc)+' / '+fp(M.idealReal)+' + Montagem Coleções '+fp(M.mont.meta)+'</span></td><td>'+fp(M.idealOrcTot)+'</td><td class="pa-c-atual">'+fp(M.idealRealTot)+'</td></tr>'+
     '<tr class="conta '+(difR>0.005?'desp':'rec')+'"><td>'+(difR>0.005?'Acima do ideal':'Dentro do ideal')+'</td><td>'+fpp(difO)+'</td><td>'+fpp(difR)+(ultRec?'<br><span class="pa-orig">'+(exc>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(exc)/ultRec)+'/mês</span>':'')+'</td></tr>'+
     '</tbody></table></div>';
+  paCache.comprasResumo={html:resumo,periodo:M.periodo};
   // Bloco 2 — receita do ano e teto ideal
   // 02/11/2026 (Cardoso): um cenário só — Pelo Orçamento (meses restantes vendem o orçado)
-  html+='<h3 class="pa-h3">2. Teto ideal de produção no ano — receita pelo orçamento</h3>';
+  html+='<h3 class="pa-h3">1. Receita do ano e quanto ainda podemos comprar</h3>';
   html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th title="Receita realizada + orçado dos meses que faltam">Pelo orçamento</th></tr></thead><tbody>'+
     '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td></tr>'+
     '<tr class="cc"><td>Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes')+'</td><td>'+paValor(recOrc-T.real)+'<br><span class="pa-orig">orçado '+paValor(T.prev/12)+'/mês</span></td></tr>'+
     '<tr class="sub"><td>Receita do ano</td><td>'+paValor(recOrc)+'</td></tr>'+
-    '<tr class="cc"><td>× Custo ideal pelo mix ('+fp(M.idealRealTot)+') = Teto ideal de produção no ano</td><td>'+paValor(tetoOrc)+'</td></tr>'+
+    '<tr class="cc"><td>× Custo ideal pelo mix ('+fp(M.idealRealTot)+') = Teto ideal de produção no ano <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paResumoCustoReceita()" title="Custo de produção × receita de '+M.periodo+': acima ou dentro do ideal">📊 Custo × receita até agora</button></td><td>'+paValor(tetoOrc)+'</td></tr>'+
     '<tr class="cc"><td>(−) Produção realizada '+perDesp+'</td><td>'+paValor(Tot.real)+'</td></tr>'+
     '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td></tr>'+
     '<tr class="conta '+(Tot.saldoIdO>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+'</tr>'+
@@ -1715,7 +1715,7 @@ async function paSaldoCompras(){
     '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span> <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paFormulaSaldo(\'total\')">🧮 Fórmula do Saldo Ideal</button></td>'+pode(Tot.podeO,'')+'</tr>'+
     '</tbody></table></div>';
   // Bloco 3 — por tipo de custo
-  html+='<h3 class="pa-h3">3. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
+  html+='<h3 class="pa-h3">2. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
   html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-estreita pa-reguas pa-compras3"><thead><tr><th>Tipo de custo</th><th>Orçado ano</th><th class="pa-c-atual">Realizado<br>'+perDesp+'</th><th title="Provisão Prevista: valores já comprometidos e ainda não lançados">Provisões</th>'+
     '<th title="Realizado + Provisões: total já gasto ou comprometido, e o % da receita do período. Vermelho = passou o Ideal Ciclo (limite de compras). Em branco quando não há provisão">Tot. Real.<br>+ Prov.</th>'+
     '<th class="pa-c-merc" title="Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = soma da referência dos centros VJ + AT (Grupos e Metas)">Ideal Ciclo ·<br>Marca comum</th><th title="Orçado − Realizado − Provisões">Saldo pelo<br>orçamento</th><th class="pa-c-merc" title="Ideal do tipo × receita do ano pelo orçamento − Realizado − Provisões">Saldo<br>ideal</th>'+
@@ -1746,6 +1746,10 @@ async function paSaldoCompras(){
 }
 
 // ─── 🧮 Fórmula do Saldo Ideal (02/11/2026, Cardoso): passo a passo do "Pode comprar", total ou por tipo de custo ─────
+function paResumoCustoReceita(){
+  var R=paCache.comprasResumo;if(!R){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">📊 Custo × receita até agora ('+R.periodo+')</div><p class="pa-info" style="margin:4px 0 12px">Custo de produção (Varejo + Atacado + Montagem Coleções) do período de receita fechada, dividido pela receita, comparado ao custo ideal pelo mix. <b>Orçado</b> = como o orçamento nasceu; <b>Realizado</b> = onde estamos.</p>'+R.html+'<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
+}
 function paFormulaSaldo(chave){
   var C=paCache.comprasCalc;if(!C){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
   var M=C.M,T=C.T,G=M.G,t=chave==='total'?C.Tot:C.tipos[chave];if(!t)return;
@@ -2686,16 +2690,16 @@ var PA_TUT={
   ['Rateio do Uber (conta única)','O Uber é pago numa conta só e cai em Eventos - Transporte Uber/Outros. Regra combinada em 27/10/2026: a cada mês, R$ 500 (ou o valor do mês, se menor) vão para Produção - Transporte (Combustíveis, Uber), em Administrativas (Uber de fábricas, facções, lavanderia, aviamentos); o restante fica em Eventos (Uber dos vendedores). Aplicado em jan–out/2026 e a cada nova importação, até o Uber ser separado na origem (Uber Empresas com códigos de despesa ou cartões distintos).','Produção = mín(R$ 500; Uber do mês) · Eventos = Uber do mês − Produção'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
  compras:{t:'Saldo de Compras Anual (R$)',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
-  ['1. Resumo','Custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix (o mesmo bloco do Mix de Vendas).'],
-  ['2. Teto ideal de produção no ano','Receita do ano pelo orçamento: o realizado até o último mês fechado + o orçado dos meses que faltam. × Custo ideal pelo mix (produto + Montagem Coleções) = o máximo que a Produção deveria custar no ano inteiro.','Teto = (Receita realizada + orçado dos meses restantes) × Custo ideal pelo mix %'],
+  ['📊 Custo × receita até agora','Botão na linha do teto (abre em janela): custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix — acima ou dentro do ideal, e quanto reduzir por mês.'],
+  ['1. Receita do ano e quanto ainda podemos comprar','Receita do ano pelo orçamento: o realizado até o último mês fechado + o orçado dos meses que faltam. × Custo ideal pelo mix (produto + Montagem Coleções) = o máximo que a Produção deveria custar no ano inteiro.','Teto = (Receita realizada + orçado dos meses restantes) × Custo ideal pelo mix %'],
   ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
-  ['% no Orçado e no Realizado (bloco 3)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do bloco 1) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
-  ['Tot. Real. + Prov. (bloco 3)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
-  ['Ideal Ciclo · Marca comum (bloco 3)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Grupos e Metas).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
+  ['% no Orçado e no Realizado (bloco 2)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do 📊 Custo × receita) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
+  ['Tot. Real. + Prov. (bloco 2)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
+  ['Ideal Ciclo · Marca comum (bloco 2)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Grupos e Metas).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
   ['🧮 Fórmula do Saldo Ideal','Botão na linha Pode comprar (total) e o 🧮 de cada tipo de custo: abre a conta passo a passo com os números do momento — mix de vendas, custo ideal, receita do ano, teto, saldos e pode comprar.'],
   ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
-  ['3. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado (Grupos e Metas).'],
+  ['2. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado (Grupos e Metas).'],
   ['Provisões','Vêm de Orçamento › Provisões: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
  pecas:{t:'Saldo de Compras Anual (Peças)',d:'O Saldo de Compras em quantidade: quantas peças o dinheiro que ainda pode ser gasto compra, quantas peças a meta de vendas pede e o plano de compra peça a peça.',c:[
   ['Ticket médio por peça','Vendas ÷ peças do Histórico de Compras nos meses de receita fechada, por segmento. Notas consolidadas (acima de R$ 1.000 por peça) ficam de fora.','Vendas ÷ peças'],
