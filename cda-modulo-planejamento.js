@@ -1830,75 +1830,74 @@ async function paPecasComprar(){
   (r[2]||[]).forEach(function(x){var m=+String(x.ano_mes).slice(5,7),pc=+x.pecas||0,vl=+x.valor||0;if(!pc||m>ult||vl/pc>1000)return;var sg=segDe(canalGrupo[String(x.canal_id)]);V[sg].pecas+=pc;V[sg].valor+=vl;});
   var pctIdeal={varejo:M.cd,atacado:M.ca},seg=['varejo','atacado'],R={};
   var prevSeg={varejo:M.G.direta.prev,atacado:M.G.atacado.prev},prevTot=prevSeg.varejo+prevSeg.atacado;
+  // Linhas da tabela (02/11/2026: custo unitário de compra + preço unitário de venda)
+  var linhas=r[4]||[],ccDe={};d.h.centros.forEach(function(cc){ccDe[String(cc.id)]=cc;});
+  var T0=function(){return {q:0,c:0,rv:0,qp:0,cp:0,rp:0};},porSeg={varejo:T0(),atacado:T0()},porMes={},porGrupo={},tot0=T0();
+  function soma(o,l){var q=+l.quantidade||0,c=q*(+l.valor_unitario||0),rv=q*(+l.preco_venda||0);o.q+=q;o.c+=c;o.rv+=rv;if(l.status!=='encomendada'){o.qp+=q;o.cp+=c;o.rp+=rv;}}
+  linhas.forEach(function(l){var s=segDe(l.grupo_id),cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null;
+    soma(porSeg[s],l);soma(tot0,l);porMes[l.mes]=porMes[l.mes]||T0();soma(porMes[l.mes],l);
+    var kg=String(l.grupo_id);porGrupo[kg]=porGrupo[kg]||{t:T0(),c:{}};soma(porGrupo[kg].t,l);var kc=cc?String(cc.id):'geral';porGrupo[kg].c[kc]=porGrupo[kg].c[kc]||T0();soma(porGrupo[kg].c[kc],l);});
   seg.forEach(function(s){var t=V[s].pecas?V[s].valor/V[s].pecas:null,alvo=t!==null?t*pctIdeal[s]/100:null,share=prevTot?prevSeg[s]/prevTot:0,
-    pode=Math.max(SC.Prod.podeO,0)*share,recRest=prevSeg[s]*restRec/12;
-    R[s]={ticket:t,alvo:alvo,share:share,pode:pode,cabem:alvo?pode/alvo:null,recRest:recRest,neces:t?recRest/t:null,pecasHist:V[s].pecas,valorHist:V[s].valor};});
-  paCache.pecasCalc={M:M,SC:SC,R:R,ult:ult,restRec:restRec,restCompra:restCompra,ano:ano,pctIdeal:pctIdeal,prevSeg:prevSeg};
+    pode=Math.max(SC.Prod.podeO,0)*share,recRest=prevSeg[s]*restRec/12,ps=porSeg[s],cmPlano=ps.qp?ps.cp/ps.qp:null;
+    R[s]={ticket:t,alvo:alvo,share:share,pode:pode,cabemAlvo:alvo?pode/alvo:null,cmPlano:cmPlano,cabemPlano:cmPlano?pode/cmPlano:null,recRest:recRest,neces:t?recRest/t:null,pecasHist:V[s].pecas,valorHist:V[s].valor};
+    R[s].cabem=R[s].cabemPlano!==null?R[s].cabemPlano:R[s].cabemAlvo;});
+  paCache.pecasCalc={M:M,SC:SC,R:R,ult:ult,restRec:restRec,restCompra:restCompra,ano:ano,pctIdeal:pctIdeal,prevSeg:prevSeg,porSeg:porSeg};
   function n0(v){return v===null||v===undefined||!isFinite(v)?'—':Math.round(v).toLocaleString('pt-BR');}
   function fp(v){return v===null||v===undefined||!isFinite(v)?'—':v.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+  function pctCusto(c,rv,s){if(!rv)return '<span class="pa-mut">—</span>';var p=c/rv*100,lim=s?pctIdeal[s]:null,ok=lim===null||p<=lim+0.005;return '<span style="font-weight:700;color:'+(lim===null?'inherit':(ok?'var(--green)':'var(--gold2)'))+'" title="'+(lim===null?'':'Ideal do segmento: '+fp(lim))+'">'+fp(p)+(lim===null?'':(ok?' ✓':' ⚠'))+'</span>';}
   var per=ult?'jan–'+PA_MESES_AB[ult-1].toLowerCase():'—',mesesRest=restCompra?PA_MESES_AB[12-restCompra].toLowerCase()+(restCompra>1?'–dez':'')+'/'+String(ano).slice(2):'—';
   var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'compras\')">🛒 Saldo de Compras Anual (R$)</button><button class="btn btn-ghost btn-sm" onclick="paFormulaPecas()">🧮 Fórmula das peças</button><button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'pecas\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
   html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+per+'</b> · Período de compra: <b>'+mesesRest+'</b> ('+restCompra+' '+(restCompra===1?'mês':'meses')+') · Pode comprar (custo do produto, sem Montagem): <b>'+paBRL(Math.max(SC.Prod.podeO,0))+'</b></span></div>';
   // Bloco 1 — referência
-  function linha(rot,f,cls,tit){return '<tr class="'+(cls||'cc')+'"><td'+(tit?' title="'+paEsc(tit)+'"':'')+'>'+rot+'</td>'+seg.map(function(s){return '<td>'+f(R[s],s)+'</td>';}).join('')+'<td>'+(f.tot?f.tot():'')+'</td></tr>';}
-  function tot(fn){return fn;}
-  var cab=function(){return R.varejo.cabem!==null&&R.atacado.cabem!==null?n0(R.varejo.cabem+R.atacado.cabem):'—';};
-  var nec=function(){return R.varejo.neces!==null&&R.atacado.neces!==null?n0(R.varejo.neces+R.atacado.neces):'—';};
-  var fPode=function(x){return paValor(x.pode);};fPode.tot=function(){return paValor(Math.max(SC.Prod.podeO,0));};
-  var fCab=function(x){return '<b>'+n0(x.cabem)+'</b>'+(restCompra&&x.cabem?'<br><span class="pa-orig">'+n0(x.cabem/restCompra)+'/mês</span>':'');};fCab.tot=function(){return '<b>'+cab()+'</b>';};
-  var fRec=function(x){return paValor(x.recRest);};fRec.tot=function(){return paValor(R.varejo.recRest+R.atacado.recRest);};
-  var fNec=function(x){return '<b>'+n0(x.neces)+'</b>';};fNec.tot=function(){return '<b>'+nec()+'</b>';};
+  function linha(rot,f,cls,tit,ftot){return '<tr class="'+(cls||'cc')+'"><td'+(tit?' title="'+paEsc(tit)+'"':'')+'>'+rot+'</td>'+seg.map(function(s){return '<td>'+f(R[s],s)+'</td>';}).join('')+'<td>'+(ftot?ftot():'')+'</td></tr>';}
+  function somaR(k){return R.varejo[k]!==null&&R.atacado[k]!==null?R.varejo[k]+R.atacado[k]:null;}
   html+='<h3 class="pa-h3">1. Referência — quantas peças o saldo compra e quantas a meta pede</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:900px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Varejo</th><th>Atacado</th><th>Total</th></tr></thead><tbody>'+
+  html+='<div class="pa-tbl-wrap" style="max-width:960px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Varejo</th><th>Atacado</th><th>Total</th></tr></thead><tbody>'+
     linha('Ticket médio por peça ('+per+', Histórico de Compras)',function(x){return x.ticket===null?'—':paValor(x.ticket)+'<br><span class="pa-orig">'+n0(x.pecasHist)+' pç vendidas</span>';},'cc','Vendas ÷ peças do Histórico de Compras; notas consolidadas (acima de R$ 1.000 por peça) ficam de fora')+
     linha('× Custo ideal do segmento',function(x,s){return fp(pctIdeal[s]);})+
-    linha('= Custo-alvo por peça',function(x){return x.alvo===null?'—':'<b>'+paValor(x.alvo)+'</b>';},'sub')+
-    linha('Pode comprar (custo do produto) repartido pela receita orçada',function(x){return paValor(x.pode)+'<br><span class="pa-orig">'+fp(x.share*100)+'</span>';},'cc','Pode comprar do Saldo de Compras Anual (R$), sem Montagem Coleções, dividido pela participação de cada segmento na receita orçada')+
-    linha('<b>Peças que cabem no saldo</b> (÷ custo-alvo)',fCab,'conta rec')+
-    linha('Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes'),fRec)+
-    linha('<b>Peças necessárias para a meta</b> (÷ ticket)',fNec,'conta desp','Peças que precisam ser vendidas para bater o orçado dos meses restantes — o estoque atual cobre parte delas')+
+    linha('= Custo-alvo por peça <span class="pa-orig">(média geral — referência)</span>',function(x){return x.alvo===null?'—':paValor(x.alvo);},'cc')+
+    linha('Custo médio das peças planejadas <span class="pa-orig">(da tabela abaixo)</span>',function(x){return x.cmPlano===null?'<span class="pa-mut">sem peças planejadas</span>':'<b>'+paValor(x.cmPlano)+'</b>';},'sub','Custo total planejado ÷ peças planejadas do segmento — usa o custo de compra real de cada peça')+
+    linha('Pode comprar (custo do produto) repartido pela receita orçada',function(x){return paValor(x.pode)+'<br><span class="pa-orig">'+fp(x.share*100)+'</span>';},'cc','Pode comprar do Saldo de Compras Anual (R$), sem Montagem Coleções, dividido pela participação de cada segmento na receita orçada',function(){return paValor(Math.max(SC.Prod.podeO,0));})+
+    linha('<b>Peças que cabem no saldo</b>',function(x){return '<b>'+n0(x.cabem)+'</b><br><span class="pa-orig">'+(x.cabemPlano!==null?'pelo custo do plano':'pelo custo-alvo')+(restCompra&&x.cabem?' · '+n0(x.cabem/restCompra)+'/mês':'')+'</span>';},'conta rec','Pode comprar ÷ custo médio das peças planejadas; sem peças planejadas, ÷ custo-alvo',function(){return '<b>'+n0(somaR('cabem'))+'</b>';})+
+    linha('Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes'),function(x){return paValor(x.recRest);},'cc','',function(){return paValor(R.varejo.recRest+R.atacado.recRest);})+
+    linha('<b>Peças necessárias para a meta</b> (÷ ticket)',function(x){return '<b>'+n0(x.neces)+'</b>';},'conta desp','Peças que precisam ser vendidas para bater o orçado dos meses restantes — o estoque atual cobre parte delas',function(){return '<b>'+n0(somaR('neces'))+'</b>';})+
     '</tbody></table></div>';
   html+='<p class="pa-info" style="margin-top:6px">A diferença entre as peças necessárias e as que cabem precisa vir do <b>estoque</b>. Monte a compra na tabela abaixo olhando o estoque de cada peça.</p>';
   // Bloco 2 — Tabela de Peças a Comprar
   html+='<h3 class="pa-h3">2. 📋 Tabela de Peças a Comprar</h3>';
   if(r[4]===null){html+='<div class="card">A Tabela de Peças a Comprar ainda não está disponível no banco de dados.</div>';document.getElementById('pa-root').innerHTML=html;return;}
-  var linhas=r[4]||[],ccDe={};d.h.centros.forEach(function(cc){ccDe[String(cc.id)]=cc;});
   paPecas.linhas=linhas;
-  var centrosRec=d.h.centros.filter(function(cc){return cc.ativo&&cc.conta&&cc.conta.tipo==='RECEITAS'&&cc.grupo_id;});
-  paPecas.centrosRec=centrosRec;paPecas.grupos=grupos.filter(function(g){return g.ativo;});
-  var mesPad=restCompra?13-restCompra:12;
-  if(podeEd)html+=paPecasForm(mesPad);
-  var T0=function(){return {q:0,v:0,qp:0,vp:0};},porSeg={varejo:T0(),atacado:T0()},porMes={},porGrupo={},tot0=T0();
-  function soma(o,l){var q=+l.quantidade||0,v=q*(+l.valor_unitario||0);o.q+=q;o.v+=v;if(l.status!=='encomendada'){o.qp+=q;o.vp+=v;}}
+  paPecas.centrosRec=d.h.centros.filter(function(cc){return cc.ativo&&cc.conta&&cc.conta.tipo==='RECEITAS'&&cc.grupo_id;});
+  paPecas.grupos=grupos.filter(function(g){return g.ativo;});
+  if(podeEd)html+=paPecasForm(restCompra?13-restCompra:12);
   var corpo=linhas.map(function(l){
-    var g=grupoDe[String(l.grupo_id)],cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null,s=segDe(l.grupo_id),tv=(+l.quantidade||0)*(+l.valor_unitario||0);
-    soma(porSeg[s],l);soma(tot0,l);porMes[l.mes]=porMes[l.mes]||T0();soma(porMes[l.mes],l);
-    var kg=String(l.grupo_id);porGrupo[kg]=porGrupo[kg]||{t:T0(),c:{}};soma(porGrupo[kg].t,l);var kc=cc?String(cc.id):'geral';porGrupo[kg].c[kc]=porGrupo[kg].c[kc]||T0();soma(porGrupo[kg].c[kc],l);
-    return '<tr class="cc'+(l.status==='encomendada'?' pa-pc-enc':'')+'"><td>'+PA_MESES_AB[l.mes-1]+'/'+String(l.ano).slice(2)+'</td><td>'+paEsc(g?g.nome:'#'+l.grupo_id)+'</td><td>'+(cc?paEsc(cc.nome):'<span class="pa-mut">Geral do grupo</span>')+'</td><td style="text-align:center">'+paSimSegTag(s)+'</td><td style="text-align:left">'+paEsc(l.peca)+'</td><td>'+n0(l.quantidade)+'</td><td>'+paValor(l.valor_unitario)+'</td><td><b>'+paValor(tv)+'</b></td>'+
+    var g=grupoDe[String(l.grupo_id)],cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null,s=segDe(l.grupo_id),q=+l.quantidade||0,ct=q*(+l.valor_unitario||0),rt=q*(+l.preco_venda||0);
+    return '<tr class="cc'+(l.status==='encomendada'?' pa-pc-enc':'')+'"><td>'+PA_MESES_AB[l.mes-1]+'/'+String(l.ano).slice(2)+'</td><td>'+paEsc(g?g.nome:'#'+l.grupo_id)+'</td><td>'+(cc?paEsc(cc.nome):'<span class="pa-mut">Geral do grupo</span>')+'</td><td style="text-align:center">'+paSimSegTag(s)+'</td><td>'+paEsc(l.peca)+'</td><td>'+n0(q)+'</td><td>'+paValor(l.valor_unitario)+'</td><td>'+(+l.preco_venda?paValor(l.preco_venda):'<span class="pa-mut">—</span>')+'</td><td><b>'+paValor(ct)+'</b></td><td><b>'+(rt?paValor(rt):'—')+'</b></td><td>'+pctCusto(ct,rt,s)+'</td>'+
       '<td><span class="pa-badge '+(l.status==='encomendada'?'mut':'pa-st-ok')+'">'+(l.status==='encomendada'?'encomendada':'planejada')+'</span></td><td style="white-space:nowrap">'+(podeEd?'<button class="pa-btn-ico" title="Editar" onclick="paPecasEditar('+l.id+')">✏</button><button class="pa-btn-ico" title="Excluir" onclick="paPecasExcluir('+l.id+')">🗑</button>':'')+'</td></tr>';
   }).join('');
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-pc-tbl"><thead><tr><th>Mês</th><th>Grupo</th><th>Centro de receita</th><th>Seg.</th><th style="text-align:left">Peça</th><th>Qtd</th><th>Valor unit.</th><th>Total</th><th>Status</th><th></th></tr></thead><tbody>'+
-    (corpo||'<tr class="cc"><td colspan="10" class="pa-mut" style="text-align:center;padding:14px">Nenhuma peça lançada para '+ano+'. '+(podeEd?'Use o formulário acima.':'')+'</td></tr>')+'</tbody></table></div>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta pa-pc-tbl"><thead><tr><th>Mês</th><th>Grupo</th><th>Centro de receita</th><th>Seg.</th><th>Peça</th><th>Qtd</th><th>Custo unit.<br>(compra)</th><th>Preço unit.<br>(venda)</th><th>Custo<br>total</th><th>Receita<br>total</th><th title="Custo ÷ preço de venda, comparado ao ideal do segmento">% custo</th><th>Status</th><th></th></tr></thead><tbody>'+
+    (corpo||'<tr class="cc"><td colspan="13" class="pa-mut" style="text-align:center;padding:14px">Nenhuma peça lançada para '+ano+'. '+(podeEd?'Use o formulário acima.':'')+'</td></tr>')+'</tbody></table></div>';
   // Totalizadores
-  function tl(rot,o,cls){return '<tr class="'+(cls||'cc')+'"><td>'+rot+'</td><td>'+n0(o.q)+'</td><td>'+paValor(o.v)+'</td><td>'+n0(o.qp)+'</td><td>'+paValor(o.vp)+'</td></tr>';}
-  var th='<thead><tr><th></th><th>Peças</th><th>Total R$</th><th title="Só as planejadas (as encomendadas já estão nas Provisões)">Peças<br>planejadas</th><th>R$<br>planejado</th></tr></thead>';
-  var tSeg=seg.map(function(s){return tl(PA_SEG_NOME[s],porSeg[s]);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
+  function tl(rot,o,cls,s){return '<tr class="'+(cls||'cc')+'"><td>'+rot+'</td><td>'+n0(o.q)+'</td><td>'+paValor(o.c)+'</td><td>'+paValor(o.rv)+'</td><td>'+pctCusto(o.c,o.rv,s)+'</td><td>'+n0(o.qp)+'</td><td>'+paValor(o.cp)+'</td><td>'+paValor(o.rp)+'</td></tr>';}
+  var th='<thead><tr><th></th><th>Peças</th><th>Custo<br>total</th><th>Receita<br>total</th><th>% custo</th><th title="Só as planejadas (as encomendadas já estão nas Provisões)">Peças<br>planejadas</th><th>Custo<br>planejado</th><th>Receita<br>planejada</th></tr></thead>';
+  var tSeg=seg.map(function(s){return tl(PA_SEG_NOME[s],porSeg[s],'cc',s);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
   var tMes=Object.keys(porMes).sort(function(a,b){return a-b;}).map(function(m){return tl(PA_MESES[m-1]+'/'+ano,porMes[m]);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
-  var tGr=Object.keys(porGrupo).map(function(kg){var G=porGrupo[kg],g=grupoDe[kg];
-    return tl('<b>'+paEsc(g?g.nome:'#'+kg)+'</b> '+paSimSegTag(segDe(kg)),G.t,'sub')+Object.keys(G.c).map(function(kc){return tl('<span style="padding-left:14px">'+(kc==='geral'?'<span class="pa-mut">Geral do grupo</span>':paEsc((ccDe[kc]||{}).nome||'#'+kc))+'</span>',G.c[kc]);}).join('');}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
-  html+='<div class="pa-pc-tots"><div><div class="pa-pc-tt">Por segmento</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tSeg+'</tbody></table></div>'+
-    '<div><div class="pa-pc-tt">Por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div>'+
+  var tGr=Object.keys(porGrupo).map(function(kg){var G=porGrupo[kg],g=grupoDe[kg],s=segDe(kg);
+    return tl('<b>'+paEsc(g?g.nome:'#'+kg)+'</b> '+paSimSegTag(s),G.t,'sub',s)+Object.keys(G.c).map(function(kc){return tl('<span style="padding-left:14px">'+(kc==='geral'?'<span class="pa-mut">Geral do grupo</span>':paEsc((ccDe[kc]||{}).nome||'#'+kc))+'</span>',G.c[kc],'cc',s);}).join('');}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
+  html+='<div class="pa-pc-tots"><div style="grid-column:1/-1"><div class="pa-pc-tt">Por segmento</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tSeg+'</tbody></table></div>'+
+    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div>'+
     '<div style="grid-column:1/-1"><div class="pa-pc-tt">Por grupo e centro de receita</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tGr+'</tbody></table></div></div>';
+  html+='<p class="pa-info" style="margin-top:6px"><b>Receita total é potencial:</b> supõe que todas as peças compradas sejam vendidas no período, pelo preço cheio (sem desconto e sem sobra para o estoque).</p>';
   // Bloco 3 — confronto
-  function sit(plan,lim){if(lim===null||lim===undefined||!isFinite(lim))return '<span class="pa-mut">—</span>';var f=lim-plan;return f>=-0.005?'<span style="color:var(--green);font-weight:700">cabe</span><br><span class="pa-orig">sobram '+paValor(f)+'</span>':'<span style="color:var(--red);font-weight:700">excede</span><br><span class="pa-orig">'+paValor(-f)+' acima</span>';}
-  function sitQ(plan,lim){if(lim===null||lim===undefined||!isFinite(lim))return '<span class="pa-mut">—</span>';var f=lim-plan;return f>=-0.5?'<span style="color:var(--green);font-weight:700">cabe</span><br><span class="pa-orig">sobram '+n0(f)+' pç</span>':'<span style="color:var(--red);font-weight:700">excede</span><br><span class="pa-orig">'+n0(-f)+' pç acima</span>';}
-  var cabTot=R.varejo.cabem!==null&&R.atacado.cabem!==null?R.varejo.cabem+R.atacado.cabem:null;
-  html+='<h3 class="pa-h3">3. Confronto — peças planejadas × saldo</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:1000px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>R$ planejado</th><th>Pode comprar (R$)</th><th>Situação (R$)</th><th>Peças planejadas</th><th>Peças que cabem</th><th>Situação (peças)</th></tr></thead><tbody>'+
-    seg.map(function(s){var o=porSeg[s],x=R[s];return '<tr class="cc"><td>'+PA_SEG_NOME[s]+'</td><td>'+paValor(o.vp)+'</td><td>'+paValor(x.pode)+'</td><td>'+sit(o.vp,x.pode)+'</td><td>'+n0(o.qp)+'</td><td>'+n0(x.cabem)+'</td><td>'+sitQ(o.qp,x.cabem)+'</td></tr>';}).join('')+
-    '<tr class="conta rec"><td>TOTAL</td><td>'+paValor(tot0.vp)+'</td><td>'+paValor(Math.max(SC.Prod.podeO,0))+'</td><td>'+sit(tot0.vp,Math.max(SC.Prod.podeO,0))+'</td><td>'+n0(tot0.qp)+'</td><td>'+n0(cabTot)+'</td><td>'+sitQ(tot0.qp,cabTot)+'</td></tr></tbody></table></div>';
-  html+='<p class="pa-info" style="margin-top:8px">Só as peças <b>planejadas</b> entram no confronto: as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a> e, portanto, já foram descontadas do Pode comprar. Centro de receita em branco = <b>Geral do grupo</b> (não é um centro do Plano de Contas). Montagem Coleções não entra na conta de peças.</p>';
+  function sit(plan,lim,fmt){if(lim===null||lim===undefined||!isFinite(lim))return '<span class="pa-mut">—</span>';var f=lim-plan;return f>=-0.005?'<span style="color:var(--green);font-weight:700">cabe</span><br><span class="pa-orig">sobram '+fmt(f)+'</span>':'<span style="color:var(--red);font-weight:700">excede</span><br><span class="pa-orig">'+fmt(-f)+' acima</span>';}
+  function cob(rec,meta){if(!meta)return '<span class="pa-mut">—</span>';var p=rec/meta*100;return '<b>'+fp(p)+'</b><br><span class="pa-orig">'+(p>=99.995?'cobre a meta':'faltam '+paValor(meta-rec)+' (estoque)')+'</span>';}
+  var fR=function(v){return paValor(v);},fQ=function(v){return n0(v)+' pç';},podeTot=Math.max(SC.Prod.podeO,0),cabTot=somaR('cabem'),recRestTot=R.varejo.recRest+R.atacado.recRest;
+  html+='<h3 class="pa-h3">3. Confronto — plano × saldo e × meta de receita</h3>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Custo<br>planejado</th><th>Pode comprar<br>(R$)</th><th>Situação<br>(R$)</th><th>Peças<br>planejadas</th><th>Peças que<br>cabem</th><th>Situação<br>(peças)</th><th title="Receita total de todas as peças da tabela (planejadas + encomendadas): tudo vira estoque para vender">Receita das<br>peças</th><th>Receita orçada<br>meses restantes</th><th>Cobertura<br>da meta</th></tr></thead><tbody>'+
+    seg.map(function(s){var o=porSeg[s],x=R[s];return '<tr class="cc"><td>'+PA_SEG_NOME[s]+'</td><td>'+paValor(o.cp)+'</td><td>'+paValor(x.pode)+'</td><td>'+sit(o.cp,x.pode,fR)+'</td><td>'+n0(o.qp)+'</td><td>'+n0(x.cabem)+'</td><td>'+sit(o.qp,x.cabem,fQ)+'</td><td>'+paValor(o.rv)+'</td><td>'+paValor(x.recRest)+'</td><td>'+cob(o.rv,x.recRest)+'</td></tr>';}).join('')+
+    '<tr class="conta rec"><td>TOTAL</td><td>'+paValor(tot0.cp)+'</td><td>'+paValor(podeTot)+'</td><td>'+sit(tot0.cp,podeTot,fR)+'</td><td>'+n0(tot0.qp)+'</td><td>'+n0(cabTot)+'</td><td>'+sit(tot0.qp,cabTot,fQ)+'</td><td>'+paValor(tot0.rv)+'</td><td>'+paValor(recRestTot)+'</td><td>'+cob(tot0.rv,recRestTot)+'</td></tr></tbody></table></div>';
+  html+='<p class="pa-info" style="margin-top:8px">Custo e peças: só as <b>planejadas</b> entram no confronto com o saldo — as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a>, já descontadas do Pode comprar. Receita: entram todas as peças da tabela. Centro de receita em branco = <b>Geral do grupo</b> (não é um centro do Plano de Contas). Montagem Coleções não entra na conta de peças.</p>';
   document.getElementById('pa-root').innerHTML=html;
   if(podeEd)paPecasGrupoMudou();
 }
@@ -1909,9 +1908,10 @@ function paPecasForm(mesPad){
     '<label>Mês<select id="pa-pc-mes">'+PA_MESES.map(function(n,i){return '<option value="'+(i+1)+'"'+(i+1===mesPad?' selected':'')+'>'+n+'</option>';}).join('')+'</select></label>'+
     '<label>Grupo *<select id="pa-pc-grupo" onchange="paPecasGrupoMudou()"><option value="">— escolha —</option>'+g.map(function(x){return '<option value="'+x.id+'">'+paEsc(x.nome)+' ('+(x.segmento==='atacado'?'Atacado':'Varejo')+')</option>';}).join('')+'</select></label>'+
     '<label>Centro de receita<select id="pa-pc-centro"><option value="">— Geral do grupo —</option></select></label>'+
-    '<label style="flex:1;min-width:200px">Peça *<input id="pa-pc-peca" maxlength="120" placeholder="Ex.: Camiseta Luedji preta"></label>'+
+    '<label style="flex:1;min-width:200px">Peça *<input id="pa-pc-peca" maxlength="120" placeholder="Ex.: T-shirt Luedji preta"></label>'+
     '<label>Qtd *<input id="pa-pc-qtd" inputmode="decimal" style="width:80px"></label>'+
-    '<label>Valor unit. (R$) *<input id="pa-pc-vu" inputmode="decimal" style="width:110px"></label>'+
+    '<label>Custo unit. compra (R$) *<input id="pa-pc-vu" inputmode="decimal" style="width:120px"></label>'+
+    '<label>Preço unit. venda (R$) *<input id="pa-pc-pv" inputmode="decimal" style="width:120px"></label>'+
     '<label>Status<select id="pa-pc-st"><option value="planejada">Planejada</option><option value="encomendada">Encomendada</option></select></label>'+
     '<button class="btn btn-primary btn-sm" id="pa-pc-btn" onclick="paPecasSalvar()">＋ Adicionar peça</button>'+
     '<button class="btn btn-ghost btn-sm" id="pa-pc-cancel" style="display:none" onclick="paPecasCancelar()">Cancelar</button>'+
@@ -1927,7 +1927,7 @@ function paPecasEditar(id){
   var l=(paPecas.linhas||[]).find(function(x){return String(x.id)===String(id);});if(!l)return;
   paPecas.editId=id;
   document.getElementById('pa-pc-mes').value=String(l.mes);document.getElementById('pa-pc-grupo').value=String(l.grupo_id);paPecasGrupoMudou(l.centro_custo_id||'');
-  document.getElementById('pa-pc-peca').value=l.peca;document.getElementById('pa-pc-qtd').value=paValorInput(l.quantidade).replace(/,00$/,'');document.getElementById('pa-pc-vu').value=paValorInput(l.valor_unitario);document.getElementById('pa-pc-st').value=l.status;
+  document.getElementById('pa-pc-peca').value=l.peca;document.getElementById('pa-pc-qtd').value=paValorInput(l.quantidade).replace(/,00$/,'');document.getElementById('pa-pc-vu').value=paValorInput(l.valor_unitario);document.getElementById('pa-pc-pv').value=+l.preco_venda?paValorInput(l.preco_venda):'';document.getElementById('pa-pc-st').value=l.status;
   document.getElementById('pa-pc-btn').textContent='💾 Salvar alteração';document.getElementById('pa-pc-cancel').style.display='';
   document.querySelector('.pa-pc-form').scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -1935,13 +1935,14 @@ function paPecasCancelar(){paPecas.editId=null;navigatePlanejamento('pecas');}
 async function paPecasSalvar(){
   if(!paPodeEditar())return;
   var mes=+document.getElementById('pa-pc-mes').value,gid=document.getElementById('pa-pc-grupo').value,cc=document.getElementById('pa-pc-centro').value,peca=document.getElementById('pa-pc-peca').value.trim();
-  var q=paParseValor(document.getElementById('pa-pc-qtd').value),vu=paParseValor(document.getElementById('pa-pc-vu').value),st=document.getElementById('pa-pc-st').value;
+  var q=paParseValor(document.getElementById('pa-pc-qtd').value),vu=paParseValor(document.getElementById('pa-pc-vu').value),pv=paParseValor(document.getElementById('pa-pc-pv').value),st=document.getElementById('pa-pc-st').value;
   if(!gid){showToast('Escolha o grupo.','error');return;}
   if(!peca){showToast('Informe a peça.','error');return;}
   if(!(q>0)){showToast('Informe a quantidade (maior que zero).','error');return;}
-  if(!(vu>=0)||document.getElementById('pa-pc-vu').value.trim()===''){showToast('Informe o valor unitário.','error');return;}
+  if(!(vu>0)){showToast('Informe o custo unitário de compra.','error');return;}
+  if(!(pv>0)){showToast('Informe o preço unitário de venda.','error');return;}
   var quem=(window.cu&&cu.email)||null,agora=new Date().toISOString();
-  var row={ano:paEstado.ano,mes:mes,grupo_id:+gid,centro_custo_id:cc?+cc:null,peca:peca,quantidade:paNum(q),valor_unitario:paNum(vu),status:st,atualizado_por:quem,atualizado_em:agora};
+  var row={ano:paEstado.ano,mes:mes,grupo_id:+gid,centro_custo_id:cc?+cc:null,peca:peca,quantidade:paNum(q),valor_unitario:paNum(vu),preco_venda:paNum(pv),status:st,atualizado_por:quem,atualizado_em:agora};
   try{
     if(paPecas.editId){await sb.patch('cda_pa_pecas_compra',paPecas.editId,row);showToast('Peça atualizada','success');}
     else{row.criado_por=quem;await sb.post('cda_pa_pecas_compra',row);showToast('Peça adicionada','success');}
@@ -1967,15 +1968,18 @@ function paFormulaPecas(){
     ['(−) Realizado do produto','',v(SC.Prod.real)],['(−) Provisões do produto','',v(SC.Prod.prov)],
     ['= Saldo pelo ideal','',v(SC.Prod.saldoIdO)],['Saldo pelo orçamento',v(SC.Prod.prev)+' − '+v(SC.Prod.real)+' − '+v(SC.Prod.prov),v(SC.Prod.saldoOrc)],
     ['Pode comprar (menor dos dois)','',v(Math.max(SC.Prod.podeO,0)),'forte']],'Saldo de Compras Anual (R$), sem os centros de Montagem Coleções');
-  ['varejo','atacado'].forEach(function(s){var x=R[s],nm=PA_SEG_NOME[s];
-    h+=passo(n++,nm,[
-      ['Ticket médio por peça',v(x.valorHist)+' ÷ '+n0(x.pecasHist)+' pç',v(x.ticket)],
-      ['Custo-alvo por peça',v(x.ticket)+' × '+pc(C.pctIdeal[s]),v(x.alvo),'forte'],
+  ['varejo','atacado'].forEach(function(s){var x=R[s],nm=PA_SEG_NOME[s],ps=C.porSeg[s];
+    var ls=[
       ['Participação na receita orçada',v(C.prevSeg[s])+' ÷ '+v(C.prevSeg.varejo+C.prevSeg.atacado),pc(x.share*100)],
       ['Pode comprar do segmento',v(Math.max(SC.Prod.podeO,0))+' × '+pc(x.share*100),v(x.pode)],
-      ['Peças que cabem',v(x.pode)+' ÷ '+v(x.alvo),n0(x.cabem),'final'],
-      ['Receita orçada dos meses restantes',v(C.prevSeg[s])+' × '+C.restRec+' ÷ 12',v(x.recRest)],
-      ['Peças necessárias para a meta',v(x.recRest)+' ÷ '+v(x.ticket),n0(x.neces),'forte']],'Ticket: Histórico de Compras (sem notas consolidadas) · custo ideal: Mix de Vendas › ⚙ Referências · receita: Orçamento › Previsto');});
+      ['Ticket médio por peça (Histórico)',v(x.valorHist)+' ÷ '+n0(x.pecasHist)+' pç',v(x.ticket)],
+      ['Custo-alvo por peça (referência)',v(x.ticket)+' × '+pc(C.pctIdeal[s]),v(x.alvo)]];
+    if(x.cmPlano!==null){ls.push(['Custo médio das peças planejadas',v(ps.cp)+' ÷ '+n0(ps.qp)+' pç',v(x.cmPlano),'forte']);ls.push(['Peças que cabem (pelo custo do plano)',v(x.pode)+' ÷ '+v(x.cmPlano),n0(x.cabemPlano),'final']);}
+    else ls.push(['Peças que cabem (pelo custo-alvo — sem peças planejadas)',v(x.pode)+' ÷ '+v(x.alvo),n0(x.cabemAlvo),'final']);
+    ls.push(['Receita orçada dos meses restantes',v(C.prevSeg[s])+' × '+C.restRec+' ÷ 12',v(x.recRest)]);
+    ls.push(['Peças necessárias para a meta',v(x.recRest)+' ÷ '+v(x.ticket),n0(x.neces),'forte']);
+    if(ps.rv)ls.push(['Cobertura da meta pelas peças da tabela',v(ps.rv)+' ÷ '+v(x.recRest)+' × 100',pc(x.recRest?ps.rv/x.recRest*100:null),'forte']);
+    h+=passo(n++,nm,ls,'Ticket: Histórico de Compras (sem notas consolidadas) · custo ideal: Mix de Vendas › ⚙ Referências · receita: Orçamento › Previsto · custo e preço das peças: Tabela de Peças a Comprar');});
   h+='<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
   openModal(h);
 }
@@ -2675,9 +2679,11 @@ var PA_TUT={
   ['Ticket médio por peça','Vendas ÷ peças do Histórico de Compras nos meses de receita fechada, por segmento. Notas consolidadas (acima de R$ 1.000 por peça) ficam de fora.','Vendas ÷ peças'],
   ['Custo-alvo por peça','Quanto cada peça deveria custar para ficar no custo ideal do segmento (Mix de Vendas › ⚙ Referências: venda direta para Varejo, atacado para Atacado).','Ticket por peça × custo ideal %'],
   ['Pode comprar do segmento','Pode comprar do custo do produto (Saldo de Compras Anual R$, sem Montagem Coleções) dividido pela participação de cada segmento na receita orçada.','Pode comprar × participação'],
-  ['Peças que cabem','Quantas peças o pode comprar compra pelo custo-alvo, no período e por mês.','Pode comprar do segmento ÷ custo-alvo'],
   ['Peças necessárias','Peças que precisam ser vendidas para bater a receita orçada dos meses restantes. A diferença para as que cabem vem do estoque.','Receita orçada dos meses restantes ÷ ticket por peça'],
-  ['📋 Tabela de Peças a Comprar','Uma linha por peça: mês da compra, grupo (obrigatório; o segmento vem do grupo), centro de receita (opcional — em branco = Geral do grupo, não é um centro do Plano de Contas), peça, quantidade, valor unitário e status.'],
+  ['📋 Tabela de Peças a Comprar','Uma linha por peça: mês da compra, grupo (obrigatório; o segmento vem do grupo), centro de receita (opcional — em branco = Geral do grupo, não é um centro do Plano de Contas), peça, quantidade, custo unitário de compra, preço unitário de venda e status.'],
+  ['Custo total · Receita total · % custo','Custo total = quantidade × custo de compra. Receita total = quantidade × preço de venda (potencial: supõe que tudo seja vendido no período, pelo preço cheio). % custo = custo ÷ preço de venda, com ✓ dentro ou ⚠ acima do ideal do segmento (Varejo 30%, Atacado 50%).','Custo ÷ preço de venda × 100'],
+  ['Peças que cabem','Com peças planejadas na tabela, usa o custo médio delas (custo planejado ÷ peças planejadas), que reflete o preço real de cada produto. Sem peças planejadas, usa o custo-alvo médio como referência.','Pode comprar do segmento ÷ custo médio do plano'],
+  ['Cobertura da meta','Receita total das peças da tabela (planejadas + encomendadas) ÷ receita orçada dos meses restantes. O que faltar precisa vir do estoque.'],
   ['Planejada × Encomendada','Planejada entra no confronto com o saldo. Encomendada já deve estar em Orçamento › Provisões (que já foi descontada do pode comprar), por isso fica fora do confronto para não contar duas vezes.'],
   ['Totais e confronto','Por segmento, por mês, por grupo e centro e o total do período, em peças e R$. O confronto compara o planejado com o pode comprar (R$) e com as peças que cabem.'],
   ['🧮 Fórmula das peças','Abre a conta passo a passo com os números do momento.']]},

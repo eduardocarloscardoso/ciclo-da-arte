@@ -990,6 +990,11 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   (texto livre; no futuro, cadastro de produtos), quantidade, valor unitário, status planejada/encomendada (só
   planejadas no confronto). Totais por segmento, mês, grupo/centro e período; confronto com o saldo; 🧮 Fórmula.
   Estoque: fica a cargo de quem monta a tabela (integração Bling no futuro).
+  **Preço de venda (02/11/2026):** nova coluna `preco_venda` (SQL `docs/sql/planejamento_anual_19_pecas_preco_venda.sql`;
+  obrigatória na tela; tabela ainda sem linhas). Cada peça: custo de compra e preço de venda → custo total,
+  receita total (potencial), % custo ✓/⚠ contra o ideal do segmento. "Peças que cabem" passa a usar o custo médio
+  das peças planejadas (custo-alvo médio só como referência). Confronto ganha receita das peças × receita orçada
+  dos meses restantes (cobertura da meta; o que faltar vem do estoque).
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
