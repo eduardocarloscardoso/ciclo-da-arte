@@ -7,7 +7,14 @@
 // Requer cda-dados-compartilhados.js (cdaCarregarClientes, cdaCarregarCompras,
 // cdaCarregarCanais, cdaCarregarProdutos, cdaCarregarSegmentos,
 // cdaSalvarSegmento, cdaExcluirSegmento, cdaCarregarHierarquiaReceita e o
-// motor único cdaMotorSegmento) e a lib SheetJS (XLSX) carregadas antes.
+// motor único cdaMotorSegmento), cda-construtor-filtros.js (componente de
+// filtros, CDA_TIPOS_FILTRO_SEG) e a lib SheetJS (XLSX) carregadas antes.
+// Desenho (decisão de Cardoso, 04/11/2026): a SEGMENTAÇÃO guarda só QUAIS
+// filtros usa (tipos) — nenhum valor. Os valores são preenchidos em cada
+// CAMPANHA (cda-modulo-campanhas.js). A tela tem duas caixas:
+//   1 · Segmentações parametrizadas — criadas pela equipe (nome + tipos)
+//   2 · Modelos comerciais — status/classificações calculados pelo sistema
+//       (Lead, Ativo, Em risco, VIP...), com contagem e prévia.
 // A REGRA de cada filtro mora só em cdaMotorSegmento (dados-compartilhados);
 // aqui fica apenas a interface (campos de valor, listeners, resultado).
 //
@@ -19,44 +26,8 @@
 //   <script>montarModuloSegmentacao('container-segmentacao');</script>
 // ════════════════════════════════════════════════════════════════════
 
-// Cada filtro pertence a um GRUPO — os 8 grupos do documento de
-// especificação da Segmentação + "Plano de Contas" (nov/2026). Os itens de "Datas" (último contato/
-// proposta) e "CRM" (sem contato/follow-up/oportunidade) dependem do
-// histórico de interações, que ainda não existe (fica pra quando o
-// Pipeline B2C for redesenhado) — por isso não aparecem aqui ainda.
-var CDA_TIPOS_FILTRO_SEG = [
-  { id: 'status_crm', label: 'Status CRM (ciclo de vida)', grupo: 'Inteligência' },
-  { id: 'tag_valor', label: 'Classificação de valor (VIP/Premium)', grupo: 'Inteligência' },
-
-  { id: 'valor_gasto', label: 'Valor total gasto (R$)', grupo: 'Compras' },
-  { id: 'ticket_medio', label: 'Ticket médio (R$)', grupo: 'Compras' },
-  { id: 'qtd_compras', label: 'Quantidade de compras', grupo: 'Compras' },
-  { id: 'canal', label: 'Comprou pelo menos 1x no canal', grupo: 'Compras' },
-
-  { id: 'plano_contas', label: 'Comprou em: Conta / Grupo / Subconta / Centro de Custo', grupo: 'Plano de Contas' },
-
-  { id: 'recencia_compra', label: 'Sem comprar há X dias', grupo: 'Frequência' },
-  { id: 'nunca_comprou', label: 'Nunca comprou (nenhum produto)', grupo: 'Frequência' },
-  { id: 'comprou_periodo', label: 'Comprou neste período', grupo: 'Frequência' },
-
-  { id: 'aniversario', label: 'Aniversariantes (mês)', grupo: 'Datas' },
-  { id: 'dias_cadastro', label: 'Dias desde o cadastro', grupo: 'Datas' },
-  { id: 'dias_primeira_compra', label: 'Dias desde a 1ª compra', grupo: 'Datas' },
-
-  { id: 'produto', label: 'Comprou o produto', grupo: 'Produtos' },
-  { id: 'nunca_comprou_produto', label: 'Nunca comprou o produto', grupo: 'Produtos' },
-
-  { id: 'cidade', label: 'Cidade — uma ou várias', grupo: 'Geografia' },
-  { id: 'estado', label: 'Estado (UF) — um ou vários', grupo: 'Geografia' },
-  { id: 'regiao', label: 'Região — uma ou várias', grupo: 'Geografia' },
-  { id: 'pais', label: 'País', grupo: 'Geografia' },
-  { id: 'cep', label: 'CEP (prefixo)', grupo: 'Geografia' },
-
-  { id: 'origem', label: 'Origem do lead', grupo: 'Marketing' },
-
-  { id: 'tipo_comercial', label: 'Tipo Comercial', grupo: 'CRM' },
-  { id: 'sem_vendedor', label: 'Sem vendedor responsável', grupo: 'CRM' }
-];
+// Tipos de filtro (CDA_TIPOS_FILTRO_SEG) e a divisão Universo × Comercial
+// moram em cda-construtor-filtros.js.
 
 var CDA_UF_REGIAO = {
   AC:'Norte', AM:'Norte', AP:'Norte', PA:'Norte', RO:'Norte', RR:'Norte', TO:'Norte',
@@ -79,11 +50,28 @@ async function montarModuloSegmentacao(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [], msAberto: null, geoAberto: {} };
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], resultado: [], modeloAberto: null };
   var motor = null; // cdaMotorSegmento — montado após a carga
 
   host.innerHTML =
     '<style>' +
+      '.seg-carregando{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted,#888);}' +
+      '.seg-lista-sec{border:2px solid var(--ink,#1a1a1a);padding:12px 14px;margin-bottom:12px;}' +
+      '.seg-lista-tit{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}' +
+      '.seg-lista-tit .tmu{text-transform:none;letter-spacing:0;font-weight:400;}' +
+      '.seg-lista-item{display:flex;align-items:center;gap:12px;padding:8px 0;border-top:1px solid rgba(0,0,0,.12);flex-wrap:wrap;}' +
+      '.seg-lista-item .nome{flex:1;min-width:200px;font-weight:700;font-size:12px;}' +
+      '.seg-lista-item .n{font-size:11px;color:var(--muted,#888);min-width:100px;text-align:right;}' +
+      '.seg-lista-item .acoes{display:flex;gap:5px;}' +
+      '.seg-vazio{font-size:11px;color:var(--muted,#888);padding:8px 0;}' +
+      '.seg-cad-linha{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}' +
+      '.seg-cad-linha>label{width:60px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}' +
+      '.seg-cad-linha input{flex:1;min-width:240px;max-width:520px;font-size:12px;padding:7px 10px;border:2px solid var(--ink,#1a1a1a);}' +
+      '.seg-cad-rodape{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}' +
+      '.seg-bloco{border:2px solid var(--ink,#1a1a1a);padding:12px 14px;margin-bottom:12px;}' +
+      '.seg-bloco-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}' +
+      '.seg-bloco-cab b{font-size:13px;text-transform:uppercase;letter-spacing:.5px;}' +
+      '.seg-bloco-acoes{display:flex;gap:6px;flex-wrap:wrap;}' +
       '.seg-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;background:var(--card,#f5f0e8);border:1px solid var(--ink,#1a1a1a);padding:8px;}' +
       '.seg-row select,.seg-row input{font-family:\'Syne\',sans-serif;font-size:11px;padding:6px 9px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);}' +
       '.seg-and{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--muted,#888);font-weight:700;margin:4px 0;}' +
@@ -122,31 +110,45 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-cid,.seg-pc-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
       '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
+      '.seg-tipos-grupo{margin-bottom:10px;}' +
+      '.seg-tipos-grupo .g{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted,#888);margin-bottom:4px;}' +
+      '.seg-tipos-grupo label{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin:0 14px 6px 0;cursor:pointer;}' +
+      '.seg-lista-item .resumo{flex:2;min-width:220px;font-size:11px;color:var(--muted,#888);}' +
+      '.seg-lista-item .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}' +
     '</style>' +
-    '<div class="seg-recalc" id="seg-recalc"></div>' +
-    '<div class="row-bt">' +
-      '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Atalhos rápidos por status, ou combine critérios abaixo pra grupos específicos</div></div>' +
-      '<div style="display:flex;gap:7px;">' +
-        '<select id="seg-carregar"><option value="">Carregar segmento salvo...</option></select>' +
-        (editavel ? '<button class="btn sm" id="seg-btn-renomear" disabled>✎ Renomear</button>' : '') +
-        (editavel ? '<button class="btn sm" id="seg-btn-excluir-seg" disabled>🗑 Excluir</button>' : '') +
-        (editavel ? '<button class="btn" id="seg-btn-salvar">💾 Salvar Segmento</button>' : '') +
-        (editavel ? '<button class="btn rust" id="seg-btn-exportar">⬇ Exportar XLSX</button>' : '') +
+    '<div id="seg-carregando" class="seg-carregando">⏳ Aguarde, carregando a Segmentação de Clientes…</div>' +
+    '<div id="seg-conteudo" hidden>' +
+    // ── Lista: duas caixas ──
+    '<div id="seg-vista-lista">' +
+      '<div class="row-bt">' +
+        '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">A segmentação diz quais filtros usar — os valores (qual artista, qual praça, quantos dias...) são preenchidos em cada Campanha</div></div>' +
+        '<div style="display:flex;gap:7px;"><button class="btn" id="seg-btn-valores">⚙ Valores Premium/VIP</button>' +
+        (editavel ? '<button class="btn rust" id="seg-btn-nova">✚ Nova segmentação</button>' : '') + '</div>' +
       '</div>' +
+      '<div class="seg-recalc" id="seg-recalc" hidden></div>' +
+      '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Segmentações parametrizadas <span class="tmu">· filtros preenchidos em cada campanha</span></div><div id="seg-lista-p"></div></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Modelos comerciais <span class="tmu">· calculados pelo sistema todo dia</span></div><div id="seg-lista-m"></div></div>' +
     '</div>' +
-    '<div class="seg-and" style="margin-top:0">Inteligência — atalhos de 1 clique</div>' +
-    '<div id="seg-pills" class="seg-pills-wrap"></div>' +
-    '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
-    '<div class="seg-and">Construtor de filtros combináveis — organizados pelos 9 grupos da Segmentação</div>' +
-    '<div id="seg-filtros"></div>' +
-    '<button class="btn sm" id="seg-btn-addfiltro">＋ Adicionar Filtro</button>' +
-    '<div class="tw" style="margin-top:16px">' +
-      '<div class="th"><h3 id="seg-resultado-titulo">Resultado</h3></div>' +
-      '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
-      '<div class="ts"><table>' +
-        '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
-        '<tbody id="seg-tb"></tbody>' +
-      '</table></div>' +
+    // ── Cadastro de segmentação parametrizada: nome + filtros que ela usa ──
+    '<div id="seg-vista-cadastro" hidden>' +
+      '<div class="row-bt"><div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar">← Voltar</button><span class="sec-t" id="seg-cad-titulo">Nova segmentação</span></div></div>' +
+      '<div class="seg-bloco">' +
+        '<div class="seg-cad-linha"><label for="seg-cad-nome">Nome</label><input id="seg-cad-nome" type="text" maxlength="120" placeholder="Ex: Artista · Praça · Público"' + (editavel ? '' : ' disabled') + '></div>' +
+      '</div>' +
+      '<div class="seg-bloco"><div class="seg-bloco-cab"><div><b>Filtros desta segmentação</b> <span class="tmu">marque os que ela usa — os valores são preenchidos em cada campanha</span></div></div>' +
+        '<div id="seg-cad-tipos"></div>' +
+        '<div class="seg-nota" id="seg-cad-resumo" style="margin:4px 0 0"></div>' +
+      '</div>' +
+      (editavel ? '<div class="seg-cad-rodape"><button class="btn" id="seg-btn-cancelar">Cancelar</button><button class="btn rust" id="seg-btn-salvar">💾 Salvar</button></div>' : '') +
+    '</div>' +
+    // ── Modelo comercial: só o filtro (os dados ficam nas Campanhas) ──
+    '<div id="seg-vista-modelo" hidden>' +
+      '<div class="row-bt"><div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar-m">← Voltar</button><span class="sec-t" id="seg-mod-titulo"></span></div>' +
+        '<div style="display:flex;gap:7px;">' + (editavel ? '<button class="btn" id="seg-btn-duplicar-m">⧉ Duplicar como parametrizada</button>' : '') + '</div></div>' +
+      '<div class="seg-bloco"><div class="seg-cad-linha"><label>Filtro</label><span id="seg-mod-resumo" style="font-size:12px"></span></div><div class="seg-nota" id="seg-mod-desc" style="margin:0"></div>' +
+        '<div class="seg-nota" style="margin:8px 0 0">Os clientes e os números aparecem em <b>Campanhas</b>: crie uma campanha escolhendo este modelo como público.</div></div>' +
+    '</div>' +
     '</div>';
 
   try {
@@ -154,57 +156,29 @@ async function montarModuloSegmentacao(containerId, opts) {
       cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm(), cdaCarregarParametrosSegmentacao(), cdaCarregarHierarquiaReceita()
     ]);
     var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5]; ST.parametros = res[6]; ST.hierarquia = res[7] || [];
-
-    // ── Exclui do universo da tela: cadastros genéricos (placeholder de show,
-    // dado de teste etc.) — não representam consumidor final individual ──
+    // Cadastros genéricos (placeholder de show etc.) não representam consumidor final
     ST.clientes = clientesBrutos.filter(function (c) { return !c.cadastroIncompleto; });
     var qtdExcluidosCadastro = clientesBrutos.length - ST.clientes.length;
-
-    // ── Escopo B2C: só canais de venda direta ao consumidor final entram
-    // no cálculo de Segmentação (revenda/atacado fica de fora, vira B2B) ──
-    // (regra aplicada pelo motor único cdaMotorSegmento ao receber os canais)
+    // Escopo B2C (regra aplicada pelo motor único ao receber os canais)
     var comprasTotal = ST.compras.length;
     motor = cdaMotorSegmento(ST.compras, { canais: ST.canais, hierarquia: ST.hierarquia });
     ST.compras = motor.compras;
     var qtdComprasExcluidas = comprasTotal - ST.compras.length;
-
-    host.querySelector('#seg-nota-exclusao').textContent =
-      (qtdExcluidosCadastro || qtdComprasExcluidas)
-        ? '⚠ ' + qtdExcluidosCadastro.toLocaleString('pt-BR') + ' cadastro(s) genérico(s) e ' + qtdComprasExcluidas.toLocaleString('pt-BR') + ' compra(s) de canal B2B foram excluídos automaticamente desta análise.'
-        : '';
+    host.querySelector('#seg-nota-exclusao').textContent = (qtdExcluidosCadastro || qtdComprasExcluidas)
+      ? '⚠ ' + qtdExcluidosCadastro.toLocaleString('pt-BR') + ' cadastro(s) genérico(s) e ' + qtdComprasExcluidas.toLocaleString('pt-BR') + ' compra(s) de canal B2B ficam fora das contagens.' : '';
   } catch (err) {
     console.error(err);
+    host.querySelector('#seg-carregando').hidden = true;
+    host.querySelector('#seg-conteudo').hidden = false;
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
-    host.querySelector('#seg-tb').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>' + msg + '</b></td></tr>';
+    host.querySelector('#seg-lista-p').innerHTML = '<div class="seg-vazio" style="color:var(--rust,#c0392b)">Erro ao carregar dados do Supabase: <b>' + msg + '</b></div>';
     return;
   }
-
+  host.querySelector('#seg-carregando').hidden = true;
+  host.querySelector('#seg-conteudo').hidden = false;
   var statusCrmPorId = {}; ST.statusCrm.forEach(function (s) { statusCrmPorId[s.id] = s; });
-
-  // ── Agregados de compra por cliente: calculados 1x pelo motor único ──
   function aggDe(clienteId) { return motor.aggDe(clienteId); }
-
-  // ── Atalhos rápidos (pills) — status de ciclo de vida + tags de valor ──
-  function renderPills() {
-    var wrap = host.querySelector('#seg-pills');
-    var itens = ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao'; });
-    wrap.innerHTML = itens.map(function (s) {
-      var ativa = ST.filtroRapido && ST.filtroRapido.codigo === s.codigo;
-      return '<span class="seg-pill' + (ativa ? ' ativa' : '') + '" data-codigo="' + s.codigo + '" data-tipo-campo="' + (s.codigo === 'vip' || s.codigo === 'premium' || s.codigo === 'gold' ? 'tag' : 'status') + '" title="' + (s.acaoSugerida || '') + '">' +
-        '<span class="dot" style="background:' + s.cor + '"></span>' + s.nome +
-        '</span>';
-    }).join('');
-    wrap.querySelectorAll('.seg-pill').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var codigo = el.dataset.codigo, campo = el.dataset.tipoCampo;
-        if (ST.filtroRapido && ST.filtroRapido.codigo === codigo) ST.filtroRapido = null;
-        else ST.filtroRapido = { campo: campo, codigo: codigo };
-        renderPills();
-        aplicarFiltros();
-      });
-    });
-  }
-  renderPills();
+  function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
 
   // ── Recálculo de Valores (Premium/VIP) ──────────────────────────────
   function fmtBRL(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); }
@@ -287,591 +261,130 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
   renderRecalculo();
 
-  function popularSelects() {
-    var selSeg = host.querySelector('#seg-carregar');
-    selSeg.innerHTML = '<option value="">Carregar segmento salvo...</option>' +
-      ST.segmentos.map(function (s) { return '<option value="' + s.id + '">' + s.nome + '</option>'; }).join('');
+  // ── Navegação entre as vistas ──
+  function mostrar(vista) {
+    ['lista', 'cadastro', 'modelo'].forEach(function (v) { host.querySelector('#seg-vista-' + v).hidden = v !== vista; });
+    if (host.scrollIntoView) host.scrollIntoView();
   }
-  popularSelects();
 
-  // ── Renderização das linhas de filtro ──
-  var CDA_GRUPOS_ORDEM = ['Inteligência', 'Compras', 'Plano de Contas', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
-  function optionsAgrupadas(valorSelecionado) {
-    return CDA_GRUPOS_ORDEM.map(function (grupo) {
-      var itens = CDA_TIPOS_FILTRO_SEG.filter(function (t) { return t.grupo === grupo; });
+  // ── Lista ──
+  var MODELOS = cdaModelosComerciais(ST.statusCrm);
+  function renderLista() {
+    var parametrizadas = ST.segmentos.slice().sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); });
+    host.querySelector('#seg-lista-p').innerHTML = parametrizadas.length ? parametrizadas.map(function (sg) {
+      return '<div class="seg-lista-item" data-id="' + escH(sg.id) + '">' +
+        '<span class="nome">' + escH(sg.nome) + '</span>' +
+        '<span class="resumo">' + escH(cdaResumoTipos(sg.filtros)) + '</span>' +
+        '<span class="acoes">' + (editavel
+          ? '<button class="btn sm" data-acao="editar">✎ Editar</button><button class="btn sm" data-acao="duplicar">⧉ Duplicar</button><button class="btn sm" data-acao="excluir">🗑 Excluir</button>'
+          : '<button class="btn sm" data-acao="editar">👁 Ver</button>') + '</span></div>';
+    }).join('') : '<div class="seg-vazio">Nenhuma segmentação ainda.' + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
+    host.querySelector('#seg-lista-m').innerHTML = MODELOS.map(function (m) {
+      return '<div class="seg-lista-item" data-modelo="' + escH(m.id) + '">' +
+        '<span class="nome"><span class="dot" style="background:' + escH(m.cor) + '"></span>' + escH(m.nome) + '</span>' +
+        '<span class="resumo">' + escH(m.resumo) + '</span>' +
+        '<span class="acoes"><button class="btn sm" data-acao="ver">' + (editavel ? '✎ Editar' : '👁 Ver') + '</button>' +
+        (editavel ? '<button class="btn sm" data-acao="duplicar">⧉ Duplicar</button>' : '') + '</span></div>';
+    }).join('');
+    host.querySelectorAll('#seg-lista-p [data-acao]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        var sg = ST.segmentos.find(function (x) { return String(x.id) === b.closest('.seg-lista-item').dataset.id; });
+        if (!sg) return;
+        if (b.dataset.acao === 'editar') return abrirCadastro(sg, false);
+        if (b.dataset.acao === 'duplicar') return abrirCadastro(sg, true);
+        if (!confirm('Excluir a segmentação "' + sg.nome + '"? Campanhas que já a usam continuam com os seus valores.')) return;
+        try {
+          await cdaExcluirSegmento(sg.id);
+          ST.segmentos = ST.segmentos.filter(function (x) { return x.id !== sg.id; });
+          renderLista();
+        } catch (err) { console.error(err); alert('Erro ao excluir — veja o console.'); }
+      });
+    });
+    host.querySelectorAll('#seg-lista-m [data-acao]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var m = MODELOS.find(function (x) { return x.id === b.closest('.seg-lista-item').dataset.modelo; });
+        if (!m) return;
+        if (b.dataset.acao === 'ver') abrirModelo(m);
+        else abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
+      });
+    });
+  }
+
+  // ── Cadastro (só os TIPOS de filtro; valores ficam na campanha) ──
+  var CAD = null; // { id, original: [filtros gravados], sujo }
+  var GRUPOS = ['Inteligência', 'Compras', 'Plano de Contas', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
+  function tiposMarcados() { return Array.from(host.querySelectorAll('.seg-tipo-ck:checked')).map(function (c) { return c.value; }); }
+  function atualizarResumoCad() {
+    var t = tiposMarcados();
+    host.querySelector('#seg-cad-resumo').textContent = t.length ? 'Esta segmentação usa: ' + t.map(cdaRotuloTipoFiltro).join(' · ') : 'Nenhum filtro marcado ainda.';
+  }
+  function abrirCadastro(sg, duplicar) {
+    CAD = { id: sg && !duplicar && sg.id ? sg.id : null, original: sg && !duplicar ? (sg.filtros || []) : [], sujo: !!duplicar };
+    var marcados = cdaTiposDaSegmentacao(sg ? sg.filtros : []);
+    host.querySelector('#seg-cad-tipos').innerHTML = GRUPOS.map(function (g) {
+      var itens = CDA_TIPOS_FILTRO_SEG.filter(function (t) { return t.grupo === g; });
       if (!itens.length) return '';
-      return '<optgroup label="' + grupo + '">' +
-        itens.map(function (t) { return '<option value="' + t.id + '"' + (valorSelecionado === t.id ? ' selected' : '') + '>' + t.label + '</option>'; }).join('') +
-        '</optgroup>';
+      return '<div class="seg-tipos-grupo"><div class="g">' + g + '</div>' + itens.map(function (t) {
+        return '<label><input type="checkbox" class="seg-tipo-ck" value="' + t.id + '"' + (marcados.indexOf(t.id) !== -1 ? ' checked' : '') + (editavel ? '' : ' disabled') + '> ' + escH(cdaRotuloTipoFiltro(t.id)) + '</label>';
+      }).join('') + '</div>';
     }).join('');
+    host.querySelectorAll('.seg-tipo-ck').forEach(function (c) { c.addEventListener('change', function () { CAD.sujo = true; atualizarResumoCad(); }); });
+    host.querySelector('#seg-cad-nome').value = sg ? (duplicar ? 'Cópia de ' + sg.nome : sg.nome) : '';
+    host.querySelector('#seg-cad-titulo').textContent = !sg ? 'Nova segmentação' : (duplicar ? 'Duplicar segmentação' : (editavel ? 'Editar segmentação' : 'Ver segmentação'));
+    atualizarResumoCad();
+    mostrar('cadastro');
   }
-
-  function renderFiltros() {
-    var wrap = host.querySelector('#seg-filtros');
-    wrap.innerHTML = ST.filtros.map(function (f, idx) {
-      return (idx > 0 ? '<div class="seg-and">E também...</div>' : '') +
-        '<div class="seg-row" data-idx="' + idx + '">' +
-          '<select class="seg-tipo" data-idx="' + idx + '">' +
-            optionsAgrupadas(f.tipo) +
-          '</select>' +
-          '<span class="seg-valor-area" data-idx="' + idx + '"></span>' +
-          '<button class="btn sm" data-rm="' + idx + '">✕</button>' +
-        '</div>';
-    }).join('');
-
-    ST.filtros.forEach(function (f, idx) {
-      var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
-      area.innerHTML = campoValorHtml(f, idx);
-      var opSel = area.querySelector('.seg-op');
-      if (opSel) opSel.value = f.operador || '>';
-      var valInput = area.querySelector('.seg-val');
-      if (valInput) valInput.value = f.valor != null ? f.valor : '';
-    });
-    if (motor) atualizarContagensUf(); // etiquetas/grade de UF e Região já com contagem
-
-    wrap.querySelectorAll('.seg-tipo').forEach(function (el) {
-      el.addEventListener('change', function () {
-        var idx = Number(el.dataset.idx);
-        ST.filtros[idx] = { tipo: el.value, operador: '>', valor: '' };
-        ST.msAberto = null;
-        ST.geoAberto = {};
-        renderFiltros();
-        aplicarFiltros(); // o critério anterior desta linha deixou de valer
-      });
-    });
-    wrap.querySelectorAll('[data-rm]').forEach(function (el) {
-      el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); ST.geoAberto = {}; ST.msAberto = null; renderFiltros(); aplicarFiltros(); });
-    });
-    // ── Plano de Contas: listas com caixinhas (várias escolhas por nível) ──
-    wrap.querySelectorAll('.seg-ms-btn').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var chave = el.closest('.seg-valor-area').dataset.idx + '|' + el.closest('.seg-ms').dataset.campo;
-        var abrir = ST.msAberto !== chave;
-        ST.msAberto = abrir ? chave : null;
-        wrap.querySelectorAll('.seg-ms').forEach(function (ms) {
-          var painel = ms.querySelector('.seg-ms-painel');
-          if (painel) painel.hidden = !(abrir && ms === el.closest('.seg-ms'));
-        });
-      });
-    });
-    function pcAplicar(idx, campo, novaLista, semAbrir) {
-      var v = pcValor(ST.filtros[idx]);
-      v[campo] = novaLista;
-      // níveis abaixo: mantém só as escolhas que ainda pertencem às de cima
-      PC_CAMPOS.slice(PC_CAMPOS.indexOf(campo) + 1).forEach(function (c) {
-        var validos = pcOpcoes(v, c).map(function (o) { return o.v; });
-        v[c] = v[c].filter(function (id) { return validos.indexOf(id) !== -1; });
-      });
-      var painel = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
-      var rolagem = painel ? painel.scrollTop : 0;
-      ST.msAberto = semAbrir ? null : idx + '|' + campo;
-      renderFiltros();
-      var novo = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
-      if (novo) novo.scrollTop = rolagem;
-      aplicarFiltros();
-    }
-    wrap.querySelectorAll('.seg-ms-ck').forEach(function (el) {
-      el.addEventListener('change', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
-        var lista = pcValor(ST.filtros[idx])[campo].slice();
-        var pos = lista.indexOf(el.value);
-        if (el.checked && pos === -1) lista.push(el.value);
-        if (!el.checked && pos !== -1) lista.splice(pos, 1);
-        pcAplicar(idx, campo, lista);
-      });
-    });
-    wrap.querySelectorAll('.seg-ms-acoes a').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
-        var v = pcValor(ST.filtros[idx]);
-        pcAplicar(idx, campo, el.dataset.acao === 'todos' ? pcOpcoes(v, campo).filter(function (o) { return o.n > 0; }).map(function (o) { return o.v; }) : []);
-      });
-    });
-    wrap.querySelectorAll('.seg-ms-painel').forEach(function (el) { el.addEventListener('click', function (ev) { ev.stopPropagation(); }); });
-
-    // ── Cidade: várias cidades (qualquer uma) ──
-    function cidAdicionar(area) {
-      var input = area.querySelector('.seg-cid-input');
-      var nome = (input.value || '').trim();
-      if (!nome) return;
-      var idx = Number(area.dataset.idx);
-      var lista = cdaListaValor(ST.filtros[idx].valor);
-      if (!lista.some(function (x) { return cdaSemAcento(x) === cdaSemAcento(nome); })) lista.push(nome);
-      ST.filtros[idx].valor = lista;
-      renderFiltros();
-      var novoInput = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-cid-input');
-      if (novoInput) novoInput.focus();
-      aplicarFiltros();
-    }
-    wrap.querySelectorAll('.seg-cid-add').forEach(function (el) {
-      el.addEventListener('click', function () { cidAdicionar(el.closest('.seg-valor-area')); });
-    });
-    wrap.querySelectorAll('.seg-cid-input').forEach(function (el) {
-      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cidAdicionar(el.closest('.seg-valor-area')); } });
-    });
-    wrap.querySelectorAll('.seg-cid b').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        var lista = cdaListaValor(ST.filtros[idx].valor);
-        lista.splice(Number(el.dataset.i), 1);
-        ST.filtros[idx].valor = lista;
-        renderFiltros();
-        aplicarFiltros();
-      });
-    });
-    // ── Estado (UF) / Região: grade aberta enquanto escolhe; recolhe em etiquetas depois ──
-    wrap.querySelectorAll('.seg-uf').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        var lista = ufLista(ST.filtros[idx]).slice();
-        var pos = lista.indexOf(el.dataset.uf);
-        if (pos !== -1) lista.splice(pos, 1); else lista.push(el.dataset.uf);
-        ST.filtros[idx].valor = lista;
-        ST.geoAberto[idx] = true; // continua aberta até clicar fora / Concluir
-        renderFiltros(); // redesenha a grade (mostra/oculta o "✓ Concluir")
-        aplicarFiltros();
-      });
-    });
-    wrap.querySelectorAll('.seg-uf-limpar').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        ST.filtros[idx].valor = [];
-        ST.geoAberto[idx] = true;
-        renderFiltros();
-        aplicarFiltros();
-      });
-    });
-    wrap.querySelectorAll('.seg-geo-ok').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        delete ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)];
-        renderFiltros();
-      });
-    });
-    wrap.querySelectorAll('.seg-geo-alterar').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)] = true;
-        renderFiltros();
-      });
-    });
-    wrap.querySelectorAll('.seg-uf-sel b').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        ST.filtros[idx].valor = ufLista(ST.filtros[idx]).filter(function (x) { return x !== el.dataset.uf; });
-        renderFiltros(); // sem nenhuma escolha a grade reabre sozinha
-        aplicarFiltros();
-      });
-    });
-    // ── Plano de Contas: ✕ numa etiqueta remove só aquela escolha ──
-    wrap.querySelectorAll('.seg-pc-tag b').forEach(function (el) {
-      el.addEventListener('click', function (ev) {
-        ev.stopPropagation();
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.dataset.campo;
-        var lista = pcValor(ST.filtros[idx])[campo].filter(function (id) { return id !== el.dataset.id; });
-        pcAplicar(idx, campo, lista, true);
-      });
-    });
-    wrap.querySelectorAll('.seg-op,.seg-val').forEach(function (el) {
-      el.addEventListener('input', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        if (el.classList.contains('seg-op')) ST.filtros[idx].operador = el.value;
-        else ST.filtros[idx].valor = el.value;
-        aplicarFiltros();
-      });
-      el.addEventListener('change', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        if (el.classList.contains('seg-op')) ST.filtros[idx].operador = el.value;
-        else ST.filtros[idx].valor = el.value;
-        aplicarFiltros();
-      });
-    });
+  function voltarLista(semPerguntar) {
+    if (!semPerguntar && CAD && CAD.sujo && editavel && !confirm('Descartar as alterações desta segmentação?')) return;
+    CAD = null; ST.modeloAberto = null;
+    mostrar('lista');
+    renderLista();
   }
+  host.querySelector('#seg-btn-voltar').addEventListener('click', function () { voltarLista(false); });
+  host.querySelector('#seg-btn-voltar-m').addEventListener('click', function () { voltarLista(true); });
+  host.querySelector('#seg-cad-nome').addEventListener('input', function () { if (CAD) CAD.sujo = true; });
+  host.querySelector('#seg-btn-valores').addEventListener('click', function () { var b = host.querySelector('#seg-recalc'); b.hidden = !b.hidden; });
 
-  function opts(lista, valorAtual) {
-    // lista = [{v, l}] -> monta <option>, marcando selected se bater com valorAtual
-    return lista.map(function (o) { return '<option value="' + o.v + '"' + (String(valorAtual) === String(o.v) ? ' selected' : '') + '>' + o.l + '</option>'; }).join('');
+  // ── Modelo comercial: só o filtro (os dados ficam nas Campanhas) ──
+  function abrirModelo(m) {
+    ST.modeloAberto = m;
+    host.querySelector('#seg-mod-titulo').textContent = m.nome;
+    host.querySelector('#seg-mod-resumo').textContent = m.resumo;
+    host.querySelector('#seg-mod-desc').textContent = m.descricao ? m.descricao : 'Calculado automaticamente pelo sistema todo dia.';
+    mostrar('modelo');
   }
-  function opInput(placeholder, largura, f) {
-    return '<select class="seg-op">' +
-      '<option value=">"' + (f.operador === '>' ? ' selected' : '') + '>maior/mais de</option>' +
-      '<option value="<"' + (f.operador === '<' ? ' selected' : '') + '>menor/menos de</option></select>' +
-      '<input class="seg-val" type="number" placeholder="' + placeholder + '" style="width:' + largura + 'px" value="' + (f.valor != null ? f.valor : '') + '">';
-  }
-  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
-
-  // ── Filtro "Estado (UF)": várias UFs, com contagem ao vivo de cada uma ──
-  function ufLista(f) {
-    var lista = cdaListaValor(f.valor);
-    return f.tipo === 'estado' ? lista.map(function (x) { return x.trim().toUpperCase(); }) : lista;
-  }
-  // Estado/Região: grade completa enquanto escolhe (ou sem nada escolhido);
-  // depois, só as etiquetas do que foi escolhido + "✎ Alterar".
-  function campoGeoHtml(f, idx, todos, titulo) {
-    var sel = ufLista(f);
-    if (sel.length && !ST.geoAberto[idx]) {
-      return '<span class="seg-uf-wrap seg-geo" data-idx="' + idx + '">' +
-        sel.map(function (v) { return '<span class="seg-uf-sel" data-uf="' + esc(v) + '">' + esc(v) + ' <i class="n">0</i><b data-uf="' + esc(v) + '" title="Remover">✕</b></span>'; }).join('') +
-        '<button class="btn sm seg-geo-alterar" type="button">✎ Alterar</button>' +
-        '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
-      '</span>';
-    }
-    return '<span class="seg-uf-wrap seg-geo seg-geo-aberta" data-idx="' + idx + '">' +
-      todos.map(function (v) {
-        return '<span class="seg-uf' + (sel.indexOf(v) !== -1 ? ' ativa' : '') + '" data-uf="' + v + '"' + (titulo ? ' title="' + titulo(v) + '"' : '') + '>' + v + '<i class="n">0</i></span>';
-      }).join('') +
-      '<button class="btn sm seg-uf-limpar" type="button">Limpar</button>' +
-      (sel.length ? '<button class="btn sm rust seg-geo-ok" type="button">✓ Concluir</button>' : '') +
-      '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
-    '</span>';
-  }
-  function campoRegiaoHtml(f, idx) { return campoGeoHtml(f, idx, CDA_REGIOES, null); }
-  // Cidade: várias cidades (qualquer uma); digita e tecla Enter ou "＋"
-  function campoCidadeHtml(f) {
-    var lista = cdaListaValor(f.valor);
-    return lista.map(function (c, i) { return '<span class="seg-cid">' + esc(c) + '<b data-i="' + i + '" title="Remover">✕</b></span>'; }).join(' ') +
-      ' <input class="seg-cid-input" type="text" placeholder="' + (lista.length ? 'Outra cidade...' : 'Ex: Rio de Janeiro') + '" style="width:170px">' +
-      '<button class="btn sm seg-cid-add" type="button">＋</button>' +
-      '<span class="tmu" style="font-size:10px"> sem acento ou com, tanto faz</span>';
-  }
-  function campoUfHtml(f, idx) { return campoGeoHtml(f, idx, CDA_UFS, function (uf) { return CDA_UF_REGIAO_COMPARTILHADO[uf]; }); }
-
-  // ── Filtro "Plano de Contas": Conta → Grupo → Subconta → Centro de Custo ──
-  // Cada nível aceita VÁRIAS escolhas (= qualquer uma) e é opcional (vazio = todos).
-  // As opções de um nível se restringem às escolhas dos níveis de cima.
-  var PC_CAMPOS = ['conta', 'grupo', 'subconta', 'centro'];
-  var PC_ROTULO = { conta: 'Conta', grupo: 'Grupo', subconta: 'Subconta', centro: 'Centro de Custo' };
-  function pcValor(f) {
-    if (!f.valor || typeof f.valor !== 'object' || Array.isArray(f.valor)) f.valor = {};
-    PC_CAMPOS.forEach(function (c) { f.valor[c] = cdaListaValor(f.valor[c]); }); // aceita formato antigo (texto único)
-    return f.valor;
-  }
-  var idsClientesValidos = null; // clientes do universo da tela (sem cadastro genérico)
-  function pcOpcoes(v, campo) {
-    if (!idsClientesValidos) { idsClientesValidos = new Set(); ST.clientes.forEach(function (c) { idsClientesValidos.add(String(c.id)); }); }
-    var acima = PC_CAMPOS.slice(0, PC_CAMPOS.indexOf(campo));
-    var porId = {}, lista = [];
-    ST.hierarquia.forEach(function (h) {
-      if (!acima.every(function (c) { return !v[c].length || v[c].indexOf(h[c + 'Id']) !== -1; })) return;
-      var id = h[campo + 'Id']; if (!id) return;
-      var o = porId[id];
-      if (!o) { o = porId[id] = { v: id, l: h[campo + 'Nome'] + (campo === 'centro' && !h.ativo ? ' (inativo)' : ''), clientes: new Set() }; lista.push(o); }
-      var doCentro = motor.clientesPorCentro[h.centroId];
-      if (doCentro) doCentro.forEach(function (cid) { if (idsClientesValidos.has(cid)) o.clientes.add(cid); });
-    });
-    lista.forEach(function (o) { o.n = o.clientes.size; delete o.clientes; });
-    if (campo === 'grupo') lista.sort(function (a, b) { return a.l.localeCompare(b.l); });
-    return lista;
-  }
-  function campoPlanoContasHtml(f, idx) {
-    if (!ST.hierarquia.length) return '<span class="tmu" style="font-size:10px">⚠ Estrutura do Plano de Contas indisponível — este filtro não retorna clientes. Recarregue a página; se persistir, avise o administrador.</span>';
-    var v = pcValor(f);
-    return PC_CAMPOS.map(function (campo) {
-      var ops = pcOpcoes(v, campo);
-      var sel = v[campo];
-      var nomes = ops.filter(function (o) { return sel.indexOf(o.v) !== -1; }).map(function (o) { return o.l; });
-      var resumo = !nomes.length ? 'todos' : (nomes.length === 1 ? nomes[0] : nomes[0] + ' +' + (nomes.length - 1));
-      var aberto = ST.msAberto === idx + '|' + campo;
-      return '<div class="seg-ms" data-campo="' + campo + '">' +
-        '<button type="button" class="seg-ms-btn' + (nomes.length ? ' tem' : '') + '" title="' + esc(nomes.join(', ') || 'todos') + '">' + PC_ROTULO[campo] + ': <b>' + esc(resumo) + '</b> ▾</button>' +
-        '<div class="seg-ms-painel"' + (aberto ? '' : ' hidden') + '>' +
-          '<div class="seg-ms-acoes"><a data-acao="todos">Marcar todos com clientes</a><a data-acao="limpar">Limpar</a></div>' +
-          ops.map(function (o) {
-            return '<label class="' + (o.n ? '' : 'zero') + '"><input type="checkbox" class="seg-ms-ck" value="' + esc(o.v) + '"' + (sel.indexOf(o.v) !== -1 ? ' checked' : '') + '>' +
-              esc(o.l) + '<i>' + o.n.toLocaleString('pt-BR') + '</i></label>';
-          }).join('') +
-        '</div>' +
-      '</div>';
-    }).join('') + pcEtiquetasHtml(v);
-  }
-  // Linha com os nomes escolhidos em cada nível — nada fica escondido no "+1"
-  function pcEtiquetasHtml(v) {
-    var partes = [];
-    PC_CAMPOS.forEach(function (campo) {
-      if (!v[campo].length) return;
-      var nomePorId = {}; pcOpcoes(v, campo).forEach(function (o) { nomePorId[o.v] = o.l; });
-      partes.push('<span class="rot">' + PC_ROTULO[campo] + ':</span>' +
-        v[campo].map(function (id) { return '<span class="seg-pc-tag">' + esc(nomePorId[id] || id) + '<b data-campo="' + campo + '" data-id="' + esc(id) + '" title="Remover">✕</b></span>'; }).join(''));
-    });
-    return partes.length ? '<div class="seg-pc-tags">' + partes.join('') + '</div>' : '';
-  }
-
-  function campoValorHtml(f, idx) {
-    switch (f.tipo) {
-      case 'status_crm':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao' && s.codigo !== 'vip' && s.codigo !== 'premium'; }).map(function (s) { return { v: s.id, l: s.nome }; }), f.valor) +
-          '</select>';
-      case 'tag_valor':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + opts([{ v: 'vip', l: 'VIP' }, { v: 'premium', l: 'Premium' }], f.valor) + '</select>';
-      case 'aniversario':
-        return '<select class="seg-val">' + opts(['—','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
-          .map(function (m, i) { return { v: (i === 0 ? '' : i), l: m }; }), f.valor) + '</select>';
-      case 'recencia_compra':
-        return opInput('dias', 80, f);
-      case 'nunca_comprou':
-        return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
-      case 'valor_gasto':
-        return opInput('R$', 100, f);
-      case 'qtd_compras':
-        return opInput('qtd', 80, f);
-      case 'canal':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (c) { return { v: c.id, l: c.nome }; }), f.valor) + '</select>';
-      case 'produto':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
-      case 'cidade':
-        return campoCidadeHtml(f);
-      case 'estado':
-        return campoUfHtml(f, idx);
-      case 'plano_contas':
-        return campoPlanoContasHtml(f, idx);
-      case 'ticket_medio':
-        return opInput('R$', 100, f);
-      case 'comprou_periodo':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts([{ v: 'mes', l: 'Este mês' }, { v: 'trimestre', l: 'Este trimestre' }, { v: 'ano', l: 'Este ano' }], f.valor) + '</select>';
-      case 'dias_cadastro':
-        return opInput('dias', 80, f);
-      case 'dias_primeira_compra':
-        return opInput('dias', 80, f);
-      case 'nunca_comprou_produto':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
-      case 'regiao':
-        return campoRegiaoHtml(f, idx);
-      case 'pais':
-        return '<input class="seg-val" type="text" placeholder="Ex: Brasil" value="' + (f.valor || '') + '">';
-      case 'cep':
-        return '<input class="seg-val" type="text" placeholder="Ex: 22793 (prefixo)" style="width:110px" value="' + (f.valor || '') + '">';
-      case 'origem':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(Array.from(new Set(ST.clientes.map(function (c) { return c.origem; }).filter(Boolean))).sort().map(function (o) { return { v: o, l: o }; }), f.valor) + '</select>';
-      case 'sem_vendedor':
-        return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
-      case 'tipo_comercial':
-        return '<select class="seg-val">' + opts([{ v: '', l: '—' }, { v: '__vazio__', l: 'Cliente Convertido (sem tipo)' }, { v: 'lead_b2c', l: 'Lead B2C' }, { v: 'canal_b2b', l: 'Canal B2B' }, { v: 'artista', l: 'Artista' }, { v: 'imprensa', l: 'Imprensa' }], f.valor) + '</select>';
-      default: return '';
-    }
-  }
-
-  // Regra de cada filtro: motor único (cdaMotorSegmento em cda-dados-compartilhados.js)
-  function passaNoFiltro(cliente, f) { return motor.passa(cliente, f); }
-
-  function passaNoFiltroRapido(cliente) {
-    if (!ST.filtroRapido) return true;
-    if (ST.filtroRapido.campo === 'tag') return (cliente.tagsComercial || []).indexOf(ST.filtroRapido.codigo) !== -1;
-    var s = ST.statusCrm.find(function (x) { return x.codigo === ST.filtroRapido.codigo; });
-    return s && String(cliente.statusCrmId) === String(s.id);
-  }
-
-  function aplicarFiltros() {
-    var temCriterio = ST.filtros.length > 0 || !!ST.filtroRapido;
-    var resultado = !temCriterio ? [] : ST.clientes.filter(function (c) {
-      return passaNoFiltroRapido(c) && ST.filtros.every(function (f) { return passaNoFiltro(c, f); });
-    });
-    ST.resultado = resultado;
-    renderResultado();
-    atualizarContagensUf();
-  }
-
-  // Para cada filtro de UF/Região: quantos clientes de cada estado/região passam
-  // em TODOS os outros critérios — é o "universo" da segmentação aberto por local.
-  function atualizarContagensUf() {
-    var wrap = host.querySelector('#seg-filtros');
-    ST.filtros.forEach(function (f, idx) {
-      if (f.tipo !== 'estado' && f.tipo !== 'regiao') return;
-      var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
-      if (!area) return;
-      var cont = {}, semUf = 0;
-      ST.clientes.forEach(function (c) {
-        if (!passaNoFiltroRapido(c)) return;
-        for (var j = 0; j < ST.filtros.length; j++) { if (j !== idx && !passaNoFiltro(c, ST.filtros[j])) return; }
-        var uf = cdaUfDe(c);
-        var chave = f.tipo === 'regiao' ? CDA_UF_REGIAO_COMPARTILHADO[uf] : (CDA_UF_REGIAO_COMPARTILHADO[uf] ? uf : null);
-        if (chave) cont[chave] = (cont[chave] || 0) + 1; else semUf++;
-      });
-      area.querySelectorAll('.seg-uf, .seg-uf-sel').forEach(function (el) {
-        var n = cont[el.dataset.uf] || 0;
-        el.querySelector('.n').textContent = n.toLocaleString('pt-BR');
-        el.classList.toggle('zero', n === 0 && el.classList.contains('seg-uf'));
-      });
-      var notaSemUf = area.querySelector('.seg-uf-semuf');
-      if (notaSemUf) notaSemUf.textContent = semUf ? '· ' + semUf.toLocaleString('pt-BR') + ' sem UF válida no cadastro' : '';
-    });
-  }
-
-  function fmtData(iso) {
-    if (!iso) return '—';
-    var p = iso.split('-');
-    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
-  }
-
-  function renderResultado() {
-    var tb = host.querySelector('#seg-tb');
-    var lista = ST.resultado.slice(0, 200);
-    tb.innerHTML = lista.map(function (c) {
-      var agg = aggDe(c.id);
-      var st = statusCrmPorId[c.statusCrmId];
-      var badges = (st ? '<span class="seg-badge" style="background:' + st.cor + '">' + st.nome + '</span>' : '—') +
-        (c.tagsComercial || []).map(function (t) {
-          var ts = ST.statusCrm.find(function (s) { return s.codigo === t; });
-          return ts ? ' <span class="seg-badge" style="background:' + ts.cor + '">' + ts.nome + '</span>' : '';
-        }).join('');
-      return '<tr>' +
-        '<td><b>' + (c.nome || '—') + '</b></td>' +
-        '<td>' + badges + '</td>' +
-        '<td>' + (c.cidade || '—') + '/' + (c.estado || '—') + '</td>' +
-        '<td>' + (c['data-nascimento'] || '—') + '</td>' +
-        '<td>' + fmtData(agg.ultimaData) + '</td>' +
-        '<td>' + agg.qtd + '</td>' +
-        '<td>' + (agg.total ? 'R$ ' + agg.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—') + '</td>' +
-        '<td class="tmu" style="font-size:11px">' + (c.email || '—') + '</td>' +
-        '<td class="mn">' + (c['telefone-celular'] || c['telefone-principal'] || '—') + '</td>' +
-        '</tr>';
-    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">' +
-      (ST.filtros.length === 0 && !ST.filtroRapido ? 'Clique num status acima ou adicione um filtro para ver resultados.' : 'Nenhum cliente encontrado com esses critérios.') + '</td></tr>';
-    // Prontidão para E-mail Marketing: e-mail válido e único (repetido conta 1x)
-    var vistosEmail = {}, emailsUnicos = 0, semEmail = 0, repetidos = 0;
-    ST.resultado.forEach(function (c) {
-      if (!cdaEmailValido(c.email)) { semEmail++; return; }
-      var e = String(c.email).trim().toLowerCase();
-      if (vistosEmail[e]) { repetidos++; return; }
-      vistosEmail[e] = 1; emailsUnicos++;
-    });
-    var boxEmail = host.querySelector('#seg-resumo-email');
-    boxEmail.style.display = ST.resultado.length ? '' : 'none';
-    boxEmail.innerHTML = '📧 Prontos para e-mail: <b>' + emailsUnicos.toLocaleString('pt-BR') + '</b> endereço(s) único(s)' +
-      (semEmail ? ' · ' + semEmail.toLocaleString('pt-BR') + ' sem e-mail ou inválido' : '') +
-      (repetidos ? ' · ' + repetidos.toLocaleString('pt-BR') + ' e-mail(s) repetido(s) (contam 1x)' : '');
-    host.querySelector('#seg-resultado-titulo').textContent = 'Resultado — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s) encontrado(s)' +
-      (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
-  }
-
-  // Fecha a lista aberta do Plano de Contas ao clicar fora dela
-  // e recolhe as grades de Estado/Região que já têm escolha
-  document.addEventListener('click', function (ev) {
-    if (ST.msAberto) {
-      ST.msAberto = null;
-      host.querySelectorAll('.seg-ms-painel').forEach(function (p) { p.hidden = true; });
-    }
-    // clique numa caixa/campo: não reconstrói agora (fecharia a caixa que está sendo aberta)
-    if (ev.target && ev.target.closest && ev.target.closest('select, input, textarea')) return;
-    var dentro = ev.target && ev.target.closest ? ev.target.closest('.seg-geo-aberta') : null;
-    var idxDentro = dentro ? dentro.dataset.idx : null;
-    var recolher = Object.keys(ST.geoAberto).filter(function (k) {
-      return k !== idxDentro && ST.filtros[k] && ufLista(ST.filtros[k]).length;
-    });
-    if (!recolher.length) return;
-    recolher.forEach(function (k) { delete ST.geoAberto[k]; });
-    renderFiltros();
-  });
-
-  host.querySelector('#seg-btn-addfiltro').addEventListener('click', function () {
-    ST.filtros.push({ tipo: 'status_crm', operador: '>', valor: '' });
-    renderFiltros();
-    aplicarFiltros();
-  });
-
-  host.querySelector('#seg-carregar').addEventListener('change', function (e) {
-    var seg = ST.segmentos.find(function (s) { return s.id === e.target.value; });
-    if (editavel) { host.querySelector('#seg-btn-renomear').disabled = !seg; host.querySelector('#seg-btn-excluir-seg').disabled = !seg; }
-    if (!seg) return;
-    ST.filtros = JSON.parse(JSON.stringify(seg.filtros));
-    ST.filtroRapido = null;
-    renderPills();
-    renderFiltros();
-    aplicarFiltros();
-  });
 
   if (editavel) {
-  host.querySelector('#seg-btn-renomear').addEventListener('click', async function () {
-    var sel = host.querySelector('#seg-carregar');
-    var seg = ST.segmentos.find(function (s) { return s.id === sel.value; });
-    if (!seg) return;
-    var novoNome = prompt('Novo nome do segmento:', seg.nome);
-    if (!novoNome || novoNome === seg.nome) return;
-    try {
-      var atualizado = await cdaSalvarSegmento({ id: seg.id, nome: novoNome, filtros: seg.filtros });
-      var idx = ST.segmentos.findIndex(function (s) { return s.id === seg.id; });
-      ST.segmentos[idx] = atualizado;
-      popularSelects();
-      sel.value = seg.id;
-      alert('Segmento renomeado!');
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao renomear — veja o console.');
-    }
-  });
-
-  host.querySelector('#seg-btn-excluir-seg').addEventListener('click', async function () {
-    var sel = host.querySelector('#seg-carregar');
-    var seg = ST.segmentos.find(function (s) { return s.id === sel.value; });
-    if (!seg) return;
-    if (!confirm('Excluir o segmento "' + seg.nome + '"? Essa ação não pode ser desfeita.')) return;
-    try {
-      await cdaExcluirSegmento(seg.id);
-      ST.segmentos = ST.segmentos.filter(function (s) { return s.id !== seg.id; });
-      popularSelects();
-      host.querySelector('#seg-btn-renomear').disabled = true;
-      host.querySelector('#seg-btn-excluir-seg').disabled = true;
-      alert('Segmento excluído.');
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao excluir — veja o console.');
-    }
-  });
-
-  host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
-    var filtrosParaSalvar = ST.filtros.slice();
-    if (ST.filtroRapido) {
-      if (ST.filtroRapido.campo === 'tag') {
-        filtrosParaSalvar.push({ tipo: 'tag_valor', operador: '=', valor: ST.filtroRapido.codigo });
-      } else {
-        var s = ST.statusCrm.find(function (x) { return x.codigo === ST.filtroRapido.codigo; });
-        if (s) filtrosParaSalvar.push({ tipo: 'status_crm', operador: '=', valor: String(s.id) });
-      }
-    }
-    if (filtrosParaSalvar.length === 0) { alert('Clique num status acima ou adicione ao menos 1 filtro antes de salvar.'); return; }
-    var nome = prompt('Nome do segmento (ex: "Em Risco 91-180d"):');
-    if (!nome) return;
-    try {
-      var salvo = await cdaSalvarSegmento({ nome: nome, filtros: filtrosParaSalvar });
-      ST.segmentos.push(salvo);
-      popularSelects();
-      alert('Segmento salvo!');
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao salvar segmento — veja o console.');
-    }
-  });
-  } // fim if (editavel)
-
-  if (editavel) host.querySelector('#seg-btn-exportar').addEventListener('click', function () {
-    if (ST.resultado.length === 0) { alert('Nenhum resultado para exportar.'); return; }
-    var header = ['Nome', 'Status CRM', 'Tags', 'E-mail', 'E-mail válido', 'Telefone', 'Cidade', 'Estado', 'Aniversário', 'Última Compra', 'Qtd Compras', 'Total Gasto'];
-    var data = ST.resultado.map(function (c) {
-      var agg = aggDe(c.id);
-      var st = statusCrmPorId[c.statusCrmId];
-      return [c.nome, st ? st.nome : '', (c.tagsComercial || []).join(', '), c.email || '', cdaEmailValido(c.email) ? 'Sim' : 'Não', c['telefone-celular'] || c['telefone-principal'] || '', c.cidade || '', c.estado || '',
-        c['data-nascimento'] || '', fmtData(agg.ultimaData), agg.qtd, agg.total];
+    host.querySelector('#seg-btn-nova').addEventListener('click', function () { abrirCadastro(null, false); });
+    host.querySelector('#seg-btn-cancelar').addEventListener('click', function () { voltarLista(false); });
+    host.querySelector('#seg-btn-duplicar-m').addEventListener('click', function () {
+      var m = ST.modeloAberto; if (!m) return;
+      abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
     });
-    var wb = XLSX.utils.book_new();
-    var ws = XLSX.utils.aoa_to_sheet([header].concat(data));
-    ws['!cols'] = header.map(function () { return { wch: 18 }; });
-    XLSX.utils.book_append_sheet(wb, ws, 'Segmento');
-    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    var blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = 'segmento_clientes_cicloarte.xlsx';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  });
+    host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
+      var nome = host.querySelector('#seg-cad-nome').value.trim();
+      if (!nome) { alert('Dê um nome à segmentação.'); host.querySelector('#seg-cad-nome').focus(); return; }
+      var tipos = tiposMarcados();
+      if (!tipos.length) { alert('Marque ao menos um filtro que esta segmentação vai usar.'); return; }
+      // Só os tipos. Segmentações antigas que ainda guardam valores mantêm esses
+      // valores enquanto as campanhas antigas dependerem deles (conversão na publicação).
+      var filtros = [];
+      tipos.forEach(function (t) {
+        var antigos = CAD.original.filter(function (f) { return f.tipo === t; });
+        if (antigos.length) filtros = filtros.concat(antigos); else filtros.push({ tipo: t });
+      });
+      var repetido = ST.segmentos.some(function (x) { return x.id !== CAD.id && String(x.nome).trim().toLowerCase() === nome.toLowerCase(); });
+      if (repetido && !confirm('Já existe uma segmentação chamada "' + nome + '". Salvar mesmo assim?')) return;
+      var btn = host.querySelector('#seg-btn-salvar'); btn.disabled = true;
+      try {
+        var salvo = await cdaSalvarSegmento(CAD.id ? { id: CAD.id, nome: nome, filtros: filtros } : { nome: nome, filtros: filtros });
+        var pos = ST.segmentos.findIndex(function (x) { return x.id === salvo.id; });
+        if (pos === -1) ST.segmentos.push(salvo); else ST.segmentos[pos] = salvo;
+        voltarLista(true);
+      } catch (err) { console.error(err); alert('Erro ao salvar — veja o console.'); }
+      btn.disabled = false;
+    });
+  }
 
-  renderResultado();
+  renderLista();
 }

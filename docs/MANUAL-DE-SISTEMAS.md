@@ -1391,3 +1391,36 @@ este documento é o resumo estrutural, não o log.)*
   (`ST.geoAberto`); depois recolhem em etiquetas com contagem (✕ remove, ✎ Alterar reabre, ✓ Concluir recolhe; clique
   fora recolhe, exceto clique em select/input, para não fechar a caixa que está sendo aberta). Plano de Contas ganhou
   a linha `.seg-pc-tags` com o nome de cada escolha (evita ocultar seleções no "+1").
+- **04/11/2026 — Universo × Filtros comerciais (decisão de Cardoso):** o público de uma campanha = **Universo**
+  (Plano de Contas + Geografia: de qual negócio e de onde) ∩ **Filtros comerciais** (quem, dentro dele). Segmentos
+  salvos são de dois tipos, **deduzidos do conteúdo** por `cdaTipoSegmento` (sem coluna nova): `universo` (só
+  `CDA_FILTROS_UNIVERSO` = plano_contas, estado, regiao, cidade, pais, cep), `comercial` (só os demais) e `misto`
+  (legado; carregado dividindo cada filtro no seu bloco). O construtor de filtros virou o componente
+  **`cda-construtor-filtros.js`** (`cdaConstrutorFiltros(el, ctx, opcoes)`, carregado antes de
+  `cda-modulo-segmentacao.js`), usado pela Segmentação em dois blocos e, na sequência, pela Campanha em passos.
+  Cada instância tem `cfId` próprio para os cliques de recolher a grade de UF/Região.
+- **04/11/2026 — Segmentação em lista + cadastro (pedido de Cardoso):** tela A = lista de universos e modelos (contagem
+  atual via motor, Editar/Duplicar/Excluir, ⚙ Recálculo recolhido); tela B = cadastro (nome, tipo, só o bloco do tipo,
+  prévia, Exportar prévia, Cancelar/Salvar, ← Voltar com aviso de alteração não salva — `CAD.sujo`). Editar grava no
+  mesmo id; Duplicar cria novo. A combinação Universo × Modelo sai da Segmentação e passa para a Campanha.
+- **04/11/2026 — Segmentação só com inteligência/comerciais (decisão de Cardoso):** o cadastro não tem "Tipo" nem
+  bloco de Universo; a lista mostra só segmentações não-universo (`cdaTipoSegmento !== 'universo'`). Universos salvos
+  (ex.: "ARTISTA · PRAÇA · PÚBLICO") continuam em `segmentos_salvos` e serão listados/criados no passo 1 da Campanha.
+  Legado `misto` abre com o bloco de Plano de Contas/Geografia visível. Testes do componente rodam em `harness`
+  próprio (sem a tela de Segmentação).
+
+### 15.1 Segmentação = tipos; Campanha = valores (decisão final de Cardoso, 04/11/2026)
+- **Segmentação parametrizada** (`segmentos_salvos`): nome + **tipos** de filtro (`[{tipo}]`), sem valores. Tela em duas
+  caixas: parametrizadas (Editar/Duplicar/Excluir) e **modelos comerciais** = `cdaModelosComerciais(statusCrm)`
+  (status tipo `segmentacao`; id `modelo:<codigo>`; filtro fixo `status_crm` ou `tag_valor` p/ vip/premium/gold).
+- **Campanha**: `cda_campanhas.filtros_valores` (jsonb, filtros completos) — o modal recria o construtor
+  (`cdaConstrutorFiltros(..., {tipos: cdaTiposDaSegmentacao(seg.filtros)})`, `destruir()` na troca). Campanhas sem
+  valores usam os do segmento (compatibilidade). **⧉ Duplicar** campanha; **🧊 Congelar lista** →
+  `cda_campanha_destinatarios` (substitui a anterior; `cdaCongelarLista`, lotes de 250); "Adicionar público ao
+  Pipeline" usa a lista congelada quando existe.
+- **Migrações:** `comercial_campanha_filtros_lista.sql` (aditiva, já aplicada: coluna, tabela, valores das 2 campanhas);
+  campanha "Luedji Luna · São Paulo" criada com os valores da segmentação ARTISTA · PRAÇA · PÚBLICO;
+  `comercial_segmentacao_so_tipos.sql` (na publicação: backup + retira os valores de `segmentos_salvos`).
+- **04/11/2026 (ajuste de Cardoso):** modelos comerciais na Segmentação mostram só o filtro resumido — sem contagem nem
+  lista; números e clientes só em Campanhas. Criada a campanha "Aniversariantes · Agosto" com o valor que estava na
+  segmentação ANIVERSARIANTES POR PERÍODO (todas as segmentações com valores têm agora campanha correspondente).
