@@ -689,6 +689,8 @@ const CDA_UF_REGIAO_COMPARTILHADO = {
 const CDA_UFS = Object.keys(CDA_UF_REGIAO_COMPARTILHADO).sort();
 const CDA_REGEX_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function cdaUfDe(cliente) { return String((cliente && cliente.estado) || '').trim().toUpperCase(); }
+// Comparação de texto sem acento e sem diferença de maiúscula ("SAO PAULO" = "São Paulo")
+function cdaSemAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
 function cdaEmailValido(email) { return CDA_REGEX_EMAIL.test(String(email || '').trim()); }
 
 function cdaMotorSegmento(compras, ctx) {
@@ -775,7 +777,7 @@ function cdaMotorSegmento(compras, ctx) {
         return ok;
       }
       case 'produto': return !f.valor || agg.produtos.has(String(f.valor));
-      case 'cidade': return !f.valor || (cliente.cidade || '').toLowerCase().indexOf(String(f.valor).toLowerCase()) !== -1;
+      case 'cidade': return !f.valor || cdaSemAcento(cliente.cidade).indexOf(cdaSemAcento(f.valor)) !== -1;
       case 'estado': {
         // Aceita lista de UFs (atual) ou texto de 1 UF (segmentos salvos antigos)
         var ufs = Array.isArray(f.valor) ? f.valor : (f.valor ? [String(f.valor).trim().toUpperCase()] : []);
@@ -800,7 +802,7 @@ function cdaMotorSegmento(compras, ctx) {
       }
       case 'nunca_comprou_produto': return !f.valor || !agg.produtos.has(String(f.valor));
       case 'regiao': return !f.valor || CDA_UF_REGIAO_COMPARTILHADO[cdaUfDe(cliente)] === f.valor;
-      case 'pais': return !f.valor || (cliente.pais || '').toLowerCase().indexOf(String(f.valor).toLowerCase()) !== -1;
+      case 'pais': return !f.valor || cdaSemAcento(cliente.pais).indexOf(cdaSemAcento(f.valor)) !== -1;
       case 'cep': return !f.valor || (cliente.cep || '').replace(/\D/g, '').indexOf(String(f.valor).replace(/\D/g, '')) === 0;
       case 'origem': return !f.valor || cliente.origem === f.valor;
       case 'sem_vendedor': return !cliente.responsavelComercial;
