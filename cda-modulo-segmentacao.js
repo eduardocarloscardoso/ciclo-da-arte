@@ -103,12 +103,13 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
     '</style>' +
-    '<div id="seg-carregando" class="seg-carregando">⏳ Carregando clientes, compras e Plano de Contas…</div>' +
+    '<div id="seg-carregando" class="seg-carregando">⏳ Aguarde, carregando a Segmentação de Clientes…</div>' +
     '<div id="seg-conteudo" hidden>' +
     '<div class="seg-recalc" id="seg-recalc"></div>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">1 · defina o universo (de qual negócio e de onde) · 2 · filtre quem, dentro dele</div></div>' +
-      (editavel ? '<div><button class="btn rust" id="seg-btn-exportar">⬇ Exportar XLSX</button></div>' : '') +
+      '<div style="display:flex;gap:7px;"><button class="btn" id="seg-btn-nova" title="Limpa os dois blocos para começar uma segmentação do zero">✚ Nova segmentação</button>' +
+      (editavel ? '<button class="btn rust" id="seg-btn-exportar">⬇ Exportar XLSX</button>' : '') + '</div>' +
     '</div>' +
     '<div class="seg-bloco">' +
       '<div class="seg-bloco-cab"><div><b>1 · Universo</b> <span class="tmu">Plano de Contas e Geografia</span></div>' +
@@ -385,6 +386,19 @@ async function montarModuloSegmentacao(containerId, opts) {
     host.querySelector('#seg-resultado-titulo').textContent = 'Resultado — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s) encontrado(s)' +
       (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
   }
+
+  // ── Nova segmentação: limpa universo, filtros comerciais e atalhos ──
+  host.querySelector('#seg-btn-nova').addEventListener('click', function () {
+    var temAlgo = filtrosU().length || filtrosC().length || ST.filtroRapido;
+    if (temAlgo && !confirm('Começar uma nova segmentação? Os filtros atuais serão limpos (universos e modelos salvos não são apagados).')) return;
+    cfU.definir([]); cfC.definir([]);
+    ST.filtroRapido = null;
+    host.querySelector('#seg-carregar-u').value = '';
+    host.querySelector('#seg-carregar-c').value = '';
+    popularSelects();
+    renderPills();
+    aplicarFiltros();
+  });
 
   // ── Carregar / renomear / excluir / salvar — um conjunto por bloco ──
   ['u', 'c'].forEach(function (k) {
