@@ -59,6 +59,7 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
   host.innerHTML =
     '<style>' +
+      '.seg-carregando{padding:40px 20px;text-align:center;font-size:13px;color:var(--muted,#888);}' +
       '.seg-bloco{border:2px solid var(--ink,#1a1a1a);padding:12px 14px;margin-bottom:12px;}' +
       '.seg-bloco-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}' +
       '.seg-bloco-cab b{font-size:13px;text-transform:uppercase;letter-spacing:.5px;}' +
@@ -102,6 +103,8 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
     '</style>' +
+    '<div id="seg-carregando" class="seg-carregando">⏳ Carregando clientes, compras e Plano de Contas…</div>' +
+    '<div id="seg-conteudo" hidden>' +
     '<div class="seg-recalc" id="seg-recalc"></div>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">1 · defina o universo (de qual negócio e de onde) · 2 · filtre quem, dentro dele</div></div>' +
@@ -127,6 +130,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
         '<tbody id="seg-tb"></tbody>' +
       '</table></div>' +
+    '</div>' +
     '</div>';
 
   try {
@@ -154,11 +158,15 @@ async function montarModuloSegmentacao(containerId, opts) {
         : '';
   } catch (err) {
     console.error(err);
+    host.querySelector('#seg-carregando').hidden = true;
+    host.querySelector('#seg-conteudo').hidden = false;
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
     host.querySelector('#seg-tb').innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>' + msg + '</b></td></tr>';
     return;
   }
 
+  host.querySelector('#seg-carregando').hidden = true;
+  host.querySelector('#seg-conteudo').hidden = false;
   var statusCrmPorId = {}; ST.statusCrm.forEach(function (s) { statusCrmPorId[s.id] = s; });
 
   // ── Agregados de compra por cliente: calculados 1x pelo motor único ──
