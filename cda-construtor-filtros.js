@@ -65,6 +65,35 @@ function cdaTipoSegmento(filtros) {
   return u && !c ? 'universo' : (c && !u ? 'comercial' : (u && c ? 'misto' : 'comercial'));
 }
 
+// ── Segmentação = só os TIPOS de filtro (nov/2026) ──────────────────────
+// Resumo legível dos tipos de uma segmentação: "Plano de Contas · Estado (UF)"
+function cdaRotuloTipoFiltro(tipo) {
+  var t = CDA_TIPOS_FILTRO_SEG.find(function (x) { return x.id === tipo; });
+  return t ? t.label.replace(/ — um ou vários$/, '').replace(/^Comprou em: Conta \/ Grupo \/ Subconta \/ Centro de Custo$/, 'Plano de Contas') : tipo;
+}
+function cdaTiposDaSegmentacao(filtros) {
+  var vistos = [];
+  (filtros || []).forEach(function (f) { if (f && f.tipo && vistos.indexOf(f.tipo) === -1) vistos.push(f.tipo); });
+  return vistos;
+}
+function cdaResumoTipos(filtros) {
+  var tipos = cdaTiposDaSegmentacao(filtros);
+  return tipos.length ? tipos.map(cdaRotuloTipoFiltro).join(' · ') : '—';
+}
+// Modelos comerciais = os status/classificações calculados pelo sistema todo dia.
+// Ficam com id "modelo:<codigo>" (podem ser público de campanha) e já trazem o valor.
+var CDA_CODIGOS_TAG_VALOR = ['vip', 'premium', 'gold'];
+function cdaModelosComerciais(statusCrm) {
+  return (statusCrm || []).filter(function (s) { return s.tipo === 'segmentacao'; }).map(function (s) {
+    var ehTag = CDA_CODIGOS_TAG_VALOR.indexOf(s.codigo) !== -1;
+    return {
+      id: 'modelo:' + s.codigo, nome: s.nome, cor: s.cor, codigo: s.codigo, modelo: true, descricao: s.descricao || '',
+      filtros: [ehTag ? { tipo: 'tag_valor', operador: '=', valor: s.codigo } : { tipo: 'status_crm', operador: '=', valor: String(s.id) }],
+      resumo: (ehTag ? 'Classificação de valor = ' : 'Status CRM = ') + s.nome
+    };
+  });
+}
+
 function cdaInjetarEstilosConstrutor() {
   if (document.getElementById('cda-cf-estilos')) return;
   var st = document.createElement('style');
@@ -506,7 +535,7 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
 
   // Fecha a lista aberta do Plano de Contas ao clicar fora dela
   // e recolhe as grades de Estado/Região que já têm escolha
-  document.addEventListener('click', function (ev) {
+  var aoClicarFora = function (ev) {
     if (!document.body.contains(el)) return; // tela já foi trocada
     if (S.msAberto) {
       S.msAberto = null;
@@ -523,7 +552,8 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
     if (!recolher.length) return;
     recolher.forEach(function (k) { delete S.geoAberto[k]; });
     renderFiltros();
-  });
+  };
+  document.addEventListener('click', aoClicarFora);
 
   el.querySelector('.cf-btn-add').addEventListener('click', function () {
     S.filtros.push({ tipo: tiposDoBloco[0].id, operador: '>', valor: '' });
@@ -541,6 +571,8 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
     },
     passa: function (cliente) { return S.filtros.every(function (f) { return passaNoFiltro(cliente, f); }); },
     atualizarContagens: atualizarContagensUf,
-    render: renderFiltros
+    render: renderFiltros,
+    // Desliga esta instância (ex.: a Campanha recria o construtor ao trocar de segmentação)
+    destruir: function () { document.removeEventListener('click', aoClicarFora); el.innerHTML = ''; }
   };
 }

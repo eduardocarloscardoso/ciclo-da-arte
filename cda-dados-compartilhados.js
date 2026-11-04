@@ -862,7 +862,9 @@ const CDA_CAMPANHA_MAP = {
     canaisSelecionados: r.canais_selecionados || [], estrategiaCanal: r.estrategia_canal,
     responsavelIds: (r.responsavel_ids || []).map(Number), modeloMensagemFinal: r.modelo_mensagem_final,
     modeloMensagemSugerida: r.modelo_mensagem_sugerida,
-    modeloTarefaSugerida: r.modelo_tarefa_sugerida, modeloTarefaFinal: r.modelo_tarefa_final
+    modeloTarefaSugerida: r.modelo_tarefa_sugerida, modeloTarefaFinal: r.modelo_tarefa_final,
+    // Valores dos filtros da campanha (a segmentação só diz QUAIS filtros) — nov/2026
+    filtrosValores: Array.isArray(r.filtros_valores) ? r.filtros_valores : null
   }),
   toRow: o => {
     const row = {
@@ -877,7 +879,8 @@ const CDA_CAMPANHA_MAP = {
       responsavel_ids: o.responsavelIds || [], modelo_mensagem_final: o.modeloMensagemFinal || null,
       modelo_mensagem_sugerida: o.modeloMensagemSugerida != null ? o.modeloMensagemSugerida : undefined,
       modelo_tarefa_sugerida: o.modeloTarefaSugerida != null ? o.modeloTarefaSugerida : undefined,
-      modelo_tarefa_final: o.modeloTarefaFinal || null
+      modelo_tarefa_final: o.modeloTarefaFinal || null,
+      filtros_valores: o.filtrosValores !== undefined ? o.filtrosValores : undefined
     };
     if (o.id) row.id = o.id;
     return row;
@@ -900,6 +903,41 @@ async function cdaSalvarCampanha(o) {
   if (error) throw error;
   return CDA_CAMPANHA_MAP.fromRow(data);
 }
+// ── LISTA CONGELADA DA CAMPANHA (cda_campanha_destinatarios) ─────────
+// A "foto" do público no momento da confirmação. Congelar de novo substitui
+// a lista anterior desta campanha (inteira).
+async function cdaCarregarResumoListas() {
+  const rows = await cdaFetchAll('cda_campanha_destinatarios', 'campanha_id,congelado_em,email_valido', 'id');
+  const r = {};
+  rows.forEach(x => {
+    const k = String(x.campanha_id);
+    if (!r[k]) r[k] = { total: 0, comEmail: 0, congeladoEm: x.congelado_em };
+    r[k].total++; if (x.email_valido) r[k].comEmail++;
+    if (x.congelado_em > r[k].congeladoEm) r[k].congeladoEm = x.congelado_em;
+  });
+  return r;
+}
+async function cdaCarregarListaCongelada(campanhaId) {
+  const { data, error } = await cdaClient.from('cda_campanha_destinatarios').select('*').eq('campanha_id', campanhaId).order('nome').range(0, 49999);
+  if (error) throw error;
+  return data || [];
+}
+async function cdaCongelarLista(campanhaId, clientes, usuario) {
+  const del = await cdaClient.from('cda_campanha_destinatarios').delete().eq('campanha_id', campanhaId);
+  if (del.error) throw del.error;
+  const agora = new Date().toISOString();
+  const linhas = clientes.map(c => ({
+    campanha_id: campanhaId, cliente_id: Number(c.id), nome: c.nome || null,
+    email: c.email ? String(c.email).trim() : null, email_valido: cdaEmailValido(c.email),
+    uf: cdaUfDe(c) || null, cidade: c.cidade || null, congelado_em: agora, congelado_por: usuario || null
+  }));
+  for (let i = 0; i < linhas.length; i += 250) {
+    const { error } = await cdaClient.from('cda_campanha_destinatarios').insert(linhas.slice(i, i + 250));
+    if (error) throw error;
+  }
+  return { total: linhas.length, comEmail: linhas.filter(l => l.email_valido).length, congeladoEm: agora };
+}
+
 async function cdaExcluirCampanha(id) {
   const { error } = await cdaClient.from('cda_campanhas').delete().eq('id', id);
   if (error) throw error;

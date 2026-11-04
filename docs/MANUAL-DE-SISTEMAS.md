@@ -1408,3 +1408,16 @@ este documento é o resumo estrutural, não o log.)*
   (ex.: "ARTISTA · PRAÇA · PÚBLICO") continuam em `segmentos_salvos` e serão listados/criados no passo 1 da Campanha.
   Legado `misto` abre com o bloco de Plano de Contas/Geografia visível. Testes do componente rodam em `harness`
   próprio (sem a tela de Segmentação).
+
+### 15.1 Segmentação = tipos; Campanha = valores (decisão final de Cardoso, 04/11/2026)
+- **Segmentação parametrizada** (`segmentos_salvos`): nome + **tipos** de filtro (`[{tipo}]`), sem valores. Tela em duas
+  caixas: parametrizadas (Editar/Duplicar/Excluir) e **modelos comerciais** = `cdaModelosComerciais(statusCrm)`
+  (status tipo `segmentacao`; id `modelo:<codigo>`; filtro fixo `status_crm` ou `tag_valor` p/ vip/premium/gold).
+- **Campanha**: `cda_campanhas.filtros_valores` (jsonb, filtros completos) — o modal recria o construtor
+  (`cdaConstrutorFiltros(..., {tipos: cdaTiposDaSegmentacao(seg.filtros)})`, `destruir()` na troca). Campanhas sem
+  valores usam os do segmento (compatibilidade). **⧉ Duplicar** campanha; **🧊 Congelar lista** →
+  `cda_campanha_destinatarios` (substitui a anterior; `cdaCongelarLista`, lotes de 250); "Adicionar público ao
+  Pipeline" usa a lista congelada quando existe.
+- **Migrações:** `comercial_campanha_filtros_lista.sql` (aditiva, já aplicada: coluna, tabela, valores das 2 campanhas);
+  campanha "Luedji Luna · São Paulo" criada com os valores da segmentação ARTISTA · PRAÇA · PÚBLICO;
+  `comercial_segmentacao_so_tipos.sql` (na publicação: backup + retira os valores de `segmentos_salvos`).

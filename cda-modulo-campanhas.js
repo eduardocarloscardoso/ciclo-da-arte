@@ -6,10 +6,14 @@
 // Pipeline" recalcula quem bate com o segmento HOJE e cria os leads
 // (já vinculados ao cliente existente, sem duplicar).
 //
-// Fica de fora deste ciclo (próximos): painel de KPI/progresso da
-// meta, filtro de campanha no Kanban do Pipeline.
+// Nov/2026 (decisão de Cardoso): a SEGMENTAÇÃO diz QUAIS filtros usar; os
+// VALORES são preenchidos aqui, na campanha (cda_campanhas.filtros_valores).
+// O público pode ser uma segmentação parametrizada ou um modelo comercial
+// (Lead, Ativo, Em risco, VIP... — id "modelo:<codigo>"). "🧊 Congelar lista"
+// grava a foto do público em cda_campanha_destinatarios; "⧉ Duplicar" copia
+// a campanha para trocar só o necessário (ex.: a praça do próximo show).
 //
-// Requer cda-dados-compartilhados.js carregado antes.
+// Requer cda-dados-compartilhados.js e cda-construtor-filtros.js carregados antes.
 // ════════════════════════════════════════════════════════════════════
 
 var CDA_ETAPAS_CAMPANHA = [
@@ -49,7 +53,8 @@ async function montarModuloCampanhas(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], editId: null };
+  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, editId: null };
+  var motor = null, clientesValidos = [], cfCampanha = null;
 
   host.innerHTML =
     '<style>' +
@@ -82,7 +87,9 @@ async function montarModuloCampanhas(containerId, opts) {
         '<div class="mo-b"><div class="fg">' +
           '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Público (segmento salvo) *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select><div id="camp-m-publico-alvo" style="font-size:11px;margin-top:4px;color:var(--muted,#888)"></div></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Público — segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual centro de custo, qual UF)</span></label><div id="camp-m-filtros"></div>' +
+            '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
           '<div class="fgr"><label>Etapa de entrada no Pipeline</label><select id="camp-m-etapa"></select></div>' +
           '<div class="fgr"><label>Status</label><select id="camp-m-status"></select></div>' +
           '<div class="fgr"><label>Início</label><input type="date" id="camp-m-inicio"></div>' +
@@ -124,8 +131,8 @@ async function montarModuloCampanhas(containerId, opts) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais(), cdaCarregarHierarquiaReceita()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7]; ST.hierarquia = res[8] || [];
+    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais(), cdaCarregarHierarquiaReceita(), cdaCarregarResumoListas().catch(function () { return {}; }), cdaCarregarProdutos()]);
+    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7]; ST.hierarquia = res[8] || []; ST.listas = res[9] || {}; ST.produtos = res[10] || [];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
@@ -133,7 +140,26 @@ async function montarModuloCampanhas(containerId, opts) {
     return;
   }
 
+  // Motor único de segmentação (mesma regra da tela de Segmentação)
+  motor = cdaMotorSegmento(ST.compras, { canais: ST.canais, hierarquia: ST.hierarquia });
+  clientesValidos = ST.clientes.filter(function (c) { return !c.cadastroIncompleto; });
+  var MODELOS = cdaModelosComerciais(ST.statusCrm);
   var segmentoPorId = {}; ST.segmentos.forEach(function (s) { segmentoPorId[s.id] = s; });
+  MODELOS.forEach(function (m) { segmentoPorId[m.id] = m; });
+  // Filtros (com valores) de uma campanha: os dela; campanhas antigas sem valores usam os do segmento
+  function filtrosDaCampanha(c) {
+    if (c.filtrosValores && c.filtrosValores.length) return c.filtrosValores;
+    var seg = segmentoPorId[c.publicoSegmentoId];
+    return seg ? (seg.filtros || []) : null;
+  }
+  function publicoDe(filtros) { return clientesValidos.filter(function (c) { return filtros.every(function (f) { return motor.passa(c, f); }); }); }
+  function emailsUnicos(lista) {
+    var vistos = {}, n = 0;
+    lista.forEach(function (c) { if (!cdaEmailValido(c.email)) return; var e = String(c.email).trim().toLowerCase(); if (!vistos[e]) { vistos[e] = 1; n++; } });
+    return n;
+  }
+  function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
+  function fmtDataHora(iso) { if (!iso) return '—'; var d = new Date(iso); return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
   var equipePorId = {}; ST.equipe.forEach(function (e) { equipePorId[e.id] = e; });
   var clientePorId = {}; ST.clientes.forEach(function (c) { clientePorId[String(c.id)] = c; });
   function nomeUsuarioAtual() { return (window.cu && window.cu.name) || 'Usuário'; }
@@ -210,7 +236,9 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
     box.innerHTML = ST.campanhas.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
-      var qtdPublico = seg ? cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia }).length : null;
+      var filtrosC = filtrosDaCampanha(c);
+      var qtdPublico = filtrosC ? publicoDe(filtrosC).length : null;
+      var lista = ST.listas[String(c.id)];
       var etapa = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === c.pipelineEtapaEntrada; });
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       var kpi = calcularKpi(c);
@@ -220,7 +248,8 @@ async function montarModuloCampanhas(containerId, opts) {
         (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
         '<div class="camp-grid">' +
           '<div><div class="l">Público-Alvo</div><b>' + (qtdPublico != null ? qtdPublico.toLocaleString('pt-BR') + ' cliente(s)' : '—') + '</b></div>' +
-          '<div><div class="l">Segmento</div>' + (seg ? seg.nome : '<i>segmento não encontrado</i>') + '</div>' +
+          '<div><div class="l">Segmentação</div>' + (seg ? escH(seg.nome) + '<div class="tmu" style="font-size:10px">' + escH(seg.modelo ? seg.resumo : cdaResumoTipos(seg.filtros)) + '</div>' : '<i>segmentação não encontrada</i>') + '</div>' +
+          '<div><div class="l">Lista congelada</div>' + (lista ? '<b>' + lista.total.toLocaleString('pt-BR') + '</b> cliente(s) · ' + lista.comEmail.toLocaleString('pt-BR') + ' com e-mail<div class="tmu" style="font-size:10px">em ' + fmtDataHora(lista.congeladoEm) + '</div>' : '<span class="tmu">ainda não congelada</span>') + '</div>' +
           '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
           '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
           '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
@@ -230,16 +259,20 @@ async function montarModuloCampanhas(containerId, opts) {
         (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
         (editavel ?
         '<div class="camp-acoes">' +
-          '<button class="btn sm rust" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
+          '<button class="btn sm rust" data-congelar="' + c.id + '">🧊 ' + (lista ? 'Recongelar lista' : 'Congelar lista') + '</button>' +
+          '<button class="btn sm" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
           '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
           '<button class="btn sm" data-gerar-roadmap="' + c.id + '">🗺 Gerar Roadmap de Tarefas</button>' +
           '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
+          '<button class="btn sm" data-duplicar="' + c.id + '">⧉ Duplicar</button>' +
         '</div>' : '') +
       '</div>';
     }).join('');
 
     if (editavel) {
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
+    box.querySelectorAll('[data-duplicar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.duplicar, true); }); });
+    box.querySelectorAll('[data-congelar]').forEach(function (btn) { btn.addEventListener('click', function () { congelarLista(btn.dataset.congelar, btn); }); });
     box.querySelectorAll('[data-add-publico]').forEach(function (btn) { btn.addEventListener('click', function () { adicionarPublico(btn.dataset.addPublico, btn); }); });
     box.querySelectorAll('[data-gerar-msg]').forEach(function (btn) { btn.addEventListener('click', function () { gerarMensagensCampanha(btn.dataset.gerarMsg, btn); }); });
     box.querySelectorAll('[data-gerar-roadmap]').forEach(function (btn) { btn.addEventListener('click', function () { gerarRoadmapTarefas(btn.dataset.gerarRoadmap, btn); }); });
@@ -309,17 +342,47 @@ async function montarModuloCampanhas(containerId, opts) {
     }
   }
 
+  async function congelarLista(campanhaId, btn) {
+    var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
+    if (!campanha) return;
+    var filtrosC = filtrosDaCampanha(campanha);
+    if (!filtrosC || !filtrosC.length) { alert('Preencha os filtros da campanha (✎ Editar) antes de congelar a lista.'); return; }
+    var alvo = publicoDe(filtrosC);
+    if (!alvo.length) { alert('Com os filtros atuais o público está vazio — revise a campanha.'); return; }
+    var anterior = ST.listas[String(campanha.id)];
+    if (!confirm((anterior ? 'Substituir a lista congelada em ' + fmtDataHora(anterior.congeladoEm) + ' (' + anterior.total + ' clientes)?\n\n' : '') +
+      'Congelar agora ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s) (' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s)) como o público da campanha "' + campanha.nome + '"?')) return;
+    var textoOriginal = btn.textContent; btn.textContent = 'Congelando...'; btn.disabled = true;
+    try {
+      ST.listas[String(campanha.id)] = await cdaCongelarLista(campanha.id, alvo, nomeUsuarioAtual());
+      render();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao congelar a lista:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
+      btn.textContent = textoOriginal; btn.disabled = false;
+    }
+  }
+
   async function adicionarPublico(campanhaId, btn) {
     var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!campanha) return;
-    var seg = segmentoPorId[campanha.publicoSegmentoId];
-    if (!seg) { alert('O segmento vinculado a esta campanha não foi encontrado — pode ter sido excluído.'); return; }
-
-    var alvo = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia });
-    if (!alvo.length) { alert('O segmento "' + seg.nome + '" não retornou nenhum cliente no momento.'); return; }
+    var filtrosC = filtrosDaCampanha(campanha);
+    if (!filtrosC) { alert('A segmentação desta campanha não foi encontrada — edite a campanha e escolha o público.'); return; }
+    // Com lista congelada, o público é exatamente o da lista; sem ela, o cálculo de agora
+    var lista = ST.listas[String(campanha.id)], alvo, origem;
+    if (lista) {
+      var congelados = await cdaCarregarListaCongelada(campanha.id);
+      var ids = {}; congelados.forEach(function (d) { ids[String(d.cliente_id)] = 1; });
+      alvo = clientesValidos.filter(function (c) { return ids[String(c.id)]; });
+      origem = 'A lista congelada em ' + fmtDataHora(lista.congeladoEm);
+    } else {
+      alvo = publicoDe(filtrosC);
+      origem = 'O público calculado agora (lista ainda não congelada)';
+    }
+    if (!alvo.length) { alert('O público desta campanha está vazio.'); return; }
 
     var etapaLabel = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === campanha.pipelineEtapaEntrada; }).label;
-    if (!confirm('O segmento "' + seg.nome + '" tem ' + alvo.length + ' cliente(s) agora.\n\nAdicionar ao Pipeline B2C, na etapa "' + etapaLabel + '", vinculados à campanha "' + campanha.nome + '"?\n\n(quem já foi adicionado antes nesta campanha não duplica)')) return;
+    if (!confirm(origem + ' tem ' + alvo.length + ' cliente(s).\n\nAdicionar ao Pipeline B2C, na etapa "' + etapaLabel + '", vinculados à campanha "' + campanha.nome + '"?\n\n(quem já foi adicionado antes nesta campanha não duplica)')) return;
 
     var textoOriginal = btn.textContent;
     btn.textContent = 'Adicionando...'; btn.disabled = true;
@@ -338,28 +401,50 @@ async function montarModuloCampanhas(containerId, opts) {
   var modal = host.querySelector('#camp-modal');
   function popularSelectSegmentos(valorAtual) {
     var sel = host.querySelector('#camp-m-segmento');
+    var parametrizadas = ST.segmentos.slice().sort(function (x, y) { return String(x.nome).localeCompare(String(y.nome)); });
     sel.innerHTML = '<option value="">Selecione...</option>' +
-      ST.segmentos.map(function (s) { return '<option value="' + s.id + '"' + (s.id === valorAtual ? ' selected' : '') + '>' + s.nome + '</option>'; }).join('');
+      '<optgroup label="Segmentações parametrizadas">' + parametrizadas.map(function (s) {
+        return '<option value="' + escH(s.id) + '"' + (s.id === valorAtual ? ' selected' : '') + '>' + escH(s.nome) + ' — ' + escH(cdaResumoTipos(s.filtros)) + '</option>';
+      }).join('') + '</optgroup>' +
+      '<optgroup label="Modelos comerciais">' + MODELOS.map(function (m) {
+        return '<option value="' + escH(m.id) + '"' + (m.id === valorAtual ? ' selected' : '') + '>' + escH(m.nome) + '</option>';
+      }).join('') + '</optgroup>';
   }
 
+  // Filtros desta campanha: só os tipos que a segmentação escolhida usa
+  var ctxCF = { motor: motor, clientes: clientesValidos, hierarquia: ST.hierarquia, statusCrm: ST.statusCrm, produtos: ST.produtos || [], canais: ST.canais };
+  function montarFiltrosDaCampanha(seg, valoresIniciais) {
+    if (cfCampanha) { cfCampanha.destruir(); cfCampanha = null; }
+    var box = host.querySelector('#camp-m-filtros-box');
+    if (!seg) { box.hidden = true; host.querySelector('#camp-m-publico-alvo').innerHTML = ''; return; }
+    box.hidden = false;
+    var tipos = cdaTiposDaSegmentacao(seg.filtros);
+    cfCampanha = cdaConstrutorFiltros(host.querySelector('#camp-m-filtros'), ctxCF, {
+      tipos: tipos, rotuloAdicionar: '＋ Adicionar outro filtro desta segmentação', aoMudar: atualizarPublicoAlvoNoModal
+    });
+    var iniciais = valoresIniciais || (seg.modelo ? seg.filtros : tipos.map(function (t) { return { tipo: t, operador: '>', valor: '' }; }));
+    cfCampanha.definir(iniciais);
+    atualizarPublicoAlvoNoModal();
+  }
   function atualizarPublicoAlvoNoModal() {
-    var segId = host.querySelector('#camp-m-segmento').value;
     var box = host.querySelector('#camp-m-publico-alvo');
-    var seg = segmentoPorId[segId];
-    if (!seg) { box.textContent = ''; return; }
-    var qtd = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia }).length;
-    box.innerHTML = '👥 <b>Público-Alvo: ' + qtd.toLocaleString('pt-BR') + ' cliente(s)</b> — recalculado agora';
+    if (!cfCampanha) { box.innerHTML = ''; return; }
+    var alvo = clientesValidos.filter(function (c) { return cfCampanha.passa(c); });
+    box.innerHTML = '👥 <b>Público: ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s)</b> · 📧 ' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s) — recalculado agora';
   }
-  host.querySelector('#camp-m-segmento').addEventListener('change', atualizarPublicoAlvoNoModal);
+  host.querySelector('#camp-m-segmento').addEventListener('change', function () {
+    montarFiltrosDaCampanha(segmentoPorId[host.querySelector('#camp-m-segmento').value], null);
+  });
 
-  function abrirModal(id) {
-    ST.editId = id || null;
+
+  function abrirModal(id, duplicar) {
     var c = id ? ST.campanhas.find(function (x) { return String(x.id) === String(id); }) : null;
-    host.querySelector('#camp-modal-title').textContent = id ? 'Editar Campanha' : 'Nova Campanha';
-    host.querySelector('#camp-m-nome').value = c ? c.nome : '';
+    ST.editId = id && !duplicar ? id : null;
+    host.querySelector('#camp-modal-title').textContent = !id ? 'Nova Campanha' : (duplicar ? 'Duplicar Campanha' : 'Editar Campanha');
+    host.querySelector('#camp-m-nome').value = c ? (duplicar ? 'Cópia de ' + c.nome : c.nome) : '';
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
-    atualizarPublicoAlvoNoModal();
+    montarFiltrosDaCampanha(c ? segmentoPorId[c.publicoSegmentoId] : null, c ? JSON.parse(JSON.stringify(filtrosDaCampanha(c) || [])) : null);
     selEtapa.value = c ? c.pipelineEtapaEntrada : 'novo_lead';
     selStatus.value = c ? c.status : 'ativa';
     host.querySelector('#camp-m-inicio').value = c ? (c.periodoInicio || '') : '';
@@ -380,7 +465,7 @@ async function montarModuloCampanhas(containerId, opts) {
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
-    host.querySelector('#camp-m-excluir').style.display = id ? 'inline-block' : 'none';
+    host.querySelector('#camp-m-excluir').style.display = ST.editId ? 'inline-block' : 'none';
     modal.classList.add('op');
   }
   function fecharModal() { modal.classList.remove('op'); }
@@ -389,10 +474,12 @@ async function montarModuloCampanhas(containerId, opts) {
     var nome = host.querySelector('#camp-m-nome').value.trim();
     var segmentoId = host.querySelector('#camp-m-segmento').value;
     if (!nome) { alert('Informe o nome da campanha.'); return; }
-    if (!segmentoId) { alert('Selecione o público (segmento salvo) da campanha.'); return; }
+    if (!segmentoId) { alert('Selecione a segmentação (público) da campanha.'); return; }
+    var filtrosValores = cfCampanha ? JSON.parse(JSON.stringify(cfCampanha.filtros())) : [];
+    if (!filtrosValores.length) { alert('Preencha ao menos um filtro da campanha.'); return; }
     var o = {
       id: ST.editId || undefined, nome: nome, objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
-      publicoSegmentoId: segmentoId, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
+      publicoSegmentoId: segmentoId, filtrosValores: filtrosValores, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
       responsavelIds: Array.from(host.querySelectorAll('.camp-resp-check:checked')).map(function (c) { return Number(c.value); }), criadoPor: nomeUsuarioAtual(),

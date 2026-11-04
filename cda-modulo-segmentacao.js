@@ -9,9 +9,12 @@
 // cdaSalvarSegmento, cdaExcluirSegmento, cdaCarregarHierarquiaReceita e o
 // motor único cdaMotorSegmento), cda-construtor-filtros.js (componente de
 // filtros, CDA_TIPOS_FILTRO_SEG) e a lib SheetJS (XLSX) carregadas antes.
-// A tela tem dois blocos (nov/2026): 1 · Universo (Plano de Contas +
-// Geografia) e 2 · Filtros comerciais (quem, dentro do universo). Cada bloco
-// salva/carrega o seu tipo de segmento: "Universo salvo" e "Modelo comercial".
+// Desenho (decisão de Cardoso, 04/11/2026): a SEGMENTAÇÃO guarda só QUAIS
+// filtros usa (tipos) — nenhum valor. Os valores são preenchidos em cada
+// CAMPANHA (cda-modulo-campanhas.js). A tela tem duas caixas:
+//   1 · Segmentações parametrizadas — criadas pela equipe (nome + tipos)
+//   2 · Modelos comerciais — status/classificações calculados pelo sistema
+//       (Lead, Ativo, Em risco, VIP...), com contagem e prévia.
 // A REGRA de cada filtro mora só em cdaMotorSegmento (dados-compartilhados);
 // aqui fica apenas a interface (campos de valor, listeners, resultado).
 //
@@ -47,8 +50,7 @@ async function montarModuloSegmentacao(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtroRapido: null, resultado: [] };
-  var cfU = null, cfC = null; // construtores: Universo e Filtros comerciais
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], resultado: [], modeloAberto: null };
   var motor = null; // cdaMotorSegmento — montado após a carga
 
   host.innerHTML =
@@ -108,42 +110,51 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-cid,.seg-pc-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
       '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
+      '.seg-tipos-grupo{margin-bottom:10px;}' +
+      '.seg-tipos-grupo .g{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted,#888);margin-bottom:4px;}' +
+      '.seg-tipos-grupo label{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin:0 14px 6px 0;cursor:pointer;}' +
+      '.seg-lista-item .resumo{flex:2;min-width:220px;font-size:11px;color:var(--muted,#888);}' +
+      '.seg-lista-item .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}' +
     '</style>' +
     '<div id="seg-carregando" class="seg-carregando">⏳ Aguarde, carregando a Segmentação de Clientes…</div>' +
     '<div id="seg-conteudo" hidden>' +
-    // ── Tela A · lista de segmentações salvas ──
+    // ── Lista: duas caixas ──
     '<div id="seg-vista-lista">' +
       '<div class="row-bt">' +
-        '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Grupos de clientes por inteligência (Lead, Ativo, Em risco, VIP...) e filtros comerciais — o universo (Plano de Contas e Geografia) é definido em cada Campanha</div></div>' +
+        '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">A segmentação diz quais filtros usar — os valores (qual artista, qual praça, quantos dias...) são preenchidos em cada Campanha</div></div>' +
         '<div style="display:flex;gap:7px;"><button class="btn" id="seg-btn-valores">⚙ Valores Premium/VIP</button>' +
         (editavel ? '<button class="btn rust" id="seg-btn-nova">✚ Nova segmentação</button>' : '') + '</div>' +
       '</div>' +
       '<div class="seg-recalc" id="seg-recalc" hidden></div>' +
       '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
-      '<div class="seg-lista-sec"><div class="seg-lista-tit">Segmentações salvas</div><div id="seg-lista-c"></div></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Segmentações parametrizadas <span class="tmu">· filtros preenchidos em cada campanha</span></div><div id="seg-lista-p"></div></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Modelos comerciais <span class="tmu">· calculados pelo sistema todo dia</span></div><div id="seg-lista-m"></div></div>' +
     '</div>' +
-    // ── Tela B · cadastro (nova, editar, duplicar) ──
+    // ── Cadastro de segmentação parametrizada: nome + filtros que ela usa ──
     '<div id="seg-vista-cadastro" hidden>' +
-      '<div class="row-bt">' +
-        '<div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar">← Voltar</button><span class="sec-t" id="seg-cad-titulo">Nova segmentação</span></div>' +
-        (editavel ? '<div><button class="btn" id="seg-btn-exportar">⬇ Exportar prévia (XLSX)</button></div>' : '') +
-      '</div>' +
+      '<div class="row-bt"><div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar">← Voltar</button><span class="sec-t" id="seg-cad-titulo">Nova segmentação</span></div></div>' +
       '<div class="seg-bloco">' +
-        '<div class="seg-cad-linha"><label for="seg-cad-nome">Nome</label><input id="seg-cad-nome" type="text" maxlength="120" placeholder="Ex: E-commerce Luedji Luna · Nordeste"' + (editavel ? '' : ' disabled') + '></div>' +
-        '<div class="seg-cad-linha" id="seg-cad-misto" hidden><label></label><span class="tmu" style="font-size:11px">Segmentação antiga que também guarda Plano de Contas/Geografia — esses filtros aparecem abaixo e continuam valendo</span></div>' +
+        '<div class="seg-cad-linha"><label for="seg-cad-nome">Nome</label><input id="seg-cad-nome" type="text" maxlength="120" placeholder="Ex: Artista · Praça · Público"' + (editavel ? '' : ' disabled') + '></div>' +
       '</div>' +
-      '<div class="seg-bloco" id="seg-bloco-u" hidden><div class="seg-bloco-cab"><div><b>Plano de Contas e Geografia</b> <span class="tmu">(segmentação antiga)</span></div></div><div id="seg-cf-universo"></div></div>' +
-      '<div class="seg-bloco" id="seg-bloco-c"><div class="seg-bloco-cab"><div><b>Inteligência e filtros comerciais</b></div></div>' +
-        '<div class="seg-and" style="margin-top:0">Inteligência — atalhos de 1 clique</div><div id="seg-pills" class="seg-pills-wrap"></div><div id="seg-cf-comercial"></div></div>' +
-    '<div class="tw" style="margin-top:16px">' +
-      '<div class="th"><h3 id="seg-resultado-titulo">Resultado</h3></div>' +
-      '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
-      '<div class="ts"><table>' +
-        '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
-        '<tbody id="seg-tb"></tbody>' +
-      '</table></div>' +
-    '</div>' +
+      '<div class="seg-bloco"><div class="seg-bloco-cab"><div><b>Filtros desta segmentação</b> <span class="tmu">marque os que ela usa — os valores são preenchidos em cada campanha</span></div></div>' +
+        '<div id="seg-cad-tipos"></div>' +
+        '<div class="seg-nota" id="seg-cad-resumo" style="margin:4px 0 0"></div>' +
+      '</div>' +
       (editavel ? '<div class="seg-cad-rodape"><button class="btn" id="seg-btn-cancelar">Cancelar</button><button class="btn rust" id="seg-btn-salvar">💾 Salvar</button></div>' : '') +
+    '</div>' +
+    // ── Modelo comercial: filtro do sistema + prévia ──
+    '<div id="seg-vista-modelo" hidden>' +
+      '<div class="row-bt"><div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar-m">← Voltar</button><span class="sec-t" id="seg-mod-titulo"></span></div>' +
+        '<div style="display:flex;gap:7px;">' + (editavel ? '<button class="btn" id="seg-btn-duplicar-m">⧉ Duplicar como parametrizada</button><button class="btn" id="seg-btn-exportar">⬇ Exportar prévia (XLSX)</button>' : '') + '</div></div>' +
+      '<div class="seg-bloco"><div class="seg-cad-linha"><label>Filtro</label><span id="seg-mod-resumo" style="font-size:12px"></span></div><div class="seg-nota" id="seg-mod-desc" style="margin:0"></div></div>' +
+      '<div class="tw" style="margin-top:16px">' +
+        '<div class="th"><h3 id="seg-resultado-titulo">Prévia</h3></div>' +
+        '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
+        '<div class="ts"><table>' +
+          '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
+          '<tbody id="seg-tb"></tbody>' +
+        '</table></div>' +
+      '</div>' +
     '</div>' +
     '</div>';
 
@@ -152,62 +163,29 @@ async function montarModuloSegmentacao(containerId, opts) {
       cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm(), cdaCarregarParametrosSegmentacao(), cdaCarregarHierarquiaReceita()
     ]);
     var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5]; ST.parametros = res[6]; ST.hierarquia = res[7] || [];
-
-    // ── Exclui do universo da tela: cadastros genéricos (placeholder de show,
-    // dado de teste etc.) — não representam consumidor final individual ──
+    // Cadastros genéricos (placeholder de show etc.) não representam consumidor final
     ST.clientes = clientesBrutos.filter(function (c) { return !c.cadastroIncompleto; });
     var qtdExcluidosCadastro = clientesBrutos.length - ST.clientes.length;
-
-    // ── Escopo B2C: só canais de venda direta ao consumidor final entram
-    // no cálculo de Segmentação (revenda/atacado fica de fora, vira B2B) ──
-    // (regra aplicada pelo motor único cdaMotorSegmento ao receber os canais)
+    // Escopo B2C (regra aplicada pelo motor único ao receber os canais)
     var comprasTotal = ST.compras.length;
     motor = cdaMotorSegmento(ST.compras, { canais: ST.canais, hierarquia: ST.hierarquia });
     ST.compras = motor.compras;
     var qtdComprasExcluidas = comprasTotal - ST.compras.length;
-
-    host.querySelector('#seg-nota-exclusao').textContent =
-      (qtdExcluidosCadastro || qtdComprasExcluidas)
-        ? '⚠ ' + qtdExcluidosCadastro.toLocaleString('pt-BR') + ' cadastro(s) genérico(s) e ' + qtdComprasExcluidas.toLocaleString('pt-BR') + ' compra(s) de canal B2B foram excluídos automaticamente desta análise.'
-        : '';
+    host.querySelector('#seg-nota-exclusao').textContent = (qtdExcluidosCadastro || qtdComprasExcluidas)
+      ? '⚠ ' + qtdExcluidosCadastro.toLocaleString('pt-BR') + ' cadastro(s) genérico(s) e ' + qtdComprasExcluidas.toLocaleString('pt-BR') + ' compra(s) de canal B2B ficam fora das contagens.' : '';
   } catch (err) {
     console.error(err);
     host.querySelector('#seg-carregando').hidden = true;
     host.querySelector('#seg-conteudo').hidden = false;
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
-    host.querySelector('#seg-lista-c').innerHTML = '<div class="seg-vazio" style="color:var(--rust,#c0392b)">Erro ao carregar dados do Supabase: <b>' + msg + '</b></div>';
+    host.querySelector('#seg-lista-p').innerHTML = '<div class="seg-vazio" style="color:var(--rust,#c0392b)">Erro ao carregar dados do Supabase: <b>' + msg + '</b></div>';
     return;
   }
-
   host.querySelector('#seg-carregando').hidden = true;
   host.querySelector('#seg-conteudo').hidden = false;
   var statusCrmPorId = {}; ST.statusCrm.forEach(function (s) { statusCrmPorId[s.id] = s; });
-
-  // ── Agregados de compra por cliente: calculados 1x pelo motor único ──
   function aggDe(clienteId) { return motor.aggDe(clienteId); }
-
-  // ── Atalhos rápidos (pills) — status de ciclo de vida + tags de valor ──
-  function renderPills() {
-    var wrap = host.querySelector('#seg-pills');
-    var itens = ST.statusCrm.filter(function (s) { return s.tipo === 'segmentacao'; });
-    wrap.innerHTML = itens.map(function (s) {
-      var ativa = ST.filtroRapido && ST.filtroRapido.codigo === s.codigo;
-      return '<span class="seg-pill' + (ativa ? ' ativa' : '') + '" data-codigo="' + s.codigo + '" data-tipo-campo="' + (s.codigo === 'vip' || s.codigo === 'premium' || s.codigo === 'gold' ? 'tag' : 'status') + '" title="' + (s.acaoSugerida || '') + '">' +
-        '<span class="dot" style="background:' + s.cor + '"></span>' + s.nome +
-        '</span>';
-    }).join('');
-    wrap.querySelectorAll('.seg-pill').forEach(function (el) {
-      el.addEventListener('click', function () {
-        var codigo = el.dataset.codigo, campo = el.dataset.tipoCampo;
-        if (ST.filtroRapido && ST.filtroRapido.codigo === codigo) ST.filtroRapido = null;
-        else ST.filtroRapido = { campo: campo, codigo: codigo };
-        renderPills();
-        marcarSujo();
-        aplicarFiltros();
-      });
-    });
-  }
-  renderPills();
+  function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
 
   // ── Recálculo de Valores (Premium/VIP) ──────────────────────────────
   function fmtBRL(v) { return 'R$ ' + Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 }); }
@@ -290,155 +268,6 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
   renderRecalculo();
 
-  // Regra de cada filtro: motor único (cdaMotorSegmento em cda-dados-compartilhados.js)
-  function passaNoFiltro(cliente, f) { return motor.passa(cliente, f); }
-
-  function passaNoFiltroRapido(cliente) {
-    if (!ST.filtroRapido) return true;
-    if (ST.filtroRapido.campo === 'tag') return (cliente.tagsComercial || []).indexOf(ST.filtroRapido.codigo) !== -1;
-    var s = ST.statusCrm.find(function (x) { return x.codigo === ST.filtroRapido.codigo; });
-    return s && String(cliente.statusCrmId) === String(s.id);
-  }
-
-  // ── Cadastro aberto: CAD = { id, tipo: 'universo' | 'comercial' | 'misto', sujo } ──
-  var CAD = null;
-  function marcarSujo() { if (CAD) CAD.sujo = true; }
-  function usaU() { return !!CAD && CAD.tipo !== 'comercial'; }
-  function usaC() { return !!CAD && CAD.tipo !== 'universo'; }
-  function filtrosU() { return cfU ? cfU.filtros() : []; }
-  function filtrosC() { return cfC ? cfC.filtros() : []; }
-  // Prévia do cadastro: só os blocos do tipo escolhido
-  function aplicarFiltros() {
-    var temCriterio = (usaU() && filtrosU().length > 0) || (usaC() && (filtrosC().length > 0 || !!ST.filtroRapido));
-    ST.resultado = !temCriterio ? [] : ST.clientes.filter(function (c) {
-      return (!usaU() || cfU.passa(c)) && (!usaC() || (passaNoFiltroRapido(c) && cfC.passa(c)));
-    });
-    renderResultado();
-    if (cfU) cfU.atualizarContagens();
-    if (cfC) cfC.atualizarContagens();
-  }
-
-  // ── Os dois blocos de filtro (componente cda-construtor-filtros.js) ──
-  var ctxCF = { motor: motor, clientes: ST.clientes, hierarquia: ST.hierarquia, statusCrm: ST.statusCrm, produtos: ST.produtos, canais: ST.canais };
-  cfU = cdaConstrutorFiltros(host.querySelector('#seg-cf-universo'), ctxCF, {
-    tipos: CDA_FILTROS_UNIVERSO, rotuloAdicionar: '＋ Adicionar Plano de Contas ou Geografia',
-    aoMudar: function () { marcarSujo(); aplicarFiltros(); },
-    passaOutros: function (c) { return CAD && CAD.tipo === 'misto' ? passaNoFiltroRapido(c) && cfC.passa(c) : true; }
-  });
-  cfC = cdaConstrutorFiltros(host.querySelector('#seg-cf-comercial'), ctxCF, {
-    tipos: CDA_FILTROS_COMERCIAIS, rotuloAdicionar: '＋ Adicionar filtro',
-    aoMudar: function () { marcarSujo(); aplicarFiltros(); },
-    passaOutros: function (c) { return passaNoFiltroRapido(c) && (CAD && CAD.tipo === 'misto' ? cfU.passa(c) : true); }
-  });
-
-  // ── Tela A · lista ──
-  function escH(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
-  function tipoDe(sg) { return cdaTipoSegmento(sg.filtros); }
-  function contar(sg) {
-    var fs = sg.filtros || [];
-    return ST.clientes.filter(function (c) { return fs.every(function (f) { return motor.passa(c, f); }); }).length;
-  }
-  function renderLista() {
-    // Universos salvos (só Plano de Contas/Geografia) ficam na Campanha, não aqui
-    ['c'].forEach(function (k) {
-      var lista = ST.segmentos.filter(function (sg) { return tipoDe(sg) !== 'universo'; })
-        .sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); });
-      var box = host.querySelector('#seg-lista-' + k);
-      box.innerHTML = lista.length ? lista.map(function (sg) {
-        return '<div class="seg-lista-item" data-id="' + escH(sg.id) + '">' +
-          '<span class="nome">' + escH(sg.nome) + (tipoDe(sg) === 'misto' ? ' <span class="tmu" style="font-weight:400">(com universo)</span>' : '') + '</span>' +
-          '<span class="n">' + contar(sg).toLocaleString('pt-BR') + ' cliente(s)</span>' +
-          '<span class="acoes">' + (editavel
-            ? '<button class="btn sm" data-acao="editar">✎ Editar</button><button class="btn sm" data-acao="duplicar">⧉ Duplicar</button><button class="btn sm" data-acao="excluir">🗑 Excluir</button>'
-            : '<button class="btn sm" data-acao="editar">👁 Ver</button>') + '</span>' +
-        '</div>';
-      }).join('') : '<div class="seg-vazio">Nenhuma segmentação salva ainda.' + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
-      box.querySelectorAll('[data-acao]').forEach(function (b) {
-        b.addEventListener('click', async function () {
-          var sg = ST.segmentos.find(function (x) { return String(x.id) === b.closest('.seg-lista-item').dataset.id; });
-          if (!sg) return;
-          if (b.dataset.acao === 'editar') return abrirCadastro(sg, false);
-          if (b.dataset.acao === 'duplicar') return abrirCadastro(sg, true);
-          if (!confirm('Excluir a segmentação "' + sg.nome + '"? Essa ação não pode ser desfeita.')) return;
-          try {
-            await cdaExcluirSegmento(sg.id);
-            ST.segmentos = ST.segmentos.filter(function (x) { return x.id !== sg.id; });
-            renderLista();
-          } catch (err) { console.error(err); alert('Erro ao excluir — veja o console.'); }
-        });
-      });
-    });
-  }
-
-  // ── Tela B · cadastro ──
-  function mostrarBlocos() {
-    host.querySelector('#seg-bloco-u').hidden = !usaU();
-    host.querySelector('#seg-bloco-c').hidden = !usaC();
-    host.querySelector('#seg-cad-misto').hidden = CAD.tipo !== 'misto';
-  }
-  function abrirCadastro(sg, duplicar) {
-    CAD = { id: sg && !duplicar ? sg.id : null, tipo: sg && tipoDe(sg) === 'misto' ? 'misto' : 'comercial', sujo: false };
-    var fs = sg ? sg.filtros : [];
-    cfU.definir(fs.filter(cdaFiltroEhUniverso));
-    cfC.definir(fs.filter(function (f) { return !cdaFiltroEhUniverso(f); }));
-    ST.filtroRapido = null;
-    renderPills();
-    host.querySelector('#seg-cad-nome').value = sg ? (duplicar ? 'Cópia de ' + sg.nome : sg.nome) : '';
-    host.querySelector('#seg-cad-titulo').textContent = !sg ? 'Nova segmentação' : (duplicar ? 'Duplicar segmentação' : (editavel ? 'Editar segmentação' : 'Ver segmentação'));
-    mostrarBlocos();
-    host.querySelector('#seg-vista-lista').hidden = true;
-    host.querySelector('#seg-vista-cadastro').hidden = false;
-    aplicarFiltros();
-    if (duplicar) CAD.sujo = true;
-    if (host.scrollIntoView) host.scrollIntoView();
-  }
-  function voltarLista(semPerguntar) {
-    if (!semPerguntar && CAD && CAD.sujo && editavel && !confirm('Descartar as alterações desta segmentação?')) return;
-    CAD = null;
-    ST.filtroRapido = null;
-    host.querySelector('#seg-vista-cadastro').hidden = true;
-    host.querySelector('#seg-vista-lista').hidden = false;
-    renderLista();
-  }
-  host.querySelector('#seg-btn-voltar').addEventListener('click', function () { voltarLista(false); });
-  host.querySelector('#seg-cad-nome').addEventListener('input', marcarSujo);
-  host.querySelector('#seg-btn-valores').addEventListener('click', function () {
-    var box = host.querySelector('#seg-recalc');
-    box.hidden = !box.hidden;
-  });
-  if (editavel) {
-    host.querySelector('#seg-btn-nova').addEventListener('click', function () { abrirCadastro(null, false); });
-    host.querySelector('#seg-btn-cancelar').addEventListener('click', function () { voltarLista(false); });
-    host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
-      var nome = host.querySelector('#seg-cad-nome').value.trim();
-      if (!nome) { alert('Dê um nome à segmentação.'); host.querySelector('#seg-cad-nome').focus(); return; }
-      var filtros = [];
-      if (usaU()) filtros = filtros.concat(filtrosU());
-      if (usaC()) {
-        filtros = filtros.concat(filtrosC());
-        if (ST.filtroRapido) {
-          if (ST.filtroRapido.campo === 'tag') filtros.push({ tipo: 'tag_valor', operador: '=', valor: ST.filtroRapido.codigo });
-          else {
-            var st = ST.statusCrm.find(function (x) { return x.codigo === ST.filtroRapido.codigo; });
-            if (st) filtros.push({ tipo: 'status_crm', operador: '=', valor: String(st.id) });
-          }
-        }
-      }
-      if (!filtros.length) { alert('Clique num atalho de inteligência ou adicione ao menos um filtro.'); return; }
-      var repetido = ST.segmentos.some(function (x) { return x.id !== CAD.id && String(x.nome).trim().toLowerCase() === nome.toLowerCase(); });
-      if (repetido && !confirm('Já existe uma segmentação chamada "' + nome + '". Salvar mesmo assim?')) return;
-      var btn = host.querySelector('#seg-btn-salvar'); btn.disabled = true;
-      try {
-        var salvo = await cdaSalvarSegmento(CAD.id ? { id: CAD.id, nome: nome, filtros: filtros } : { nome: nome, filtros: filtros });
-        var pos = ST.segmentos.findIndex(function (x) { return x.id === salvo.id; });
-        if (pos === -1) ST.segmentos.push(salvo); else ST.segmentos[pos] = salvo;
-        voltarLista(true);
-      } catch (err) { console.error(err); alert('Erro ao salvar — veja o console.'); }
-      btn.disabled = false;
-    });
-  }
-  renderLista();
-
   function fmtData(iso) {
     if (!iso) return '—';
     var p = iso.split('-');
@@ -468,7 +297,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         '<td class="mn">' + (c['telefone-celular'] || c['telefone-principal'] || '—') + '</td>' +
         '</tr>';
     }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">' +
-      (!(usaU() && filtrosU().length) && !(usaC() && (filtrosC().length || ST.filtroRapido)) ? 'Adicione filtros acima para ver a prévia desta segmentação.' : 'Nenhum cliente encontrado com esses critérios.') + '</td></tr>';
+      (!ST.modeloAberto ? 'Sem prévia.' : 'Nenhum cliente encontrado com esses critérios.') + '</td></tr>';
     // Prontidão para E-mail Marketing: e-mail válido e único (repetido conta 1x)
     var vistosEmail = {}, emailsUnicos = 0, semEmail = 0, repetidos = 0;
     ST.resultado.forEach(function (c) {
@@ -484,6 +313,136 @@ async function montarModuloSegmentacao(containerId, opts) {
       (repetidos ? ' · ' + repetidos.toLocaleString('pt-BR') + ' e-mail(s) repetido(s) (contam 1x)' : '');
     host.querySelector('#seg-resultado-titulo').textContent = 'Prévia — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s)' +
       (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
+  }
+
+
+  // ── Navegação entre as vistas ──
+  function mostrar(vista) {
+    ['lista', 'cadastro', 'modelo'].forEach(function (v) { host.querySelector('#seg-vista-' + v).hidden = v !== vista; });
+    if (host.scrollIntoView) host.scrollIntoView();
+  }
+
+  // ── Lista ──
+  var MODELOS = cdaModelosComerciais(ST.statusCrm);
+  function contarModelo(m) { return ST.clientes.filter(function (c) { return m.filtros.every(function (f) { return motor.passa(c, f); }); }).length; }
+  function renderLista() {
+    var parametrizadas = ST.segmentos.slice().sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); });
+    host.querySelector('#seg-lista-p').innerHTML = parametrizadas.length ? parametrizadas.map(function (sg) {
+      return '<div class="seg-lista-item" data-id="' + escH(sg.id) + '">' +
+        '<span class="nome">' + escH(sg.nome) + '</span>' +
+        '<span class="resumo">' + escH(cdaResumoTipos(sg.filtros)) + '</span>' +
+        '<span class="acoes">' + (editavel
+          ? '<button class="btn sm" data-acao="editar">✎ Editar</button><button class="btn sm" data-acao="duplicar">⧉ Duplicar</button><button class="btn sm" data-acao="excluir">🗑 Excluir</button>'
+          : '<button class="btn sm" data-acao="editar">👁 Ver</button>') + '</span></div>';
+    }).join('') : '<div class="seg-vazio">Nenhuma segmentação ainda.' + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
+    host.querySelector('#seg-lista-m').innerHTML = MODELOS.map(function (m) {
+      return '<div class="seg-lista-item" data-modelo="' + escH(m.id) + '">' +
+        '<span class="nome"><span class="dot" style="background:' + escH(m.cor) + '"></span>' + escH(m.nome) + '</span>' +
+        '<span class="resumo">' + escH(m.resumo) + '</span>' +
+        '<span class="n">' + contarModelo(m).toLocaleString('pt-BR') + ' cliente(s)</span>' +
+        '<span class="acoes"><button class="btn sm" data-acao="ver">' + (editavel ? '✎ Editar' : '👁 Ver') + '</button>' +
+        (editavel ? '<button class="btn sm" data-acao="duplicar">⧉ Duplicar</button>' : '') + '</span></div>';
+    }).join('');
+    host.querySelectorAll('#seg-lista-p [data-acao]').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        var sg = ST.segmentos.find(function (x) { return String(x.id) === b.closest('.seg-lista-item').dataset.id; });
+        if (!sg) return;
+        if (b.dataset.acao === 'editar') return abrirCadastro(sg, false);
+        if (b.dataset.acao === 'duplicar') return abrirCadastro(sg, true);
+        if (!confirm('Excluir a segmentação "' + sg.nome + '"? Campanhas que já a usam continuam com os seus valores.')) return;
+        try {
+          await cdaExcluirSegmento(sg.id);
+          ST.segmentos = ST.segmentos.filter(function (x) { return x.id !== sg.id; });
+          renderLista();
+        } catch (err) { console.error(err); alert('Erro ao excluir — veja o console.'); }
+      });
+    });
+    host.querySelectorAll('#seg-lista-m [data-acao]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var m = MODELOS.find(function (x) { return x.id === b.closest('.seg-lista-item').dataset.modelo; });
+        if (!m) return;
+        if (b.dataset.acao === 'ver') abrirModelo(m);
+        else abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
+      });
+    });
+  }
+
+  // ── Cadastro (só os TIPOS de filtro; valores ficam na campanha) ──
+  var CAD = null; // { id, original: [filtros gravados], sujo }
+  var GRUPOS = ['Inteligência', 'Compras', 'Plano de Contas', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
+  function tiposMarcados() { return Array.from(host.querySelectorAll('.seg-tipo-ck:checked')).map(function (c) { return c.value; }); }
+  function atualizarResumoCad() {
+    var t = tiposMarcados();
+    host.querySelector('#seg-cad-resumo').textContent = t.length ? 'Esta segmentação usa: ' + t.map(cdaRotuloTipoFiltro).join(' · ') : 'Nenhum filtro marcado ainda.';
+  }
+  function abrirCadastro(sg, duplicar) {
+    CAD = { id: sg && !duplicar && sg.id ? sg.id : null, original: sg && !duplicar ? (sg.filtros || []) : [], sujo: !!duplicar };
+    var marcados = cdaTiposDaSegmentacao(sg ? sg.filtros : []);
+    host.querySelector('#seg-cad-tipos').innerHTML = GRUPOS.map(function (g) {
+      var itens = CDA_TIPOS_FILTRO_SEG.filter(function (t) { return t.grupo === g; });
+      if (!itens.length) return '';
+      return '<div class="seg-tipos-grupo"><div class="g">' + g + '</div>' + itens.map(function (t) {
+        return '<label><input type="checkbox" class="seg-tipo-ck" value="' + t.id + '"' + (marcados.indexOf(t.id) !== -1 ? ' checked' : '') + (editavel ? '' : ' disabled') + '> ' + escH(cdaRotuloTipoFiltro(t.id)) + '</label>';
+      }).join('') + '</div>';
+    }).join('');
+    host.querySelectorAll('.seg-tipo-ck').forEach(function (c) { c.addEventListener('change', function () { CAD.sujo = true; atualizarResumoCad(); }); });
+    host.querySelector('#seg-cad-nome').value = sg ? (duplicar ? 'Cópia de ' + sg.nome : sg.nome) : '';
+    host.querySelector('#seg-cad-titulo').textContent = !sg ? 'Nova segmentação' : (duplicar ? 'Duplicar segmentação' : (editavel ? 'Editar segmentação' : 'Ver segmentação'));
+    atualizarResumoCad();
+    mostrar('cadastro');
+  }
+  function voltarLista(semPerguntar) {
+    if (!semPerguntar && CAD && CAD.sujo && editavel && !confirm('Descartar as alterações desta segmentação?')) return;
+    CAD = null; ST.modeloAberto = null;
+    mostrar('lista');
+    renderLista();
+  }
+  host.querySelector('#seg-btn-voltar').addEventListener('click', function () { voltarLista(false); });
+  host.querySelector('#seg-btn-voltar-m').addEventListener('click', function () { voltarLista(true); });
+  host.querySelector('#seg-cad-nome').addEventListener('input', function () { if (CAD) CAD.sujo = true; });
+  host.querySelector('#seg-btn-valores').addEventListener('click', function () { var b = host.querySelector('#seg-recalc'); b.hidden = !b.hidden; });
+
+  // ── Modelo comercial: filtro do sistema + prévia ──
+  function abrirModelo(m) {
+    ST.modeloAberto = m;
+    host.querySelector('#seg-mod-titulo').textContent = m.nome;
+    host.querySelector('#seg-mod-resumo').textContent = m.resumo;
+    host.querySelector('#seg-mod-desc').textContent = m.descricao ? m.descricao : 'Calculado automaticamente pelo sistema todo dia — use numa campanha escolhendo este modelo como público.';
+    ST.resultado = ST.clientes.filter(function (c) { return m.filtros.every(function (f) { return motor.passa(c, f); }); });
+    renderResultado();
+    mostrar('modelo');
+  }
+
+  if (editavel) {
+    host.querySelector('#seg-btn-nova').addEventListener('click', function () { abrirCadastro(null, false); });
+    host.querySelector('#seg-btn-cancelar').addEventListener('click', function () { voltarLista(false); });
+    host.querySelector('#seg-btn-duplicar-m').addEventListener('click', function () {
+      var m = ST.modeloAberto; if (!m) return;
+      abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
+    });
+    host.querySelector('#seg-btn-salvar').addEventListener('click', async function () {
+      var nome = host.querySelector('#seg-cad-nome').value.trim();
+      if (!nome) { alert('Dê um nome à segmentação.'); host.querySelector('#seg-cad-nome').focus(); return; }
+      var tipos = tiposMarcados();
+      if (!tipos.length) { alert('Marque ao menos um filtro que esta segmentação vai usar.'); return; }
+      // Só os tipos. Segmentações antigas que ainda guardam valores mantêm esses
+      // valores enquanto as campanhas antigas dependerem deles (conversão na publicação).
+      var filtros = [];
+      tipos.forEach(function (t) {
+        var antigos = CAD.original.filter(function (f) { return f.tipo === t; });
+        if (antigos.length) filtros = filtros.concat(antigos); else filtros.push({ tipo: t });
+      });
+      var repetido = ST.segmentos.some(function (x) { return x.id !== CAD.id && String(x.nome).trim().toLowerCase() === nome.toLowerCase(); });
+      if (repetido && !confirm('Já existe uma segmentação chamada "' + nome + '". Salvar mesmo assim?')) return;
+      var btn = host.querySelector('#seg-btn-salvar'); btn.disabled = true;
+      try {
+        var salvo = await cdaSalvarSegmento(CAD.id ? { id: CAD.id, nome: nome, filtros: filtros } : { nome: nome, filtros: filtros });
+        var pos = ST.segmentos.findIndex(function (x) { return x.id === salvo.id; });
+        if (pos === -1) ST.segmentos.push(salvo); else ST.segmentos[pos] = salvo;
+        voltarLista(true);
+      } catch (err) { console.error(err); alert('Erro ao salvar — veja o console.'); }
+      btn.disabled = false;
+    });
   }
 
   if (editavel) host.querySelector('#seg-btn-exportar').addEventListener('click', function () {
@@ -507,5 +466,5 @@ async function montarModuloSegmentacao(containerId, opts) {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   });
 
-  renderResultado();
+  renderLista();
 }
