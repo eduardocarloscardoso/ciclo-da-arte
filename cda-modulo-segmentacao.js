@@ -142,19 +142,12 @@ async function montarModuloSegmentacao(containerId, opts) {
       '</div>' +
       (editavel ? '<div class="seg-cad-rodape"><button class="btn" id="seg-btn-cancelar">Cancelar</button><button class="btn rust" id="seg-btn-salvar">💾 Salvar</button></div>' : '') +
     '</div>' +
-    // ── Modelo comercial: filtro do sistema + prévia ──
+    // ── Modelo comercial: só o filtro (os dados ficam nas Campanhas) ──
     '<div id="seg-vista-modelo" hidden>' +
       '<div class="row-bt"><div style="display:flex;align-items:center;gap:12px"><button class="btn sm" id="seg-btn-voltar-m">← Voltar</button><span class="sec-t" id="seg-mod-titulo"></span></div>' +
-        '<div style="display:flex;gap:7px;">' + (editavel ? '<button class="btn" id="seg-btn-duplicar-m">⧉ Duplicar como parametrizada</button><button class="btn" id="seg-btn-exportar">⬇ Exportar prévia (XLSX)</button>' : '') + '</div></div>' +
-      '<div class="seg-bloco"><div class="seg-cad-linha"><label>Filtro</label><span id="seg-mod-resumo" style="font-size:12px"></span></div><div class="seg-nota" id="seg-mod-desc" style="margin:0"></div></div>' +
-      '<div class="tw" style="margin-top:16px">' +
-        '<div class="th"><h3 id="seg-resultado-titulo">Prévia</h3></div>' +
-        '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
-        '<div class="ts"><table>' +
-          '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
-          '<tbody id="seg-tb"></tbody>' +
-        '</table></div>' +
-      '</div>' +
+        '<div style="display:flex;gap:7px;">' + (editavel ? '<button class="btn" id="seg-btn-duplicar-m">⧉ Duplicar como parametrizada</button>' : '') + '</div></div>' +
+      '<div class="seg-bloco"><div class="seg-cad-linha"><label>Filtro</label><span id="seg-mod-resumo" style="font-size:12px"></span></div><div class="seg-nota" id="seg-mod-desc" style="margin:0"></div>' +
+        '<div class="seg-nota" style="margin:8px 0 0">Os clientes e os números aparecem em <b>Campanhas</b>: crie uma campanha escolhendo este modelo como público.</div></div>' +
     '</div>' +
     '</div>';
 
@@ -268,54 +261,6 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
   renderRecalculo();
 
-  function fmtData(iso) {
-    if (!iso) return '—';
-    var p = iso.split('-');
-    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
-  }
-
-  function renderResultado() {
-    var tb = host.querySelector('#seg-tb');
-    var lista = ST.resultado.slice(0, 200);
-    tb.innerHTML = lista.map(function (c) {
-      var agg = aggDe(c.id);
-      var st = statusCrmPorId[c.statusCrmId];
-      var badges = (st ? '<span class="seg-badge" style="background:' + st.cor + '">' + st.nome + '</span>' : '—') +
-        (c.tagsComercial || []).map(function (t) {
-          var ts = ST.statusCrm.find(function (s) { return s.codigo === t; });
-          return ts ? ' <span class="seg-badge" style="background:' + ts.cor + '">' + ts.nome + '</span>' : '';
-        }).join('');
-      return '<tr>' +
-        '<td><b>' + (c.nome || '—') + '</b></td>' +
-        '<td>' + badges + '</td>' +
-        '<td>' + (c.cidade || '—') + '/' + (c.estado || '—') + '</td>' +
-        '<td>' + (c['data-nascimento'] || '—') + '</td>' +
-        '<td>' + fmtData(agg.ultimaData) + '</td>' +
-        '<td>' + agg.qtd + '</td>' +
-        '<td>' + (agg.total ? 'R$ ' + agg.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '—') + '</td>' +
-        '<td class="tmu" style="font-size:11px">' + (c.email || '—') + '</td>' +
-        '<td class="mn">' + (c['telefone-celular'] || c['telefone-principal'] || '—') + '</td>' +
-        '</tr>';
-    }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">' +
-      (!ST.modeloAberto ? 'Sem prévia.' : 'Nenhum cliente encontrado com esses critérios.') + '</td></tr>';
-    // Prontidão para E-mail Marketing: e-mail válido e único (repetido conta 1x)
-    var vistosEmail = {}, emailsUnicos = 0, semEmail = 0, repetidos = 0;
-    ST.resultado.forEach(function (c) {
-      if (!cdaEmailValido(c.email)) { semEmail++; return; }
-      var e = String(c.email).trim().toLowerCase();
-      if (vistosEmail[e]) { repetidos++; return; }
-      vistosEmail[e] = 1; emailsUnicos++;
-    });
-    var boxEmail = host.querySelector('#seg-resumo-email');
-    boxEmail.style.display = ST.resultado.length ? '' : 'none';
-    boxEmail.innerHTML = '📧 Prontos para e-mail: <b>' + emailsUnicos.toLocaleString('pt-BR') + '</b> endereço(s) único(s)' +
-      (semEmail ? ' · ' + semEmail.toLocaleString('pt-BR') + ' sem e-mail ou inválido' : '') +
-      (repetidos ? ' · ' + repetidos.toLocaleString('pt-BR') + ' e-mail(s) repetido(s) (contam 1x)' : '');
-    host.querySelector('#seg-resultado-titulo').textContent = 'Prévia — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s)' +
-      (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
-  }
-
-
   // ── Navegação entre as vistas ──
   function mostrar(vista) {
     ['lista', 'cadastro', 'modelo'].forEach(function (v) { host.querySelector('#seg-vista-' + v).hidden = v !== vista; });
@@ -324,7 +269,6 @@ async function montarModuloSegmentacao(containerId, opts) {
 
   // ── Lista ──
   var MODELOS = cdaModelosComerciais(ST.statusCrm);
-  function contarModelo(m) { return ST.clientes.filter(function (c) { return m.filtros.every(function (f) { return motor.passa(c, f); }); }).length; }
   function renderLista() {
     var parametrizadas = ST.segmentos.slice().sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); });
     host.querySelector('#seg-lista-p').innerHTML = parametrizadas.length ? parametrizadas.map(function (sg) {
@@ -339,7 +283,6 @@ async function montarModuloSegmentacao(containerId, opts) {
       return '<div class="seg-lista-item" data-modelo="' + escH(m.id) + '">' +
         '<span class="nome"><span class="dot" style="background:' + escH(m.cor) + '"></span>' + escH(m.nome) + '</span>' +
         '<span class="resumo">' + escH(m.resumo) + '</span>' +
-        '<span class="n">' + contarModelo(m).toLocaleString('pt-BR') + ' cliente(s)</span>' +
         '<span class="acoes"><button class="btn sm" data-acao="ver">' + (editavel ? '✎ Editar' : '👁 Ver') + '</button>' +
         (editavel ? '<button class="btn sm" data-acao="duplicar">⧉ Duplicar</button>' : '') + '</span></div>';
     }).join('');
@@ -402,14 +345,12 @@ async function montarModuloSegmentacao(containerId, opts) {
   host.querySelector('#seg-cad-nome').addEventListener('input', function () { if (CAD) CAD.sujo = true; });
   host.querySelector('#seg-btn-valores').addEventListener('click', function () { var b = host.querySelector('#seg-recalc'); b.hidden = !b.hidden; });
 
-  // ── Modelo comercial: filtro do sistema + prévia ──
+  // ── Modelo comercial: só o filtro (os dados ficam nas Campanhas) ──
   function abrirModelo(m) {
     ST.modeloAberto = m;
     host.querySelector('#seg-mod-titulo').textContent = m.nome;
     host.querySelector('#seg-mod-resumo').textContent = m.resumo;
-    host.querySelector('#seg-mod-desc').textContent = m.descricao ? m.descricao : 'Calculado automaticamente pelo sistema todo dia — use numa campanha escolhendo este modelo como público.';
-    ST.resultado = ST.clientes.filter(function (c) { return m.filtros.every(function (f) { return motor.passa(c, f); }); });
-    renderResultado();
+    host.querySelector('#seg-mod-desc').textContent = m.descricao ? m.descricao : 'Calculado automaticamente pelo sistema todo dia.';
     mostrar('modelo');
   }
 
@@ -444,27 +385,6 @@ async function montarModuloSegmentacao(containerId, opts) {
       btn.disabled = false;
     });
   }
-
-  if (editavel) host.querySelector('#seg-btn-exportar').addEventListener('click', function () {
-    if (ST.resultado.length === 0) { alert('Nenhum resultado para exportar.'); return; }
-    var header = ['Nome', 'Status CRM', 'Tags', 'E-mail', 'E-mail válido', 'Telefone', 'Cidade', 'Estado', 'Aniversário', 'Última Compra', 'Qtd Compras', 'Total Gasto'];
-    var data = ST.resultado.map(function (c) {
-      var agg = aggDe(c.id);
-      var st = statusCrmPorId[c.statusCrmId];
-      return [c.nome, st ? st.nome : '', (c.tagsComercial || []).join(', '), c.email || '', cdaEmailValido(c.email) ? 'Sim' : 'Não', c['telefone-celular'] || c['telefone-principal'] || '', c.cidade || '', c.estado || '',
-        c['data-nascimento'] || '', fmtData(agg.ultimaData), agg.qtd, agg.total];
-    });
-    var wb = XLSX.utils.book_new();
-    var ws = XLSX.utils.aoa_to_sheet([header].concat(data));
-    ws['!cols'] = header.map(function () { return { wch: 18 }; });
-    XLSX.utils.book_append_sheet(wb, ws, 'Segmento');
-    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    var blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement('a');
-    a.href = url; a.download = 'segmento_clientes_cicloarte.xlsx';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-  });
 
   renderLista();
 }

@@ -1421,3 +1421,6 @@ este documento é o resumo estrutural, não o log.)*
 - **Migrações:** `comercial_campanha_filtros_lista.sql` (aditiva, já aplicada: coluna, tabela, valores das 2 campanhas);
   campanha "Luedji Luna · São Paulo" criada com os valores da segmentação ARTISTA · PRAÇA · PÚBLICO;
   `comercial_segmentacao_so_tipos.sql` (na publicação: backup + retira os valores de `segmentos_salvos`).
+- **04/11/2026 (ajuste de Cardoso):** modelos comerciais na Segmentação mostram só o filtro resumido — sem contagem nem
+  lista; números e clientes só em Campanhas. Criada a campanha "Aniversariantes · Agosto" com o valor que estava na
+  segmentação ANIVERSARIANTES POR PERÍODO (todas as segmentações com valores têm agora campanha correspondente).
