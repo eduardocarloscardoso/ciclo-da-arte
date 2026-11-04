@@ -1898,7 +1898,7 @@ async function paPecasComprar(){
   paPecas.linhas=linhas;
   paCache.pecasCalc.mesesRest=mesesRest;
   paCache.pecasCalc.linhasPDF=linhas.map(function(l){var g=grupoDe[String(l.grupo_id)],cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null,sg=segDe(l.grupo_id),q=+l.quantidade||0,ct=q*(+l.valor_unitario||0),rt=q*(+l.preco_venda||0);
-    return {mes:PA_MESES_AB[l.mes-1]+'/'+String(l.ano).slice(2),mesN:l.mes,seg:sg,grupo:g?g.nome:'#'+l.grupo_id,grupoId:String(l.grupo_id),centro:cc?cc.nome:'Geral do grupo',peca:l.peca,q:q,cu:+l.valor_unitario||0,pv:+l.preco_venda||0,ct:ct,rt:rt,status:l.status==='encomendada'?'encomendada':'planejada'};});
+    return {mes:PA_MESES_AB[l.mes-1]+'/'+String(l.ano).slice(2),mesN:l.mes,seg:sg,grupo:g?g.nome:'#'+l.grupo_id,grupoId:String(l.grupo_id),centro:cc?cc.nome:'Geral do grupo',peca:l.peca,quantidade:q,valor_unitario:+l.valor_unitario||0,preco_venda:+l.preco_venda||0,q:q,cu:+l.valor_unitario||0,pv:+l.preco_venda||0,ct:ct,rt:rt,status:l.status==='encomendada'?'encomendada':'planejada'};});
   paPecas.centrosRec=d.h.centros.filter(function(cc){return cc.ativo&&cc.conta&&cc.conta.tipo==='RECEITAS'&&cc.grupo_id;});
   paPecas.grupos=grupos.filter(function(g){return g.ativo;});
   if(podeEd)html+=paPecasForm(restCompra?13-restCompra:12);
@@ -1917,11 +1917,17 @@ async function paPecasComprar(){
     return tl('<b>'+PA_SEG_NOME[sg].toUpperCase()+'</b> '+paSimSegTag(sg),porSeg[sg],'sub',sg)+ks.map(function(kg){var Gx=porGrupo[kg],g=grupoDe[kg];
       return tl('<span style="padding-left:12px;font-weight:600">'+paEsc(g?g.nome:'#'+kg)+'</span>',Gx.t,'cc',sg)+Object.keys(Gx.c).map(function(kc){return tl('<span style="padding-left:28px">'+(kc==='geral'?'<span class="pa-mut">Geral do grupo</span>':paEsc((ccDe[kc]||{}).nome||'#'+kc))+'</span>',Gx.c[kc],'cc',sg);}).join('');}).join('');}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec');
   if(linhas.length)html+='<div class="pa-pc-tots"><div style="grid-column:1/-1"><div class="pa-pc-tt">Totais por segmento, grupo e centro de receita</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tGr+'</tbody></table></div>'+
-    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Totais por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div></div>'+
+    '<div style="grid-column:1/-1"><div class="pa-pc-tt">Totais por mês</div><table class="pa-tbl pa-compacta">'+th+'<tbody>'+tMes+'</tbody></table></div>'+
+    '<div style="grid-column:1/-1"><div class="pa-pc-tt" title="Tipo = nome da peça antes do “ — ” (sem o evento ou canal)">Totais por tipo de peça</div><table class="pa-tbl pa-compacta">'+th.replace('<th></th>','<th style="text-align:left">Tipo de peça</th>')+'<tbody>'+paPecasPorTipo(linhas).map(function(o){return tl(paEsc(o.tipo),o);}).join('')+tl('<b>TOTAL DO PERÍODO</b>',tot0,'conta rec')+'</tbody></table></div></div>'+
     '<p class="pa-info" style="margin-top:6px"><b>Receita total é potencial:</b> supõe que todas as peças sejam vendidas no período, pelo preço cheio. Só as peças <b>planejadas</b> entram no saldo do item 2 — as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a>, já descontadas do Pode comprar.</p>';
   document.getElementById('pa-root').innerHTML=html;
   if(podeEd)paPecasGrupoMudou();
 }
+// Tipo de peça = texto antes do " — " (ex.: "Short — Feira D Space" → Short); sem " — ", o nome inteiro.
+// Agrupa sem diferenciar maiúsculas/minúsculas; ordena por quantidade (maior primeiro). 04/11/2026 (Cardoso).
+function paPecasPorTipo(linhas){var m={},ord=[];(linhas||[]).forEach(function(l){var nome=String(l.peca||'').split(' — ')[0].trim()||'(sem nome)',k=nome.toLowerCase(),q=+l.quantidade||0,c=q*(+l.valor_unitario||0),rv=q*(+l.preco_venda||0),pl=l.status!=='encomendada';
+  if(!m[k]){m[k]={tipo:nome,q:0,c:0,rv:0,qp:0,cp:0,rp:0};ord.push(k);}var o=m[k];o.q+=q;o.c+=c;o.rv+=rv;if(pl){o.qp+=q;o.cp+=c;o.rp+=rv;}});
+  return ord.map(function(k){return m[k];}).sort(function(a,b){return b.q-a.q||a.tipo.localeCompare(b.tipo,'pt-BR');});}
 // ─── 📄 PDF do Saldo de Compras Anual (Peças) — 04/11/2026 (Cardoso) ─────
 // jsPDF + AutoTable carregados sob demanda (cdnjs); gera e baixa o arquivo com os números que estão na tela.
 function paCarregarScript(src){return new Promise(function(ok,erro){if(document.querySelector('script[src="'+src+'"]'))return ok();var e=document.createElement('script');e.src=src;e.onload=function(){ok();};e.onerror=function(){erro(new Error('Não foi possível carregar '+src));};document.head.appendChild(e);});}
@@ -1988,7 +1994,14 @@ async function paPecasPDF(){
       titulo('Totais da tabela por segmento e grupo');
       doc.autoTable(Object.assign({},base,{startY:y,tableWidth:180,head:[['Segmento','Grupo','Peças','Custo total','Receita total','% custo']],body:body4,columnStyles:{2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}}}));
       y=doc.lastAutoTable.finalY+4;doc.setFontSize(7.5);doc.setTextColor.apply(doc,cinza);
-      doc.text('Receita total é potencial: supõe que todas as peças sejam vendidas no período, pelo preço cheio. Planejadas: '+n0(tqp)+' pç / R$ '+v(tcp)+' (entram no saldo do item 2); encomendadas já estão nas Provisões.',14,y);doc.setTextColor(0,0,0);
+      // Totais por tipo de peça
+      var body5=paPecasPorTipo(L).map(function(o){return [o.tipo,n0(o.q),v(o.c),v(o.rv),o.rv?pc(o.c/o.rv*100):'—',o.q?v(o.c/o.q):'—',o.q?v(o.rv/o.q):'—'];});
+      body5.push([{content:'TOTAL',styles:{fontStyle:'bold'}},{content:n0(tq),styles:{fontStyle:'bold'}},{content:v(tc),styles:{fontStyle:'bold'}},{content:v(tr),styles:{fontStyle:'bold'}},{content:tr?pc(tc/tr*100):'—',styles:{fontStyle:'bold'}},'','']);
+      if(y>165){doc.addPage();y=15;}else y+=4;
+      titulo('Totais por tipo de peça');
+      doc.autoTable(Object.assign({},base,{startY:y,tableWidth:180,head:[['Tipo de peça','Peças','Custo total','Receita total','% custo','Custo médio','Preço médio']],body:body5,columnStyles:{1:{halign:'right'},2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'}}}));
+      y=doc.lastAutoTable.finalY+4;doc.setFontSize(7.5);doc.setTextColor.apply(doc,cinza);
+      doc.text(doc.splitTextToSize('Tipo de peça = nome antes do " — " (sem o evento ou canal). Receita total é potencial: supõe que todas as peças sejam vendidas no período, pelo preço cheio. Planejadas: '+n0(tqp)+' pç / R$ '+v(tcp)+' (entram no saldo do item 2); encomendadas já estão nas Provisões.',W-28),14,y);doc.setTextColor(0,0,0);
     }
     // Rodapé
     var np=doc.internal.getNumberOfPages();
