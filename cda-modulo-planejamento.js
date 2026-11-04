@@ -1869,7 +1869,7 @@ async function paPecasComprar(){
   function pctCusto(c,rv,s){if(!rv)return '<span class="pa-mut">—</span>';var p=c/rv*100,lim=s?pctIdeal[s]:null,ok=lim===null||p<=lim+0.005;return '<span style="font-weight:700;color:'+(lim===null?'inherit':(ok?'var(--green)':'var(--gold2)'))+'" title="'+(lim===null?'':'Ideal do segmento: '+fp(lim))+'">'+fp(p)+(lim===null?'':(ok?' ✓':' ⚠'))+'</span>';}
   function sit(v){return v>=-0.005?'<span style="color:var(--green);font-weight:700">'+paValor(v)+'</span>':'<span style="color:var(--red);font-weight:700">−'+paValor(-v)+'</span><br><span class="pa-orig">excede</span>';}
   var mesesRest=restRec?PA_MESES_AB[12-restRec].toLowerCase()+(restRec>1?'–dez':'')+'/'+String(ano).slice(2):'—';
-  var acoes='<button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'compras\')">🛒 Saldo de Compras Anual (R$)</button><button class="btn btn-ghost btn-sm" onclick="paFormulaPecas()">🧮 Fórmula das peças</button><button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'pecas\')">ℹ️ Tutorial Informativo</button>';
+  var acoes='<button class="btn btn-ghost btn-sm" onclick="paPecasPDF()" title="Gerar arquivo PDF deste relatório">📄 Gerar PDF</button><button class="btn btn-ghost btn-sm" onclick="navigatePlanejamento(\'compras\')">🛒 Saldo de Compras Anual (R$)</button><button class="btn btn-ghost btn-sm" onclick="paFormulaPecas()">🧮 Fórmula das peças</button><button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'pecas\')">ℹ️ Tutorial Informativo</button>';
   var html='<div class="pa-filtros"><label>Ano<select onchange="paEstado.ano=+this.value;navigatePlanejamento(paEstado.page)">'+d.anos.map(function(a){return '<option '+(a===paEstado.ano?'selected':'')+'>'+a+'</option>';}).join('')+'</select></label><div class="pa-acoes">'+acoes+'</div></div>';
   // Bloco 1
   html+='<h3 class="pa-h3">1. Pode comprar até o fim do exercício</h3>';
@@ -1896,6 +1896,9 @@ async function paPecasComprar(){
   html+='<h3 class="pa-h3">3. 📋 Tabela de Peças a Comprar</h3>';
   if(r[4]===null){html+='<div class="card">A Tabela de Peças a Comprar ainda não está disponível no banco de dados.</div>';document.getElementById('pa-root').innerHTML=html;return;}
   paPecas.linhas=linhas;
+  paCache.pecasCalc.mesesRest=mesesRest;
+  paCache.pecasCalc.linhasPDF=linhas.map(function(l){var g=grupoDe[String(l.grupo_id)],cc=l.centro_custo_id?ccDe[String(l.centro_custo_id)]:null,sg=segDe(l.grupo_id),q=+l.quantidade||0,ct=q*(+l.valor_unitario||0),rt=q*(+l.preco_venda||0);
+    return {mes:PA_MESES_AB[l.mes-1]+'/'+String(l.ano).slice(2),mesN:l.mes,seg:sg,grupo:g?g.nome:'#'+l.grupo_id,grupoId:String(l.grupo_id),centro:cc?cc.nome:'Geral do grupo',peca:l.peca,q:q,cu:+l.valor_unitario||0,pv:+l.preco_venda||0,ct:ct,rt:rt,status:l.status==='encomendada'?'encomendada':'planejada'};});
   paPecas.centrosRec=d.h.centros.filter(function(cc){return cc.ativo&&cc.conta&&cc.conta.tipo==='RECEITAS'&&cc.grupo_id;});
   paPecas.grupos=grupos.filter(function(g){return g.ativo;});
   if(podeEd)html+=paPecasForm(restCompra?13-restCompra:12);
@@ -1918,6 +1921,81 @@ async function paPecasComprar(){
     '<p class="pa-info" style="margin-top:6px"><b>Receita total é potencial:</b> supõe que todas as peças sejam vendidas no período, pelo preço cheio. Só as peças <b>planejadas</b> entram no saldo do item 2 — as <b>encomendadas</b> já devem estar em <a class="pa-link" onclick="navigatePlanejamento(\'provisao\')">Orçamento › Provisões</a>, já descontadas do Pode comprar.</p>';
   document.getElementById('pa-root').innerHTML=html;
   if(podeEd)paPecasGrupoMudou();
+}
+// ─── 📄 PDF do Saldo de Compras Anual (Peças) — 04/11/2026 (Cardoso) ─────
+// jsPDF + AutoTable carregados sob demanda (cdnjs); gera e baixa o arquivo com os números que estão na tela.
+function paCarregarScript(src){return new Promise(function(ok,erro){if(document.querySelector('script[src="'+src+'"]'))return ok();var e=document.createElement('script');e.src=src;e.onload=function(){ok();};e.onerror=function(){erro(new Error('Não foi possível carregar '+src));};document.head.appendChild(e);});}
+async function paPecasPDF(){
+  var C=paCache.pecasCalc;if(!C){showToast('Abra a tela primeiro.','info');return;}
+  try{
+    showToast('Gerando o PDF…','info');
+    await paCarregarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+    await paCarregarScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js');
+    var J=window.jspdf&&window.jspdf.jsPDF;if(!J)throw new Error('Biblioteca de PDF indisponível');
+    var doc=new J({orientation:'landscape',unit:'mm',format:'a4'}),W=doc.internal.pageSize.getWidth();
+    function v(x){return x===null||x===undefined||!isFinite(x)?'—':(x<-0.005?'-':'')+Math.abs(Math.round(x*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+    function n0(x){return x===null||x===undefined||!isFinite(x)?'—':Math.round(x).toLocaleString('pt-BR');}
+    function pc(x){return x===null||x===undefined||!isFinite(x)?'—':x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+    var SEG={varejo:'Varejo',atacado:'Atacado'},cor=[200,40,60],cinza=[90,90,90];
+    var hoje=new Date(),quando=hoje.toLocaleDateString('pt-BR')+' '+hoje.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+    doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text('Ciclo da Arte — Saldo de Compras Anual (Peças) '+C.ano,14,15);
+    doc.setFont('helvetica','normal');doc.setFontSize(9);doc.setTextColor.apply(doc,cinza);
+    doc.text('Planejamento Anual · Análises e Decisões › Compras de Produção · período de compra '+C.mesesRest+' · gerado em '+quando,14,21);doc.setTextColor(0,0,0);
+    var y=27;
+    function titulo(t){doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor.apply(doc,cor);doc.text(t,14,y);doc.setTextColor(0,0,0);y+=2;}
+    var base={theme:'grid',styles:{font:'helvetica',fontSize:8,cellPadding:1.6,lineColor:[210,210,210],lineWidth:0.1},headStyles:{fillColor:[35,38,52],textColor:255,fontStyle:'bold',halign:'center'},margin:{left:14,right:14}};
+    // 1
+    titulo('1. Pode comprar até o fim do exercício');
+    var rc=C.restCompra||0;
+    doc.autoTable(Object.assign({},base,{startY:y,tableWidth:150,head:[['','R$','por mês']],body:[
+      ['Pode comprar (Saldo de Compras Anual R$)',v(C.podeTot),rc?v(C.podeTot/rc):'—'],
+      ['(-) Reserva para Montagem Coleções',v(C.reservaMont),''],
+      [{content:'= Disponível para peças',styles:{fontStyle:'bold'}},{content:v(C.podePecas),styles:{fontStyle:'bold'}},rc?v(C.podePecas/rc):'—']],
+      columnStyles:{1:{halign:'right'},2:{halign:'right'}}}));
+    y=doc.lastAutoTable.finalY+8;
+    // 2
+    titulo('2. Previsto por segmento e grupo — receita de '+C.mesesRest);
+    var body2=[],TT={rec:0,disp:0,pecas:0,qp:0,cp:0,saldo:0};
+    ['varejo','atacado'].forEach(function(sg){var xs=C.G.filter(function(x){return x.seg===sg;});if(!xs.length)return;
+      var t={rec:0,disp:0,pecas:0,qp:0,cp:0,saldo:0};xs.forEach(function(x){t.rec+=x.rec;t.disp+=x.disp;t.pecas+=x.pecas||0;t.qp+=x.pl.qp;t.cp+=x.pl.cp;t.saldo+=x.saldo;});
+      Object.keys(TT).forEach(function(k){TT[k]+=t[k];});
+      var st={fontStyle:'bold',fillColor:[238,238,242]};
+      body2.push([{content:SEG[sg].toUpperCase()+' (custo ideal '+pc(C.pctIdeal[sg])+')',styles:st},{content:v(t.rec),styles:st},{content:'',styles:st},{content:v(t.disp),styles:st},{content:'',styles:st},{content:'',styles:st},{content:n0(t.pecas),styles:st},{content:n0(t.qp)+' pç / '+v(t.cp),styles:st},{content:v(t.saldo),styles:Object.assign({},st,{textColor:t.saldo<-0.005?cor:[20,120,60]})}]);
+      xs.forEach(function(x){body2.push(['   '+x.nome,v(x.rec),x.fonte==='cal'?'Calendário ('+x.nEv+')':'Orçamento',v(x.disp)+' ('+pc(x.share*100)+')',v(x.ticket),v(x.custo)+(x.custoFonte==='plano'?' (plano)':' (alvo)'),n0(x.pecas),n0(x.pl.qp)+' pç / '+v(x.pl.cp),{content:v(x.saldo),styles:{textColor:x.saldo<-0.005?cor:[20,120,60]}}]);});});
+    body2.push([{content:'TOTAL',styles:{fontStyle:'bold'}},{content:v(TT.rec),styles:{fontStyle:'bold'}},'',{content:v(TT.disp),styles:{fontStyle:'bold'}},'','',{content:n0(TT.pecas),styles:{fontStyle:'bold'}},{content:n0(TT.qp)+' pç / '+v(TT.cp),styles:{fontStyle:'bold'}},{content:v(TT.saldo),styles:{fontStyle:'bold',textColor:TT.saldo<-0.005?cor:[20,120,60]}}]);
+    doc.autoTable(Object.assign({},base,{startY:y,head:[['Segmento / Grupo','Receita prevista','Origem','R$ disponível','Ticket médio','Custo por peça','Peças previstas','Planejado','Saldo (R$)']],body:body2,
+      columnStyles:{1:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'},6:{halign:'right'},7:{halign:'right'},8:{halign:'right'}}}));
+    y=doc.lastAutoTable.finalY+4;
+    doc.setFontSize(7.5);doc.setTextColor.apply(doc,cinza);
+    doc.text(doc.splitTextToSize('Receita prevista: Calendário (projeção dos eventos não cancelados) nos grupos de eventos — Shows de artistas e Feiras e bazares; nos demais, Orçamento previsto ÷ 12 × meses restantes. R$ disponível = disponível para peças × (receita × custo ideal do grupo) ÷ soma dos grupos. Peças previstas = R$ disponível ÷ custo por peça (custo médio do plano ou ticket × custo ideal). Saldo = R$ disponível - custo planejado.',W-28),14,y);doc.setTextColor(0,0,0);
+    // 3
+    doc.addPage();y=15;
+    titulo('3. Tabela de Peças a Comprar');
+    var L=C.linhasPDF||[],tq=0,tc=0,tr=0,tqp=0,tcp=0;
+    var body3=L.map(function(l){tq+=l.q;tc+=l.ct;tr+=l.rt;if(l.status==='planejada'){tqp+=l.q;tcp+=l.ct;}var p=l.rt?l.ct/l.rt*100:null,acima=p!==null&&p>C.pctIdeal[l.seg]+0.005;
+      return [l.mes,SEG[l.seg],l.grupo,l.centro,l.peca,n0(l.q),v(l.cu),v(l.pv),v(l.ct),v(l.rt),{content:p===null?'—':pc(p)+(acima?' acima':' ok'),styles:{textColor:acima?cor:[20,120,60]}},l.status];});
+    body3.push([{content:'TOTAL DO PERÍODO',colSpan:5,styles:{fontStyle:'bold'}},{content:n0(tq),styles:{fontStyle:'bold'}},'','',{content:v(tc),styles:{fontStyle:'bold'}},{content:v(tr),styles:{fontStyle:'bold'}},{content:tr?pc(tc/tr*100):'—',styles:{fontStyle:'bold'}},'']);
+    doc.autoTable(Object.assign({},base,{startY:y,head:[['Mês','Segmento','Grupo','Centro de receita','Peça','Qtd','Custo unit.','Preço unit.','Custo total','Receita total','% custo','Status']],
+      body:L.length?body3:[[{content:'Nenhuma peça lançada.',colSpan:12}]],styles:Object.assign({},base.styles,{fontSize:7.2}),
+      columnStyles:{5:{halign:'right'},6:{halign:'right'},7:{halign:'right'},8:{halign:'right'},9:{halign:'right'},10:{halign:'right'}}}));
+    y=doc.lastAutoTable.finalY+6;
+    // Totais por segmento e grupo (tabela)
+    if(L.length){
+      var agg={},ordem=[];L.forEach(function(l){var k=l.seg+'|'+l.grupo;if(!agg[k]){agg[k]={seg:l.seg,grupo:l.grupo,q:0,ct:0,rt:0};ordem.push(k);}agg[k].q+=l.q;agg[k].ct+=l.ct;agg[k].rt+=l.rt;});
+      ordem.sort();var body4=ordem.map(function(k){var a=agg[k];return [SEG[a.seg],a.grupo,n0(a.q),v(a.ct),v(a.rt),a.rt?pc(a.ct/a.rt*100):'—'];});
+      body4.push([{content:'TOTAL',colSpan:2,styles:{fontStyle:'bold'}},{content:n0(tq),styles:{fontStyle:'bold'}},{content:v(tc),styles:{fontStyle:'bold'}},{content:v(tr),styles:{fontStyle:'bold'}},{content:tr?pc(tc/tr*100):'—',styles:{fontStyle:'bold'}}]);
+      if(y>170){doc.addPage();y=15;}
+      titulo('Totais da tabela por segmento e grupo');
+      doc.autoTable(Object.assign({},base,{startY:y,tableWidth:180,head:[['Segmento','Grupo','Peças','Custo total','Receita total','% custo']],body:body4,columnStyles:{2:{halign:'right'},3:{halign:'right'},4:{halign:'right'},5:{halign:'right'}}}));
+      y=doc.lastAutoTable.finalY+4;doc.setFontSize(7.5);doc.setTextColor.apply(doc,cinza);
+      doc.text('Receita total é potencial: supõe que todas as peças sejam vendidas no período, pelo preço cheio. Planejadas: '+n0(tqp)+' pç / R$ '+v(tcp)+' (entram no saldo do item 2); encomendadas já estão nas Provisões.',14,y);doc.setTextColor(0,0,0);
+    }
+    // Rodapé
+    var np=doc.internal.getNumberOfPages();
+    for(var i=1;i<=np;i++){doc.setPage(i);doc.setFontSize(7.5);doc.setTextColor.apply(doc,cinza);doc.text('Ciclo da Arte · Saldo de Compras Anual (Peças) '+C.ano+' · '+quando,14,doc.internal.pageSize.getHeight()-7);doc.text('Página '+i+' de '+np,W-14,doc.internal.pageSize.getHeight()-7,{align:'right'});}
+    var nome='Saldo_Compras_Pecas_'+C.ano+'_em_'+hoje.toLocaleDateString('pt-BR').replace(/\//g,'-')+'.pdf';
+    doc.save(nome);showToast('PDF gerado: '+nome,'success');
+  }catch(e){paErro(e,'Não foi possível gerar o PDF');}
 }
 function paSimSegTag(s){return '<span class="pa-sim-seg '+(s==='atacado'?'at':'vj')+'">'+(s==='atacado'?'AT':'VJ')+'</span>';}
 function paPecasForm(mesPad){
@@ -2709,7 +2787,8 @@ var PA_TUT={
   ['Peças previstas','Quantas peças o R$ disponível do grupo compra.','R$ disponível ÷ custo por peça'],
   ['Planejado e saldo','Peças planejadas do grupo na tabela (as encomendadas já estão nas Provisões) e o saldo em R$ (vermelho = excede).','R$ disponível − R$ planejado'],
   ['3. 📋 Tabela de Peças a Comprar','Uma linha por peça: mês, segmento (filtra os grupos), grupo, centro de receita (opcional — em branco = Geral do grupo), peça, quantidade, custo unitário de compra, preço unitário de venda e status planejada/encomendada. Custo total, receita total (potencial) e % custo ✓/⚠ contra o ideal do segmento.'],
-  ['🧮 Fórmula das peças','Abre a conta passo a passo com os números do momento, grupo a grupo.']]},
+  ['🧮 Fórmula das peças','Abre a conta passo a passo com os números do momento, grupo a grupo.'],
+  ['📄 Gerar PDF','Baixa um arquivo PDF (A4 deitado) com os três blocos da tela — pode comprar, previsto por segmento e grupo, e a Tabela de Peças a Comprar com os totais — com os números do momento.']]},
  estrutura:{t:'Plano de Redução de Custos › Fixos',d:'Estrutura anual dos custos fixos e financeiros contra a receita: o orçado, a referência de mercado (ideal), o realizado médio do ano e o valor mensal consolidado, com a redução mensal necessária para chegar ao mercado e o plano de ação de cada centro.',c:[
   ['Filtros','Ano · Conta · Subconta · Centro de Custo · Buscar · Analítico/Sintético (os mesmos da Margem por Canal). Recortam as linhas; o total da empresa e o Resultado anual não mudam.'],
   ['Receita base','Receita realizada no período. Se o último mês ainda não tem receita lançada, soma a "Receita do mês em aberto (simulação)". Receita base ÷ meses = receita base mensal, usada para todos os % da tabela.','Receita realizada + receita hipotética do mês em aberto'],

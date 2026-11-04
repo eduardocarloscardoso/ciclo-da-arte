@@ -1039,6 +1039,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Geral do grupo); nome = peça — canal; mês: feiras pela data do Calendário (Caminhoá nov; D Space e Rosenbaum Natal dez),
   demais nov. Correção confirmada: T-Shirt D Space custo 75,00 → 35,00. Totais: 1.430 peças, custo 59.050,00, venda
   257.500,00 (Feiras 16.075 · Revendas 22.050 · Venda direta 3.425 · Shows 8.750 · E-commerce 8.750).
+- **📄 Gerar PDF na tela de Peças (04/11/2026, Cardoso; só código):** botão antes de "🛒 Saldo de Compras Anual (R$)".
+  `paPecasPDF()` carrega jsPDF 2.5.1 + AutoTable 3.8.2 do cdnjs só na hora do clique e baixa
+  `Saldo_Compras_Pecas_<ano>_em_<dd-mm-aaaa>.pdf` (A4 deitado): 1. Pode comprar / reserva Montagem / disponível;
+  2. previsto por segmento e grupo (receita, origem, R$ disponível, ticket, custo por peça, peças, planejado, saldo);
+  3. Tabela de Peças a Comprar com total do período + totais por segmento e grupo; rodapé com data e "Página x de y".
+  Usa os números já calculados na tela (`paCache.pecasCalc`, inclusive `linhasPDF`). Sem mudança no banco.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
