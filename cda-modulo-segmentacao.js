@@ -79,7 +79,7 @@ async function montarModuloSegmentacao(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [], msAberto: null };
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [], msAberto: null, geoAberto: {} };
   var motor = null; // cdaMotorSegmento — montado após a carga
 
   host.innerHTML =
@@ -99,6 +99,12 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-recalc .seg-modo-btn.ativa{background:var(--ink,#1a1a1a);color:#fff;}' +
       '.seg-recalc input{width:90px;font-size:11px;padding:5px 8px;border:2px solid var(--ink,#1a1a1a);}' +
       '.seg-uf-wrap{display:flex;gap:4px;flex-wrap:wrap;align-items:center;max-width:760px;}' +
+      '.seg-uf-sel{display:inline-flex;align-items:center;gap:3px;font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-uf-sel .n{font-style:normal;font-weight:400;opacity:.75;}' +
+      '.seg-uf-sel b{cursor:pointer;margin-left:4px;}' +
+      '.seg-pc-tags{flex-basis:100%;display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:10px;}' +
+      '.seg-pc-tags .rot{font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted,#888);margin-left:6px;}' +
+      '.seg-pc-tags .rot:first-child{margin-left:0;}' +
       '.seg-uf{font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;padding:4px 7px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;user-select:none;}' +
       '.seg-uf .n{font-style:normal;font-weight:400;opacity:.7;margin-left:3px;}' +
       '.seg-uf.zero{opacity:.35;}' +
@@ -113,8 +119,8 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-ms-painel label:hover{background:var(--card,#f5f0e8);}' +
       '.seg-ms-painel label.zero{opacity:.45;}' +
       '.seg-ms-painel label i{font-style:normal;opacity:.65;margin-left:auto;padding-left:10px;}' +
-      '.seg-cid{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
-      '.seg-cid b{cursor:pointer;margin-left:3px;}' +
+      '.seg-cid,.seg-pc-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
     '</style>' +
     '<div class="seg-recalc" id="seg-recalc"></div>' +
@@ -321,18 +327,20 @@ async function montarModuloSegmentacao(containerId, opts) {
       var valInput = area.querySelector('.seg-val');
       if (valInput) valInput.value = f.valor != null ? f.valor : '';
     });
+    if (motor) atualizarContagensUf(); // etiquetas/grade de UF e Região já com contagem
 
     wrap.querySelectorAll('.seg-tipo').forEach(function (el) {
       el.addEventListener('change', function () {
         var idx = Number(el.dataset.idx);
         ST.filtros[idx] = { tipo: el.value, operador: '>', valor: '' };
         ST.msAberto = null;
+        ST.geoAberto = {};
         renderFiltros();
         aplicarFiltros(); // o critério anterior desta linha deixou de valer
       });
     });
     wrap.querySelectorAll('[data-rm]').forEach(function (el) {
-      el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); renderFiltros(); aplicarFiltros(); });
+      el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); ST.geoAberto = {}; ST.msAberto = null; renderFiltros(); aplicarFiltros(); });
     });
     // ── Plano de Contas: listas com caixinhas (várias escolhas por nível) ──
     wrap.querySelectorAll('.seg-ms-btn').forEach(function (el) {
@@ -347,7 +355,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         });
       });
     });
-    function pcAplicar(idx, campo, novaLista) {
+    function pcAplicar(idx, campo, novaLista, semAbrir) {
       var v = pcValor(ST.filtros[idx]);
       v[campo] = novaLista;
       // níveis abaixo: mantém só as escolhas que ainda pertencem às de cima
@@ -357,7 +365,7 @@ async function montarModuloSegmentacao(containerId, opts) {
       });
       var painel = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
       var rolagem = painel ? painel.scrollTop : 0;
-      ST.msAberto = idx + '|' + campo;
+      ST.msAberto = semAbrir ? null : idx + '|' + campo;
       renderFiltros();
       var novo = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
       if (novo) novo.scrollTop = rolagem;
@@ -413,6 +421,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         aplicarFiltros();
       });
     });
+    // ── Estado (UF) / Região: grade aberta enquanto escolhe; recolhe em etiquetas depois ──
     wrap.querySelectorAll('.seg-uf').forEach(function (el) {
       el.addEventListener('click', function () {
         var idx = Number(el.closest('.seg-valor-area').dataset.idx);
@@ -420,16 +429,51 @@ async function montarModuloSegmentacao(containerId, opts) {
         var pos = lista.indexOf(el.dataset.uf);
         if (pos !== -1) lista.splice(pos, 1); else lista.push(el.dataset.uf);
         ST.filtros[idx].valor = lista;
-        el.classList.toggle('ativa', pos === -1);
+        ST.geoAberto[idx] = true; // continua aberta até clicar fora / Concluir
+        renderFiltros(); // redesenha a grade (mostra/oculta o "✓ Concluir")
         aplicarFiltros();
       });
     });
     wrap.querySelectorAll('.seg-uf-limpar').forEach(function (el) {
-      el.addEventListener('click', function () {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
         var idx = Number(el.closest('.seg-valor-area').dataset.idx);
         ST.filtros[idx].valor = [];
+        ST.geoAberto[idx] = true;
         renderFiltros();
         aplicarFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-geo-ok').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        delete ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)];
+        renderFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-geo-alterar').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)] = true;
+        renderFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-uf-sel b').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        ST.filtros[idx].valor = ufLista(ST.filtros[idx]).filter(function (x) { return x !== el.dataset.uf; });
+        renderFiltros(); // sem nenhuma escolha a grade reabre sozinha
+        aplicarFiltros();
+      });
+    });
+    // ── Plano de Contas: ✕ numa etiqueta remove só aquela escolha ──
+    wrap.querySelectorAll('.seg-pc-tag b').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.dataset.campo;
+        var lista = pcValor(ST.filtros[idx])[campo].filter(function (id) { return id !== el.dataset.id; });
+        pcAplicar(idx, campo, lista, true);
       });
     });
     wrap.querySelectorAll('.seg-op,.seg-val').forEach(function (el) {
@@ -465,17 +509,27 @@ async function montarModuloSegmentacao(containerId, opts) {
     var lista = cdaListaValor(f.valor);
     return f.tipo === 'estado' ? lista.map(function (x) { return x.trim().toUpperCase(); }) : lista;
   }
-  // Região: mesmos botões com contagem, 5 regiões
-  function campoRegiaoHtml(f) {
+  // Estado/Região: grade completa enquanto escolhe (ou sem nada escolhido);
+  // depois, só as etiquetas do que foi escolhido + "✎ Alterar".
+  function campoGeoHtml(f, idx, todos, titulo) {
     var sel = ufLista(f);
-    return '<span class="seg-uf-wrap">' +
-      CDA_REGIOES.map(function (r) {
-        return '<span class="seg-uf' + (sel.indexOf(r) !== -1 ? ' ativa' : '') + '" data-uf="' + r + '">' + r + '<i class="n">0</i></span>';
+    if (sel.length && !ST.geoAberto[idx]) {
+      return '<span class="seg-uf-wrap seg-geo" data-idx="' + idx + '">' +
+        sel.map(function (v) { return '<span class="seg-uf-sel" data-uf="' + esc(v) + '">' + esc(v) + ' <i class="n">0</i><b data-uf="' + esc(v) + '" title="Remover">✕</b></span>'; }).join('') +
+        '<button class="btn sm seg-geo-alterar" type="button">✎ Alterar</button>' +
+        '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
+      '</span>';
+    }
+    return '<span class="seg-uf-wrap seg-geo seg-geo-aberta" data-idx="' + idx + '">' +
+      todos.map(function (v) {
+        return '<span class="seg-uf' + (sel.indexOf(v) !== -1 ? ' ativa' : '') + '" data-uf="' + v + '"' + (titulo ? ' title="' + titulo(v) + '"' : '') + '>' + v + '<i class="n">0</i></span>';
       }).join('') +
       '<button class="btn sm seg-uf-limpar" type="button">Limpar</button>' +
+      (sel.length ? '<button class="btn sm rust seg-geo-ok" type="button">✓ Concluir</button>' : '') +
       '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
     '</span>';
   }
+  function campoRegiaoHtml(f, idx) { return campoGeoHtml(f, idx, CDA_REGIOES, null); }
   // Cidade: várias cidades (qualquer uma); digita e tecla Enter ou "＋"
   function campoCidadeHtml(f) {
     var lista = cdaListaValor(f.valor);
@@ -484,16 +538,7 @@ async function montarModuloSegmentacao(containerId, opts) {
       '<button class="btn sm seg-cid-add" type="button">＋</button>' +
       '<span class="tmu" style="font-size:10px"> sem acento ou com, tanto faz</span>';
   }
-  function campoUfHtml(f) {
-    var sel = ufLista(f);
-    return '<span class="seg-uf-wrap">' +
-      CDA_UFS.map(function (uf) {
-        return '<span class="seg-uf' + (sel.indexOf(uf) !== -1 ? ' ativa' : '') + '" data-uf="' + uf + '" title="' + CDA_UF_REGIAO_COMPARTILHADO[uf] + '">' + uf + '<i class="n">0</i></span>';
-      }).join('') +
-      '<button class="btn sm seg-uf-limpar" type="button">Limpar</button>' +
-      '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
-    '</span>';
-  }
+  function campoUfHtml(f, idx) { return campoGeoHtml(f, idx, CDA_UFS, function (uf) { return CDA_UF_REGIAO_COMPARTILHADO[uf]; }); }
 
   // ── Filtro "Plano de Contas": Conta → Grupo → Subconta → Centro de Custo ──
   // Cada nível aceita VÁRIAS escolhas (= qualquer uma) e é opcional (vazio = todos).
@@ -541,7 +586,18 @@ async function montarModuloSegmentacao(containerId, opts) {
           }).join('') +
         '</div>' +
       '</div>';
-    }).join('');
+    }).join('') + pcEtiquetasHtml(v);
+  }
+  // Linha com os nomes escolhidos em cada nível — nada fica escondido no "+1"
+  function pcEtiquetasHtml(v) {
+    var partes = [];
+    PC_CAMPOS.forEach(function (campo) {
+      if (!v[campo].length) return;
+      var nomePorId = {}; pcOpcoes(v, campo).forEach(function (o) { nomePorId[o.v] = o.l; });
+      partes.push('<span class="rot">' + PC_ROTULO[campo] + ':</span>' +
+        v[campo].map(function (id) { return '<span class="seg-pc-tag">' + esc(nomePorId[id] || id) + '<b data-campo="' + campo + '" data-id="' + esc(id) + '" title="Remover">✕</b></span>'; }).join(''));
+    });
+    return partes.length ? '<div class="seg-pc-tags">' + partes.join('') + '</div>' : '';
   }
 
   function campoValorHtml(f, idx) {
@@ -572,7 +628,7 @@ async function montarModuloSegmentacao(containerId, opts) {
       case 'cidade':
         return campoCidadeHtml(f);
       case 'estado':
-        return campoUfHtml(f);
+        return campoUfHtml(f, idx);
       case 'plano_contas':
         return campoPlanoContasHtml(f, idx);
       case 'ticket_medio':
@@ -588,7 +644,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         return '<select class="seg-val"><option value="">Selecione...</option>' +
           opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'regiao':
-        return campoRegiaoHtml(f);
+        return campoRegiaoHtml(f, idx);
       case 'pais':
         return '<input class="seg-val" type="text" placeholder="Ex: Brasil" value="' + (f.valor || '') + '">';
       case 'cep':
@@ -640,10 +696,10 @@ async function montarModuloSegmentacao(containerId, opts) {
         var chave = f.tipo === 'regiao' ? CDA_UF_REGIAO_COMPARTILHADO[uf] : (CDA_UF_REGIAO_COMPARTILHADO[uf] ? uf : null);
         if (chave) cont[chave] = (cont[chave] || 0) + 1; else semUf++;
       });
-      area.querySelectorAll('.seg-uf').forEach(function (el) {
+      area.querySelectorAll('.seg-uf, .seg-uf-sel').forEach(function (el) {
         var n = cont[el.dataset.uf] || 0;
         el.querySelector('.n').textContent = n.toLocaleString('pt-BR');
-        el.classList.toggle('zero', n === 0);
+        el.classList.toggle('zero', n === 0 && el.classList.contains('seg-uf'));
       });
       var notaSemUf = area.querySelector('.seg-uf-semuf');
       if (notaSemUf) notaSemUf.textContent = semUf ? '· ' + semUf.toLocaleString('pt-BR') + ' sem UF válida no cadastro' : '';
@@ -698,10 +754,22 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
 
   // Fecha a lista aberta do Plano de Contas ao clicar fora dela
-  document.addEventListener('click', function () {
-    if (!ST.msAberto) return;
-    ST.msAberto = null;
-    host.querySelectorAll('.seg-ms-painel').forEach(function (p) { p.hidden = true; });
+  // e recolhe as grades de Estado/Região que já têm escolha
+  document.addEventListener('click', function (ev) {
+    if (ST.msAberto) {
+      ST.msAberto = null;
+      host.querySelectorAll('.seg-ms-painel').forEach(function (p) { p.hidden = true; });
+    }
+    // clique numa caixa/campo: não reconstrói agora (fecharia a caixa que está sendo aberta)
+    if (ev.target && ev.target.closest && ev.target.closest('select, input, textarea')) return;
+    var dentro = ev.target && ev.target.closest ? ev.target.closest('.seg-geo-aberta') : null;
+    var idxDentro = dentro ? dentro.dataset.idx : null;
+    var recolher = Object.keys(ST.geoAberto).filter(function (k) {
+      return k !== idxDentro && ST.filtros[k] && ufLista(ST.filtros[k]).length;
+    });
+    if (!recolher.length) return;
+    recolher.forEach(function (k) { delete ST.geoAberto[k]; });
+    renderFiltros();
   });
 
   host.querySelector('#seg-btn-addfiltro').addEventListener('click', function () {

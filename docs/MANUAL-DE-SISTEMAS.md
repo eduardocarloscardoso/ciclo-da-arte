@@ -1387,3 +1387,7 @@ este documento é o resumo estrutural, não o log.)*
   continuam válidos. Linhas diferentes continuam sendo E. Filtros Cidade e País comparam sem acento (`cdaSemAcento`).
 - **Dado observado:** centros de Shows (ex.: SHOWS LUEDJI LUNA) quase não têm cliente identificado — as vendas de
   show ficam em cadastros genéricos (`cadastro_incompleto`) ou no cadastro do próprio artista.
+- **04/11/2026 — apresentação enxuta (pedido de Cardoso):** Estado e Região mostram a grade só enquanto se escolhe
+  (`ST.geoAberto`); depois recolhem em etiquetas com contagem (✕ remove, ✎ Alterar reabre, ✓ Concluir recolhe; clique
+  fora recolhe, exceto clique em select/input, para não fechar a caixa que está sendo aberta). Plano de Contas ganhou
+  a linha `.seg-pc-tags` com o nome de cada escolha (evita ocultar seleções no "+1").
