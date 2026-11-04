@@ -87,9 +87,13 @@ async function canCarregar(){
     sb.get('parceiros','select=id,nome,obs&order=nome'),
     sb.get('cda_grupo','order=tipo,ordem,nome'),
     sb.get('cda_canal_eventos_mes','order=ano_mes.desc'),
-    sb.get('cda_pa_v_hierarquia','tipo=eq.RECEITAS&select=centro_custo_id,centro_nome,subconta_nome')
+    sb.get('cda_pa_v_hierarquia','select=centro_custo_id,centro_nome,subconta_nome,tipo,ativo&order=tipo,subconta_ordem,centro_ordem'),
+    sb.get('cda_pa_centro_custo','select=id,grupo_id').catch(function(){return [];})
   ]);
-  canCache={canais:r[0]||[],parceiros:r[1]||[],gruposTodos:r[2]||[],evMes:r[3]||[],centros:r[4]||[],vendas:null,vendasChave:''};
+  // Centros do Plano de Contas (receita e despesa) com o grupo de cada um — para ligar o canal (04/11/2026)
+  var gDe={};(r[5]||[]).forEach(function(x){gDe[String(x.id)]=x.grupo_id;});
+  var todos=(r[4]||[]).map(function(x){x.grupo_id=gDe[String(x.centro_custo_id)]||null;return x;});
+  canCache={canais:r[0]||[],parceiros:r[1]||[],gruposTodos:r[2]||[],evMes:r[3]||[],centrosTodos:todos,centros:todos.filter(function(x){return x.tipo==='RECEITAS';}),vendas:null,vendasChave:''};
   canCache.grupos=canCache.gruposTodos.filter(function(g){return g.tipo==='Receita';});
   await canCarregarVendas();
 }
@@ -219,7 +223,7 @@ function canAbrirCanal(id){
       '<label>Grupo<select id="can-e-grupo" onchange="canMostrarSeg(this.value)"'+dis+'><option value="">— sem grupo —</option>'+grupos.map(function(x){return '<option value="'+x.id+'"'+(String(x.id)===String(c.grupo_id)?' selected':'')+'>'+canEsc(x.nome)+'</option>';}).join('')+'</select></label>'+
       '<label>Segmento<div class="can-ro" id="can-e-seg">'+canSegTexto(g)+'</div></label>'+
       '<label class="w" style="flex-direction:row;align-items:center;gap:8px;text-transform:none;letter-spacing:0;font-size:12.5px"><input type="checkbox" style="width:auto" id="can-e-exev"'+(c.id?(c.exige_eventos?' checked':''):'')+dis+'> Exige registro de eventos (nº de eventos, locais e público na Prestação de Contas de cada mês)</label>'+
-      '<label class="w">Centro de receita (Planejamento)<div class="can-ro">'+(cc?canEsc(cc.centro_nome)+' <span class="pa-mut">· '+canEsc(cc.subconta_nome)+'</span>':'— não ligado —')+'</div></label>'+
+      canCentrosHTML(c)+
     '</div></fieldset>'+
     '<fieldset class="can-fs"><legend>Condições</legend><div class="can-fg" style="grid-template-columns:repeat(4,minmax(0,1fr))">'+
       '<label title="Vazio = padrão do sistema">Comissão %<input id="can-e-com" placeholder="padrão" type="number" step="0.01" value="'+v(c.comissao)+'"'+dis+'></label>'+
@@ -236,8 +240,34 @@ function canAbrirCanal(id){
       '<button class="can-btn" onclick="canFecharPainel()">'+(ed?'Cancelar':'Fechar')+'</button>'+(ed?'<button class="can-btn pri" id="can-e-ok" onclick="canSalvarCanal('+(id||'null')+')">Salvar</button>':'')+'</div>');
   var n=document.getElementById('can-e-nome');if(n&&ed)n.focus();
 }
+// Centro de receita e centro de comissão (Plano de Contas) — escolhidos aqui desde 04/11/2026; só o administrador altera.
+// Regras: vários canais → 1 centro pode; 1 canal → vários centros não; centro de receita obrigatório.
+function canEhAdmin(){return !!(window.cu&&cu.is_admin)&&canPodeEditar();}
+function canOpcoesCentro(gid,atual){
+  var g=gid?canCache.gruposTodos.find(function(x){return String(x.id)===String(gid);}):null,tipo=g&&g.tipo==='Despesa'?'DESPESAS':'RECEITAS';
+  var lst=(canCache.centrosTodos||[]).filter(function(x){return x.tipo===tipo&&(x.ativo!==false||String(x.centro_custo_id)===String(atual));});
+  var doGrupo=lst.filter(function(x){return gid&&String(x.grupo_id)===String(gid);}),outros=lst.filter(function(x){return !(gid&&String(x.grupo_id)===String(gid));});
+  function op(x){return '<option value="'+x.centro_custo_id+'"'+(String(x.centro_custo_id)===String(atual)?' selected':'')+'>'+canEsc(x.centro_nome)+' · '+canEsc(x.subconta_nome)+(x.ativo===false?' (inativo)':'')+'</option>';}
+  return '<option value="">— escolha o centro —</option>'+(doGrupo.length?'<optgroup label="Centros do grupo '+canEsc(g?g.nome:'')+'">'+doGrupo.map(op).join('')+'</optgroup>':'')+
+    (outros.length?'<optgroup label="Outros centros de '+(tipo==='DESPESAS'?'despesa':'receita')+'">'+outros.map(op).join('')+'</optgroup>':'');
+}
+function canOpcoesComissao(atual){
+  var lst=(canCache.centrosTodos||[]).filter(function(x){return x.tipo==='DESPESAS'&&(x.ativo!==false||String(x.centro_custo_id)===String(atual));});
+  var usuais=lst.filter(function(x){return /comiss|royalt/i.test(x.centro_nome);}),outros=lst.filter(function(x){return !/comiss|royalt/i.test(x.centro_nome);});
+  function op(x){return '<option value="'+x.centro_custo_id+'"'+(String(x.centro_custo_id)===String(atual)?' selected':'')+'>'+canEsc(x.centro_nome)+' · '+canEsc(x.subconta_nome)+'</option>';}
+  return '<option value="">— sem comissão —</option><optgroup label="Comissões e royalties">'+usuais.map(op).join('')+'</optgroup><optgroup label="Outros centros de despesa">'+outros.map(op).join('')+'</optgroup>';
+}
+function canNomeCentro(id){var x=id?(canCache.centrosTodos||[]).find(function(y){return String(y.centro_custo_id)===String(id);}):null;return x?canEsc(x.centro_nome)+' <span class="pa-mut">· '+canEsc(x.subconta_nome)+'</span>':null;}
+function canCentrosHTML(c){
+  var adm=canEhAdmin(),tit='Só o administrador altera';
+  if(!adm)return '<label class="w">Centro de receita (Plano de Contas) *<div class="can-ro" title="'+tit+'">'+(canNomeCentro(c.centro_custo_id)||'<span style="color:var(--gold2)">— não ligado —</span>')+' 🔒</div></label>'+
+    '<label class="w">Centro de comissão (despesa)<div class="can-ro" title="'+tit+'">'+(canNomeCentro(c.comissao_centro_id)||'— sem comissão —')+' 🔒</div></label>';
+  return '<label class="w">Centro de receita (Plano de Contas) *<select id="can-e-cc">'+canOpcoesCentro(c.grupo_id,c.centro_custo_id)+'</select><span class="pa-mut" style="font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400">Onde a venda do canal entra no orçamento. Vários canais podem usar o mesmo centro. Centro novo: criar em Planejamento › Estrutura › Plano de Contas.</span></label>'+
+    '<label class="w">Centro de comissão (despesa)<select id="can-e-ccom">'+canOpcoesComissao(c.comissao_centro_id)+'</select><span class="pa-mut" style="font-size:10.5px;text-transform:none;letter-spacing:0;font-weight:400">Para onde vai a comissão do canal (contratado × lançado no Planejamento). Sem comissão: deixe em branco.</span></label>';
+}
 function canSegTexto(g){if(!g)return '— escolha o grupo —';var s=g.segmento||'varejo';return '<span class="can-chip '+(s==='atacado'?'at':'vj')+'">'+(s==='atacado'?'Atacado':'Varejo')+'</span> <span class="pa-mut" style="font-size:11px">vem do grupo'+(g.segmento?'':' (não definido — tratado como Varejo)')+'</span>';}
-function canMostrarSeg(gid){var g=gid?canCache.grupos.find(function(x){return String(x.id)===String(gid);}):null;document.getElementById('can-e-seg').innerHTML=canSegTexto(g);}
+function canMostrarSeg(gid){var g=gid?canCache.grupos.find(function(x){return String(x.id)===String(gid);}):null;document.getElementById('can-e-seg').innerHTML=canSegTexto(g);
+  var sel=document.getElementById('can-e-cc');if(sel)sel.innerHTML=canOpcoesCentro(gid,sel.value);}
 async function canSalvarCanal(id){
   if(!canPodeEditar())return;
   var gv=function(x){return document.getElementById(x).value;},num=function(x){var n=parseFloat(gv(x));return isNaN(n)?null:n;};
@@ -246,6 +276,12 @@ async function canSalvarCanal(id){
   var b={nome:nome,parceiro_id:gv('can-e-parc')?+gv('can-e-parc'):null,grupo_id:gv('can-e-grupo')?+gv('can-e-grupo'):null,
     comissao:num('can-e-com'),pct_imp:num('can-e-imp'),pct_op:num('can-e-op'),pct_cs:num('can-e-cs'),sem_frete:document.getElementById('can-e-frete').checked,
     email:gv('can-e-email').trim()||null,obs:gv('can-e-obs').trim()||null,exige_eventos:document.getElementById('can-e-exev').checked};
+  // Centros (04/11/2026): só o administrador grava; centro de receita obrigatório
+  var selCc=document.getElementById('can-e-cc');
+  if(selCc){
+    if(!selCc.value){showToast('Escolha o centro de receita do canal (Plano de Contas). Se ainda não existe, crie em Planejamento › Estrutura › Plano de Contas.','error');selCc.focus();return;}
+    b.centro_custo_id=+selCc.value;var selCom=document.getElementById('can-e-ccom');b.comissao_centro_id=selCom&&selCom.value?+selCom.value:null;
+  }else if(!id){showToast('Canal novo precisa de centro de receita: peça ao administrador para cadastrar.','error');return;}
   var btn=document.getElementById('can-e-ok');btn.disabled=true;btn.textContent='Salvando…';
   try{
     if(id)await sb.patch('canais',id,b);
@@ -319,6 +355,7 @@ async function canAtualizarEventos(canalId){
 function canTutorial(){
   var l=[
     ['Para que serve','Cadastro único dos canais de venda do ecossistema (tabela canais): quem vende, em que condições (comissão, impostos, op., CS, frete), a que grupo e segmento pertence, e o desempenho no período. É usado pela Prestação de Contas, Histórico de Compras, Clientes, Segmentação, Comercial, Planejamento e Calendário.'],
+    ['Centro de receita e de comissão','Ligam o canal ao Plano de Contas do Planejamento: o centro de receita é onde a venda do canal entra no orçamento (obrigatório; vários canais podem usar o mesmo centro, um canal usa um só); o centro de comissão é a despesa para onde vai a comissão. Só o administrador altera. Centro novo: Planejamento › Estrutura › Plano de Contas.'],
     ['Grupo e Segmento','O grupo vem de Planejamento › Estrutura › Grupos e Metas (Shows de artistas, Feiras e bazares, E-commerce…). O Segmento (Varejo / Atacado) é do grupo — não se digita no canal. Canal sem grupo aparece na seção "Sem grupo".'],
     ['Filtros','Segmento · Grupo · Collab · Canal (digite e escolha na lista) · Período — os mesmos de Collabs / Vendedores, e compartilhados entre as duas telas.'],
     ['Período','Ano atual, últimos 12 meses, todo o histórico ou personalizado (de/até). Vale para os cartões do topo e os números de cada canal.'],

@@ -1029,6 +1029,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   Todos os canais agora têm centro de receita. Regra combinada: vários canais → 1 centro permitido; 1 canal → vários
   centros nunca; centro de receita obrigatório para canal ativo (a tela do canal passará a permitir escolher).
   Canal E-COMMERCE TRAMA AFETIVA mantido; centro REVENDA TRAMA segue ativo, sem canal.
+- **Canais de Venda › painel do canal (04/11/2026; só código):** "Centro de receita (Plano de Contas) *" e "Centro de
+  comissão (despesa)" passam a ser escolhidos em lista (só administrador; demais usuários veem 🔒). Centro de receita
+  obrigatório ao salvar (canal novo sem ele não é criado). A lista mostra primeiro os centros do grupo do canal; o
+  trigger `cda_valida_canal_centros` continua validando tipo (receita/despesa) × grupo.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
