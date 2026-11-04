@@ -6,7 +6,10 @@
 //
 // Requer cda-dados-compartilhados.js (cdaCarregarClientes, cdaCarregarCompras,
 // cdaCarregarCanais, cdaCarregarProdutos, cdaCarregarSegmentos,
-// cdaSalvarSegmento, cdaExcluirSegmento) e a lib SheetJS (XLSX) carregadas antes.
+// cdaSalvarSegmento, cdaExcluirSegmento, cdaCarregarHierarquiaReceita e o
+// motor único cdaMotorSegmento) e a lib SheetJS (XLSX) carregadas antes.
+// A REGRA de cada filtro mora só em cdaMotorSegmento (dados-compartilhados);
+// aqui fica apenas a interface (campos de valor, listeners, resultado).
 //
 // Uso:
 //   <div id="container-segmentacao"></div>
@@ -16,8 +19,8 @@
 //   <script>montarModuloSegmentacao('container-segmentacao');</script>
 // ════════════════════════════════════════════════════════════════════
 
-// Cada filtro pertence a um GRUPO — os mesmos 8 grupos do documento de
-// especificação da Segmentação. Os itens de "Datas" (último contato/
+// Cada filtro pertence a um GRUPO — os 8 grupos do documento de
+// especificação da Segmentação + "Plano de Contas" (nov/2026). Os itens de "Datas" (último contato/
 // proposta) e "CRM" (sem contato/follow-up/oportunidade) dependem do
 // histórico de interações, que ainda não existe (fica pra quando o
 // Pipeline B2C for redesenhado) — por isso não aparecem aqui ainda.
@@ -30,6 +33,8 @@ var CDA_TIPOS_FILTRO_SEG = [
   { id: 'qtd_compras', label: 'Quantidade de compras', grupo: 'Compras' },
   { id: 'canal', label: 'Comprou pelo menos 1x no canal', grupo: 'Compras' },
 
+  { id: 'plano_contas', label: 'Comprou em: Conta / Grupo / Subconta / Centro de Custo', grupo: 'Plano de Contas' },
+
   { id: 'recencia_compra', label: 'Sem comprar há X dias', grupo: 'Frequência' },
   { id: 'nunca_comprou', label: 'Nunca comprou (nenhum produto)', grupo: 'Frequência' },
   { id: 'comprou_periodo', label: 'Comprou neste período', grupo: 'Frequência' },
@@ -41,9 +46,9 @@ var CDA_TIPOS_FILTRO_SEG = [
   { id: 'produto', label: 'Comprou o produto', grupo: 'Produtos' },
   { id: 'nunca_comprou_produto', label: 'Nunca comprou o produto', grupo: 'Produtos' },
 
-  { id: 'cidade', label: 'Cidade', grupo: 'Geografia' },
-  { id: 'estado', label: 'Estado (UF)', grupo: 'Geografia' },
-  { id: 'regiao', label: 'Região', grupo: 'Geografia' },
+  { id: 'cidade', label: 'Cidade — uma ou várias', grupo: 'Geografia' },
+  { id: 'estado', label: 'Estado (UF) — um ou vários', grupo: 'Geografia' },
+  { id: 'regiao', label: 'Região — uma ou várias', grupo: 'Geografia' },
   { id: 'pais', label: 'País', grupo: 'Geografia' },
   { id: 'cep', label: 'CEP (prefixo)', grupo: 'Geografia' },
 
@@ -74,7 +79,8 @@ async function montarModuloSegmentacao(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, filtros: [], filtroRapido: null, resultado: [] };
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [], msAberto: null, geoAberto: {} };
+  var motor = null; // cdaMotorSegmento — montado após a carga
 
   host.innerHTML =
     '<style>' +
@@ -92,6 +98,30 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-recalc .seg-modo-btn{font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;padding:5px 10px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;}' +
       '.seg-recalc .seg-modo-btn.ativa{background:var(--ink,#1a1a1a);color:#fff;}' +
       '.seg-recalc input{width:90px;font-size:11px;padding:5px 8px;border:2px solid var(--ink,#1a1a1a);}' +
+      '.seg-uf-wrap{display:flex;gap:4px;flex-wrap:wrap;align-items:center;max-width:760px;}' +
+      '.seg-uf-sel{display:inline-flex;align-items:center;gap:3px;font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-uf-sel .n{font-style:normal;font-weight:400;opacity:.75;}' +
+      '.seg-uf-sel b{cursor:pointer;margin-left:4px;}' +
+      '.seg-pc-tags{flex-basis:100%;display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-top:6px;font-size:10px;}' +
+      '.seg-pc-tags .rot{font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted,#888);margin-left:6px;}' +
+      '.seg-pc-tags .rot:first-child{margin-left:0;}' +
+      '.seg-uf{font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;padding:4px 7px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;user-select:none;}' +
+      '.seg-uf .n{font-style:normal;font-weight:400;opacity:.7;margin-left:3px;}' +
+      '.seg-uf.zero{opacity:.35;}' +
+      '.seg-uf.ativa{background:var(--ink,#1a1a1a);color:#fff;opacity:1;}' +
+      '.seg-ms{position:relative;display:inline-block;}' +
+      '.seg-ms-btn{font-family:\'Syne\',sans-serif;font-size:11px;padding:6px 9px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}' +
+      '.seg-ms-btn.tem{background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-ms-painel{position:absolute;z-index:50;top:100%;left:0;min-width:300px;max-height:320px;overflow:auto;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:6px 0;}' +
+      '.seg-ms-acoes{display:flex;gap:10px;padding:2px 10px 6px;border-bottom:1px solid #ddd;font-size:10px;}' +
+      '.seg-ms-acoes a{cursor:pointer;text-decoration:underline;}' +
+      '.seg-ms-painel label{display:flex;gap:7px;align-items:center;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap;}' +
+      '.seg-ms-painel label:hover{background:var(--card,#f5f0e8);}' +
+      '.seg-ms-painel label.zero{opacity:.45;}' +
+      '.seg-ms-painel label i{font-style:normal;opacity:.65;margin-left:auto;padding-left:10px;}' +
+      '.seg-cid,.seg-pc-tag{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-cid b,.seg-pc-tag b{cursor:pointer;margin-left:3px;}' +
+      '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
     '</style>' +
     '<div class="seg-recalc" id="seg-recalc"></div>' +
     '<div class="row-bt">' +
@@ -107,11 +137,12 @@ async function montarModuloSegmentacao(containerId, opts) {
     '<div class="seg-and" style="margin-top:0">Inteligência — atalhos de 1 clique</div>' +
     '<div id="seg-pills" class="seg-pills-wrap"></div>' +
     '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
-    '<div class="seg-and">Construtor de filtros combináveis — organizados pelos 8 grupos da Segmentação</div>' +
+    '<div class="seg-and">Construtor de filtros combináveis — organizados pelos 9 grupos da Segmentação</div>' +
     '<div id="seg-filtros"></div>' +
     '<button class="btn sm" id="seg-btn-addfiltro">＋ Adicionar Filtro</button>' +
     '<div class="tw" style="margin-top:16px">' +
       '<div class="th"><h3 id="seg-resultado-titulo">Resultado</h3></div>' +
+      '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
       '<div class="ts"><table>' +
         '<thead><tr><th>Nome</th><th>Status CRM</th><th>Cidade/UF</th><th>Aniversário</th><th>Última Compra</th><th>Qtd Compras</th><th>Total Gasto</th><th>E-mail</th><th>Telefone</th></tr></thead>' +
         '<tbody id="seg-tb"></tbody>' +
@@ -120,9 +151,9 @@ async function montarModuloSegmentacao(containerId, opts) {
 
   try {
     var res = await Promise.all([
-      cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm(), cdaCarregarParametrosSegmentacao()
+      cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarCanais(), cdaCarregarProdutos(), cdaCarregarSegmentos(), cdaCarregarStatusCrm(), cdaCarregarParametrosSegmentacao(), cdaCarregarHierarquiaReceita()
     ]);
-    var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5]; ST.parametros = res[6];
+    var clientesBrutos = res[0]; ST.compras = res[1]; ST.canais = res[2]; ST.produtos = res[3]; ST.segmentos = res[4]; ST.statusCrm = res[5]; ST.parametros = res[6]; ST.hierarquia = res[7] || [];
 
     // ── Exclui do universo da tela: cadastros genéricos (placeholder de show,
     // dado de teste etc.) — não representam consumidor final individual ──
@@ -131,9 +162,10 @@ async function montarModuloSegmentacao(containerId, opts) {
 
     // ── Escopo B2C: só canais de venda direta ao consumidor final entram
     // no cálculo de Segmentação (revenda/atacado fica de fora, vira B2B) ──
-    var escopoPorCanal = {}; ST.canais.forEach(function (c) { escopoPorCanal[String(c.id)] = c.escopo; });
+    // (regra aplicada pelo motor único cdaMotorSegmento ao receber os canais)
     var comprasTotal = ST.compras.length;
-    ST.compras = ST.compras.filter(function (cp) { return cp.canalId && escopoPorCanal[String(cp.canalId)] === 'b2c'; });
+    motor = cdaMotorSegmento(ST.compras, { canais: ST.canais, hierarquia: ST.hierarquia });
+    ST.compras = motor.compras;
     var qtdComprasExcluidas = comprasTotal - ST.compras.length;
 
     host.querySelector('#seg-nota-exclusao').textContent =
@@ -149,31 +181,8 @@ async function montarModuloSegmentacao(containerId, opts) {
 
   var statusCrmPorId = {}; ST.statusCrm.forEach(function (s) { statusCrmPorId[s.id] = s; });
 
-  // ── Pré-computa agregados de compra por cliente (feito 1x, reusado em todo filtro) ──
-  var agora = new Date();
-  var inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
-  var inicioTrimestre = new Date(agora.getFullYear(), Math.floor(agora.getMonth() / 3) * 3, 1);
-  var inicioAno = new Date(agora.getFullYear(), 0, 1);
-
-  var agregados = {}; // clienteId -> {qtd, total, primeiraData, ultimaData, canais:Set, produtos:Set, mes, trimestre, ano}
-  ST.compras.forEach(function (cp) {
-    if (!cp.clienteId) return;
-    var a = agregados[cp.clienteId];
-    if (!a) { a = { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; agregados[cp.clienteId] = a; }
-    a.qtd++;
-    a.total += Number(cp.valorTotal) || 0;
-    if (cp.dataCompra && (!a.ultimaData || cp.dataCompra > a.ultimaData)) a.ultimaData = cp.dataCompra;
-    if (cp.dataCompra && (!a.primeiraData || cp.dataCompra < a.primeiraData)) a.primeiraData = cp.dataCompra;
-    if (cp.canalId) a.canais.add(String(cp.canalId));
-    if (cp.produtoId) a.produtos.add(String(cp.produtoId));
-    if (cp.dataCompra) {
-      var d = new Date(cp.dataCompra);
-      if (d >= inicioMes) a.mes = true;
-      if (d >= inicioTrimestre) a.trimestre = true;
-      if (d >= inicioAno) a.ano = true;
-    }
-  });
-  function aggDe(clienteId) { return agregados[clienteId] || { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; }
+  // ── Agregados de compra por cliente: calculados 1x pelo motor único ──
+  function aggDe(clienteId) { return motor.aggDe(clienteId); }
 
   // ── Atalhos rápidos (pills) — status de ciclo de vida + tags de valor ──
   function renderPills() {
@@ -286,7 +295,7 @@ async function montarModuloSegmentacao(containerId, opts) {
   popularSelects();
 
   // ── Renderização das linhas de filtro ──
-  var CDA_GRUPOS_ORDEM = ['Inteligência', 'Compras', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
+  var CDA_GRUPOS_ORDEM = ['Inteligência', 'Compras', 'Plano de Contas', 'Frequência', 'Datas', 'Produtos', 'Geografia', 'Marketing', 'CRM'];
   function optionsAgrupadas(valorSelecionado) {
     return CDA_GRUPOS_ORDEM.map(function (grupo) {
       var itens = CDA_TIPOS_FILTRO_SEG.filter(function (t) { return t.grupo === grupo; });
@@ -312,22 +321,160 @@ async function montarModuloSegmentacao(containerId, opts) {
 
     ST.filtros.forEach(function (f, idx) {
       var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
-      area.innerHTML = campoValorHtml(f);
+      area.innerHTML = campoValorHtml(f, idx);
       var opSel = area.querySelector('.seg-op');
       if (opSel) opSel.value = f.operador || '>';
       var valInput = area.querySelector('.seg-val');
       if (valInput) valInput.value = f.valor != null ? f.valor : '';
     });
+    if (motor) atualizarContagensUf(); // etiquetas/grade de UF e Região já com contagem
 
     wrap.querySelectorAll('.seg-tipo').forEach(function (el) {
       el.addEventListener('change', function () {
         var idx = Number(el.dataset.idx);
         ST.filtros[idx] = { tipo: el.value, operador: '>', valor: '' };
+        ST.msAberto = null;
+        ST.geoAberto = {};
         renderFiltros();
+        aplicarFiltros(); // o critério anterior desta linha deixou de valer
       });
     });
     wrap.querySelectorAll('[data-rm]').forEach(function (el) {
-      el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); renderFiltros(); aplicarFiltros(); });
+      el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); ST.geoAberto = {}; ST.msAberto = null; renderFiltros(); aplicarFiltros(); });
+    });
+    // ── Plano de Contas: listas com caixinhas (várias escolhas por nível) ──
+    wrap.querySelectorAll('.seg-ms-btn').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var chave = el.closest('.seg-valor-area').dataset.idx + '|' + el.closest('.seg-ms').dataset.campo;
+        var abrir = ST.msAberto !== chave;
+        ST.msAberto = abrir ? chave : null;
+        wrap.querySelectorAll('.seg-ms').forEach(function (ms) {
+          var painel = ms.querySelector('.seg-ms-painel');
+          if (painel) painel.hidden = !(abrir && ms === el.closest('.seg-ms'));
+        });
+      });
+    });
+    function pcAplicar(idx, campo, novaLista, semAbrir) {
+      var v = pcValor(ST.filtros[idx]);
+      v[campo] = novaLista;
+      // níveis abaixo: mantém só as escolhas que ainda pertencem às de cima
+      PC_CAMPOS.slice(PC_CAMPOS.indexOf(campo) + 1).forEach(function (c) {
+        var validos = pcOpcoes(v, c).map(function (o) { return o.v; });
+        v[c] = v[c].filter(function (id) { return validos.indexOf(id) !== -1; });
+      });
+      var painel = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
+      var rolagem = painel ? painel.scrollTop : 0;
+      ST.msAberto = semAbrir ? null : idx + '|' + campo;
+      renderFiltros();
+      var novo = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
+      if (novo) novo.scrollTop = rolagem;
+      aplicarFiltros();
+    }
+    wrap.querySelectorAll('.seg-ms-ck').forEach(function (el) {
+      el.addEventListener('change', function () {
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
+        var lista = pcValor(ST.filtros[idx])[campo].slice();
+        var pos = lista.indexOf(el.value);
+        if (el.checked && pos === -1) lista.push(el.value);
+        if (!el.checked && pos !== -1) lista.splice(pos, 1);
+        pcAplicar(idx, campo, lista);
+      });
+    });
+    wrap.querySelectorAll('.seg-ms-acoes a').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
+        var v = pcValor(ST.filtros[idx]);
+        pcAplicar(idx, campo, el.dataset.acao === 'todos' ? pcOpcoes(v, campo).filter(function (o) { return o.n > 0; }).map(function (o) { return o.v; }) : []);
+      });
+    });
+    wrap.querySelectorAll('.seg-ms-painel').forEach(function (el) { el.addEventListener('click', function (ev) { ev.stopPropagation(); }); });
+
+    // ── Cidade: várias cidades (qualquer uma) ──
+    function cidAdicionar(area) {
+      var input = area.querySelector('.seg-cid-input');
+      var nome = (input.value || '').trim();
+      if (!nome) return;
+      var idx = Number(area.dataset.idx);
+      var lista = cdaListaValor(ST.filtros[idx].valor);
+      if (!lista.some(function (x) { return cdaSemAcento(x) === cdaSemAcento(nome); })) lista.push(nome);
+      ST.filtros[idx].valor = lista;
+      renderFiltros();
+      var novoInput = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-cid-input');
+      if (novoInput) novoInput.focus();
+      aplicarFiltros();
+    }
+    wrap.querySelectorAll('.seg-cid-add').forEach(function (el) {
+      el.addEventListener('click', function () { cidAdicionar(el.closest('.seg-valor-area')); });
+    });
+    wrap.querySelectorAll('.seg-cid-input').forEach(function (el) {
+      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cidAdicionar(el.closest('.seg-valor-area')); } });
+    });
+    wrap.querySelectorAll('.seg-cid b').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        var lista = cdaListaValor(ST.filtros[idx].valor);
+        lista.splice(Number(el.dataset.i), 1);
+        ST.filtros[idx].valor = lista;
+        renderFiltros();
+        aplicarFiltros();
+      });
+    });
+    // ── Estado (UF) / Região: grade aberta enquanto escolhe; recolhe em etiquetas depois ──
+    wrap.querySelectorAll('.seg-uf').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        var lista = ufLista(ST.filtros[idx]).slice();
+        var pos = lista.indexOf(el.dataset.uf);
+        if (pos !== -1) lista.splice(pos, 1); else lista.push(el.dataset.uf);
+        ST.filtros[idx].valor = lista;
+        ST.geoAberto[idx] = true; // continua aberta até clicar fora / Concluir
+        renderFiltros(); // redesenha a grade (mostra/oculta o "✓ Concluir")
+        aplicarFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-uf-limpar').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        ST.filtros[idx].valor = [];
+        ST.geoAberto[idx] = true;
+        renderFiltros();
+        aplicarFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-geo-ok').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        delete ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)];
+        renderFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-geo-alterar').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        ST.geoAberto[Number(el.closest('.seg-valor-area').dataset.idx)] = true;
+        renderFiltros();
+      });
+    });
+    wrap.querySelectorAll('.seg-uf-sel b').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        ST.filtros[idx].valor = ufLista(ST.filtros[idx]).filter(function (x) { return x !== el.dataset.uf; });
+        renderFiltros(); // sem nenhuma escolha a grade reabre sozinha
+        aplicarFiltros();
+      });
+    });
+    // ── Plano de Contas: ✕ numa etiqueta remove só aquela escolha ──
+    wrap.querySelectorAll('.seg-pc-tag b').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.dataset.campo;
+        var lista = pcValor(ST.filtros[idx])[campo].filter(function (id) { return id !== el.dataset.id; });
+        pcAplicar(idx, campo, lista, true);
+      });
     });
     wrap.querySelectorAll('.seg-op,.seg-val').forEach(function (el) {
       el.addEventListener('input', function () {
@@ -355,7 +502,105 @@ async function montarModuloSegmentacao(containerId, opts) {
       '<option value="<"' + (f.operador === '<' ? ' selected' : '') + '>menor/menos de</option></select>' +
       '<input class="seg-val" type="number" placeholder="' + placeholder + '" style="width:' + largura + 'px" value="' + (f.valor != null ? f.valor : '') + '">';
   }
-  function campoValorHtml(f) {
+  function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
+
+  // ── Filtro "Estado (UF)": várias UFs, com contagem ao vivo de cada uma ──
+  function ufLista(f) {
+    var lista = cdaListaValor(f.valor);
+    return f.tipo === 'estado' ? lista.map(function (x) { return x.trim().toUpperCase(); }) : lista;
+  }
+  // Estado/Região: grade completa enquanto escolhe (ou sem nada escolhido);
+  // depois, só as etiquetas do que foi escolhido + "✎ Alterar".
+  function campoGeoHtml(f, idx, todos, titulo) {
+    var sel = ufLista(f);
+    if (sel.length && !ST.geoAberto[idx]) {
+      return '<span class="seg-uf-wrap seg-geo" data-idx="' + idx + '">' +
+        sel.map(function (v) { return '<span class="seg-uf-sel" data-uf="' + esc(v) + '">' + esc(v) + ' <i class="n">0</i><b data-uf="' + esc(v) + '" title="Remover">✕</b></span>'; }).join('') +
+        '<button class="btn sm seg-geo-alterar" type="button">✎ Alterar</button>' +
+        '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
+      '</span>';
+    }
+    return '<span class="seg-uf-wrap seg-geo seg-geo-aberta" data-idx="' + idx + '">' +
+      todos.map(function (v) {
+        return '<span class="seg-uf' + (sel.indexOf(v) !== -1 ? ' ativa' : '') + '" data-uf="' + v + '"' + (titulo ? ' title="' + titulo(v) + '"' : '') + '>' + v + '<i class="n">0</i></span>';
+      }).join('') +
+      '<button class="btn sm seg-uf-limpar" type="button">Limpar</button>' +
+      (sel.length ? '<button class="btn sm rust seg-geo-ok" type="button">✓ Concluir</button>' : '') +
+      '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
+    '</span>';
+  }
+  function campoRegiaoHtml(f, idx) { return campoGeoHtml(f, idx, CDA_REGIOES, null); }
+  // Cidade: várias cidades (qualquer uma); digita e tecla Enter ou "＋"
+  function campoCidadeHtml(f) {
+    var lista = cdaListaValor(f.valor);
+    return lista.map(function (c, i) { return '<span class="seg-cid">' + esc(c) + '<b data-i="' + i + '" title="Remover">✕</b></span>'; }).join(' ') +
+      ' <input class="seg-cid-input" type="text" placeholder="' + (lista.length ? 'Outra cidade...' : 'Ex: Rio de Janeiro') + '" style="width:170px">' +
+      '<button class="btn sm seg-cid-add" type="button">＋</button>' +
+      '<span class="tmu" style="font-size:10px"> sem acento ou com, tanto faz</span>';
+  }
+  function campoUfHtml(f, idx) { return campoGeoHtml(f, idx, CDA_UFS, function (uf) { return CDA_UF_REGIAO_COMPARTILHADO[uf]; }); }
+
+  // ── Filtro "Plano de Contas": Conta → Grupo → Subconta → Centro de Custo ──
+  // Cada nível aceita VÁRIAS escolhas (= qualquer uma) e é opcional (vazio = todos).
+  // As opções de um nível se restringem às escolhas dos níveis de cima.
+  var PC_CAMPOS = ['conta', 'grupo', 'subconta', 'centro'];
+  var PC_ROTULO = { conta: 'Conta', grupo: 'Grupo', subconta: 'Subconta', centro: 'Centro de Custo' };
+  function pcValor(f) {
+    if (!f.valor || typeof f.valor !== 'object' || Array.isArray(f.valor)) f.valor = {};
+    PC_CAMPOS.forEach(function (c) { f.valor[c] = cdaListaValor(f.valor[c]); }); // aceita formato antigo (texto único)
+    return f.valor;
+  }
+  var idsClientesValidos = null; // clientes do universo da tela (sem cadastro genérico)
+  function pcOpcoes(v, campo) {
+    if (!idsClientesValidos) { idsClientesValidos = new Set(); ST.clientes.forEach(function (c) { idsClientesValidos.add(String(c.id)); }); }
+    var acima = PC_CAMPOS.slice(0, PC_CAMPOS.indexOf(campo));
+    var porId = {}, lista = [];
+    ST.hierarquia.forEach(function (h) {
+      if (!acima.every(function (c) { return !v[c].length || v[c].indexOf(h[c + 'Id']) !== -1; })) return;
+      var id = h[campo + 'Id']; if (!id) return;
+      var o = porId[id];
+      if (!o) { o = porId[id] = { v: id, l: h[campo + 'Nome'] + (campo === 'centro' && !h.ativo ? ' (inativo)' : ''), clientes: new Set() }; lista.push(o); }
+      var doCentro = motor.clientesPorCentro[h.centroId];
+      if (doCentro) doCentro.forEach(function (cid) { if (idsClientesValidos.has(cid)) o.clientes.add(cid); });
+    });
+    lista.forEach(function (o) { o.n = o.clientes.size; delete o.clientes; });
+    if (campo === 'grupo') lista.sort(function (a, b) { return a.l.localeCompare(b.l); });
+    return lista;
+  }
+  function campoPlanoContasHtml(f, idx) {
+    if (!ST.hierarquia.length) return '<span class="tmu" style="font-size:10px">⚠ Estrutura do Plano de Contas indisponível — este filtro não retorna clientes. Recarregue a página; se persistir, avise o administrador.</span>';
+    var v = pcValor(f);
+    return PC_CAMPOS.map(function (campo) {
+      var ops = pcOpcoes(v, campo);
+      var sel = v[campo];
+      var nomes = ops.filter(function (o) { return sel.indexOf(o.v) !== -1; }).map(function (o) { return o.l; });
+      var resumo = !nomes.length ? 'todos' : (nomes.length === 1 ? nomes[0] : nomes[0] + ' +' + (nomes.length - 1));
+      var aberto = ST.msAberto === idx + '|' + campo;
+      return '<div class="seg-ms" data-campo="' + campo + '">' +
+        '<button type="button" class="seg-ms-btn' + (nomes.length ? ' tem' : '') + '" title="' + esc(nomes.join(', ') || 'todos') + '">' + PC_ROTULO[campo] + ': <b>' + esc(resumo) + '</b> ▾</button>' +
+        '<div class="seg-ms-painel"' + (aberto ? '' : ' hidden') + '>' +
+          '<div class="seg-ms-acoes"><a data-acao="todos">Marcar todos com clientes</a><a data-acao="limpar">Limpar</a></div>' +
+          ops.map(function (o) {
+            return '<label class="' + (o.n ? '' : 'zero') + '"><input type="checkbox" class="seg-ms-ck" value="' + esc(o.v) + '"' + (sel.indexOf(o.v) !== -1 ? ' checked' : '') + '>' +
+              esc(o.l) + '<i>' + o.n.toLocaleString('pt-BR') + '</i></label>';
+          }).join('') +
+        '</div>' +
+      '</div>';
+    }).join('') + pcEtiquetasHtml(v);
+  }
+  // Linha com os nomes escolhidos em cada nível — nada fica escondido no "+1"
+  function pcEtiquetasHtml(v) {
+    var partes = [];
+    PC_CAMPOS.forEach(function (campo) {
+      if (!v[campo].length) return;
+      var nomePorId = {}; pcOpcoes(v, campo).forEach(function (o) { nomePorId[o.v] = o.l; });
+      partes.push('<span class="rot">' + PC_ROTULO[campo] + ':</span>' +
+        v[campo].map(function (id) { return '<span class="seg-pc-tag">' + esc(nomePorId[id] || id) + '<b data-campo="' + campo + '" data-id="' + esc(id) + '" title="Remover">✕</b></span>'; }).join(''));
+    });
+    return partes.length ? '<div class="seg-pc-tags">' + partes.join('') + '</div>' : '';
+  }
+
+  function campoValorHtml(f, idx) {
     switch (f.tipo) {
       case 'status_crm':
         return '<select class="seg-val"><option value="">Selecione...</option>' +
@@ -381,9 +626,11 @@ async function montarModuloSegmentacao(containerId, opts) {
         return '<select class="seg-val"><option value="">Selecione...</option>' +
           opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'cidade':
-        return '<input class="seg-val" type="text" placeholder="Ex: Rio de Janeiro" value="' + (f.valor || '') + '">';
+        return campoCidadeHtml(f);
       case 'estado':
-        return '<input class="seg-val" type="text" placeholder="Ex: RJ" maxlength="2" style="width:60px" value="' + (f.valor || '') + '">';
+        return campoUfHtml(f, idx);
+      case 'plano_contas':
+        return campoPlanoContasHtml(f, idx);
       case 'ticket_medio':
         return opInput('R$', 100, f);
       case 'comprou_periodo':
@@ -397,8 +644,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         return '<select class="seg-val"><option value="">Selecione...</option>' +
           opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'regiao':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'].map(function (r) { return { v: r, l: r }; }), f.valor) + '</select>';
+        return campoRegiaoHtml(f, idx);
       case 'pais':
         return '<input class="seg-val" type="text" placeholder="Ex: Brasil" value="' + (f.valor || '') + '">';
       case 'cep':
@@ -414,94 +660,8 @@ async function montarModuloSegmentacao(containerId, opts) {
     }
   }
 
-  function passaNoFiltro(cliente, f) {
-    var agg = aggDe(cliente.id);
-    switch (f.tipo) {
-      case 'status_crm':
-        if (!f.valor) return true;
-        return String(cliente.statusCrmId) === String(f.valor);
-      case 'tag_valor':
-        if (!f.valor) return true;
-        return (cliente.tagsComercial || []).indexOf(f.valor) !== -1;
-      case 'aniversario': {
-        if (!f.valor) return true;
-        var dn = cliente['data-nascimento'];
-        if (!dn) return false;
-        var partes = dn.split('/');
-        if (partes.length !== 3) return false;
-        return Number(partes[1]) === Number(f.valor);
-      }
-      case 'recencia_compra': {
-        if (!f.valor) return true;
-        if (!agg.ultimaData) return f.operador === '>';
-        var dias = Math.floor((Date.now() - new Date(agg.ultimaData).getTime()) / 86400000);
-        return f.operador === '>' ? dias > Number(f.valor) : dias < Number(f.valor);
-      }
-      case 'nunca_comprou':
-        return agg.qtd === 0;
-      case 'valor_gasto': {
-        if (f.valor === '' || f.valor == null) return true;
-        return f.operador === '>' ? agg.total > Number(f.valor) : agg.total < Number(f.valor);
-      }
-      case 'qtd_compras': {
-        if (f.valor === '' || f.valor == null) return true;
-        return f.operador === '>' ? agg.qtd >= Number(f.valor) : agg.qtd < Number(f.valor);
-      }
-      case 'canal':
-        if (!f.valor) return true;
-        return agg.canais.has(String(f.valor));
-      case 'produto':
-        if (!f.valor) return true;
-        return agg.produtos.has(String(f.valor));
-      case 'cidade':
-        if (!f.valor) return true;
-        return (cliente.cidade || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
-      case 'estado':
-        if (!f.valor) return true;
-        return (cliente.estado || '').toLowerCase() === f.valor.toLowerCase();
-      case 'ticket_medio': {
-        if (f.valor === '' || f.valor == null) return true;
-        var tm = agg.qtd ? agg.total / agg.qtd : 0;
-        return f.operador === '>' ? tm > Number(f.valor) : tm < Number(f.valor);
-      }
-      case 'comprou_periodo':
-        if (!f.valor) return true;
-        return !!agg[f.valor]; // agg.mes / agg.trimestre / agg.ano
-      case 'dias_cadastro': {
-        if (!f.valor || !cliente.criadoEm) return f.operador === '>';
-        var diasC = Math.floor((Date.now() - new Date(cliente.criadoEm).getTime()) / 86400000);
-        return f.operador === '>' ? diasC > Number(f.valor) : diasC < Number(f.valor);
-      }
-      case 'dias_primeira_compra': {
-        if (!f.valor) return true;
-        if (!agg.primeiraData) return f.operador === '>';
-        var diasP = Math.floor((Date.now() - new Date(agg.primeiraData).getTime()) / 86400000);
-        return f.operador === '>' ? diasP > Number(f.valor) : diasP < Number(f.valor);
-      }
-      case 'nunca_comprou_produto':
-        if (!f.valor) return true;
-        return !agg.produtos.has(String(f.valor));
-      case 'regiao':
-        if (!f.valor) return true;
-        return CDA_UF_REGIAO[(cliente.estado || '').toUpperCase()] === f.valor;
-      case 'pais':
-        if (!f.valor) return true;
-        return (cliente.pais || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
-      case 'cep':
-        if (!f.valor) return true;
-        return (cliente.cep || '').replace(/\D/g, '').indexOf(f.valor.replace(/\D/g, '')) === 0;
-      case 'origem':
-        if (!f.valor) return true;
-        return cliente.origem === f.valor;
-      case 'sem_vendedor':
-        return !cliente.responsavelComercial;
-      case 'tipo_comercial':
-        if (!f.valor) return true;
-        if (f.valor === '__vazio__') return !cliente.tipoComercial;
-        return cliente.tipoComercial === f.valor;
-      default: return true;
-    }
-  }
+  // Regra de cada filtro: motor único (cdaMotorSegmento em cda-dados-compartilhados.js)
+  function passaNoFiltro(cliente, f) { return motor.passa(cliente, f); }
 
   function passaNoFiltroRapido(cliente) {
     if (!ST.filtroRapido) return true;
@@ -517,6 +677,33 @@ async function montarModuloSegmentacao(containerId, opts) {
     });
     ST.resultado = resultado;
     renderResultado();
+    atualizarContagensUf();
+  }
+
+  // Para cada filtro de UF/Região: quantos clientes de cada estado/região passam
+  // em TODOS os outros critérios — é o "universo" da segmentação aberto por local.
+  function atualizarContagensUf() {
+    var wrap = host.querySelector('#seg-filtros');
+    ST.filtros.forEach(function (f, idx) {
+      if (f.tipo !== 'estado' && f.tipo !== 'regiao') return;
+      var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
+      if (!area) return;
+      var cont = {}, semUf = 0;
+      ST.clientes.forEach(function (c) {
+        if (!passaNoFiltroRapido(c)) return;
+        for (var j = 0; j < ST.filtros.length; j++) { if (j !== idx && !passaNoFiltro(c, ST.filtros[j])) return; }
+        var uf = cdaUfDe(c);
+        var chave = f.tipo === 'regiao' ? CDA_UF_REGIAO_COMPARTILHADO[uf] : (CDA_UF_REGIAO_COMPARTILHADO[uf] ? uf : null);
+        if (chave) cont[chave] = (cont[chave] || 0) + 1; else semUf++;
+      });
+      area.querySelectorAll('.seg-uf, .seg-uf-sel').forEach(function (el) {
+        var n = cont[el.dataset.uf] || 0;
+        el.querySelector('.n').textContent = n.toLocaleString('pt-BR');
+        el.classList.toggle('zero', n === 0 && el.classList.contains('seg-uf'));
+      });
+      var notaSemUf = area.querySelector('.seg-uf-semuf');
+      if (notaSemUf) notaSemUf.textContent = semUf ? '· ' + semUf.toLocaleString('pt-BR') + ' sem UF válida no cadastro' : '';
+    });
   }
 
   function fmtData(iso) {
@@ -549,9 +736,41 @@ async function montarModuloSegmentacao(containerId, opts) {
         '</tr>';
     }).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px">' +
       (ST.filtros.length === 0 && !ST.filtroRapido ? 'Clique num status acima ou adicione um filtro para ver resultados.' : 'Nenhum cliente encontrado com esses critérios.') + '</td></tr>';
+    // Prontidão para E-mail Marketing: e-mail válido e único (repetido conta 1x)
+    var vistosEmail = {}, emailsUnicos = 0, semEmail = 0, repetidos = 0;
+    ST.resultado.forEach(function (c) {
+      if (!cdaEmailValido(c.email)) { semEmail++; return; }
+      var e = String(c.email).trim().toLowerCase();
+      if (vistosEmail[e]) { repetidos++; return; }
+      vistosEmail[e] = 1; emailsUnicos++;
+    });
+    var boxEmail = host.querySelector('#seg-resumo-email');
+    boxEmail.style.display = ST.resultado.length ? '' : 'none';
+    boxEmail.innerHTML = '📧 Prontos para e-mail: <b>' + emailsUnicos.toLocaleString('pt-BR') + '</b> endereço(s) único(s)' +
+      (semEmail ? ' · ' + semEmail.toLocaleString('pt-BR') + ' sem e-mail ou inválido' : '') +
+      (repetidos ? ' · ' + repetidos.toLocaleString('pt-BR') + ' e-mail(s) repetido(s) (contam 1x)' : '');
     host.querySelector('#seg-resultado-titulo').textContent = 'Resultado — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s) encontrado(s)' +
       (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
   }
+
+  // Fecha a lista aberta do Plano de Contas ao clicar fora dela
+  // e recolhe as grades de Estado/Região que já têm escolha
+  document.addEventListener('click', function (ev) {
+    if (ST.msAberto) {
+      ST.msAberto = null;
+      host.querySelectorAll('.seg-ms-painel').forEach(function (p) { p.hidden = true; });
+    }
+    // clique numa caixa/campo: não reconstrói agora (fecharia a caixa que está sendo aberta)
+    if (ev.target && ev.target.closest && ev.target.closest('select, input, textarea')) return;
+    var dentro = ev.target && ev.target.closest ? ev.target.closest('.seg-geo-aberta') : null;
+    var idxDentro = dentro ? dentro.dataset.idx : null;
+    var recolher = Object.keys(ST.geoAberto).filter(function (k) {
+      return k !== idxDentro && ST.filtros[k] && ufLista(ST.filtros[k]).length;
+    });
+    if (!recolher.length) return;
+    recolher.forEach(function (k) { delete ST.geoAberto[k]; });
+    renderFiltros();
+  });
 
   host.querySelector('#seg-btn-addfiltro').addEventListener('click', function () {
     ST.filtros.push({ tipo: 'status_crm', operador: '>', valor: '' });
@@ -635,11 +854,11 @@ async function montarModuloSegmentacao(containerId, opts) {
 
   if (editavel) host.querySelector('#seg-btn-exportar').addEventListener('click', function () {
     if (ST.resultado.length === 0) { alert('Nenhum resultado para exportar.'); return; }
-    var header = ['Nome', 'Status CRM', 'Tags', 'E-mail', 'Telefone', 'Cidade', 'Estado', 'Aniversário', 'Última Compra', 'Qtd Compras', 'Total Gasto'];
+    var header = ['Nome', 'Status CRM', 'Tags', 'E-mail', 'E-mail válido', 'Telefone', 'Cidade', 'Estado', 'Aniversário', 'Última Compra', 'Qtd Compras', 'Total Gasto'];
     var data = ST.resultado.map(function (c) {
       var agg = aggDe(c.id);
       var st = statusCrmPorId[c.statusCrmId];
-      return [c.nome, st ? st.nome : '', (c.tagsComercial || []).join(', '), c.email || '', c['telefone-celular'] || c['telefone-principal'] || '', c.cidade || '', c.estado || '',
+      return [c.nome, st ? st.nome : '', (c.tagsComercial || []).join(', '), c.email || '', cdaEmailValido(c.email) ? 'Sim' : 'Não', c['telefone-celular'] || c['telefone-principal'] || '', c.cidade || '', c.estado || '',
         c['data-nascimento'] || '', fmtData(agg.ultimaData), agg.qtd, agg.total];
     });
     var wb = XLSX.utils.book_new();

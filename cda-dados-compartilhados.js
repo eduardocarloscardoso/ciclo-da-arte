@@ -422,7 +422,29 @@ async function cdaCarregarCanais() {
     id: r.id, nome: r.nome, tipo: r.tipo, comissao: r.comissao, pctImp: r.pct_imp,
     pctOp: r.pct_op, pctCs: r.pct_cs, semFrete: r.sem_frete, email: r.email, obs: r.obs, parceiroId: r.parceiro_id,
     // 'b2c' | 'b2b' — define se o canal entra no universo de Segmentação/Pipeline B2C
-    escopo: r.escopo || 'b2c'
+    escopo: r.escopo || 'b2c',
+    // Ligação com o Plano de Contas (usada pelo filtro "Plano de Contas" da Segmentação)
+    centroCustoId: r.centro_custo_id != null ? String(r.centro_custo_id) : null,
+    grupoId: r.grupo_id != null ? String(r.grupo_id) : null
+  }));
+}
+
+// ── HIERARQUIA DE RECEITAS DO PLANO DE CONTAS (somente nomes) ────────
+// Conta → Subconta → Centro de Custo (+ Grupo de cada centro), só da conta
+// RECEITAS. Vem da função cda_seg_hierarquia_receita() (SECURITY DEFINER),
+// liberada a qualquer membro da equipe: as tabelas cda_pa_* só são legíveis
+// por admin/Planejamento Anual, mas a Segmentação do Comercial precisa dos
+// NOMES da estrutura (sem nenhum valor financeiro) para filtrar clientes.
+// Em caso de erro devolve [] — a tela mostra o aviso e o filtro fica vazio.
+async function cdaCarregarHierarquiaReceita() {
+  const { data, error } = await cdaClient.rpc('cda_seg_hierarquia_receita');
+  if (error) { console.warn('cda_seg_hierarquia_receita indisponível:', error.message || error); return []; }
+  return (data || []).map(r => ({
+    contaId: String(r.conta_id), contaNome: r.conta_nome,
+    subcontaId: String(r.subconta_id), subcontaNome: r.subconta_nome,
+    centroId: String(r.centro_custo_id), centroNome: r.centro_nome,
+    grupoId: r.grupo_id != null ? String(r.grupo_id) : '', grupoNome: r.grupo_nome || '(sem grupo)',
+    ativo: r.ativo !== false
   }));
 }
 async function cdaCarregarParceiros() {
@@ -645,11 +667,18 @@ async function cdaSalvarComentarioTutorial(o) {
   return { id: data.id, conteudo: data.conteudo, arquivoOrigem: data.arquivo_origem, importadoEm: data.importado_em, importadoPor: data.importado_por, modulo: data.modulo };
 }
 
-// ── AVALIAR SEGMENTO (compartilhado) ──────────────────────────────────
-// Recalcula, a qualquer momento, quais clientes batem com os filtros de
-// um segmento salvo. Espelha a lógica de cda-modulo-segmentacao.js —
-// usado por outros módulos (ex: Campanhas) que precisam da lista de
-// clientes de um segmento sem duplicar o motor de filtros inteiro na tela.
+// ── MOTOR ÚNICO DE SEGMENTAÇÃO (compartilhado) ────────────────────────
+// Fonte ÚNICA da regra de cada filtro. Usado pela tela de Segmentação
+// (cda-modulo-segmentacao.js) e por quem precisa recalcular um segmento
+// salvo (ex: Campanhas, via cdaAvaliarSegmento). Antes de 04/11/2026 havia
+// duas cópias desta lógica; filtro novo entra SÓ aqui.
+//
+// ctx (opcional):
+//   canais     → aplica a regra de negócio "só compras de canal B2C"
+//                (canais.escopo) e liga compra → Centro de Custo
+//   hierarquia → cdaCarregarHierarquiaReceita(), necessário para o filtro
+//                'plano_contas' (sem ela, esse filtro não deixa ninguém passar
+//                — nunca devolve a base inteira por engano)
 const CDA_UF_REGIAO_COMPARTILHADO = {
   AC:'Norte', AM:'Norte', AP:'Norte', PA:'Norte', RO:'Norte', RR:'Norte', TO:'Norte',
   AL:'Nordeste', BA:'Nordeste', CE:'Nordeste', MA:'Nordeste', PB:'Nordeste', PE:'Nordeste', PI:'Nordeste', RN:'Nordeste', SE:'Nordeste',
@@ -657,21 +686,51 @@ const CDA_UF_REGIAO_COMPARTILHADO = {
   ES:'Sudeste', MG:'Sudeste', RJ:'Sudeste', SP:'Sudeste',
   PR:'Sul', RS:'Sul', SC:'Sul'
 };
-function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros) {
+const CDA_UFS = Object.keys(CDA_UF_REGIAO_COMPARTILHADO).sort();
+const CDA_REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
+const CDA_REGEX_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+function cdaUfDe(cliente) { return String((cliente && cliente.estado) || '').trim().toUpperCase(); }
+// Comparação de texto sem acento e sem diferença de maiúscula ("SAO PAULO" = "São Paulo")
+function cdaSemAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+// Valor de filtro como lista: aceita lista (atual) ou texto único (segmentos salvos antigos)
+function cdaListaValor(v) {
+  if (Array.isArray(v)) return v.map(String).filter(function (x) { return x !== ''; });
+  return (v === '' || v == null) ? [] : [String(v)];
+}
+function cdaEmailValido(email) { return CDA_REGEX_EMAIL.test(String(email || '').trim()); }
+
+function cdaMotorSegmento(compras, ctx) {
+  ctx = ctx || {};
   var agora = new Date();
   var inicioMes = new Date(agora.getFullYear(), agora.getMonth(), 1);
   var inicioTrimestre = new Date(agora.getFullYear(), Math.floor(agora.getMonth() / 3) * 3, 1);
   var inicioAno = new Date(agora.getFullYear(), 0, 1);
+
+  var canalPorId = null;
+  if (ctx.canais) { canalPorId = {}; ctx.canais.forEach(function (c) { canalPorId[String(c.id)] = c; }); }
+  // Regra B2C: com os canais em mãos, só entram compras de canal escopo 'b2c'
+  var comprasUsadas = !canalPorId ? compras : compras.filter(function (cp) {
+    var c = cp.canalId && canalPorId[String(cp.canalId)];
+    return !!c && (c.escopo || 'b2c') === 'b2c';
+  });
+  var centroInfo = {}; (ctx.hierarquia || []).forEach(function (h) { centroInfo[h.centroId] = h; });
+  var temHierarquia = !!(ctx.hierarquia && ctx.hierarquia.length);
+
+  function novoAgg() { return { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), centros: new Set(), mes: false, trimestre: false, ano: false }; }
   var agregados = {};
-  compras.forEach(function (cp) {
+  comprasUsadas.forEach(function (cp) {
     if (!cp.clienteId) return;
     var a = agregados[cp.clienteId];
-    if (!a) { a = { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; agregados[cp.clienteId] = a; }
+    if (!a) { a = novoAgg(); agregados[cp.clienteId] = a; }
     a.qtd++;
     a.total += Number(cp.valorTotal) || 0;
     if (cp.dataCompra && (!a.ultimaData || cp.dataCompra > a.ultimaData)) a.ultimaData = cp.dataCompra;
     if (cp.dataCompra && (!a.primeiraData || cp.dataCompra < a.primeiraData)) a.primeiraData = cp.dataCompra;
-    if (cp.canalId) a.canais.add(String(cp.canalId));
+    if (cp.canalId) {
+      a.canais.add(String(cp.canalId));
+      var canal = canalPorId && canalPorId[String(cp.canalId)];
+      if (canal && canal.centroCustoId) a.centros.add(canal.centroCustoId);
+    }
     if (cp.produtoId) a.produtos.add(String(cp.produtoId));
     if (cp.dataCompra) {
       var d = new Date(cp.dataCompra);
@@ -680,7 +739,25 @@ function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros) {
       if (d >= inicioAno) a.ano = true;
     }
   });
-  function aggDe(id) { return agregados[id] || { qtd: 0, total: 0, primeiraData: null, ultimaData: null, canais: new Set(), produtos: new Set(), mes: false, trimestre: false, ano: false }; }
+  var aggVazio = novoAgg();
+  function aggDe(id) { return agregados[id] || aggVazio; }
+
+  // Centro de custo bate com a seleção do Plano de Contas.
+  // Cada nível (conta/grupo/subconta/centro) aceita vários ids = "qualquer um" (OU);
+  // nível vazio = todos; níveis diferentes refinam um ao outro (E).
+  function centroBate(centroId, v) {
+    var h = centroInfo[centroId];
+    if (!h) return false; // centro fora da estrutura de RECEITAS (ex: despesa) nunca bate
+    return ['conta', 'grupo', 'subconta', 'centro'].every(function (nivel) {
+      var lista = cdaListaValor(v[nivel]);
+      return !lista.length || lista.indexOf(h[nivel + 'Id']) !== -1;
+    });
+  }
+  // Clientes (ids) com pelo menos 1 compra B2C em cada centro — usado pelas contagens da tela
+  var clientesPorCentro = {};
+  Object.keys(agregados).forEach(function (cid) {
+    agregados[cid].centros.forEach(function (centro) { (clientesPorCentro[centro] = clientesPorCentro[centro] || new Set()).add(cid); });
+  });
 
   function passa(cliente, f) {
     var agg = aggDe(cliente.id);
@@ -703,9 +780,27 @@ function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros) {
       case 'valor_gasto': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.total > Number(f.valor) : agg.total < Number(f.valor));
       case 'qtd_compras': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.qtd >= Number(f.valor) : agg.qtd < Number(f.valor));
       case 'canal': return !f.valor || agg.canais.has(String(f.valor));
+      case 'plano_contas': {
+        var v = f.valor || {};
+        if (!['conta', 'grupo', 'subconta', 'centro'].some(function (n) { return cdaListaValor(v[n]).length; })) return true;
+        if (!temHierarquia) return false;
+        var ok = false;
+        agg.centros.forEach(function (cid) { if (!ok && centroBate(cid, v)) ok = true; });
+        return ok;
+      }
       case 'produto': return !f.valor || agg.produtos.has(String(f.valor));
-      case 'cidade': return !f.valor || (cliente.cidade || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
-      case 'estado': return !f.valor || (cliente.estado || '').toLowerCase() === f.valor.toLowerCase();
+      case 'cidade': {
+        // Várias cidades = qualquer uma (OU); comparação sem acento, por trecho do nome
+        var cidades = cdaListaValor(f.valor);
+        if (!cidades.length) return true;
+        var cidadeCli = cdaSemAcento(cliente.cidade);
+        return cidades.some(function (x) { return cidadeCli.indexOf(cdaSemAcento(x)) !== -1; });
+      }
+      case 'estado': {
+        // Aceita lista de UFs (atual) ou texto de 1 UF (segmentos salvos antigos)
+        var ufs = Array.isArray(f.valor) ? f.valor : (f.valor ? [String(f.valor).trim().toUpperCase()] : []);
+        return !ufs.length || ufs.indexOf(cdaUfDe(cliente)) !== -1;
+      }
       case 'ticket_medio': {
         if (f.valor === '' || f.valor == null) return true;
         var tm = agg.qtd ? agg.total / agg.qtd : 0;
@@ -724,19 +819,33 @@ function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros) {
         return f.operador === '>' ? diasP > Number(f.valor) : diasP < Number(f.valor);
       }
       case 'nunca_comprou_produto': return !f.valor || !agg.produtos.has(String(f.valor));
-      case 'regiao': return !f.valor || CDA_UF_REGIAO_COMPARTILHADO[(cliente.estado || '').toUpperCase()] === f.valor;
-      case 'pais': return !f.valor || (cliente.pais || '').toLowerCase().indexOf(f.valor.toLowerCase()) !== -1;
-      case 'cep': return !f.valor || (cliente.cep || '').replace(/\D/g, '').indexOf(f.valor.replace(/\D/g, '')) === 0;
+      case 'regiao': {
+        var regioes = cdaListaValor(f.valor);
+        return !regioes.length || regioes.indexOf(CDA_UF_REGIAO_COMPARTILHADO[cdaUfDe(cliente)]) !== -1;
+      }
+      case 'pais': return !f.valor || cdaSemAcento(cliente.pais).indexOf(cdaSemAcento(f.valor)) !== -1;
+      case 'cep': return !f.valor || (cliente.cep || '').replace(/\D/g, '').indexOf(String(f.valor).replace(/\D/g, '')) === 0;
       case 'origem': return !f.valor || cliente.origem === f.valor;
       case 'sem_vendedor': return !cliente.responsavelComercial;
       case 'tipo_comercial':
         if (!f.valor) return true;
         if (f.valor === '__vazio__') return !cliente.tipoComercial;
         return cliente.tipoComercial === f.valor;
-      default: return true;
+      default:
+        // Tipo desconhecido: não deixa ninguém passar (evita devolver a base inteira por engano)
+        console.warn('Filtro de segmentação desconhecido:', f.tipo);
+        return false;
     }
   }
-  return clientes.filter(function (c) { return !c.cadastroIncompleto && filtros.every(function (f) { return passa(c, f); }); });
+
+  return { compras: comprasUsadas, aggDe: aggDe, passa: passa, centroInfo: centroInfo, clientesPorCentro: clientesPorCentro };
+}
+
+// Recalcula, a qualquer momento, quais clientes batem com os filtros de um
+// segmento salvo. ctx = { canais, hierarquia } (ver cdaMotorSegmento).
+function cdaAvaliarSegmento(clientes, compras, statusCrm, filtros, ctx) {
+  var motor = cdaMotorSegmento(compras, ctx);
+  return clientes.filter(function (c) { return !c.cadastroIncompleto && filtros.every(function (f) { return motor.passa(c, f); }); });
 }
 
 
