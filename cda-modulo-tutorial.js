@@ -82,9 +82,14 @@ var CDA_TUTORIAL_CONTEUDO = [
   },
   {
     id: 'segmentacao', titulo: 'Segmentação de Clientes', modulos: ['comercial','financeiro'],
-    html: '<p>A tela tem três partes: <b>atalhos rápidos</b> (botões de status, 1 clique), o <b>construtor de filtros</b> (organizado em 8 grupos, combináveis) e o painel de <b>Recálculo de Valores</b>.</p>' +
-      '<h4>Os 8 grupos de filtro</h4>' +
-      '<p>Inteligência (status/tags abaixo) · Compras (valor gasto, ticket médio, qtd. de compras, canal) · Frequência (dias sem comprar, comprou este mês/trimestre/ano) · Datas (aniversário, cadastro, 1ª compra) · Produtos (comprou/nunca comprou um produto) · Geografia (cidade, estado, região, país, CEP) · Marketing (origem do lead) · CRM (tipo comercial, sem vendedor responsável).</p>' +
+    html: '<p>A tela tem três partes: <b>atalhos rápidos</b> (botões de status, 1 clique), o <b>construtor de filtros</b> (organizado em 9 grupos, combináveis) e o painel de <b>Recálculo de Valores</b>.</p>' +
+      '<h4>Os 9 grupos de filtro</h4>' +
+      '<p>Inteligência (status/tags abaixo) · Compras (valor gasto, ticket médio, qtd. de compras, canal) · <b>Plano de Contas</b> (comprou em uma Conta / Grupo / Subconta / Centro de Custo de receita) · Frequência (dias sem comprar, comprou este mês/trimestre/ano) · Datas (aniversário, cadastro, 1ª compra) · Produtos (comprou/nunca comprou um produto) · Geografia (cidade, estado — um ou vários —, região, país, CEP) · Marketing (origem do lead) · CRM (tipo comercial, sem vendedor responsável).</p>' +
+      '<h4>Plano de Contas + Estado: o universo da campanha por UF</h4>' +
+      '<p>O filtro <b>Plano de Contas</b> tem quatro listas em cascata — Conta, Grupo, Subconta e Centro de Custo. Cada uma é opcional ("todos") e as de baixo só mostram o que pertence à escolha de cima. O cliente entra se tiver <b>pelo menos uma compra</b> num canal ligado a um Centro de Custo que bata com a seleção. Só aparecem centros da conta RECEITAS (centros de despesa, como Brindes/Permutas, nunca entram). A ligação compra → centro vem do cadastro do canal (Canais de Venda → Centro de Custo).</p>' +
+      '<p>O filtro <b>Estado (UF)</b> mostra as 27 UFs com o número de clientes de cada uma <i>dentro dos outros filtros</i> — ou seja, primeiro você define o universo (ex: Grupo E-commerce) e depois vê e escolhe os estados. Clique em uma ou mais UFs para selecionar; "Limpar" desmarca todas. Clientes sem UF válida no cadastro aparecem num aviso à parte e não entram quando há UF selecionada.</p>' +
+      '<p>Acima da tabela de resultado, a linha <b>📧 Prontos para e-mail</b> mostra quantos endereços únicos e válidos o segmento tem (e-mail repetido em dois cadastros conta 1 vez; e-mail vazio ou inválido fica de fora). É esse número que será usado pelo E-mail Marketing. O XLSX exportado ganhou a coluna "E-mail válido".</p>' +
+      '<p class="cda-tut-nota">A regra de cada filtro existe num único lugar (motor de segmentação compartilhado): a contagem que você vê aqui é exatamente a mesma usada por Campanhas ao gerar o público.</p>' +
       '<p><i>Ainda não existem (dependem do histórico de interações do Pipeline): "último contato/proposta" (Datas) e "sem contato/follow-up/oportunidade aberta" (CRM).</i></p>' +
       '<h4>Tabela de Status — regra de negócio exata</h4>' +
       '<table class="cda-tut-tabela"><tr><th>Status</th><th>Tipo</th><th>Regra aplicada</th></tr>' +
@@ -115,6 +120,7 @@ var CDA_TUTORIAL_CONTEUDO = [
       '<tr><td>Data/quem fez o último recálculo de status do cliente</td><td><code>clientes.status_crm_atualizado_em</code></td></tr>' +
       '<tr><td>Canal é considerado B2C ou B2B (entra ou não na análise)</td><td><code>canais.escopo</code></td></tr>' +
       '<tr><td>Cliente é cadastro genérico (excluído da análise individual)</td><td><code>clientes.cadastro_incompleto</code></td></tr>' +
+      '<tr><td>Centro de Custo de cada canal (base do filtro Plano de Contas)</td><td><code>canais.centro_custo_id</code> → <code>cda_pa_centro_custo</code> (Subconta, Conta e Grupo via função <code>cda_seg_hierarquia_receita()</code>)</td></tr>' +
       '</table>'
   },
   {

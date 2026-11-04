@@ -49,7 +49,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], editId: null };
+  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], editId: null };
 
   host.innerHTML =
     '<style>' +
@@ -124,8 +124,8 @@ async function montarModuloCampanhas(containerId, opts) {
     '</div>';
 
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7];
+    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais(), cdaCarregarHierarquiaReceita()]);
+    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7]; ST.hierarquia = res[8] || [];
   } catch (err) {
     console.error(err);
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
@@ -210,7 +210,7 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
     box.innerHTML = ST.campanhas.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
-      var qtdPublico = seg ? cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []).length : null;
+      var qtdPublico = seg ? cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia }).length : null;
       var etapa = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === c.pipelineEtapaEntrada; });
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       var kpi = calcularKpi(c);
@@ -315,7 +315,7 @@ async function montarModuloCampanhas(containerId, opts) {
     var seg = segmentoPorId[campanha.publicoSegmentoId];
     if (!seg) { alert('O segmento vinculado a esta campanha não foi encontrado — pode ter sido excluído.'); return; }
 
-    var alvo = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []);
+    var alvo = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia });
     if (!alvo.length) { alert('O segmento "' + seg.nome + '" não retornou nenhum cliente no momento.'); return; }
 
     var etapaLabel = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === campanha.pipelineEtapaEntrada; }).label;
@@ -347,7 +347,7 @@ async function montarModuloCampanhas(containerId, opts) {
     var box = host.querySelector('#camp-m-publico-alvo');
     var seg = segmentoPorId[segId];
     if (!seg) { box.textContent = ''; return; }
-    var qtd = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || []).length;
+    var qtd = cdaAvaliarSegmento(ST.clientes, ST.compras, ST.statusCrm, seg.filtros || [], { canais: ST.canais, hierarquia: ST.hierarquia }).length;
     box.innerHTML = '👥 <b>Público-Alvo: ' + qtd.toLocaleString('pt-BR') + ' cliente(s)</b> — recalculado agora';
   }
   host.querySelector('#camp-m-segmento').addEventListener('change', atualizarPublicoAlvoNoModal);

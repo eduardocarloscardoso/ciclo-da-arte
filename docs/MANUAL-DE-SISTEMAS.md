@@ -1346,3 +1346,37 @@ Ao criar uma nova função de navegação no hub, incluí-la em `FUNCOES`.
 
 *(Para o histórico completo, dia a dia, ver as memórias de conversas —
 este documento é o resumo estrutural, não o log.)*
+
+## 15. Campanha de E-mail Marketing Segmentado — Etapa 1: Segmentação por Plano de Contas e UF — nov/2026
+
+- **04/11/2026 (Cardoso):** início da Campanha de Vendas por E-mail Marketing Segmentado (segmentação → e-mail
+  via Resend → Pipeline B2C → Tarefas & Follow-up, tudo controlado no sistema). Etapas: 0 diagnóstico do banco ·
+  **1 filtros na Segmentação** · 2 campanha/lista congelada/template · 3 envio (Resend, DNS no Registro.br,
+  Edge Function em fila, descadastro) · 4 webhooks e painel · 5 automação Pipeline/Tarefas · 6 atribuição de
+  vendas/ROI e Tutorial.
+- **Decisões de negócio registradas:** provedor **Resend** (API de envio, plano Pro; não o produto Broadcasts —
+  segmentação, lista, templates e descadastro ficam no sistema); domínio `ciclodarte.com.br` (DNS no
+  Registro.br), com subdomínio dedicado a campanhas; o público é o resultado da segmentação escolhida; o
+  follow-up vai para os **responsáveis da campanha** (`cda_campanhas.responsavel_ids`), não do cliente — a
+  tarefa nasce sem dono, visível a todos os responsáveis da campanha; o primeiro que **assumir** fica com ela
+  (e com o lead) e os demais deixam de vê-la; administradores/permissionários continuam vendo e podem reatribuir.
+- **Ligação compra → Plano de Contas** (já existente, 100% preenchida em 04/11/2026): `compras.canal_id` →
+  `canais.centro_custo_id` → `cda_pa_centro_custo` (`subconta_id`, `grupo_id`) → `cda_pa_subconta.conta_id` →
+  `cda_pa_conta`. `canais.grupo_id` = grupo do centro (conferido: nenhuma divergência).
+- **Função nova** `cda_seg_hierarquia_receita()` (SECURITY DEFINER, `docs/sql/comercial_segmentacao_hierarquia_receita.sql`):
+  devolve só os NOMES da estrutura da conta RECEITAS (conta/subconta/centro/grupo/ativo) a qualquer membro da
+  equipe. Motivo: `cda_pa_*` só é legível por admin/Planejamento Anual (`cda_pa_pode_ler`), e o vendedor precisa
+  da estrutura para filtrar. Nenhuma tabela ou política existente foi alterada.
+- **Motor único de segmentação** `cdaMotorSegmento(compras, {canais, hierarquia})` em `cda-dados-compartilhados.js`:
+  a regra de cada filtro passou a existir em um só lugar. Antes havia duas cópias (tela de Segmentação e
+  `cdaAvaliarSegmento`, usado por Campanhas) — e a cópia de Campanhas **não aplicava a regra B2C** (contava
+  compras de canais B2B nos filtros de compra). Agora `cdaAvaliarSegmento(clientes, compras, statusCrm, filtros, ctx)`
+  delega ao motor; Campanhas passa `ctx`. Tipo de filtro desconhecido agora **não deixa ninguém passar** (antes
+  deixava todos); o filtro `plano_contas` sem a hierarquia carregada também não deixa ninguém passar.
+- **Filtros novos/alterados:** `plano_contas` (grupo "Plano de Contas"; `valor = {conta, grupo, subconta, centro}`,
+  ids em texto, vazio = todos; cliente entra com ≥1 compra B2C em centro que bata) e `estado` (agora lista de UFs
+  com contagem ao vivo por UF dentro dos demais filtros; segmentos antigos com UF em texto continuam válidos).
+  Linha **📧 Prontos para e-mail** (únicos válidos; repetidos contam 1x — regex `CDA_REGEX_EMAIL`). XLSX ganhou
+  coluna "E-mail válido". Helpers compartilhados: `CDA_UFS`, `cdaUfDe`, `cdaEmailValido`.
+- **Referência de conferência (04/11/2026):** Grupo E-commerce → 4.508 clientes, 4.365 e-mails únicos,
+  SP 1.795, RJ 963 (SP+RJ: 2.697 e-mails únicos).
