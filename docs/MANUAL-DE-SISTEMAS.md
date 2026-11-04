@@ -1018,6 +1018,17 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   entram no Calendário). Grupo Shows 248.000,00 → 266.344,12; Feiras 120.000,00 → 146.702,71; total de receitas
   2026: 1.436.000,00 → 1.481.046,83. Backup de todo o previsto 2026 antes da alteração: tabela
   `bkp_pa_previsto_20261102` (94 linhas, total 3.058.700,00). Obs.: o realizado de outubro ainda é o provisório de 31/10.
+- **E-COMMERCE SAC unificado em REVENDA CICLO - SHOWROOM / SAC (04/11/2026, pedido de Cardoso):** centro 330001 →
+  240002 (mesmo grupo Venda direta Ciclo). Realizado 2026 somado: abr 1.538,50 → 2.027,81 (+489,31), mai 2.158,00 →
+  4.439,69 (+2.281,69), jun 1.933,00 → 2.670,00 (+737,00). Previsto 2026: 40.000,00 + 5.000,00 → **45.000,00** (total de
+  receitas do ano inalterado, 1.481.046,83). Provisão (0,00) e meta de custo do 330001 apagadas; apelido de importação
+  "E-COMMERCE SAC" → 240002; centro 330001 **inativado** (não excluído). Backup: tabela `bkp_merge_sac_20261104`.
+- **Canais ligados ao Plano de Contas (04/11/2026):** Cardoso renomeou REVENDA FUTURA 1/2 para **Revenda Curiosa SP**
+  (120001) e **Revenda Gaia - Hostel Botafogo RJ** (120002), grupo Revendas. Canais homônimos ligados a esses centros
+  (`canais.centro_custo_id`, antes nulo) e comissão em Comissoes Revendas (`comissao_centro_id` 30011, antes nulo).
+  Todos os canais agora têm centro de receita. Regra combinada: vários canais → 1 centro permitido; 1 canal → vários
+  centros nunca; centro de receita obrigatório para canal ativo (a tela do canal passará a permitir escolher).
+  Canal E-COMMERCE TRAMA AFETIVA mantido; centro REVENDA TRAMA segue ativo, sem canal.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
