@@ -65,8 +65,6 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-cad-linha{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;}' +
       '.seg-cad-linha>label{width:60px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}' +
       '.seg-cad-linha input{flex:1;min-width:240px;max-width:520px;font-size:12px;padding:7px 10px;border:2px solid var(--ink,#1a1a1a);}' +
-      '.seg-tipo-btn{font-family:\'Syne\',sans-serif;font-size:10px;font-weight:700;text-transform:uppercase;padding:6px 10px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;margin-right:6px;}' +
-      '.seg-tipo-btn.ativa{background:var(--ink,#1a1a1a);color:#fff;}' +
       '.seg-cad-rodape{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}' +
       '.seg-bloco{border:2px solid var(--ink,#1a1a1a);padding:12px 14px;margin-bottom:12px;}' +
       '.seg-bloco-cab{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;}' +
@@ -116,14 +114,13 @@ async function montarModuloSegmentacao(containerId, opts) {
     // ── Tela A · lista de segmentações salvas ──
     '<div id="seg-vista-lista">' +
       '<div class="row-bt">' +
-        '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Universos (de qual negócio e de onde) e modelos comerciais (quem, dentro do universo) — na Campanha você combina um de cada</div></div>' +
+        '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">Grupos de clientes por inteligência (Lead, Ativo, Em risco, VIP...) e filtros comerciais — o universo (Plano de Contas e Geografia) é definido em cada Campanha</div></div>' +
         '<div style="display:flex;gap:7px;"><button class="btn" id="seg-btn-valores">⚙ Valores Premium/VIP</button>' +
         (editavel ? '<button class="btn rust" id="seg-btn-nova">✚ Nova segmentação</button>' : '') + '</div>' +
       '</div>' +
       '<div class="seg-recalc" id="seg-recalc" hidden></div>' +
       '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
-      '<div class="seg-lista-sec"><div class="seg-lista-tit">Universos <span class="tmu">· Plano de Contas e Geografia</span></div><div id="seg-lista-u"></div></div>' +
-      '<div class="seg-lista-sec"><div class="seg-lista-tit">Modelos comerciais <span class="tmu">· quem, dentro do universo</span></div><div id="seg-lista-c"></div></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Segmentações salvas</div><div id="seg-lista-c"></div></div>' +
     '</div>' +
     // ── Tela B · cadastro (nova, editar, duplicar) ──
     '<div id="seg-vista-cadastro" hidden>' +
@@ -133,14 +130,11 @@ async function montarModuloSegmentacao(containerId, opts) {
       '</div>' +
       '<div class="seg-bloco">' +
         '<div class="seg-cad-linha"><label for="seg-cad-nome">Nome</label><input id="seg-cad-nome" type="text" maxlength="120" placeholder="Ex: E-commerce Luedji Luna · Nordeste"' + (editavel ? '' : ' disabled') + '></div>' +
-        '<div class="seg-cad-linha"><label>Tipo</label><span id="seg-cad-tipos">' +
-          '<button type="button" class="seg-tipo-btn" data-tipo="universo">Universo · Plano de Contas e Geografia</button>' +
-          '<button type="button" class="seg-tipo-btn" data-tipo="comercial">Modelo comercial · quem, dentro do universo</button></span>' +
-          '<span id="seg-cad-misto" class="tmu" style="font-size:11px" hidden>Segmentação antiga com universo e filtros comerciais juntos</span></div>' +
+        '<div class="seg-cad-linha" id="seg-cad-misto" hidden><label></label><span class="tmu" style="font-size:11px">Segmentação antiga que também guarda Plano de Contas/Geografia — esses filtros aparecem abaixo e continuam valendo</span></div>' +
       '</div>' +
-      '<div class="seg-bloco" id="seg-bloco-u"><div class="seg-bloco-cab"><div><b>Universo</b> <span class="tmu">Plano de Contas e Geografia</span></div></div><div id="seg-cf-universo"></div></div>' +
-      '<div class="seg-bloco" id="seg-bloco-c"><div class="seg-bloco-cab"><div><b>Filtros comerciais</b> <span class="tmu">quem, dentro do universo</span></div></div>' +
-        '<div class="seg-and" style="margin-top:0">Atalhos de 1 clique</div><div id="seg-pills" class="seg-pills-wrap"></div><div id="seg-cf-comercial"></div></div>' +
+      '<div class="seg-bloco" id="seg-bloco-u" hidden><div class="seg-bloco-cab"><div><b>Plano de Contas e Geografia</b> <span class="tmu">(segmentação antiga)</span></div></div><div id="seg-cf-universo"></div></div>' +
+      '<div class="seg-bloco" id="seg-bloco-c"><div class="seg-bloco-cab"><div><b>Inteligência e filtros comerciais</b></div></div>' +
+        '<div class="seg-and" style="margin-top:0">Inteligência — atalhos de 1 clique</div><div id="seg-pills" class="seg-pills-wrap"></div><div id="seg-cf-comercial"></div></div>' +
     '<div class="tw" style="margin-top:16px">' +
       '<div class="th"><h3 id="seg-resultado-titulo">Resultado</h3></div>' +
       '<div class="seg-resumo-email" id="seg-resumo-email" style="display:none"></div>' +
@@ -181,7 +175,7 @@ async function montarModuloSegmentacao(containerId, opts) {
     host.querySelector('#seg-carregando').hidden = true;
     host.querySelector('#seg-conteudo').hidden = false;
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
-    host.querySelector('#seg-lista-u').innerHTML = '<div class="seg-vazio" style="color:var(--rust,#c0392b)">Erro ao carregar dados do Supabase: <b>' + msg + '</b></div>';
+    host.querySelector('#seg-lista-c').innerHTML = '<div class="seg-vazio" style="color:var(--rust,#c0392b)">Erro ao carregar dados do Supabase: <b>' + msg + '</b></div>';
     return;
   }
 
@@ -332,7 +326,7 @@ async function montarModuloSegmentacao(containerId, opts) {
     passaOutros: function (c) { return CAD && CAD.tipo === 'misto' ? passaNoFiltroRapido(c) && cfC.passa(c) : true; }
   });
   cfC = cdaConstrutorFiltros(host.querySelector('#seg-cf-comercial'), ctxCF, {
-    tipos: CDA_FILTROS_COMERCIAIS, rotuloAdicionar: '＋ Adicionar filtro comercial',
+    tipos: CDA_FILTROS_COMERCIAIS, rotuloAdicionar: '＋ Adicionar filtro',
     aoMudar: function () { marcarSujo(); aplicarFiltros(); },
     passaOutros: function (c) { return passaNoFiltroRapido(c) && (CAD && CAD.tipo === 'misto' ? cfU.passa(c) : true); }
   });
@@ -345,8 +339,9 @@ async function montarModuloSegmentacao(containerId, opts) {
     return ST.clientes.filter(function (c) { return fs.every(function (f) { return motor.passa(c, f); }); }).length;
   }
   function renderLista() {
-    ['u', 'c'].forEach(function (k) {
-      var lista = ST.segmentos.filter(function (sg) { var t = tipoDe(sg); return k === 'u' ? t === 'universo' : t !== 'universo'; })
+    // Universos salvos (só Plano de Contas/Geografia) ficam na Campanha, não aqui
+    ['c'].forEach(function (k) {
+      var lista = ST.segmentos.filter(function (sg) { return tipoDe(sg) !== 'universo'; })
         .sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); });
       var box = host.querySelector('#seg-lista-' + k);
       box.innerHTML = lista.length ? lista.map(function (sg) {
@@ -357,7 +352,7 @@ async function montarModuloSegmentacao(containerId, opts) {
             ? '<button class="btn sm" data-acao="editar">✎ Editar</button><button class="btn sm" data-acao="duplicar">⧉ Duplicar</button><button class="btn sm" data-acao="excluir">🗑 Excluir</button>'
             : '<button class="btn sm" data-acao="editar">👁 Ver</button>') + '</span>' +
         '</div>';
-      }).join('') : '<div class="seg-vazio">' + (k === 'u' ? 'Nenhum universo salvo ainda.' : 'Nenhum modelo comercial salvo ainda.') + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
+      }).join('') : '<div class="seg-vazio">Nenhuma segmentação salva ainda.' + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
       box.querySelectorAll('[data-acao]').forEach(function (b) {
         b.addEventListener('click', async function () {
           var sg = ST.segmentos.find(function (x) { return String(x.id) === b.closest('.seg-lista-item').dataset.id; });
@@ -379,13 +374,10 @@ async function montarModuloSegmentacao(containerId, opts) {
   function mostrarBlocos() {
     host.querySelector('#seg-bloco-u').hidden = !usaU();
     host.querySelector('#seg-bloco-c').hidden = !usaC();
-    var misto = CAD.tipo === 'misto';
-    host.querySelector('#seg-cad-tipos').hidden = misto;
-    host.querySelector('#seg-cad-misto').hidden = !misto;
-    host.querySelectorAll('.seg-tipo-btn').forEach(function (b) { b.classList.toggle('ativa', b.dataset.tipo === CAD.tipo); b.disabled = !editavel; });
+    host.querySelector('#seg-cad-misto').hidden = CAD.tipo !== 'misto';
   }
   function abrirCadastro(sg, duplicar) {
-    CAD = { id: sg && !duplicar ? sg.id : null, tipo: sg ? tipoDe(sg) : 'universo', sujo: false };
+    CAD = { id: sg && !duplicar ? sg.id : null, tipo: sg && tipoDe(sg) === 'misto' ? 'misto' : 'comercial', sujo: false };
     var fs = sg ? sg.filtros : [];
     cfU.definir(fs.filter(cdaFiltroEhUniverso));
     cfC.definir(fs.filter(function (f) { return !cdaFiltroEhUniverso(f); }));
@@ -410,17 +402,6 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
   host.querySelector('#seg-btn-voltar').addEventListener('click', function () { voltarLista(false); });
   host.querySelector('#seg-cad-nome').addEventListener('input', marcarSujo);
-  host.querySelectorAll('.seg-tipo-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      if (!CAD || b.dataset.tipo === CAD.tipo) return;
-      var temFiltro = filtrosU().length || filtrosC().length || ST.filtroRapido;
-      if (temFiltro && !confirm('Trocar o tipo limpa os filtros já escolhidos. Continuar?')) return;
-      cfU.definir([]); cfC.definir([]); ST.filtroRapido = null; renderPills();
-      CAD.tipo = b.dataset.tipo; CAD.sujo = true;
-      mostrarBlocos();
-      aplicarFiltros();
-    });
-  });
   host.querySelector('#seg-btn-valores').addEventListener('click', function () {
     var box = host.querySelector('#seg-recalc');
     box.hidden = !box.hidden;
@@ -443,7 +424,7 @@ async function montarModuloSegmentacao(containerId, opts) {
           }
         }
       }
-      if (!filtros.length) { alert(CAD.tipo === 'universo' ? 'Adicione ao menos um filtro de Plano de Contas ou Geografia.' : 'Clique num atalho ou adicione ao menos um filtro comercial.'); return; }
+      if (!filtros.length) { alert('Clique num atalho de inteligência ou adicione ao menos um filtro.'); return; }
       var repetido = ST.segmentos.some(function (x) { return x.id !== CAD.id && String(x.nome).trim().toLowerCase() === nome.toLowerCase(); });
       if (repetido && !confirm('Já existe uma segmentação chamada "' + nome + '". Salvar mesmo assim?')) return;
       var btn = host.querySelector('#seg-btn-salvar'); btn.disabled = true;

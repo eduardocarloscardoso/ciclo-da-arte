@@ -1403,3 +1403,8 @@ este documento é o resumo estrutural, não o log.)*
   atual via motor, Editar/Duplicar/Excluir, ⚙ Recálculo recolhido); tela B = cadastro (nome, tipo, só o bloco do tipo,
   prévia, Exportar prévia, Cancelar/Salvar, ← Voltar com aviso de alteração não salva — `CAD.sujo`). Editar grava no
   mesmo id; Duplicar cria novo. A combinação Universo × Modelo sai da Segmentação e passa para a Campanha.
+- **04/11/2026 — Segmentação só com inteligência/comerciais (decisão de Cardoso):** o cadastro não tem "Tipo" nem
+  bloco de Universo; a lista mostra só segmentações não-universo (`cdaTipoSegmento !== 'universo'`). Universos salvos
+  (ex.: "ARTISTA · PRAÇA · PÚBLICO") continuam em `segmentos_salvos` e serão listados/criados no passo 1 da Campanha.
+  Legado `misto` abre com o bloco de Plano de Contas/Geografia visível. Testes do componente rodam em `harness`
+  próprio (sem a tela de Segmentação).
