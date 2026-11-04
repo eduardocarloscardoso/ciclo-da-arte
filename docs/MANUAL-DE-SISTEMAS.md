@@ -1033,6 +1033,12 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   comissão (despesa)" passam a ser escolhidos em lista (só administrador; demais usuários veem 🔒). Centro de receita
   obrigatório ao salvar (canal novo sem ele não é criado). A lista mostra primeiro os centros do grupo do canal; o
   trigger `cda_valida_canal_centros` continua validando tipo (receita/despesa) × grupo.
+- **Tabela de Peças a Comprar — carga da planilha "Compras fim de ano" (04/11/2026, Cardoso):** 27 linhas em
+  `cda_pa_pecas_compra` (antes: vazia), todas **planejadas** (nada comprado ainda). Grupo e centro pelo canal (Manaus →
+  Revenda Manaus - Pororoca / REVENDA NORTE; Curiosa SP → centro próprio; Showroom/SAC → Venda direta Ciclo; E-commerce →
+  Geral do grupo); nome = peça — canal; mês: feiras pela data do Calendário (Caminhoá nov; D Space e Rosenbaum Natal dez),
+  demais nov. Correção confirmada: T-Shirt D Space custo 75,00 → 35,00. Totais: 1.430 peças, custo 59.050,00, venda
+  257.500,00 (Feiras 16.075 · Revendas 22.050 · Venda direta 3.425 · Shows 8.750 · E-commerce 8.750).
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
