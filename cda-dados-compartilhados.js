@@ -687,10 +687,16 @@ const CDA_UF_REGIAO_COMPARTILHADO = {
   PR:'Sul', RS:'Sul', SC:'Sul'
 };
 const CDA_UFS = Object.keys(CDA_UF_REGIAO_COMPARTILHADO).sort();
+const CDA_REGIOES = ['Norte', 'Nordeste', 'Centro-Oeste', 'Sudeste', 'Sul'];
 const CDA_REGEX_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function cdaUfDe(cliente) { return String((cliente && cliente.estado) || '').trim().toUpperCase(); }
 // Comparação de texto sem acento e sem diferença de maiúscula ("SAO PAULO" = "São Paulo")
 function cdaSemAcento(t) { return String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim(); }
+// Valor de filtro como lista: aceita lista (atual) ou texto único (segmentos salvos antigos)
+function cdaListaValor(v) {
+  if (Array.isArray(v)) return v.map(String).filter(function (x) { return x !== ''; });
+  return (v === '' || v == null) ? [] : [String(v)];
+}
 function cdaEmailValido(email) { return CDA_REGEX_EMAIL.test(String(email || '').trim()); }
 
 function cdaMotorSegmento(compras, ctx) {
@@ -736,16 +742,22 @@ function cdaMotorSegmento(compras, ctx) {
   var aggVazio = novoAgg();
   function aggDe(id) { return agregados[id] || aggVazio; }
 
-  // Centro de custo bate com a seleção Conta/Grupo/Subconta/Centro (campos vazios = qualquer)
+  // Centro de custo bate com a seleção do Plano de Contas.
+  // Cada nível (conta/grupo/subconta/centro) aceita vários ids = "qualquer um" (OU);
+  // nível vazio = todos; níveis diferentes refinam um ao outro (E).
   function centroBate(centroId, v) {
     var h = centroInfo[centroId];
     if (!h) return false; // centro fora da estrutura de RECEITAS (ex: despesa) nunca bate
-    if (v.conta && h.contaId !== String(v.conta)) return false;
-    if (v.grupo && h.grupoId !== String(v.grupo)) return false;
-    if (v.subconta && h.subcontaId !== String(v.subconta)) return false;
-    if (v.centro && h.centroId !== String(v.centro)) return false;
-    return true;
+    return ['conta', 'grupo', 'subconta', 'centro'].every(function (nivel) {
+      var lista = cdaListaValor(v[nivel]);
+      return !lista.length || lista.indexOf(h[nivel + 'Id']) !== -1;
+    });
   }
+  // Clientes (ids) com pelo menos 1 compra B2C em cada centro — usado pelas contagens da tela
+  var clientesPorCentro = {};
+  Object.keys(agregados).forEach(function (cid) {
+    agregados[cid].centros.forEach(function (centro) { (clientesPorCentro[centro] = clientesPorCentro[centro] || new Set()).add(cid); });
+  });
 
   function passa(cliente, f) {
     var agg = aggDe(cliente.id);
@@ -770,14 +782,20 @@ function cdaMotorSegmento(compras, ctx) {
       case 'canal': return !f.valor || agg.canais.has(String(f.valor));
       case 'plano_contas': {
         var v = f.valor || {};
-        if (!v.conta && !v.grupo && !v.subconta && !v.centro) return true;
+        if (!['conta', 'grupo', 'subconta', 'centro'].some(function (n) { return cdaListaValor(v[n]).length; })) return true;
         if (!temHierarquia) return false;
         var ok = false;
         agg.centros.forEach(function (cid) { if (!ok && centroBate(cid, v)) ok = true; });
         return ok;
       }
       case 'produto': return !f.valor || agg.produtos.has(String(f.valor));
-      case 'cidade': return !f.valor || cdaSemAcento(cliente.cidade).indexOf(cdaSemAcento(f.valor)) !== -1;
+      case 'cidade': {
+        // Várias cidades = qualquer uma (OU); comparação sem acento, por trecho do nome
+        var cidades = cdaListaValor(f.valor);
+        if (!cidades.length) return true;
+        var cidadeCli = cdaSemAcento(cliente.cidade);
+        return cidades.some(function (x) { return cidadeCli.indexOf(cdaSemAcento(x)) !== -1; });
+      }
       case 'estado': {
         // Aceita lista de UFs (atual) ou texto de 1 UF (segmentos salvos antigos)
         var ufs = Array.isArray(f.valor) ? f.valor : (f.valor ? [String(f.valor).trim().toUpperCase()] : []);
@@ -801,7 +819,10 @@ function cdaMotorSegmento(compras, ctx) {
         return f.operador === '>' ? diasP > Number(f.valor) : diasP < Number(f.valor);
       }
       case 'nunca_comprou_produto': return !f.valor || !agg.produtos.has(String(f.valor));
-      case 'regiao': return !f.valor || CDA_UF_REGIAO_COMPARTILHADO[cdaUfDe(cliente)] === f.valor;
+      case 'regiao': {
+        var regioes = cdaListaValor(f.valor);
+        return !regioes.length || regioes.indexOf(CDA_UF_REGIAO_COMPARTILHADO[cdaUfDe(cliente)]) !== -1;
+      }
       case 'pais': return !f.valor || cdaSemAcento(cliente.pais).indexOf(cdaSemAcento(f.valor)) !== -1;
       case 'cep': return !f.valor || (cliente.cep || '').replace(/\D/g, '').indexOf(String(f.valor).replace(/\D/g, '')) === 0;
       case 'origem': return !f.valor || cliente.origem === f.valor;
@@ -817,7 +838,7 @@ function cdaMotorSegmento(compras, ctx) {
     }
   }
 
-  return { compras: comprasUsadas, aggDe: aggDe, passa: passa, centroInfo: centroInfo };
+  return { compras: comprasUsadas, aggDe: aggDe, passa: passa, centroInfo: centroInfo, clientesPorCentro: clientesPorCentro };
 }
 
 // Recalcula, a qualquer momento, quais clientes batem com os filtros de um

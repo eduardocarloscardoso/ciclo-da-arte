@@ -1380,3 +1380,10 @@ este documento é o resumo estrutural, não o log.)*
   coluna "E-mail válido". Helpers compartilhados: `CDA_UFS`, `cdaUfDe`, `cdaEmailValido`.
 - **Referência de conferência (04/11/2026):** Grupo E-commerce → 4.508 clientes, 4.365 e-mails únicos,
   SP 1.795, RJ 963 (SP+RJ: 2.697 e-mails únicos).
+- **04/11/2026 — escolha múltipla (aprovado por Cardoso):** no `plano_contas` cada nível passou a ser lista de ids
+  (`valor = {conta:[], grupo:[], subconta:[], centro:[]}`; OU dentro do nível, níveis refinam), com listas de
+  caixinhas e contagem de clientes por opção (`motor.clientesPorCentro`). `regiao` e `cidade` também aceitam listas
+  (OU). Helper `cdaListaValor` lê o formato antigo (texto único) como lista de 1 item — segmentos salvos antigos
+  continuam válidos. Linhas diferentes continuam sendo E. Filtros Cidade e País comparam sem acento (`cdaSemAcento`).
+- **Dado observado:** centros de Shows (ex.: SHOWS LUEDJI LUNA) quase não têm cliente identificado — as vendas de
+  show ficam em cadastros genéricos (`cadastro_incompleto`) ou no cadastro do próprio artista.

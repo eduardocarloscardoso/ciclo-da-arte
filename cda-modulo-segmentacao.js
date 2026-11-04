@@ -46,9 +46,9 @@ var CDA_TIPOS_FILTRO_SEG = [
   { id: 'produto', label: 'Comprou o produto', grupo: 'Produtos' },
   { id: 'nunca_comprou_produto', label: 'Nunca comprou o produto', grupo: 'Produtos' },
 
-  { id: 'cidade', label: 'Cidade', grupo: 'Geografia' },
+  { id: 'cidade', label: 'Cidade — uma ou várias', grupo: 'Geografia' },
   { id: 'estado', label: 'Estado (UF) — um ou vários', grupo: 'Geografia' },
-  { id: 'regiao', label: 'Região', grupo: 'Geografia' },
+  { id: 'regiao', label: 'Região — uma ou várias', grupo: 'Geografia' },
   { id: 'pais', label: 'País', grupo: 'Geografia' },
   { id: 'cep', label: 'CEP (prefixo)', grupo: 'Geografia' },
 
@@ -79,7 +79,7 @@ async function montarModuloSegmentacao(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-segmentacao: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [] };
+  var ST = { clientes: [], compras: [], canais: [], produtos: [], segmentos: [], statusCrm: [], parametros: null, hierarquia: [], filtros: [], filtroRapido: null, resultado: [], msAberto: null };
   var motor = null; // cdaMotorSegmento — montado após a carga
 
   host.innerHTML =
@@ -103,7 +103,18 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-uf .n{font-style:normal;font-weight:400;opacity:.7;margin-left:3px;}' +
       '.seg-uf.zero{opacity:.35;}' +
       '.seg-uf.ativa{background:var(--ink,#1a1a1a);color:#fff;opacity:1;}' +
-      '.seg-pc{max-width:230px;}' +
+      '.seg-ms{position:relative;display:inline-block;}' +
+      '.seg-ms-btn{font-family:\'Syne\',sans-serif;font-size:11px;padding:6px 9px;border:2px solid var(--ink,#1a1a1a);background:var(--paper,#fff);cursor:pointer;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}' +
+      '.seg-ms-btn.tem{background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-ms-painel{position:absolute;z-index:50;top:100%;left:0;min-width:300px;max-height:320px;overflow:auto;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:6px 0;}' +
+      '.seg-ms-acoes{display:flex;gap:10px;padding:2px 10px 6px;border-bottom:1px solid #ddd;font-size:10px;}' +
+      '.seg-ms-acoes a{cursor:pointer;text-decoration:underline;}' +
+      '.seg-ms-painel label{display:flex;gap:7px;align-items:center;padding:4px 10px;font-size:11px;cursor:pointer;white-space:nowrap;}' +
+      '.seg-ms-painel label:hover{background:var(--card,#f5f0e8);}' +
+      '.seg-ms-painel label.zero{opacity:.45;}' +
+      '.seg-ms-painel label i{font-style:normal;opacity:.65;margin-left:auto;padding-left:10px;}' +
+      '.seg-cid{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:4px 8px;border:2px solid var(--ink,#1a1a1a);background:var(--ink,#1a1a1a);color:#fff;}' +
+      '.seg-cid b{cursor:pointer;margin-left:3px;}' +
       '.seg-resumo-email{font-size:11px;padding:8px 12px;border-bottom:1px solid var(--ink,#1a1a1a);background:var(--card,#f5f0e8);}' +
     '</style>' +
     '<div class="seg-recalc" id="seg-recalc"></div>' +
@@ -304,7 +315,7 @@ async function montarModuloSegmentacao(containerId, opts) {
 
     ST.filtros.forEach(function (f, idx) {
       var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
-      area.innerHTML = campoValorHtml(f);
+      area.innerHTML = campoValorHtml(f, idx);
       var opSel = area.querySelector('.seg-op');
       if (opSel) opSel.value = f.operador || '>';
       var valInput = area.querySelector('.seg-val');
@@ -315,6 +326,7 @@ async function montarModuloSegmentacao(containerId, opts) {
       el.addEventListener('change', function () {
         var idx = Number(el.dataset.idx);
         ST.filtros[idx] = { tipo: el.value, operador: '>', valor: '' };
+        ST.msAberto = null;
         renderFiltros();
         aplicarFiltros(); // o critério anterior desta linha deixou de valer
       });
@@ -322,15 +334,81 @@ async function montarModuloSegmentacao(containerId, opts) {
     wrap.querySelectorAll('[data-rm]').forEach(function (el) {
       el.addEventListener('click', function () { ST.filtros.splice(Number(el.dataset.rm), 1); renderFiltros(); aplicarFiltros(); });
     });
-    wrap.querySelectorAll('.seg-pc').forEach(function (el) {
-      el.addEventListener('change', function () {
-        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
-        var v = pcValor(ST.filtros[idx]);
-        v[el.dataset.campo] = el.value;
-        // níveis abaixo: mantém só se ainda forem compatíveis com a nova escolha
-        PC_CAMPOS.slice(PC_CAMPOS.indexOf(el.dataset.campo) + 1).forEach(function (c) {
-          if (v[c] && !pcOpcoes(v, c).some(function (o) { return o.v === String(v[c]); })) v[c] = '';
+    // ── Plano de Contas: listas com caixinhas (várias escolhas por nível) ──
+    wrap.querySelectorAll('.seg-ms-btn').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var chave = el.closest('.seg-valor-area').dataset.idx + '|' + el.closest('.seg-ms').dataset.campo;
+        var abrir = ST.msAberto !== chave;
+        ST.msAberto = abrir ? chave : null;
+        wrap.querySelectorAll('.seg-ms').forEach(function (ms) {
+          var painel = ms.querySelector('.seg-ms-painel');
+          if (painel) painel.hidden = !(abrir && ms === el.closest('.seg-ms'));
         });
+      });
+    });
+    function pcAplicar(idx, campo, novaLista) {
+      var v = pcValor(ST.filtros[idx]);
+      v[campo] = novaLista;
+      // níveis abaixo: mantém só as escolhas que ainda pertencem às de cima
+      PC_CAMPOS.slice(PC_CAMPOS.indexOf(campo) + 1).forEach(function (c) {
+        var validos = pcOpcoes(v, c).map(function (o) { return o.v; });
+        v[c] = v[c].filter(function (id) { return validos.indexOf(id) !== -1; });
+      });
+      var painel = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
+      var rolagem = painel ? painel.scrollTop : 0;
+      ST.msAberto = idx + '|' + campo;
+      renderFiltros();
+      var novo = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-ms[data-campo="' + campo + '"] .seg-ms-painel');
+      if (novo) novo.scrollTop = rolagem;
+      aplicarFiltros();
+    }
+    wrap.querySelectorAll('.seg-ms-ck').forEach(function (el) {
+      el.addEventListener('change', function () {
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
+        var lista = pcValor(ST.filtros[idx])[campo].slice();
+        var pos = lista.indexOf(el.value);
+        if (el.checked && pos === -1) lista.push(el.value);
+        if (!el.checked && pos !== -1) lista.splice(pos, 1);
+        pcAplicar(idx, campo, lista);
+      });
+    });
+    wrap.querySelectorAll('.seg-ms-acoes a').forEach(function (el) {
+      el.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx), campo = el.closest('.seg-ms').dataset.campo;
+        var v = pcValor(ST.filtros[idx]);
+        pcAplicar(idx, campo, el.dataset.acao === 'todos' ? pcOpcoes(v, campo).filter(function (o) { return o.n > 0; }).map(function (o) { return o.v; }) : []);
+      });
+    });
+    wrap.querySelectorAll('.seg-ms-painel').forEach(function (el) { el.addEventListener('click', function (ev) { ev.stopPropagation(); }); });
+
+    // ── Cidade: várias cidades (qualquer uma) ──
+    function cidAdicionar(area) {
+      var input = area.querySelector('.seg-cid-input');
+      var nome = (input.value || '').trim();
+      if (!nome) return;
+      var idx = Number(area.dataset.idx);
+      var lista = cdaListaValor(ST.filtros[idx].valor);
+      if (!lista.some(function (x) { return cdaSemAcento(x) === cdaSemAcento(nome); })) lista.push(nome);
+      ST.filtros[idx].valor = lista;
+      renderFiltros();
+      var novoInput = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"] .seg-cid-input');
+      if (novoInput) novoInput.focus();
+      aplicarFiltros();
+    }
+    wrap.querySelectorAll('.seg-cid-add').forEach(function (el) {
+      el.addEventListener('click', function () { cidAdicionar(el.closest('.seg-valor-area')); });
+    });
+    wrap.querySelectorAll('.seg-cid-input').forEach(function (el) {
+      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') { ev.preventDefault(); cidAdicionar(el.closest('.seg-valor-area')); } });
+    });
+    wrap.querySelectorAll('.seg-cid b').forEach(function (el) {
+      el.addEventListener('click', function () {
+        var idx = Number(el.closest('.seg-valor-area').dataset.idx);
+        var lista = cdaListaValor(ST.filtros[idx].valor);
+        lista.splice(Number(el.dataset.i), 1);
+        ST.filtros[idx].valor = lista;
         renderFiltros();
         aplicarFiltros();
       });
@@ -383,7 +461,29 @@ async function montarModuloSegmentacao(containerId, opts) {
   function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); }
 
   // ── Filtro "Estado (UF)": várias UFs, com contagem ao vivo de cada uma ──
-  function ufLista(f) { return Array.isArray(f.valor) ? f.valor : (f.valor ? [String(f.valor).trim().toUpperCase()] : []); }
+  function ufLista(f) {
+    var lista = cdaListaValor(f.valor);
+    return f.tipo === 'estado' ? lista.map(function (x) { return x.trim().toUpperCase(); }) : lista;
+  }
+  // Região: mesmos botões com contagem, 5 regiões
+  function campoRegiaoHtml(f) {
+    var sel = ufLista(f);
+    return '<span class="seg-uf-wrap">' +
+      CDA_REGIOES.map(function (r) {
+        return '<span class="seg-uf' + (sel.indexOf(r) !== -1 ? ' ativa' : '') + '" data-uf="' + r + '">' + r + '<i class="n">0</i></span>';
+      }).join('') +
+      '<button class="btn sm seg-uf-limpar" type="button">Limpar</button>' +
+      '<span class="seg-uf-semuf tmu" style="font-size:10px"></span>' +
+    '</span>';
+  }
+  // Cidade: várias cidades (qualquer uma); digita e tecla Enter ou "＋"
+  function campoCidadeHtml(f) {
+    var lista = cdaListaValor(f.valor);
+    return lista.map(function (c, i) { return '<span class="seg-cid">' + esc(c) + '<b data-i="' + i + '" title="Remover">✕</b></span>'; }).join(' ') +
+      ' <input class="seg-cid-input" type="text" placeholder="' + (lista.length ? 'Outra cidade...' : 'Ex: Rio de Janeiro') + '" style="width:170px">' +
+      '<button class="btn sm seg-cid-add" type="button">＋</button>' +
+      '<span class="tmu" style="font-size:10px"> sem acento ou com, tanto faz</span>';
+  }
   function campoUfHtml(f) {
     var sel = ufLista(f);
     return '<span class="seg-uf-wrap">' +
@@ -396,36 +496,55 @@ async function montarModuloSegmentacao(containerId, opts) {
   }
 
   // ── Filtro "Plano de Contas": Conta → Grupo → Subconta → Centro de Custo ──
-  // Cada nível é opcional ("todos") e as opções de baixo se restringem às de cima.
+  // Cada nível aceita VÁRIAS escolhas (= qualquer uma) e é opcional (vazio = todos).
+  // As opções de um nível se restringem às escolhas dos níveis de cima.
   var PC_CAMPOS = ['conta', 'grupo', 'subconta', 'centro'];
   var PC_ROTULO = { conta: 'Conta', grupo: 'Grupo', subconta: 'Subconta', centro: 'Centro de Custo' };
   function pcValor(f) {
-    if (!f.valor || typeof f.valor !== 'object' || Array.isArray(f.valor)) f.valor = { conta: '', grupo: '', subconta: '', centro: '' };
+    if (!f.valor || typeof f.valor !== 'object' || Array.isArray(f.valor)) f.valor = {};
+    PC_CAMPOS.forEach(function (c) { f.valor[c] = cdaListaValor(f.valor[c]); }); // aceita formato antigo (texto único)
     return f.valor;
   }
+  var idsClientesValidos = null; // clientes do universo da tela (sem cadastro genérico)
   function pcOpcoes(v, campo) {
+    if (!idsClientesValidos) { idsClientesValidos = new Set(); ST.clientes.forEach(function (c) { idsClientesValidos.add(String(c.id)); }); }
     var acima = PC_CAMPOS.slice(0, PC_CAMPOS.indexOf(campo));
-    var vistos = {}, lista = [];
+    var porId = {}, lista = [];
     ST.hierarquia.forEach(function (h) {
-      if (!acima.every(function (c) { return !v[c] || h[c + 'Id'] === String(v[c]); })) return;
-      var id = h[campo + 'Id']; if (!id || vistos[id]) return;
-      vistos[id] = 1;
-      lista.push({ v: id, l: h[campo + 'Nome'] + (campo === 'centro' && !h.ativo ? ' (inativo)' : '') });
+      if (!acima.every(function (c) { return !v[c].length || v[c].indexOf(h[c + 'Id']) !== -1; })) return;
+      var id = h[campo + 'Id']; if (!id) return;
+      var o = porId[id];
+      if (!o) { o = porId[id] = { v: id, l: h[campo + 'Nome'] + (campo === 'centro' && !h.ativo ? ' (inativo)' : ''), clientes: new Set() }; lista.push(o); }
+      var doCentro = motor.clientesPorCentro[h.centroId];
+      if (doCentro) doCentro.forEach(function (cid) { if (idsClientesValidos.has(cid)) o.clientes.add(cid); });
     });
+    lista.forEach(function (o) { o.n = o.clientes.size; delete o.clientes; });
     if (campo === 'grupo') lista.sort(function (a, b) { return a.l.localeCompare(b.l); });
     return lista;
   }
-  function campoPlanoContasHtml(f) {
+  function campoPlanoContasHtml(f, idx) {
     if (!ST.hierarquia.length) return '<span class="tmu" style="font-size:10px">⚠ Estrutura do Plano de Contas indisponível — este filtro não retorna clientes. Recarregue a página; se persistir, avise o administrador.</span>';
     var v = pcValor(f);
     return PC_CAMPOS.map(function (campo) {
-      return '<select class="seg-pc" data-campo="' + campo + '" title="' + PC_ROTULO[campo] + '"><option value="">' + PC_ROTULO[campo] + ': todos</option>' +
-        pcOpcoes(v, campo).map(function (o) { return '<option value="' + esc(o.v) + '"' + (String(v[campo]) === String(o.v) ? ' selected' : '') + '>' + esc(o.l) + '</option>'; }).join('') +
-        '</select>';
+      var ops = pcOpcoes(v, campo);
+      var sel = v[campo];
+      var nomes = ops.filter(function (o) { return sel.indexOf(o.v) !== -1; }).map(function (o) { return o.l; });
+      var resumo = !nomes.length ? 'todos' : (nomes.length === 1 ? nomes[0] : nomes[0] + ' +' + (nomes.length - 1));
+      var aberto = ST.msAberto === idx + '|' + campo;
+      return '<div class="seg-ms" data-campo="' + campo + '">' +
+        '<button type="button" class="seg-ms-btn' + (nomes.length ? ' tem' : '') + '" title="' + esc(nomes.join(', ') || 'todos') + '">' + PC_ROTULO[campo] + ': <b>' + esc(resumo) + '</b> ▾</button>' +
+        '<div class="seg-ms-painel"' + (aberto ? '' : ' hidden') + '>' +
+          '<div class="seg-ms-acoes"><a data-acao="todos">Marcar todos com clientes</a><a data-acao="limpar">Limpar</a></div>' +
+          ops.map(function (o) {
+            return '<label class="' + (o.n ? '' : 'zero') + '"><input type="checkbox" class="seg-ms-ck" value="' + esc(o.v) + '"' + (sel.indexOf(o.v) !== -1 ? ' checked' : '') + '>' +
+              esc(o.l) + '<i>' + o.n.toLocaleString('pt-BR') + '</i></label>';
+          }).join('') +
+        '</div>' +
+      '</div>';
     }).join('');
   }
 
-  function campoValorHtml(f) {
+  function campoValorHtml(f, idx) {
     switch (f.tipo) {
       case 'status_crm':
         return '<select class="seg-val"><option value="">Selecione...</option>' +
@@ -451,11 +570,11 @@ async function montarModuloSegmentacao(containerId, opts) {
         return '<select class="seg-val"><option value="">Selecione...</option>' +
           opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'cidade':
-        return '<input class="seg-val" type="text" placeholder="Ex: Rio de Janeiro" value="' + (f.valor || '') + '">';
+        return campoCidadeHtml(f);
       case 'estado':
         return campoUfHtml(f);
       case 'plano_contas':
-        return campoPlanoContasHtml(f);
+        return campoPlanoContasHtml(f, idx);
       case 'ticket_medio':
         return opInput('R$', 100, f);
       case 'comprou_periodo':
@@ -469,8 +588,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         return '<select class="seg-val"><option value="">Selecione...</option>' +
           opts(ST.produtos.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); }).map(function (p) { return { v: p.id, l: p.nome }; }), f.valor) + '</select>';
       case 'regiao':
-        return '<select class="seg-val"><option value="">Selecione...</option>' +
-          opts(['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'].map(function (r) { return { v: r, l: r }; }), f.valor) + '</select>';
+        return campoRegiaoHtml(f);
       case 'pais':
         return '<input class="seg-val" type="text" placeholder="Ex: Brasil" value="' + (f.valor || '') + '">';
       case 'cep':
@@ -506,12 +624,12 @@ async function montarModuloSegmentacao(containerId, opts) {
     atualizarContagensUf();
   }
 
-  // Para cada filtro de UF: quantos clientes de cada estado passam em TODOS
-  // os outros critérios — é o "universo" da segmentação aberto por estado.
+  // Para cada filtro de UF/Região: quantos clientes de cada estado/região passam
+  // em TODOS os outros critérios — é o "universo" da segmentação aberto por local.
   function atualizarContagensUf() {
     var wrap = host.querySelector('#seg-filtros');
     ST.filtros.forEach(function (f, idx) {
-      if (f.tipo !== 'estado') return;
+      if (f.tipo !== 'estado' && f.tipo !== 'regiao') return;
       var area = wrap.querySelector('.seg-valor-area[data-idx="' + idx + '"]');
       if (!area) return;
       var cont = {}, semUf = 0;
@@ -519,7 +637,8 @@ async function montarModuloSegmentacao(containerId, opts) {
         if (!passaNoFiltroRapido(c)) return;
         for (var j = 0; j < ST.filtros.length; j++) { if (j !== idx && !passaNoFiltro(c, ST.filtros[j])) return; }
         var uf = cdaUfDe(c);
-        if (CDA_UF_REGIAO_COMPARTILHADO[uf]) cont[uf] = (cont[uf] || 0) + 1; else semUf++;
+        var chave = f.tipo === 'regiao' ? CDA_UF_REGIAO_COMPARTILHADO[uf] : (CDA_UF_REGIAO_COMPARTILHADO[uf] ? uf : null);
+        if (chave) cont[chave] = (cont[chave] || 0) + 1; else semUf++;
       });
       area.querySelectorAll('.seg-uf').forEach(function (el) {
         var n = cont[el.dataset.uf] || 0;
@@ -577,6 +696,13 @@ async function montarModuloSegmentacao(containerId, opts) {
     host.querySelector('#seg-resultado-titulo').textContent = 'Resultado — ' + ST.resultado.length.toLocaleString('pt-BR') + ' cliente(s) encontrado(s)' +
       (ST.resultado.length > 200 ? ' (mostrando 200 primeiros)' : '');
   }
+
+  // Fecha a lista aberta do Plano de Contas ao clicar fora dela
+  document.addEventListener('click', function () {
+    if (!ST.msAberto) return;
+    ST.msAberto = null;
+    host.querySelectorAll('.seg-ms-painel').forEach(function (p) { p.hidden = true; });
+  });
 
   host.querySelector('#seg-btn-addfiltro').addEventListener('click', function () {
     ST.filtros.push({ tipo: 'status_crm', operador: '>', valor: '' });
