@@ -1391,3 +1391,11 @@ este documento é o resumo estrutural, não o log.)*
   (`ST.geoAberto`); depois recolhem em etiquetas com contagem (✕ remove, ✎ Alterar reabre, ✓ Concluir recolhe; clique
   fora recolhe, exceto clique em select/input, para não fechar a caixa que está sendo aberta). Plano de Contas ganhou
   a linha `.seg-pc-tags` com o nome de cada escolha (evita ocultar seleções no "+1").
+- **04/11/2026 — Universo × Filtros comerciais (decisão de Cardoso):** o público de uma campanha = **Universo**
+  (Plano de Contas + Geografia: de qual negócio e de onde) ∩ **Filtros comerciais** (quem, dentro dele). Segmentos
+  salvos são de dois tipos, **deduzidos do conteúdo** por `cdaTipoSegmento` (sem coluna nova): `universo` (só
+  `CDA_FILTROS_UNIVERSO` = plano_contas, estado, regiao, cidade, pais, cep), `comercial` (só os demais) e `misto`
+  (legado; carregado dividindo cada filtro no seu bloco). O construtor de filtros virou o componente
+  **`cda-construtor-filtros.js`** (`cdaConstrutorFiltros(el, ctx, opcoes)`, carregado antes de
+  `cda-modulo-segmentacao.js`), usado pela Segmentação em dois blocos e, na sequência, pela Campanha em passos.
+  Cada instância tem `cfId` próprio para os cliques de recolher a grade de UF/Região.

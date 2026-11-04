@@ -82,7 +82,9 @@ var CDA_TUTORIAL_CONTEUDO = [
   },
   {
     id: 'segmentacao', titulo: 'Segmentação de Clientes', modulos: ['comercial','financeiro'],
-    html: '<p>A tela tem três partes: <b>atalhos rápidos</b> (botões de status, 1 clique), o <b>construtor de filtros</b> (organizado em 9 grupos, combináveis) e o painel de <b>Recálculo de Valores</b>.</p>' +
+    html: '<p>A tela tem o painel de <b>Recálculo de Valores</b> e dois blocos de filtro (nov/2026):</p>' +
+      '<p><b>1 · Universo</b> — <i>de qual negócio e de onde</i>: Plano de Contas (Conta/Grupo/Subconta/Centro de Custo) e Geografia (Estado, Região, Cidade, País, CEP). <b>2 · Filtros comerciais</b> — <i>quem, dentro do universo</i>: os atalhos de 1 clique (Ativo, Em risco, VIP...) e os demais filtros (valor gasto, recência, aniversário, produto...). O resultado é quem atende aos dois blocos.</p>' +
+      '<p>Cada bloco salva e carrega o seu tipo: <b>💾 Salvar universo</b> guarda só o bloco 1 (ex: "E-commerce Luedji Luna · Nordeste") e <b>💾 Salvar modelo</b> guarda só o bloco 2 (ex: "Em risco 91-180 dias"). Carregar um modelo não mexe no universo, e vice-versa — por isso um mesmo modelo serve para qualquer praça. O tipo é reconhecido pelo conteúdo: segmentos antigos que misturam os dois aparecem na lista de modelos como "(com universo)" e, ao carregar, cada filtro vai para o seu bloco. Na Campanha, o mesmo par Universo + Filtros comerciais é usado para gerar a lista.</p>' +
       '<h4>Os 9 grupos de filtro</h4>' +
       '<p>Inteligência (status/tags abaixo) · Compras (valor gasto, ticket médio, qtd. de compras, canal) · <b>Plano de Contas</b> (comprou em uma Conta / Grupo / Subconta / Centro de Custo de receita) · Frequência (dias sem comprar, comprou este mês/trimestre/ano) · Datas (aniversário, cadastro, 1ª compra) · Produtos (comprou/nunca comprou um produto) · Geografia (cidade, estado e região — um ou vários —, país, CEP) · Marketing (origem do lead) · CRM (tipo comercial, sem vendedor responsável).</p>' +
       '<h4>Plano de Contas + Estado: o universo da campanha por UF</h4>' +
