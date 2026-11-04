@@ -1045,6 +1045,10 @@ Módulo independente migrado do Manus ("Sistema Orçamentário Anual", commit
   2. previsto por segmento e grupo (receita, origem, R$ disponível, ticket, custo por peça, peças, planejado, saldo);
   3. Tabela de Peças a Comprar com total do período + totais por segmento e grupo; rodapé com data e "Página x de y".
   Usa os números já calculados na tela (`paCache.pecasCalc`, inclusive `linhasPDF`). Sem mudança no banco.
+- **Totais por tipo de peça (04/11/2026, Cardoso; só código):** nova caixa na tela (abaixo de "Totais por mês") e no
+  PDF (depois dos totais por segmento e grupo). Tipo = texto antes do " — " no nome da peça (ex.: "Short — Feira D Space"
+  → Short); sem " — ", o nome inteiro; sem diferenciar maiúsculas. "Calça Linho" fica como tipo próprio (decisão do
+  Cardoso). Ordem: maior quantidade primeiro. PDF traz também custo médio e preço médio por peça. Função `paPecasPorTipo`.
 - SQL de estrutura em `docs/sql/planejamento_anual_*.sql` (os dados
   financeiros não ficam no repositório).
 
