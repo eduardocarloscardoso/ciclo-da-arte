@@ -1399,3 +1399,7 @@ este documento é o resumo estrutural, não o log.)*
   **`cda-construtor-filtros.js`** (`cdaConstrutorFiltros(el, ctx, opcoes)`, carregado antes de
   `cda-modulo-segmentacao.js`), usado pela Segmentação em dois blocos e, na sequência, pela Campanha em passos.
   Cada instância tem `cfId` próprio para os cliques de recolher a grade de UF/Região.
+- **04/11/2026 — Segmentação em lista + cadastro (pedido de Cardoso):** tela A = lista de universos e modelos (contagem
+  atual via motor, Editar/Duplicar/Excluir, ⚙ Recálculo recolhido); tela B = cadastro (nome, tipo, só o bloco do tipo,
+  prévia, Exportar prévia, Cancelar/Salvar, ← Voltar com aviso de alteração não salva — `CAD.sujo`). Editar grava no
+  mesmo id; Duplicar cria novo. A combinação Universo × Modelo sai da Segmentação e passa para a Campanha.
