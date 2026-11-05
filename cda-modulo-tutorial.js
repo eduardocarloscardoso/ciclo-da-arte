@@ -169,6 +169,8 @@ var CDA_TUTORIAL_CONTEUDO = [
       '<h4>Fluxo de uso</h4>' +
       '<p>1) ＋ Nova Campanha → escolhe a segmentação. 2) Abrem exatamente os filtros dela: preencha os valores (ex: Plano de Contas = E-commerce Luedji Luna; Estado = SP). Modelos comerciais já vêm com o filtro (ex: VIP). A linha 👥 mostra na hora quantos clientes e e-mails únicos o público tem. 3) Salve. 4) <b>🧊 Congelar lista</b>: grava a "foto" do público naquele momento (base do envio de e-mail e do Pipeline); Recongelar substitui a foto. 5) ➕ Adicionar público ao Pipeline usa a lista congelada (sem ela, o cálculo do momento).</p>' +
       '<p><b>⧉ Duplicar</b> copia a campanha inteira (filtros, benefício, canais, mensagem) — para o próximo show, duplique e troque só o Plano de Contas e a Geografia.</p>' +
+      '<h4>📧 E-mail da campanha</h4>' +
+      '<p>No formulário da campanha, a seção E-mail tem assunto, prévia (texto que aparece ao lado do assunto na caixa de entrada), imagem (envie o arquivo — até 2 MB — ou cole o endereço), título, saudação, texto, cupom, botão com link, bloco de informações e rodapé. Use {nome} (primeiro nome), {nome_completo}, {cidade} e {uf} para personalizar. Ao lado, a <b>pré-visualização</b> mostra o e-mail exatamente como vai sair, montado para um cliente real do público (troque o cliente na lista). O link do botão recebe UTM automaticamente (utm_source=ciclodarte) para medir as vendas vindas do e-mail, e o rodapé sempre ganha o link de descadastro. "⬇ HTML" baixa o e-mail para conferência.</p>' +
       '<h4>Público-Alvo (contagem ao vivo)</h4>' +
       '<p>No cartão de cada campanha aparece o público calculado agora com os valores dela e o tamanho da lista congelada (com data e hora).</p>' +
       '<h4>🎁 Benefício oferecido</h4>' +

@@ -74,6 +74,13 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-progresso-txt{font-size:10px;margin-top:3px;}' +
       '.camp-sugestao{background:#fff9e6;border-left:3px solid #F59E0B;padding:8px 10px;font-size:11px;margin-top:6px;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
+      '#camp-modal .mo-box{max-width:min(1150px,94vw);width:94vw;}' +
+      '.camp-email-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;align-items:start;}' +
+      '.camp-email-campos .fgr{margin-bottom:8px;}' +
+      '.camp-email-campos textarea{min-height:70px;}' +
+      '.camp-email-previa iframe{width:100%;height:720px;border:2px solid var(--ink,#1a1a1a);background:#f2efe9;}' +
+      '.camp-email-thumb{max-width:120px;max-height:150px;display:block;margin-top:4px;border:1px solid var(--ink,#1a1a1a);}' +
+      '@media (max-width:900px){.camp-email-grid{grid-template-columns:1fr;}}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
@@ -110,6 +117,33 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div class="fgr" style="grid-column:1/-1"><label>Meios escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">📧 E-mail da campanha</label>' +
+            '<div class="tmu" style="font-size:10px;margin-top:2px">Variáveis: {nome} (primeiro nome) {nome_completo} {cidade} {uf} · o rodapé ganha automaticamente o link de descadastro · o link do botão recebe UTM para medir as vendas vindas do e-mail</div></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><div class="camp-email-grid">' +
+            '<div class="camp-email-campos">' +
+              '<div class="fgr"><label>Assunto</label><input type="text" id="camp-e-assunto" class="camp-e" maxlength="150" placeholder="Ex: {nome}, um presente pra você no show da Luedji Luna 🎁"></div>' +
+              '<div class="fgr"><label>Prévia (texto ao lado do assunto na caixa de entrada)</label><input type="text" id="camp-e-previa" class="camp-e" maxlength="200"></div>' +
+              '<div class="fgr"><label>Imagem (flyer)</label><input type="file" id="camp-e-imagem-arq" accept="image/jpeg,image/png,image/gif,image/webp"><input type="text" id="camp-e-imagemUrl" class="camp-e" placeholder="…ou cole o endereço (URL) da imagem"><img id="camp-e-thumb" class="camp-email-thumb" hidden alt=""></div>' +
+              '<div class="fgr"><label>Descrição da imagem (aparece se a imagem não carregar)</label><input type="text" id="camp-e-imagemAlt" class="camp-e"></div>' +
+              '<div class="fgr"><label>Título</label><input type="text" id="camp-e-titulo" class="camp-e"></div>' +
+              '<div class="fgr"><label>Saudação</label><textarea id="camp-e-saudacao" class="camp-e"></textarea></div>' +
+              '<div class="fgr"><label>Texto (linha em branco = novo parágrafo)</label><textarea id="camp-e-texto" class="camp-e" style="min-height:120px"></textarea></div>' +
+              '<div class="fgr"><label>Cupom — código</label><input type="text" id="camp-e-cupomCodigo" class="camp-e"></div>' +
+              '<div class="fgr"><label>Cupom — descrição</label><input type="text" id="camp-e-cupomTexto" class="camp-e"></div>' +
+              '<div class="fgr"><label>Botão — texto</label><input type="text" id="camp-e-botaoTexto" class="camp-e"></div>' +
+              '<div class="fgr"><label>Botão — link</label><input type="text" id="camp-e-botaoLink" class="camp-e" placeholder="https://..."></div>' +
+              '<div class="fgr"><label>Informações — título</label><input type="text" id="camp-e-infoTitulo" class="camp-e"></div>' +
+              '<div class="fgr"><label>Informações — texto</label><textarea id="camp-e-infoTexto" class="camp-e" style="min-height:110px"></textarea></div>' +
+              '<div class="fgr"><label>Rodapé (quem envia e por quê)</label><textarea id="camp-e-rodape" class="camp-e"></textarea></div>' +
+            '</div>' +
+            '<div class="camp-email-previa">' +
+              '<div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap"><label style="margin:0">Pré-visualizar como</label><select id="camp-e-cliente" style="flex:1;min-width:160px"></select>' +
+                '<button class="btn sm" type="button" id="camp-e-baixar">⬇ HTML</button></div>' +
+              '<div id="camp-e-assunto-prev" style="font-size:12px;margin-bottom:6px"></div>' +
+              '<iframe id="camp-e-frame" title="Pré-visualização do e-mail"></iframe>' +
+            '</div>' +
+          '</div></div>' +
+
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
             '<label style="font-size:11px">🤖 Modelo de Mensagem — Sugestão da IA (Nível 1)</label>' +
             '<div class="pb2c-hist" id="camp-m-modelo-sugerida" style="min-height:60px;white-space:pre-wrap"></div>' +
@@ -431,11 +465,73 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!cfCampanha) { box.innerHTML = ''; return; }
     var alvo = clientesValidos.filter(function (c) { return cfCampanha.passa(c); });
     box.innerHTML = '👥 <b>Público: ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s)</b> · 📧 ' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s) — recalculado agora';
+    if (host.querySelector('#camp-e-cliente')) { popularClientesPrevia(); atualizarPreviaEmail(); }
   }
   host.querySelector('#camp-m-segmento').addEventListener('change', function () {
     montarFiltrosDaCampanha(segmentoPorId[host.querySelector('#camp-m-segmento').value], null);
   });
 
+
+  // ── E-mail da campanha: campos ↔ conteúdo, pré-visualização ──
+  var CAMPOS_EMAIL = ['imagemUrl', 'imagemAlt', 'titulo', 'saudacao', 'texto', 'cupomCodigo', 'cupomTexto', 'botaoTexto', 'botaoLink', 'infoTitulo', 'infoTexto', 'rodape'];
+  var RODAPE_PADRAO = 'Você recebe este e-mail porque é cliente da Ciclo da Arte.\nCiclo da Arte · moda, acessórios e merchandising cultural';
+  function lerEmailDoForm() {
+    var c = {};
+    CAMPOS_EMAIL.forEach(function (k) { c[k] = host.querySelector('#camp-e-' + k).value.trim(); });
+    return { emailAssunto: host.querySelector('#camp-e-assunto').value.trim(), emailPrevia: host.querySelector('#camp-e-previa').value.trim(), emailConteudo: c };
+  }
+  function preencherEmailNoForm(c) {
+    var k = (c && c.emailConteudo) || {};
+    host.querySelector('#camp-e-assunto').value = c ? (c.emailAssunto || '') : '';
+    host.querySelector('#camp-e-previa').value = c ? (c.emailPrevia || '') : '';
+    CAMPOS_EMAIL.forEach(function (campo) { host.querySelector('#camp-e-' + campo).value = k[campo] || (campo === 'rodape' ? RODAPE_PADRAO : ''); });
+    host.querySelector('#camp-e-imagem-arq').value = '';
+  }
+  function clientesParaPrevia() {
+    var base = cfCampanha ? clientesValidos.filter(function (c) { return cfCampanha.passa(c); }) : [];
+    return base.filter(function (c) { return cdaEmailValido(c.email); }).slice(0, 50);
+  }
+  function popularClientesPrevia() {
+    var sel = host.querySelector('#camp-e-cliente');
+    var lista = clientesParaPrevia();
+    sel.innerHTML = lista.length
+      ? lista.map(function (c, i) { return '<option value="' + i + '">' + escH(c.nome) + ' — ' + escH(c.cidade || '') + '/' + escH(cdaUfDe(c)) + '</option>'; }).join('')
+      : '<option value="">Cliente exemplo (escolha o público acima)</option>';
+    sel._lista = lista;
+  }
+  var timerPrevia = null;
+  function atualizarPreviaEmail() {
+    clearTimeout(timerPrevia);
+    timerPrevia = setTimeout(function () {
+      var sel = host.querySelector('#camp-e-cliente');
+      var cliente = (sel._lista || [])[Number(sel.value)] || { nome: 'Maria Silva', cidade: 'São Paulo', estado: 'SP' };
+      var dados = lerEmailDoForm();
+      var email = cdaMontarEmailCampanha({ nome: host.querySelector('#camp-m-nome').value, emailAssunto: dados.emailAssunto, emailPrevia: dados.emailPrevia, emailConteudo: dados.emailConteudo }, cliente, {});
+      host.querySelector('#camp-e-frame').srcdoc = email.html;
+      host.querySelector('#camp-e-assunto-prev').innerHTML = '<b>Assunto:</b> ' + escH(email.assunto || '—') + '<br><span class="tmu">' + escH(email.previa || '') + '</span>';
+      var thumb = host.querySelector('#camp-e-thumb');
+      thumb.hidden = !dados.emailConteudo.imagemUrl; if (dados.emailConteudo.imagemUrl) thumb.src = dados.emailConteudo.imagemUrl;
+      host.querySelector('#camp-e-baixar')._html = email.html;
+    }, 150);
+  }
+  host.querySelectorAll('.camp-e').forEach(function (el) { el.addEventListener('input', atualizarPreviaEmail); });
+  host.querySelector('#camp-e-cliente').addEventListener('change', atualizarPreviaEmail);
+  host.querySelector('#camp-m-nome').addEventListener('input', atualizarPreviaEmail);
+  host.querySelector('#camp-e-imagem-arq').addEventListener('change', async function () {
+    var arq = this.files && this.files[0]; if (!arq) return;
+    if (arq.size > 2 * 1024 * 1024) { alert('A imagem passa de 2 MB — reduza o tamanho antes de enviar (e-mails pesados tendem a cair no spam).'); this.value = ''; return; }
+    var campoUrl = host.querySelector('#camp-e-imagemUrl');
+    campoUrl.value = 'Enviando imagem...';
+    try { campoUrl.value = await cdaUploadImagemCampanha(arq); }
+    catch (err) { console.error(err); campoUrl.value = ''; alert('Erro ao enviar a imagem:\n' + ((err && err.message) || 'Erro desconhecido')); }
+    atualizarPreviaEmail();
+  });
+  host.querySelector('#camp-e-baixar').addEventListener('click', function () {
+    var html = this._html; if (!html) return;
+    var url = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+    var a = document.createElement('a'); a.href = url; a.download = 'email-campanha.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  });
 
   function abrirModal(id, duplicar) {
     var c = id ? ST.campanhas.find(function (x) { return String(x.id) === String(id); }) : null;
@@ -445,6 +541,9 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
     montarFiltrosDaCampanha(c ? segmentoPorId[c.publicoSegmentoId] : null, c ? JSON.parse(JSON.stringify(filtrosDaCampanha(c) || [])) : null);
+    preencherEmailNoForm(c);
+    popularClientesPrevia();
+    atualizarPreviaEmail();
     selEtapa.value = c ? c.pipelineEtapaEntrada : 'novo_lead';
     selStatus.value = c ? c.status : 'ativa';
     host.querySelector('#camp-m-inicio').value = c ? (c.periodoInicio || '') : '';
@@ -479,7 +578,8 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!filtrosValores.length) { alert('Preencha ao menos um filtro da campanha.'); return; }
     var o = {
       id: ST.editId || undefined, nome: nome, objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
-      publicoSegmentoId: segmentoId, filtrosValores: filtrosValores, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
+      publicoSegmentoId: segmentoId, filtrosValores: filtrosValores,
+      emailAssunto: lerEmailDoForm().emailAssunto, emailPrevia: lerEmailDoForm().emailPrevia, emailConteudo: lerEmailDoForm().emailConteudo, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
       responsavelIds: Array.from(host.querySelectorAll('.camp-resp-check:checked')).map(function (c) { return Number(c.value); }), criadoPor: nomeUsuarioAtual(),

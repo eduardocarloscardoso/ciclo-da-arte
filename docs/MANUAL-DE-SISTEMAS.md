@@ -1424,3 +1424,14 @@ este documento é o resumo estrutural, não o log.)*
 - **04/11/2026 (ajuste de Cardoso):** modelos comerciais na Segmentação mostram só o filtro resumido — sem contagem nem
   lista; números e clientes só em Campanhas. Criada a campanha "Aniversariantes · Agosto" com o valor que estava na
   segmentação ANIVERSARIANTES POR PERÍODO (todas as segmentações com valores têm agora campanha correspondente).
+
+### 15.2 Modelo do e-mail da campanha (04/11/2026)
+- Colunas `cda_campanhas.email_assunto`, `email_previa`, `email_conteudo` (jsonb com os blocos) — migração
+  `comercial_campanha_email_modelo.sql`, que também cria o bucket público `campanhas-email` (Storage; leitura pública,
+  escrita só `cda_e_membro_equipe()`, até 2 MB, jpg/png/gif/webp).
+- `cdaMontarEmailCampanha(campanha, cliente, {linkDescadastro})` → `{assunto, previa, html, texto}`: HTML em tabelas,
+  600 px, estilos inline, preheader oculto, cupom, botão (link com UTM via `cdaLinkComUtm`), bloco de informações e
+  rodapé com descadastro. **O mesmo montador será usado pela Edge Function de envio** (o aprovado na prévia é o enviado).
+- Provedor escolhido: **Resend** (aguardando conta + DNS no Registro.br + `RESEND_API_KEY` nos Secrets do Supabase).
+- Campanha "Luedji Luna · São Paulo" já com o e-mail preenchido (cupom LUEDJI20 20%, enquanto durarem os ingressos,
+  estande da Ciclo no Cine Joia, show 18/11/2026); falta subir a imagem do flyer pelo formulário.

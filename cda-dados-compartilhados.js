@@ -864,7 +864,10 @@ const CDA_CAMPANHA_MAP = {
     modeloMensagemSugerida: r.modelo_mensagem_sugerida,
     modeloTarefaSugerida: r.modelo_tarefa_sugerida, modeloTarefaFinal: r.modelo_tarefa_final,
     // Valores dos filtros da campanha (a segmentação só diz QUAIS filtros) — nov/2026
-    filtrosValores: Array.isArray(r.filtros_valores) ? r.filtros_valores : null
+    filtrosValores: Array.isArray(r.filtros_valores) ? r.filtros_valores : null,
+    // E-mail da campanha (nov/2026)
+    emailAssunto: r.email_assunto || '', emailPrevia: r.email_previa || '',
+    emailConteudo: r.email_conteudo && typeof r.email_conteudo === 'object' ? r.email_conteudo : null
   }),
   toRow: o => {
     const row = {
@@ -880,7 +883,10 @@ const CDA_CAMPANHA_MAP = {
       modelo_mensagem_sugerida: o.modeloMensagemSugerida != null ? o.modeloMensagemSugerida : undefined,
       modelo_tarefa_sugerida: o.modeloTarefaSugerida != null ? o.modeloTarefaSugerida : undefined,
       modelo_tarefa_final: o.modeloTarefaFinal || null,
-      filtros_valores: o.filtrosValores !== undefined ? o.filtrosValores : undefined
+      filtros_valores: o.filtrosValores !== undefined ? o.filtrosValores : undefined,
+      email_assunto: o.emailAssunto !== undefined ? (o.emailAssunto || null) : undefined,
+      email_previa: o.emailPrevia !== undefined ? (o.emailPrevia || null) : undefined,
+      email_conteudo: o.emailConteudo !== undefined ? o.emailConteudo : undefined
     };
     if (o.id) row.id = o.id;
     return row;
@@ -903,6 +909,86 @@ async function cdaSalvarCampanha(o) {
   if (error) throw error;
   return CDA_CAMPANHA_MAP.fromRow(data);
 }
+// ── E-MAIL DA CAMPANHA (nov/2026) ────────────────────────────────────
+// Um só montador de HTML para a pré-visualização e para o envio (Edge
+// Function): o que se aprova na tela é exatamente o que sai.
+// Variáveis no texto: {nome} (primeiro nome), {nome_completo}, {cidade}, {uf}.
+async function cdaUploadImagemCampanha(arquivo) {
+  const ext = (String(arquivo.name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const caminho = 'campanha-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext;
+  const { error } = await cdaClient.storage.from('campanhas-email').upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+  if (error) throw error;
+  return cdaClient.storage.from('campanhas-email').getPublicUrl(caminho).data.publicUrl;
+}
+function cdaPrimeiroNome(nome) {
+  const p = String(nome || '').trim().split(/\s+/)[0] || '';
+  return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
+}
+function cdaVariaveisEmail(texto, cliente) {
+  const c = cliente || {};
+  const nome = cdaPrimeiroNome(c.nome) || 'cliente';
+  return String(texto || '')
+    .replace(/\{nome\}/g, nome).replace(/\{nome_completo\}/g, (c.nome || nome).trim())
+    .replace(/\{cidade\}/g, c.cidade || '').replace(/\{uf\}/g, cdaUfDe(c));
+}
+// Acrescenta UTM ao link (sem sobrescrever os que já existirem) — mede vendas vindas do e-mail
+function cdaLinkComUtm(link, campanha) {
+  if (!link) return '';
+  try {
+    const u = new URL(link);
+    const slug = String((campanha && campanha.nome) || 'campanha').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'ciclodarte');
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+    if (!u.searchParams.has('utm_campaign')) u.searchParams.set('utm_campaign', slug);
+    return u.toString();
+  } catch (e) { return link; }
+}
+function cdaMontarEmailCampanha(campanha, cliente, opts) {
+  opts = opts || {};
+  const k = (campanha && campanha.emailConteudo) || {};
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const v = t => cdaVariaveisEmail(t, cliente);
+  // texto livre → parágrafos (linha em branco) e quebras de linha
+  const paragrafos = (t, estilo) => v(t).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .map(p => '<p style="' + estilo + '">' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  const fonte = "font-family:Arial,Helvetica,sans-serif;";
+  const pTxt = fonte + 'margin:0 0 14px;font-size:16px;line-height:1.55;color:#1a1a1a;';
+  const link = cdaLinkComUtm(k.botaoLink, campanha);
+  const descadastro = opts.linkDescadastro || '#descadastrar';
+  const assunto = v((campanha && campanha.emailAssunto) || '');
+  const previa = v((campanha && campanha.emailPrevia) || '');
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
+    '<body style="margin:0;padding:0;background:#f2efe9;">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">' + esc(previa) + '&#847;&zwnj;&nbsp;'.repeat(30) + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe9;"><tr><td align="center" style="padding:24px 12px;">' +
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;">' +
+      '<tr><td style="background:#1a1a1a;padding:14px 24px;' + fonte + 'font-size:13px;letter-spacing:3px;color:#ffffff;font-weight:bold;">CICLO DA ARTE</td></tr>' +
+      (k.imagemUrl ? '<tr><td><a href="' + esc(link || '#') + '"><img src="' + esc(k.imagemUrl) + '" width="600" alt="' + esc(v(k.imagemAlt || k.titulo || '')) + '" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>' : '') +
+      '<tr><td style="padding:28px 32px 8px;">' +
+        (k.titulo ? '<h1 style="' + fonte + 'margin:0 0 16px;font-size:24px;line-height:1.25;color:#1a1a1a;">' + esc(v(k.titulo)) + '</h1>' : '') +
+        (k.saudacao ? paragrafos(k.saudacao, pTxt) : '') +
+        (k.texto ? paragrafos(k.texto, pTxt) : '') +
+      '</td></tr>' +
+      (k.cupomCodigo ? '<tr><td align="center" style="padding:6px 32px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed #c0392b;"><tr><td align="center" style="padding:14px 28px;' + fonte + '">' +
+        '<div style="font-size:12px;letter-spacing:2px;color:#c0392b;font-weight:bold;">CUPOM</div>' +
+        '<div style="font-size:28px;letter-spacing:3px;color:#1a1a1a;font-weight:bold;">' + esc(k.cupomCodigo) + '</div>' +
+        (k.cupomTexto ? '<div style="font-size:14px;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)) + '</div>' : '') +
+        '</td></tr></table></td></tr>' : '') +
+      (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;"><a href="' + esc(link) + '" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;' + fonte + 'font-size:16px;font-weight:bold;padding:15px 30px;border-radius:4px;">' + esc(v(k.botaoTexto)) + '</a></td></tr>' : '') +
+      (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
+        (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
+        '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
+      '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
+        esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
+        '<br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
+    '</table></td></tr></table></body></html>';
+  const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
+    k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
+    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '', v(k.rodape),
+    'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
+  return { assunto: assunto, previa: previa, html: html, texto: texto };
+}
+
 // ── LISTA CONGELADA DA CAMPANHA (cda_campanha_destinatarios) ─────────
 // A "foto" do público no momento da confirmação. Congelar de novo substitui
 // a lista anterior desta campanha (inteira).
