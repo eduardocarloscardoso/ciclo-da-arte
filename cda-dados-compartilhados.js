@@ -957,6 +957,11 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
   const descadastro = opts.linkDescadastro || '#descadastrar';
   const assunto = v((campanha && campanha.emailAssunto) || '');
   const previa = v((campanha && campanha.emailPrevia) || '');
+  const sacEmail = String(k.sacEmail || '').trim();
+  const sacTel = String(k.sacTelefone || '').trim();
+  const linkSacEmail = sacEmail ? 'mailto:' + sacEmail + '?subject=' + encodeURIComponent(assunto || 'Contato') : '';
+  const digitosTel = sacTel.replace(/\D/g, '');
+  const linkWhats = digitosTel.length >= 10 ? 'https://wa.me/' + (digitosTel.length <= 11 ? '55' : '') + digitosTel : '';
   const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
     '<body style="margin:0;padding:0;background:#f2efe9;">' +
     '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">' + esc(previa) + '&#847;&zwnj;&nbsp;'.repeat(30) + '</div>' +
@@ -978,15 +983,83 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
       (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
         (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
         '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
+      // Fale Conosco · SAC (nov/2026): telefone/e-mail visíveis + botões que abrem o e-mail e o WhatsApp do cliente
+      (sacEmail || sacTel ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e1d8;"><tr><td align="center" style="padding:18px 20px;' + fonte + '">' +
+        '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:6px;">' + esc(v(k.sacTitulo || 'Fale Conosco · SAC')) + '</div>' +
+        '<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;">' +
+          (sacTel ? '📞 ' + esc(sacTel) : '') + (sacTel && sacEmail ? '<br>' : '') +
+          (sacEmail ? '✉ <a href="mailto:' + esc(sacEmail) + '" style="color:#333;">' + esc(sacEmail) + '</a>' : '') + '</div>' +
+        (sacEmail ? '<a href="' + esc(linkSacEmail) + '" style="display:inline-block;margin:4px;background:#1a1a1a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:4px;">✉ Enviar e-mail</a>' : '') +
+        (linkWhats ? '<a href="' + esc(linkWhats) + '" style="display:inline-block;margin:4px;background:#1f8a4c;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:4px;">💬 WhatsApp</a>' : '') +
+        '</td></tr></table></td></tr>' : '') +
       '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
         esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
         '<br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
     '</table></td></tr></table></body></html>';
   const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
     k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
-    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '', v(k.rodape),
+    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '',
+    (sacEmail || sacTel) ? v(k.sacTitulo || 'Fale Conosco · SAC') : '', sacTel ? 'Telefone/WhatsApp: ' + sacTel : '', sacEmail ? 'E-mail: ' + sacEmail : '', '', v(k.rodape),
     'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
   return { assunto: assunto, previa: previa, html: html, texto: texto };
+}
+
+// ── BIBLIOTECA DE MENSAGENS (cda_campanha_mensagens) — nov/2026 ───────
+// Cada mensagem pertence a uma campanha (uma campanha pode ter várias).
+// Remetente: só endereços do domínio verificado no Resend.
+const CDA_EMAIL_DOMINIOS_ENVIO = ['send.ciclodaarte.com.br'];
+const CDA_MENSAGEM_MAP = {
+  fromRow: r => ({
+    id: r.id, campanhaId: r.campanha_id, nome: r.nome || '',
+    remetenteNome: r.remetente_nome || '', remetenteEmail: r.remetente_email || '', responderPara: r.responder_para || '',
+    assunto: r.assunto || '', previa: r.previa || '', conteudo: r.conteudo && typeof r.conteudo === 'object' ? r.conteudo : {},
+    ultimoTesteEm: r.ultimo_teste_em, ultimoTestePara: r.ultimo_teste_para || '',
+    criadoEm: r.criado_em, criadoPor: r.criado_por, atualizadoEm: r.atualizado_em, atualizadoPor: r.atualizado_por
+  }),
+  toRow: o => {
+    const row = {
+      campanha_id: o.campanhaId ? Number(o.campanhaId) : null, nome: o.nome,
+      remetente_nome: o.remetenteNome || null, remetente_email: o.remetenteEmail || null, responder_para: o.responderPara || null,
+      assunto: o.assunto || null, previa: o.previa || null, conteudo: o.conteudo || {},
+      atualizado_em: new Date().toISOString(), atualizado_por: o.atualizadoPor || null
+    };
+    if (o.id) row.id = o.id; else row.criado_por = o.atualizadoPor || null;
+    return row;
+  }
+};
+async function cdaCarregarMensagens() {
+  const { data, error } = await cdaClient.from('cda_campanha_mensagens').select('*').order('atualizado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(CDA_MENSAGEM_MAP.fromRow);
+}
+async function cdaSalvarMensagem(o) {
+  const row = CDA_MENSAGEM_MAP.toRow(o);
+  const q = o.id ? cdaClient.from('cda_campanha_mensagens').update(row).eq('id', o.id) : cdaClient.from('cda_campanha_mensagens').insert(row);
+  const { data, error } = await q.select().single();
+  if (error) throw error;
+  return CDA_MENSAGEM_MAP.fromRow(data);
+}
+async function cdaExcluirMensagem(id) {
+  const { error } = await cdaClient.from('cda_campanha_mensagens').delete().eq('id', id);
+  if (error) throw error;
+}
+// Monta a mensagem no formato que cdaMontarEmailCampanha() entende
+function cdaMontarEmailMensagem(mensagem, campanha, cliente, opts) {
+  return cdaMontarEmailCampanha({ nome: (campanha && campanha.nome) || mensagem.nome, emailAssunto: mensagem.assunto, emailPrevia: mensagem.previa, emailConteudo: mensagem.conteudo }, cliente, opts);
+}
+// Envio de TESTE (Edge Function enviar-email-teste): até 3 endereços, só membros logados da equipe
+async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
+  const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
+  const { data, error } = await cdaClient.functions.invoke('enviar-email-teste', {
+    body: { mensagem_id: mensagem.id, para: para, assunto: email.assunto, html: email.html, texto: email.texto, usuario: (window.cu && window.cu.name) || null }
+  });
+  if (error) {
+    let detalhe = '';
+    try { const b = await error.context.json(); detalhe = b && b.erro; } catch (e) { /* sem corpo */ }
+    throw new Error(detalhe || error.message || 'Falha ao chamar o envio de teste');
+  }
+  if (!data || !data.ok) throw new Error((data && data.erro) || 'O envio de teste falhou');
+  return data;
 }
 
 // ── LISTA CONGELADA DA CAMPANHA (cda_campanha_destinatarios) ─────────
