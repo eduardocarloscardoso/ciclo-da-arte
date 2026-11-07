@@ -31,17 +31,70 @@ async function cdaMsgClientesDaCampanha(campanhaId) {
 }
 var CDA_MSG_CLIENTE_EXEMPLO = { nome: 'Maria Silva', cidade: 'São Paulo', estado: 'SP' };
 
+// Diálogo próprio: o Cancelar encerra a seleção sem disparar nenhum e-mail.
+function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
+  return new Promise(function (resolve) {
+    var overlay = document.createElement('div');
+    overlay.id = 'cda-msg-dialogo-teste';
+    overlay.setAttribute('role', 'presentation');
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.innerHTML =
+      '<div role="dialog" aria-modal="true" aria-labelledby="cda-msg-teste-titulo" style="background:#182235;color:#f5f3ee;border:1px solid #536078;border-radius:12px;padding:24px;width:min(100%,520px);box-shadow:0 16px 45px rgba(0,0,0,.5);font-family:inherit">' +
+        '<h3 id="cda-msg-teste-titulo" style="margin:0 0 12px;font-size:20px">Enviar e-mail de teste</h3>' +
+        '<p style="margin:0 0 14px;line-height:1.5">Mensagem: <b id="cda-msg-teste-nome"></b></p>' +
+        '<label for="cda-msg-teste-enderecos" style="display:block;margin:0 0 6px">Destinatários (até 3, separados por vírgula)</label>' +
+        '<input id="cda-msg-teste-enderecos" type="text" autocomplete="off" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #8e9ab0;border-radius:6px;background:#fff;color:#111;font-size:15px">' +
+        '<p id="cda-msg-teste-erro" role="alert" style="color:#ff9b9b;min-height:18px;font-size:12px;margin:6px 0 12px"></p>' +
+        '<div style="font-size:12px;line-height:1.6;margin-bottom:20px;color:#d2d9e3;overflow-wrap:anywhere">De: <span id="cda-msg-teste-remetente"></span><br><span id="cda-msg-teste-resposta"></span></div>' +
+        '<div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap">' +
+          '<button id="cda-msg-teste-cancelar" type="button" style="cursor:pointer;padding:11px 18px;border:1px solid #8e9ab0;border-radius:6px;background:#29364a;color:#fff;font-weight:600">Cancelar</button>' +
+          '<button id="cda-msg-teste-confirmar" type="button" style="cursor:pointer;padding:11px 18px;border:0;border-radius:6px;background:#d94835;color:#fff;font-weight:600">Enviar teste</button>' +
+        '</div>' +
+      '</div>';
+    document.body.appendChild(overlay);
+    var campo = overlay.querySelector('#cda-msg-teste-enderecos');
+    var erro = overlay.querySelector('#cda-msg-teste-erro');
+    var anterior = document.activeElement;
+    overlay.querySelector('#cda-msg-teste-nome').textContent = mensagem.nome || '';
+    overlay.querySelector('#cda-msg-teste-remetente').textContent = (mensagem.remetenteNome || '') + ' <' + (mensagem.remetenteEmail || '') + '>';
+    overlay.querySelector('#cda-msg-teste-resposta').textContent = mensagem.responderPara ? 'Respostas vão para: ' + mensagem.responderPara : 'Sem "Responder para"';
+    campo.value = padrao || '';
+    function finalizar(valor) {
+      document.removeEventListener('keydown', teclas, true);
+      overlay.remove();
+      if (anterior && anterior.isConnected && anterior.focus) anterior.focus();
+      resolve(valor);
+    }
+    function cancelar() { finalizar(null); }
+    function confirmar() {
+      var para = campo.value.split(/[,;\\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      if (!para.length) { erro.textContent = 'Informe ao menos um e-mail.'; campo.focus(); return; }
+      if (para.length > 3) { erro.textContent = 'No máximo 3 endereços por teste.'; campo.focus(); return; }
+      if (para.some(function (email) { return !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); })) {
+        erro.textContent = 'Confira os endereços de e-mail informados.'; campo.focus(); return;
+      }
+      finalizar(para);
+    }
+    function teclas(ev) {
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cancelar(); }
+      else if (ev.key === 'Enter' && document.activeElement === campo) { ev.preventDefault(); confirmar(); }
+    }
+    overlay.querySelector('#cda-msg-teste-cancelar').addEventListener('click', cancelar);
+    overlay.querySelector('#cda-msg-teste-confirmar').addEventListener('click', confirmar);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) cancelar(); });
+    document.addEventListener('keydown', teclas, true);
+    campo.focus();
+    campo.select();
+  });
+}
+
 // Pergunta os endereços e envia o teste. Retorna a mensagem atualizada (último teste) ou null.
 // O botão (opcional) só muda para "Enviando..." DEPOIS da confirmação e sempre volta ao normal.
 async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao) {
   if (!mensagem || !mensagem.id) { alert('Salve a mensagem antes de enviar o teste.'); return null; }
   var padrao = (window.cu && window.cu.email) || '';
-  var resp = prompt('Enviar TESTE de "' + mensagem.nome + '" para quais e-mails?\n(até 3, separados por vírgula)\n\nDe: ' + (mensagem.remetenteNome || '') + ' <' + mensagem.remetenteEmail + '>' +
-    (mensagem.responderPara ? '\nRespostas vão para: ' + mensagem.responderPara : '\nSem "Responder para"'), padrao);
-  if (resp == null) return null;
-  var para = resp.split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
-  if (!para.length) { alert('Informe ao menos um e-mail.'); return null; }
-  if (para.length > 3) { alert('No máximo 3 endereços por teste.'); return null; }
+  var para = await cdaMsgSolicitarDestinatarios(mensagem, padrao);
+  if (para === null) return null; // Cancelar: não envia, não altera a mensagem.
   var textoBotao = botao ? botao.textContent : '';
   if (botao) { botao.textContent = 'Enviando...'; botao.disabled = true; }
   try {
