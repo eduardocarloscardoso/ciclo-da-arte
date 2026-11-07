@@ -81,6 +81,10 @@ async function montarModuloCampanhas(containerId, opts) {
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
       (editavel ? '<button class="btn rust" id="camp-btn-nova">＋ Nova Campanha</button>' : '') +
     '</div>' +
+    '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">' +
+      '<label for="camp-f-campanha" style="font-size:12px;font-weight:600">Selecionar campanha</label>' +
+      '<select id="camp-f-campanha" aria-label="Filtrar campanhas" style="min-width:270px;max-width:100%;padding:7px"><option value="">Todas as campanhas</option></select>' +
+    '</div>' +
     '<div id="camp-lista"></div>' +
 
     '<div class="mo" id="camp-modal">' +
@@ -236,10 +240,20 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>';
   }
 
+  var filtroCampanha = host.querySelector('#camp-f-campanha');
+  filtroCampanha.addEventListener('change', render);
+
   function render() {
     var box = host.querySelector('#camp-lista');
+    var anterior = filtroCampanha.value;
+    filtroCampanha.innerHTML = '<option value="">Todas as campanhas</option>' +
+      ST.campanhas.map(function (c) { return '<option value="' + escH(c.id) + '">' + escH(c.nome) + '</option>'; }).join('');
+    if (anterior && ST.campanhas.some(function (c) { return String(c.id) === anterior; })) {
+      filtroCampanha.value = anterior;
+    }
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
-    box.innerHTML = ST.campanhas.map(function (c) {
+    var visiveis = ST.campanhas.filter(function (c) { return !filtroCampanha.value || String(c.id) === filtroCampanha.value; });
+    box.innerHTML = visiveis.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
       var filtrosC = filtrosDaCampanha(c);
       var qtdPublico = filtrosC ? publicoDe(filtrosC).length : null;
