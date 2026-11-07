@@ -473,7 +473,7 @@ async function montarModuloCampanhas(containerId, opts) {
     if (b.dataset.msgEditar) { abrirEditorMensagem(m); return; }
     var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(m.campanhaId); });
     var clientes = await cdaMsgClientesDaCampanha(m.campanhaId);
-    if (await cdaMsgPerguntarEEnviarTeste(m, campanha, clientes[0])) renderMensagensDaCampanha();
+    if (await cdaMsgPerguntarEEnviarTeste(m, campanha, clientes[0], b)) renderMensagensDaCampanha();
   });
 
   function abrirModal(id, duplicar) {

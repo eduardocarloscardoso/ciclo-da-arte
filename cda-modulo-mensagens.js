@@ -32,7 +32,8 @@ async function cdaMsgClientesDaCampanha(campanhaId) {
 var CDA_MSG_CLIENTE_EXEMPLO = { nome: 'Maria Silva', cidade: 'São Paulo', estado: 'SP' };
 
 // Pergunta os endereços e envia o teste. Retorna a mensagem atualizada (último teste) ou null.
-async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente) {
+// O botão (opcional) só muda para "Enviando..." DEPOIS da confirmação e sempre volta ao normal.
+async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao) {
   if (!mensagem || !mensagem.id) { alert('Salve a mensagem antes de enviar o teste.'); return null; }
   var padrao = (window.cu && window.cu.email) || '';
   var resp = prompt('Enviar TESTE de "' + mensagem.nome + '" para quais e-mails?\n(até 3, separados por vírgula)\n\nDe: ' + (mensagem.remetenteNome || '') + ' <' + mensagem.remetenteEmail + '>' +
@@ -41,16 +42,23 @@ async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente) {
   var para = resp.split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
   if (!para.length) { alert('Informe ao menos um e-mail.'); return null; }
   if (para.length > 3) { alert('No máximo 3 endereços por teste.'); return null; }
+  var textoBotao = botao ? botao.textContent : '';
+  if (botao) { botao.textContent = 'Enviando...'; botao.disabled = true; }
   try {
-    await cdaEnviarTesteMensagem(mensagem, campanha, cliente || CDA_MSG_CLIENTE_EXEMPLO, para);
-    alert('✅ Teste enviado para: ' + para.join(', ') + '\n\nO assunto chega com "[TESTE]" na frente. Confira também a caixa de spam.');
+    var limite = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('O envio demorou mais de 30 segundos. Confira em alguns minutos na tela Emails do Resend se ele saiu.')); }, 30000); });
+    await Promise.race([cdaEnviarTesteMensagem(mensagem, campanha, cliente || CDA_MSG_CLIENTE_EXEMPLO, para), limite]);
     mensagem.ultimoTesteEm = new Date().toISOString();
     mensagem.ultimoTestePara = para.join(', ');
+    if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
+    alert('✅ Teste enviado para: ' + para.join(', ') + '\n\nO assunto chega com "[TESTE]" na frente. Confira também a caixa de spam.');
     return mensagem;
   } catch (err) {
     console.error(err);
+    if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
     alert('❌ O teste não foi enviado:\n' + ((err && err.message) || 'Erro desconhecido'));
     return null;
+  } finally {
+    if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
   }
 }
 
@@ -213,7 +221,7 @@ var cdaEditorMensagem = (function () {
     q('#msg-titulo-modal').textContent = 'Editar mensagem';
     if (ctx.onSalvo) ctx.onSalvo(salva);
     if (enviarTeste) {
-      var atual = await cdaMsgPerguntarEEnviarTeste(salva, campanhaAtual(), clienteAtual());
+      var atual = await cdaMsgPerguntarEEnviarTeste(salva, campanhaAtual(), clienteAtual(), q('#msg-teste'));
       if (atual) { mostrarUltimoTeste(atual); if (ctx.onSalvo) ctx.onSalvo(atual); }
       return; // fica aberto para ajustes depois do teste
     }
@@ -343,10 +351,8 @@ async function montarModuloMensagens(containerId, opts) {
     else if (b.dataset.duplicar) abrirEditor(porId(b.dataset.duplicar), true);
     else if (b.dataset.teste) {
       var m2 = porId(b.dataset.teste);
-      var txt = b.textContent; b.textContent = 'Enviando...'; b.disabled = true;
       var c2 = await cdaMsgClientesDaCampanha(m2.campanhaId);
-      var atual = await cdaMsgPerguntarEEnviarTeste(m2, campanhaPorId[m2.campanhaId], c2[0]);
-      b.textContent = txt; b.disabled = false;
+      var atual = await cdaMsgPerguntarEEnviarTeste(m2, campanhaPorId[m2.campanhaId], c2[0], b);
       if (atual) render();
     } else if (b.dataset.excluir) {
       var m3 = porId(b.dataset.excluir);
