@@ -115,10 +115,40 @@ async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao) {
   }
 }
 
-function cdaMsgAbrirEmNovaAba(mensagem, campanha, cliente) {
+// A prévia é a única superfície que recebe "Enviar teste" ao lado do WhatsApp.
+// Não modifica o HTML enviado pelo Resend para clientes.
+function cdaMsgAbrirEmNovaAba(mensagem, campanha, cliente, aoTestar) {
   var email = cdaMontarEmailMensagem(mensagem, campanha, cliente || CDA_MSG_CLIENTE_EXEMPLO, {});
   var url = URL.createObjectURL(new Blob([email.html], { type: 'text/html' }));
-  window.open(url, '_blank');
+  var aba = window.open(url, '_blank');
+  if (aba) {
+    aba.addEventListener('load', function () {
+      try {
+        var doc = aba.document;
+        var whats = doc.querySelector('a[href^="https://wa.me/"]');
+        var contato = doc.querySelector('a[href^="mailto:"]');
+        var ancora = (whats || contato);
+        var tabela = ancora && ancora.closest('table[role="presentation"]');
+        if (!tabela) return;
+        var extra = doc.createElement('table');
+        extra.setAttribute('role', 'presentation');
+        extra.setAttribute('cellpadding', '0');
+        extra.setAttribute('cellspacing', '0');
+        extra.style.cssText = 'display:inline-table;margin:4px;';
+        extra.innerHTML =
+          '<tr><td style="background:#c0392b;border-radius:4px;">' +
+            '<button type="button" title="Enviar somente para os endereços de teste" style="border:0;background:#c0392b;color:#ffffff;border-radius:4px;padding:11px 20px;font:700 14px Arial,Helvetica,sans-serif;cursor:pointer;">✉ Enviar teste</button>' +
+          '</td></tr>';
+        tabela.insertAdjacentElement('afterend', extra);
+        extra.querySelector('button').addEventListener('click', async function () {
+          // O diálogo dos destinatários abre no sistema, onde a sessão autenticada está ativa.
+          if (window.closed) return;
+          var resultado = await cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, this);
+          if (resultado && typeof aoTestar === 'function') aoTestar(resultado);
+        });
+      } catch (err) { console.error('Prévia: não foi possível inserir Enviar teste:', err); }
+    }, { once: true });
+  }
   setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
 }
 
@@ -381,7 +411,6 @@ async function montarModuloMensagens(containerId, opts) {
           '<button class="btn sm" data-abrir="' + m.id + '" title="Abrir o e-mail em outra aba">👁 Abrir</button>' +
           '<button class="btn sm" data-editar="' + m.id + '">' + (editavel ? '✏ Editar' : '🔍 Ver') + '</button>' +
           (editavel ? '<button class="btn sm" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
-            '<button class="btn sm rust" data-teste="' + m.id + '">✉ Enviar teste</button>' +
             '<button class="btn sm" data-excluir="' + m.id + '">🗑</button>' : '') +
         '</div></td></tr>';
     }).join('');
@@ -399,15 +428,10 @@ async function montarModuloMensagens(containerId, opts) {
 
   host.querySelector('#msg-tb').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.abrir) { var m1 = porId(b.dataset.abrir); var c1 = await cdaMsgClientesDaCampanha(m1.campanhaId); cdaMsgAbrirEmNovaAba(m1, campanhaPorId[m1.campanhaId], c1[0]); }
+    if (b.dataset.abrir) { var m1 = porId(b.dataset.abrir); var c1 = await cdaMsgClientesDaCampanha(m1.campanhaId); cdaMsgAbrirEmNovaAba(m1, campanhaPorId[m1.campanhaId], c1[0], render); }
     else if (b.dataset.editar) abrirEditor(porId(b.dataset.editar), false);
     else if (b.dataset.duplicar) abrirEditor(porId(b.dataset.duplicar), true);
-    else if (b.dataset.teste) {
-      var m2 = porId(b.dataset.teste);
-      var c2 = await cdaMsgClientesDaCampanha(m2.campanhaId);
-      var atual = await cdaMsgPerguntarEEnviarTeste(m2, campanhaPorId[m2.campanhaId], c2[0], b);
-      if (atual) render();
-    } else if (b.dataset.excluir) {
+    else if (b.dataset.excluir) {
       var m3 = porId(b.dataset.excluir);
       if (!confirm('Excluir a mensagem "' + m3.nome + '"?')) return;
       try { await cdaExcluirMensagem(m3.id); aoExcluir(m3.id); }
