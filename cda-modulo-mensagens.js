@@ -32,9 +32,10 @@ async function cdaMsgClientesDaCampanha(campanhaId) {
 var CDA_MSG_CLIENTE_EXEMPLO = { nome: 'Maria Silva', cidade: 'São Paulo', estado: 'SP' };
 
 // Diálogo próprio: o Cancelar encerra a seleção sem disparar nenhum e-mail.
-function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
+function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
   return new Promise(function (resolve) {
-    var overlay = document.createElement('div');
+    var doc = janela && !janela.closed ? janela.document : document;
+    var overlay = doc.createElement('div');
     overlay.id = 'cda-msg-dialogo-teste';
     overlay.setAttribute('role', 'presentation');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
@@ -51,16 +52,16 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
           '<button id="cda-msg-teste-confirmar" type="button" style="cursor:pointer;padding:11px 18px;border:0;border-radius:6px;background:#d94835;color:#fff;font-weight:600">Enviar teste</button>' +
         '</div>' +
       '</div>';
-    document.body.appendChild(overlay);
+    doc.body.appendChild(overlay);
     var campo = overlay.querySelector('#cda-msg-teste-enderecos');
     var erro = overlay.querySelector('#cda-msg-teste-erro');
-    var anterior = document.activeElement;
+    var anterior = doc.activeElement;
     overlay.querySelector('#cda-msg-teste-nome').textContent = mensagem.nome || '';
     overlay.querySelector('#cda-msg-teste-remetente').textContent = (mensagem.remetenteNome || '') + ' <' + (mensagem.remetenteEmail || '') + '>';
     overlay.querySelector('#cda-msg-teste-resposta').textContent = mensagem.responderPara ? 'Respostas vão para: ' + mensagem.responderPara : 'Sem "Responder para"';
     campo.value = padrao || '';
     function finalizar(valor) {
-      document.removeEventListener('keydown', teclas, true);
+      doc.removeEventListener('keydown', teclas, true);
       overlay.remove();
       if (anterior && anterior.isConnected && anterior.focus) anterior.focus();
       resolve(valor);
@@ -77,12 +78,12 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
     }
     function teclas(ev) {
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cancelar(); }
-      else if (ev.key === 'Enter' && document.activeElement === campo) { ev.preventDefault(); confirmar(); }
+      else if (ev.key === 'Enter' && doc.activeElement === campo) { ev.preventDefault(); confirmar(); }
     }
     overlay.querySelector('#cda-msg-teste-cancelar').addEventListener('click', cancelar);
     overlay.querySelector('#cda-msg-teste-confirmar').addEventListener('click', confirmar);
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) cancelar(); });
-    document.addEventListener('keydown', teclas, true);
+    doc.addEventListener('keydown', teclas, true);
     campo.focus();
     campo.select();
   });
@@ -90,10 +91,10 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
 
 // Pergunta os endereços e envia o teste. Retorna a mensagem atualizada (último teste) ou null.
 // O botão (opcional) só muda para "Enviando..." DEPOIS da confirmação e sempre volta ao normal.
-async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao) {
+async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao, janela) {
   if (!mensagem || !mensagem.id) { alert('Salve a mensagem antes de enviar o teste.'); return null; }
   var padrao = (window.cu && window.cu.email) || '';
-  var para = await cdaMsgSolicitarDestinatarios(mensagem, padrao);
+  var para = await cdaMsgSolicitarDestinatarios(mensagem, padrao, janela);
   if (para === null) return null; // Cancelar: não envia, não altera a mensagem.
   var textoBotao = botao ? botao.textContent : '';
   if (botao) { botao.textContent = 'Enviando...'; botao.disabled = true; }
@@ -143,7 +144,7 @@ function cdaMsgAbrirEmNovaAba(mensagem, campanha, cliente, aoTestar) {
         extra.querySelector('button').addEventListener('click', async function () {
           // O diálogo dos destinatários abre no sistema, onde a sessão autenticada está ativa.
           if (window.closed) return;
-          var resultado = await cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, this);
+          var resultado = await cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, this, aba);
           if (resultado && typeof aoTestar === 'function') aoTestar(resultado);
         });
       } catch (err) { console.error('Prévia: não foi possível inserir Enviar teste:', err); }
