@@ -962,7 +962,7 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
   const linkSacEmail = sacEmail ? 'mailto:' + sacEmail : '';
   // Botão "à prova de Outlook": cor de fundo na célula (bgcolor) e cor do texto repetida no <span>
   const botao = (href, texto, cor, tam, pad) => '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:4px;"><tr><td bgcolor="' + cor + '" style="background:' + cor + ';border-radius:4px;mso-padding-alt:' + pad + ';">' +
-    '<a href="' + esc(href) + '" target="_blank" style="display:inline-block;padding:' + pad + ';' + fonte + 'font-size:' + tam + 'px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;"><span style="color:#ffffff;">' + texto + '</span></a></td></tr></table>';
+    '<a href="' + esc(href) + '"' + (String(href).indexOf('mailto:') === 0 ? '' : ' target="_blank"') + ' style="display:inline-block;padding:' + pad + ';' + fonte + 'font-size:' + tam + 'px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;"><span style="color:#ffffff;">' + texto + '</span></a></td></tr></table>';
   const digitosTel = sacTel.replace(/\D/g, '');
   const linkWhats = digitosTel.length >= 10 ? 'https://wa.me/' + (digitosTel.length <= 11 ? '55' : '') + digitosTel : '';
   const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
