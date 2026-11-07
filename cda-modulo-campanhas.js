@@ -85,6 +85,7 @@ async function montarModuloCampanhas(containerId, opts) {
       '<label for="camp-f-campanha" style="font-size:12px;font-weight:600">Selecionar campanha</label>' +
       '<select id="camp-f-campanha" aria-label="Filtrar campanhas" style="min-width:270px;max-width:100%;padding:7px"><option value="">Todas as campanhas</option></select>' +
     '</div>' +
+    '<div id="camp-carregamento-aviso" role="status" style="font-size:12px;margin:6px 0;color:var(--muted,#777)"></div>' +
     '<div id="camp-lista"></div>' +
 
     '<div class="mo" id="camp-modal">' +
@@ -139,13 +140,62 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>' +
     '</div>';
 
+  // Consultas auxiliares não podem impedir o carregamento das Campanhas.
+  // Cada consulta tem limite de espera e falhas são informadas sem apagar campanhas.
+  var campAviso = host.querySelector('#camp-carregamento-aviso');
+  campAviso.textContent = 'Carregando campanhas...';
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais(), cdaCarregarHierarquiaReceita(), cdaCarregarResumoListas().catch(function () { return {}; }), cdaCarregarProdutos(), cdaCarregarMensagens().catch(function () { return []; })]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7]; ST.hierarquia = res[8] || []; ST.listas = res[9] || {}; ST.produtos = res[10] || []; ST.mensagens = res[11] || [];
+    var carregamentos = [
+      ['Campanhas', cdaCarregarCampanhas],
+      ['Segmentação', cdaCarregarSegmentos],
+      ['Clientes', cdaCarregarClientes],
+      ['Compras', cdaCarregarCompras],
+      ['Status CRM', cdaCarregarStatusCrm],
+      ['Pipeline', cdaCarregarLeadsB2C],
+      ['Equipe', cdaCarregarEquipe],
+      ['Canais', cdaCarregarCanais],
+      ['Hierarquia de receitas', cdaCarregarHierarquiaReceita],
+      ['Listas congeladas', cdaCarregarResumoListas],
+      ['Produtos', cdaCarregarProdutos],
+      ['Mensagens', cdaCarregarMensagens]
+    ];
+    var resultados = await Promise.all(carregamentos.map(function (item) {
+      return Promise.race([
+        Promise.resolve().then(item[1]),
+        new Promise(function (_, rejeitar) {
+          setTimeout(function () { rejeitar(new Error('Tempo limite de carregamento')); }, 15000);
+        })
+      ]).then(function (dados) { return { ok: true, dados: dados }; },
+        function (erro) { return { ok: false, erro: erro }; });
+    }));
+    if (!resultados[0].ok) throw resultados[0].erro;
+    ST.campanhas = resultados[0].dados || [];
+    ST.segmentos = resultados[1].ok ? (resultados[1].dados || []) : [];
+    ST.clientes = resultados[2].ok ? (resultados[2].dados || []) : [];
+    ST.compras = resultados[3].ok ? (resultados[3].dados || []) : [];
+    ST.statusCrm = resultados[4].ok ? (resultados[4].dados || []) : [];
+    ST.leads = resultados[5].ok ? (resultados[5].dados || []) : [];
+    ST.equipe = resultados[6].ok ? (resultados[6].dados || []) : [];
+    ST.canais = resultados[7].ok ? (resultados[7].dados || []) : [];
+    ST.hierarquia = resultados[8].ok ? (resultados[8].dados || []) : [];
+    ST.listas = resultados[9].ok ? (resultados[9].dados || {}) : {};
+    ST.produtos = resultados[10].ok ? (resultados[10].dados || []) : [];
+    ST.mensagens = resultados[11].ok ? (resultados[11].dados || []) : [];
+    var falhas = carregamentos.filter(function (item, i) { return i !== 0 && !resultados[i].ok; })
+      .map(function (item) { return item[0]; });
+    if (falhas.length) {
+      campAviso.style.color = 'var(--rust,#c0392b)';
+      campAviso.textContent = 'Atenção: dados auxiliares indisponíveis (' + falhas.join(', ') +
+        '). As campanhas continuam cadastradas; alguns indicadores podem estar incompletos. Recarregue a tela para tentar novamente.';
+    } else {
+      campAviso.textContent = '';
+    }
   } catch (err) {
-    console.error(err);
+    console.error('Erro ao carregar Campanhas:', err);
+    campAviso.style.color = 'var(--rust,#c0392b)';
+    campAviso.textContent = 'Falha ao carregar campanhas. Tente recarregar a tela.';
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
-    host.querySelector('#camp-lista').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>' + msg + '</b></p>';
+    host.querySelector('#camp-lista').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase: <b>' + msg + '</b></p>';
     return;
   }
 
