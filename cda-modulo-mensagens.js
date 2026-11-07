@@ -429,7 +429,25 @@ async function montarModuloMensagens(containerId, opts) {
 
   host.querySelector('#msg-tb').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
-    if (b.dataset.abrir) { var m1 = porId(b.dataset.abrir); var c1 = await cdaMsgClientesDaCampanha(m1.campanhaId); cdaMsgAbrirEmNovaAba(m1, campanhaPorId[m1.campanhaId], c1[0], render); }
+    if (b.dataset.abrir) {
+      var m1 = porId(b.dataset.abrir);
+      // A Biblioteca pode ter ficado aberta enquanto a imagem foi salva em outra tela.
+      // Reconsulta a mensagem antes de gerar a prévia, para usar a foto mais recente.
+      try {
+        var atualizadas = await cdaCarregarMensagens();
+        var recente = atualizadas.find(function (m) { return String(m.id) === String(b.dataset.abrir); });
+        if (recente) {
+          m1 = recente;
+          var pos = ST.mensagens.findIndex(function (m) { return String(m.id) === String(recente.id); });
+          if (pos >= 0) ST.mensagens[pos] = recente;
+        }
+      } catch (err) {
+        console.error('Não foi possível atualizar a mensagem antes de Abrir:', err);
+      }
+      if (!m1) return;
+      var c1 = await cdaMsgClientesDaCampanha(m1.campanhaId);
+      cdaMsgAbrirEmNovaAba(m1, campanhaPorId[m1.campanhaId], c1[0], render);
+    }
     else if (b.dataset.editar) abrirEditor(porId(b.dataset.editar), false);
     else if (b.dataset.duplicar) abrirEditor(porId(b.dataset.duplicar), true);
     else if (b.dataset.excluir) {
