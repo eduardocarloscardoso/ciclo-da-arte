@@ -67,10 +67,10 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao) {
     }
     function cancelar() { finalizar(null); }
     function confirmar() {
-      var para = campo.value.split(/[,;\\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      var para = campo.value.split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
       if (!para.length) { erro.textContent = 'Informe ao menos um e-mail.'; campo.focus(); return; }
       if (para.length > 3) { erro.textContent = 'No máximo 3 endereços por teste.'; campo.focus(); return; }
-      if (para.some(function (email) { return !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email); })) {
+      if (para.some(function (email) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); })) {
         erro.textContent = 'Confira os endereços de e-mail informados.'; campo.focus(); return;
       }
       finalizar(para);
