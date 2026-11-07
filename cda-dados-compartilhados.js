@@ -959,7 +959,10 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
   const previa = v((campanha && campanha.emailPrevia) || '');
   const sacEmail = String(k.sacEmail || '').trim();
   const sacTel = String(k.sacTelefone || '').trim();
-  const linkSacEmail = sacEmail ? 'mailto:' + sacEmail + '?subject=' + encodeURIComponent(assunto || 'Contato') : '';
+  const linkSacEmail = sacEmail ? 'mailto:' + sacEmail : '';
+  // Botão "à prova de Outlook": cor de fundo na célula (bgcolor) e cor do texto repetida no <span>
+  const botao = (href, texto, cor, tam, pad) => '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:4px;"><tr><td bgcolor="' + cor + '" style="background:' + cor + ';border-radius:4px;mso-padding-alt:' + pad + ';">' +
+    '<a href="' + esc(href) + '" target="_blank" style="display:inline-block;padding:' + pad + ';' + fonte + 'font-size:' + tam + 'px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;"><span style="color:#ffffff;">' + texto + '</span></a></td></tr></table>';
   const digitosTel = sacTel.replace(/\D/g, '');
   const linkWhats = digitosTel.length >= 10 ? 'https://wa.me/' + (digitosTel.length <= 11 ? '55' : '') + digitosTel : '';
   const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
@@ -979,7 +982,7 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '<div style="font-size:28px;letter-spacing:3px;color:#1a1a1a;font-weight:bold;">' + esc(k.cupomCodigo) + '</div>' +
         (k.cupomTexto ? '<div style="font-size:14px;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)) + '</div>' : '') +
         '</td></tr></table></td></tr>' : '') +
-      (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;"><a href="' + esc(link) + '" style="display:inline-block;background:#c0392b;color:#ffffff;text-decoration:none;' + fonte + 'font-size:16px;font-weight:bold;padding:15px 30px;border-radius:4px;">' + esc(v(k.botaoTexto)) + '</a></td></tr>' : '') +
+      (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;">' + botao(link, esc(v(k.botaoTexto)), '#c0392b', 16, '15px 30px') + '</td></tr>' : '') +
       (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
         (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
         '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
@@ -989,8 +992,8 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;">' +
           (sacTel ? '📞 ' + esc(sacTel) : '') + (sacTel && sacEmail ? '<br>' : '') +
           (sacEmail ? '✉ <a href="mailto:' + esc(sacEmail) + '" style="color:#333;">' + esc(sacEmail) + '</a>' : '') + '</div>' +
-        (sacEmail ? '<a href="' + esc(linkSacEmail) + '" style="display:inline-block;margin:4px;background:#1a1a1a;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:4px;">✉ Enviar e-mail</a>' : '') +
-        (linkWhats ? '<a href="' + esc(linkWhats) + '" style="display:inline-block;margin:4px;background:#1f8a4c;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;padding:11px 20px;border-radius:4px;">💬 WhatsApp</a>' : '') +
+        (sacEmail ? botao(linkSacEmail, '✉ Enviar e-mail', '#2f6fb3', 14, '11px 20px') : '') +
+        (linkWhats ? botao(linkWhats, '💬 WhatsApp', '#1f8a4c', 14, '11px 20px') : '') +
         '</td></tr></table></td></tr>' : '') +
       '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
         esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
