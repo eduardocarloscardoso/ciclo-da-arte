@@ -87,6 +87,25 @@ async function montarModuloCampanhas(containerId, opts) {
     '</div>' +
     '<div id="camp-carregamento-aviso" role="status" style="font-size:12px;margin:6px 0;color:var(--muted,#777)"></div>' +
     '<div id="camp-lista"></div>' +
+    '<div class="mo" id="camp-preparo-modal">' +
+      '<div class="mo-box" style="max-width:min(1050px,96vw)">' +
+        '<div class="mo-h"><h3>✉ Preparar Envio · somente conferência</h3><button type="button" class="mo-x" id="camp-preparo-fechar">✕</button></div>' +
+        '<div class="mo-b">' +
+          '<p id="camp-preparo-campanha" style="font-weight:700"></p>' +
+          '<div class="fgr"><label for="camp-preparo-msg">Mensagem da Biblioteca</label><select id="camp-preparo-msg"></select></div>' +
+          '<div id="camp-preparo-estado" role="status" style="margin:10px 0;font-size:12px"></div>' +
+          '<div id="camp-preparo-resumo" style="margin:12px 0"></div>' +
+          '<div id="camp-preparo-listagem" style="margin:10px 0"></div>' +
+          '<div class="fgr"><label>Pré-visualização da mensagem selecionada</label>' +
+            '<iframe id="camp-preparo-previa" title="Pré-visualização do e-mail" sandbox="allow-popups" style="height:430px;width:100%;background:#fff;border:1px solid #aaa"></iframe></div>' +
+          '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
+            '<b>Envio indisponível nesta etapa.</b> A contagem de endereços é preliminar. ' +
+            'Consentimento, descadastros e bloqueios ainda deverão ser verificados antes de qualquer disparo real.</p>' +
+        '</div>' +
+        '<div class="mo-f"><button type="button" class="btn" id="camp-preparo-voltar">Fechar preparação</button>' +
+          '<button type="button" class="btn rust" disabled title="Aguardando homologação e regras de envio">Enviar campanha · indisponível</button></div>' +
+      '</div>' +
+    '</div>' +
 
     '<div class="mo" id="camp-modal">' +
       '<div class="mo-box">' +
@@ -330,6 +349,7 @@ async function montarModuloCampanhas(containerId, opts) {
         (editavel ?
         '<div class="camp-acoes">' +
           '<button class="btn sm rust" data-congelar="' + c.id + '">🧊 ' + (lista ? 'Recongelar lista' : 'Congelar lista') + '</button>' +
+          '<button class="btn sm" data-preparar="' + c.id + '">✉ Preparar Envio</button>' +
           '<button class="btn sm" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
           '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
           '<button class="btn sm" data-gerar-roadmap="' + c.id + '">🗺 Gerar Roadmap de Tarefas</button>' +
@@ -343,10 +363,105 @@ async function montarModuloCampanhas(containerId, opts) {
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
     box.querySelectorAll('[data-duplicar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.duplicar, true); }); });
     box.querySelectorAll('[data-congelar]').forEach(function (btn) { btn.addEventListener('click', function () { congelarLista(btn.dataset.congelar, btn); }); });
+    box.querySelectorAll('[data-preparar]').forEach(function (btn) { btn.addEventListener('click', function () { prepararEnvio(btn.dataset.preparar); }); });
     box.querySelectorAll('[data-add-publico]').forEach(function (btn) { btn.addEventListener('click', function () { adicionarPublico(btn.dataset.addPublico, btn); }); });
     box.querySelectorAll('[data-gerar-msg]').forEach(function (btn) { btn.addEventListener('click', function () { gerarMensagensCampanha(btn.dataset.gerarMsg, btn); }); });
     box.querySelectorAll('[data-gerar-roadmap]').forEach(function (btn) { btn.addEventListener('click', function () { gerarRoadmapTarefas(btn.dataset.gerarRoadmap, btn); }); });
     } // fim if (editavel)
+  }
+
+  // Preparação de e-mail: somente leitura. Não chama Edge Function de disparo.
+  var modalPreparo = host.querySelector('#camp-preparo-modal');
+  var preparoSelecionada = null;
+  var preparoElegiveis = [];
+  var preparoMensagens = [];
+  var preparoCampanha = null;
+  var preparoResumo = host.querySelector('#camp-preparo-resumo');
+  var preparoListagem = host.querySelector('#camp-preparo-listagem');
+  var preparoEstado = host.querySelector('#camp-preparo-estado');
+  var preparoMsg = host.querySelector('#camp-preparo-msg');
+  var preparoPagina = 0;
+  function fecharPreparo() { modalPreparo.classList.remove('op'); host.querySelector('#camp-preparo-previa').srcdoc = ''; }
+  host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
+  host.querySelector('#camp-preparo-voltar').addEventListener('click', fecharPreparo);
+
+  function apresentarPreparo() {
+    if (!preparoSelecionada) return;
+    var email = preparoSelecionada.email || '';
+    var info = preparoSelecionada.info || '';
+    preparoResumo.innerHTML = '<div class="camp-grid">' +
+      '<div><div class="l">Lista congelada</div><b>' + preparoSelecionada.total.toLocaleString('pt-BR') + '</b> cliente(s)</div>' +
+      '<div><div class="l">E-mails válidos e únicos</div><b>' + preparoSelecionada.aptos.toLocaleString('pt-BR') + '</b> (pré-seleção)</div>' +
+      '<div><div class="l">Sem e-mail / inválidos</div><b>' + preparoSelecionada.invalidos.toLocaleString('pt-BR') + '</b></div>' +
+      '<div><div class="l">Duplicidades de e-mail</div><b>' + preparoSelecionada.duplicados.toLocaleString('pt-BR') + '</b></div>' +
+      '<div><div class="l">Congelada em</div>' + escH(fmtDataHora(preparoSelecionada.data)) + '</div></div>' +
+      '<p style="font-size:11px;color:var(--muted,#777)">Endereços válidos e únicos NÃO significam autorização para envio. Os bloqueios e descadastros ainda não estão integrados.</p>';
+    var inicio = preparoPagina * 25, pagina = preparoElegiveis.slice(inicio, inicio + 25);
+    preparoListagem.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">' +
+      '<b>Destinatários pré-selecionados · ' + preparoElegiveis.length.toLocaleString('pt-BR') + '</b>' +
+      '<span>Página ' + (preparoPagina + 1) + ' de ' + Math.max(1,Math.ceil(preparoElegiveis.length/25)) +
+      ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
+      ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= preparoElegiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
+      '<div style="max-height:270px;overflow:auto"><table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th></tr></thead><tbody>' +
+      pagina.map(function (d) { return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) + '</td></tr>'; }).join('') +
+      '</tbody></table></div>';
+    host.querySelector('#camp-preparo-anterior').addEventListener('click', function () { if(preparoPagina>0){preparoPagina--;apresentarPreparo();} });
+    host.querySelector('#camp-preparo-proximo').addEventListener('click', function () { if((preparoPagina+1)*25<preparoElegiveis.length){preparoPagina++;apresentarPreparo();} });
+  }
+  function atualizarPreviaPreparo() {
+    var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
+    var frame = host.querySelector('#camp-preparo-previa');
+    if (!msg) { frame.srcdoc = ''; return; }
+    try {
+      var exemplo = preparoElegiveis[0] || {nome:'Cliente',email:''};
+      var email = cdaMontarEmailMensagem(msg, preparoCampanha, exemplo, {});
+      frame.srcdoc = email.html;
+    } catch (err) {
+      console.error('Prévia da preparação:',err);
+      frame.srcdoc = '';
+      preparoEstado.textContent = 'A prévia não pôde ser gerada: ' + (err.message || 'erro desconhecido');
+    }
+  }
+  preparoMsg.addEventListener('change', atualizarPreviaPreparo);
+
+  async function prepararEnvio(campanhaId) {
+    preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
+    if (!preparoCampanha) return;
+    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoPagina = 0;
+    preparoResumo.innerHTML = ''; preparoListagem.innerHTML = '';
+    preparoMsg.innerHTML = '<option value="">Carregando...</option>';
+    host.querySelector('#camp-preparo-previa').srcdoc = '';
+    host.querySelector('#camp-preparo-campanha').textContent = preparoCampanha.nome;
+    preparoEstado.textContent = 'Consultando lista congelada e mensagens...';
+    modalPreparo.classList.add('op');
+    try {
+      var consultas = await Promise.all([cdaCarregarListaCongelada(campanhaId), cdaCarregarMensagens()]);
+      if (!modalPreparo.classList.contains('op')) return;
+      var congelados = consultas[0] || [], mensagens = consultas[1] || [];
+      preparoMensagens = mensagens.filter(function (m) { return String(m.campanhaId) === String(campanhaId); });
+      preparoMsg.innerHTML = '<option value="">Selecione a mensagem...</option>' +
+        preparoMensagens.map(function (m) { return '<option value="' + escH(m.id) + '">' + escH(m.nome) + '</option>'; }).join('');
+      if (preparoMensagens.length) preparoMsg.value = String(preparoMensagens[0].id);
+      var vistos = {}, invalidos = 0, duplicados = 0;
+      congelados.forEach(function (d) {
+        var e = String(d.email || '').trim().toLowerCase();
+        if (!cdaEmailValido(e)) { invalidos++; return; }
+        if (vistos[e]) { duplicados++; return; }
+        vistos[e] = 1; preparoElegiveis.push(d);
+      });
+      preparoSelecionada = {
+        total: congelados.length, aptos: preparoElegiveis.length,
+        invalidos: invalidos, duplicados: duplicados,
+        data: congelados.length ? congelados[0].congelado_em : null
+      };
+      preparoEstado.textContent = congelados.length ? 'Pré-seleção concluída · sem envio de mensagens.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
+      if (!preparoMensagens.length) preparoEstado.textContent += ' Nenhuma mensagem cadastrada para esta campanha.';
+      apresentarPreparo();
+      atualizarPreviaPreparo();
+    } catch (err) {
+      console.error('Preparar envio:', err);
+      preparoEstado.textContent = 'Falha ao consultar os dados: ' + ((err && err.message) || 'erro desconhecido') + '. Nenhum envio foi realizado.';
+    }
   }
 
   async function gerarRoadmapTarefas(campanhaId, btn) {
