@@ -992,8 +992,13 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;">' +
           (sacTel ? '📞 ' + esc(sacTel) : '') + (sacTel && sacEmail ? '<br>' : '') +
           (sacEmail ? '✉ <a href="mailto:' + esc(sacEmail) + '" style="color:#333;">' + esc(sacEmail) + '</a>' : '') + '</div>' +
-        (sacEmail ? botao(linkSacEmail, '✉ Enviar e-mail', '#2f6fb3', 14, '11px 20px') : '') +
-        (linkWhats ? botao(linkWhats, '💬 WhatsApp', '#1f8a4c', 14, '11px 20px') : '') +
+        // Uma única linha de tabela, com uma célula por botão: evita empilhamento no Outlook desktop.
+        (sacEmail || linkWhats ? '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 0;border-collapse:collapse;"><tr>' +
+          (sacEmail ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkSacEmail, '✉ Enviar e-mail', '#2f6fb3', 14, '11px 20px') + '</td>' : '') +
+          (linkWhats ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkWhats, '💬 WhatsApp', '#1f8a4c', 14, '11px 20px') + '</td>' : '') +
+          '</tr></table>' : '') +
         '</td></tr></table></td></tr>' : '') +
       '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
         esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
