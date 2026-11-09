@@ -75,6 +75,9 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-sugestao{background:#fff9e6;border-left:3px solid #F59E0B;padding:8px 10px;font-size:11px;margin-top:6px;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
       '#camp-modal .mo-box{max-width:min(900px,94vw);}' +
+      '#camp-lgpd-modal .mo-box{max-width:min(900px,95vw);max-height:90dvh;display:flex;flex-direction:column;overflow:hidden;}' +
+      '#camp-lgpd-modal .mo-b{overflow-y:auto;min-height:0;}' +
+      '.camp-lgpd-card{border:1px solid #aaa;padding:10px;margin:7px 0;font-size:12px;}' +
       '.camp-msg-linha{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border2,#ccc);margin-bottom:5px;font-size:12px;}' +
       '#camp-preparo-modal{padding:12px;box-sizing:border-box;}' +
       '#camp-preparo-modal .mo-box{width:min(1050px,100%);max-width:1050px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);height:auto;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}' +
@@ -93,6 +96,7 @@ async function montarModuloCampanhas(containerId, opts) {
     '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">' +
       '<label for="camp-f-campanha" style="font-size:12px;font-weight:600">Selecionar campanha</label>' +
       '<select id="camp-f-campanha" aria-label="Filtrar campanhas" style="min-width:270px;max-width:100%;padding:7px"><option value="">Todas as campanhas</option></select>' +
+      (editavel ? '<button type="button" class="btn" id="camp-btn-lgpd">⚖ Base Legal LGPD</button>' : '') +
     '</div>' +
     '<div id="camp-carregamento-aviso" role="status" style="font-size:12px;margin:6px 0;color:var(--muted,#777)"></div>' +
     '<div id="camp-lista"></div>' +
@@ -120,6 +124,17 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>' +
     '</div>' +
 
+    '<div class="mo" id="camp-lgpd-modal"><div class="mo-box">' +
+      '<div class="mo-h"><h3>⚖ Bases Legais LGPD</h3><button type="button" class="mo-x" id="camp-lgpd-x">✕</button></div>' +
+      '<div class="mo-b"><p style="font-size:12px">Modelos informativos editáveis. O uso do modelo não substitui avaliação jurídica.</p>' +
+      '<div id="camp-lgpd-status" role="status" style="font-size:12px"></div><div id="camp-lgpd-lista"></div>' +
+      '<h4 id="camp-lgpd-titulo">Nova fundamentação</h4><input type="hidden" id="camp-lgpd-id">' +
+      '<div class="fgr"><label>Código interno *</label><input id="camp-lgpd-codigo" maxlength="80"></div>' +
+      '<div class="fgr"><label>Base legal *</label><input id="camp-lgpd-nome" maxlength="160"></div>' +
+      '<div class="fgr"><label>Fundamentação padrão *</label><textarea id="camp-lgpd-texto" rows="5"></textarea></div>' +
+      '<div style="display:flex;gap:8px;margin:12px 0"><button type="button" class="btn rust" id="camp-lgpd-salvar">Salvar</button>' +
+      '<button type="button" class="btn" id="camp-lgpd-novo">Novo / Limpar</button></div>' +
+      '</div><div class="mo-f"><button type="button" class="btn" id="camp-lgpd-fechar">Fechar</button></div></div></div>' +
     '<div class="mo" id="camp-modal">' +
       '<div class="mo-box">' +
         '<div class="mo-h"><h3 id="camp-modal-title">Nova Campanha</h3><button class="mo-x" id="camp-modal-x">✕</button></div>' +
@@ -127,13 +142,7 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
           '<div class="fgr" style="grid-column:1/-1;border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:4px"><label style="font-size:11px">⚖️ Fundamentação LGPD da campanha · registro informativo</label></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-base">Base legal LGPD</label><select id="camp-m-lgpd-base">' +
-            '<option value="">Não informada / em análise</option>' +
-            '<option value="legitimo_interesse">Legítimo interesse</option>' +
-            '<option value="consentimento">Consentimento</option>' +
-            '<option value="execucao_contrato">Execução de contrato</option>' +
-            '<option value="obrigacao_legal">Obrigação legal ou regulatória</option>' +
-            '<option value="outra">Outra (detalhar no texto)</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-base">Base legal LGPD</label><select id="camp-m-lgpd-base"><option value="">Não informada / em análise</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-finalidade">Finalidade e Fundamentação LGPD</label>' +
             '<textarea id="camp-m-lgpd-finalidade" rows="3" placeholder="Descreva a finalidade, origem dos contatos, hipótese legal e justificativa para esta campanha."></textarea>' +
             '<div class="tmu" style="font-size:11px;margin-top:4px">Registro informativo para rastreabilidade. O preenchimento não substitui avaliação de necessidade, transparência e demais requisitos aplicáveis.</div></div>' +
@@ -657,6 +666,88 @@ async function montarModuloCampanhas(containerId, opts) {
     }
   }
 
+
+  var lgpdModelos = [], lgpdModal = host.querySelector('#camp-lgpd-modal');
+  var lgpdStatus = host.querySelector('#camp-lgpd-status'), lgpdLista = host.querySelector('#camp-lgpd-lista');
+  var lgpdSel = host.querySelector('#camp-m-lgpd-base');
+  function lgpdE(v){return escH(String(v == null ? '' : v));}
+  function lgpdRender(){
+    lgpdLista.innerHTML=lgpdModelos.map(function(x){
+      return '<div class="camp-lgpd-card"><b>'+lgpdE(x.nome)+'</b> <span class="tmu">('+lgpdE(x.codigo)+', versão '+Number(x.versao||1)+(x.ativo?'':', inativa')+')</span>'+
+      '<p style="white-space:pre-wrap">'+lgpdE(x.fundamentacao)+'</p>'+
+      '<button class="btn sm" type="button" data-lgpd-edit="'+x.id+'">Editar</button> '+
+      '<button class="btn sm" type="button" data-lgpd-toggle="'+x.id+'">'+(x.ativo?'Desativar':'Reativar')+'</button></div>';
+    }).join('')||'<p>Nenhum modelo cadastrado.</p>';
+  }
+  async function lgpdCarregar(){
+    var v=lgpdSel.value;
+    var res=await cdaClient.from('cda_lgpd_fundamentacoes').select('*').order('id');
+    if(res.error)throw res.error;
+    lgpdModelos=res.data||[];
+    lgpdSel.innerHTML='<option value="">Não informada / em análise</option>'+lgpdModelos.filter(function(x){return x.ativo||x.codigo===v;}).map(function(x){return '<option value="'+lgpdE(x.codigo)+'">'+lgpdE(x.nome)+'</option>';}).join('');
+    lgpdSel.value=v;lgpdRender();
+  }
+  function lgpdLimpar(){
+    host.querySelector('#camp-lgpd-titulo').textContent='Nova fundamentação';
+    host.querySelector('#camp-lgpd-id').value='';
+    host.querySelector('#camp-lgpd-codigo').value='';
+    host.querySelector('#camp-lgpd-codigo').disabled=false;
+    host.querySelector('#camp-lgpd-nome').value='';
+    host.querySelector('#camp-lgpd-texto').value='';
+  }
+  function lgpdFechar(){lgpdModal.classList.remove('op');}
+  host.querySelector('#camp-lgpd-x').addEventListener('click',lgpdFechar);
+  host.querySelector('#camp-lgpd-fechar').addEventListener('click',lgpdFechar);
+  host.querySelector('#camp-lgpd-novo').addEventListener('click',lgpdLimpar);
+  if(editavel)host.querySelector('#camp-btn-lgpd').addEventListener('click',async function(){
+    lgpdModal.classList.add('op');lgpdLimpar();lgpdStatus.textContent='Carregando...';
+    try{await lgpdCarregar();lgpdStatus.textContent='';}catch(e){lgpdStatus.textContent='Falha: '+e.message;}
+  });
+  lgpdLista.addEventListener('click',async function(event){
+    var b=event.target.closest('button');if(!b)return;
+    var id=b.dataset.lgpdEdit||b.dataset.lgpdToggle;
+    var x=lgpdModelos.find(function(v){return String(v.id)===id;});if(!x)return;
+    if(b.dataset.lgpdEdit){
+      host.querySelector('#camp-lgpd-titulo').textContent='Editar fundamentação';
+      host.querySelector('#camp-lgpd-id').value=x.id;
+      host.querySelector('#camp-lgpd-codigo').value=x.codigo;
+      host.querySelector('#camp-lgpd-codigo').disabled=true;
+      host.querySelector('#camp-lgpd-nome').value=x.nome;
+      host.querySelector('#camp-lgpd-texto').value=x.fundamentacao;return;
+    }
+    if(!confirm((x.ativo?'Desativar ':'Reativar ')+x.nome+'? As campanhas salvas serão preservadas.'))return;
+    b.disabled=true;
+    try{
+      var res=await cdaClient.from('cda_lgpd_fundamentacoes').update({ativo:!x.ativo,versao:Number(x.versao||1)+1,atualizado_em:new Date().toISOString()}).eq('id',x.id).select().single();
+      if(res.error)throw res.error;await lgpdCarregar();lgpdStatus.textContent='Situação atualizada.';
+    }catch(e){lgpdStatus.textContent='Falha: '+e.message;}finally{b.disabled=false;}
+  });
+  host.querySelector('#camp-lgpd-salvar').addEventListener('click',async function(){
+    var id=host.querySelector('#camp-lgpd-id').value;
+    var codigo=host.querySelector('#camp-lgpd-codigo').value.trim().toLowerCase();
+    var nome=host.querySelector('#camp-lgpd-nome').value.trim(),texto=host.querySelector('#camp-lgpd-texto').value.trim();
+    if(!/^[a-z][a-z0-9_]{1,79}$/.test(codigo)||!nome||!texto){lgpdStatus.textContent='Preencha código válido, nome e fundamentação.';return;}
+    var b=this;b.disabled=true;
+    try{
+      var dados={nome:nome,fundamentacao:texto,atualizado_em:new Date().toISOString()};
+      var res;
+      if(id){
+        var x=lgpdModelos.find(function(v){return String(v.id)===id;});
+        dados.versao=Number(x.versao||1)+1;
+        res=await cdaClient.from('cda_lgpd_fundamentacoes').update(dados).eq('id',id).select().single();
+      }else{
+        dados.codigo=codigo;
+        res=await cdaClient.from('cda_lgpd_fundamentacoes').insert(dados).select().single();
+      }
+      if(res.error)throw res.error;lgpdLimpar();await lgpdCarregar();lgpdStatus.textContent='Fundamentação salva.';
+    }catch(e){lgpdStatus.textContent='Falha ao salvar: '+e.message;}finally{b.disabled=false;}
+  });
+  lgpdSel.addEventListener('change',function(){
+    var x=lgpdModelos.find(function(v){return v.codigo===lgpdSel.value&&v.ativo;});
+    if(x)host.querySelector('#camp-m-lgpd-finalidade').value=x.fundamentacao;
+    else if(!lgpdSel.value)host.querySelector('#camp-m-lgpd-finalidade').value='';
+  });
+  lgpdCarregar().catch(function(e){console.warn('LGPD: modelos indisponíveis',e);});
   var modal = host.querySelector('#camp-modal');
   function popularSelectSegmentos(valorAtual) {
     var sel = host.querySelector('#camp-m-segmento');
