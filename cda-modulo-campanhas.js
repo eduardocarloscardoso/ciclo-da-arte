@@ -53,7 +53,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { mensagens: [], campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, tentativas: [], editId: null };
+  var ST = { mensagens: [], campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, tentativas: [], eventosEmail: [], editId: null };
   var motor = null, clientesValidos = [], cfCampanha = null;
 
   host.innerHTML =
@@ -209,6 +209,10 @@ async function montarModuloCampanhas(containerId, opts) {
     return cdaFetchAll('cda_email_tentativas',
       'id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id');
   }
+  async function cdaCarregarEventosEmail() {
+    return cdaFetchAll('cda_email_eventos',
+      'id,tentativa_id,tipo,ocorrido_em','id');
+  }
   try {
     var carregamentos = [
       ['Campanhas', cdaCarregarCampanhas],
@@ -223,7 +227,8 @@ async function montarModuloCampanhas(containerId, opts) {
       ['Listas congeladas', cdaCarregarResumoListas],
       ['Produtos', cdaCarregarProdutos],
       ['Mensagens', cdaCarregarMensagens],
-      ['Histórico de testes', cdaCarregarHistoricoTestes]
+      ['Histórico de testes', cdaCarregarHistoricoTestes],
+      ['Eventos do Resend', cdaCarregarEventosEmail]
     ];
     var resultados = await Promise.all(carregamentos.map(function (item) {
       return Promise.race([
@@ -248,6 +253,7 @@ async function montarModuloCampanhas(containerId, opts) {
     ST.produtos = resultados[10].ok ? (resultados[10].dados || []) : [];
     ST.mensagens = resultados[11].ok ? (resultados[11].dados || []) : [];
     ST.tentativas = resultados[12].ok ? (resultados[12].dados || []) : [];
+    ST.eventosEmail = resultados[13].ok ? (resultados[13].dados || []) : [];
     var falhas = carregamentos.filter(function (item, i) { return i !== 0 && !resultados[i].ok; })
       .map(function (item) { return item[0]; });
     if (falhas.length) {
@@ -431,6 +437,10 @@ async function montarModuloCampanhas(containerId, opts) {
       var tentativas=ST.tentativas.filter(function(t){return String(t.campanha_id)===id;});
       var aceitos=tentativas.filter(function(t){return t.situacao==='aceito_provedor';}).length;
       var falhasTeste=tentativas.filter(function(t){return t.situacao==='rejeitado_provedor'||t.situacao==='falha_tecnica';}).length;
+      var idsTentativas=new Set(tentativas.map(function(t){return String(t.id);}));
+      var eventosCampanha=ST.eventosEmail.filter(function(e){return idsTentativas.has(String(e.tentativa_id));});
+      var entregas=new Set(eventosCampanha.filter(function(e){return e.tipo==='email.delivered';}).map(function(e){return String(e.tentativa_id);}));
+      var devolucoes=new Set(eventosCampanha.filter(function(e){return e.tipo==='email.bounced';}).map(function(e){return String(e.tentativa_id);}));
       var resultados =
         '<h4>Resultados comerciais</h4>'+
         (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
@@ -445,10 +455,12 @@ async function montarModuloCampanhas(containerId, opts) {
             '<div><div class="l">Mensagens vinculadas</div><b>'+mensagensTeste.length+'</b></div>'+
             '<div><div class="l">Tentativas registradas</div><b>'+tentativas.length+'</b></div>'+
             '<div><div class="l">Aceitas pelo Resend</div><b>'+aceitos+'</b></div>'+
-            '<div><div class="l">Falhas ou recusas</div><b>'+falhasTeste+'</b></div>'+
+            '<div><div class="l">Falhas ou recusas na tentativa</div><b>'+falhasTeste+'</b></div>'+
+            '<div><div class="l">Entregas notificadas</div><b>'+entregas.size+'</b></div>'+
+            '<div><div class="l">Devoluções notificadas</div><b>'+devolucoes.size+'</b></div>'+
             '<div><div class="l">Envio em massa</div><b>Desabilitado</b></div>'+
           '</div>'+
-          '<p class="tmu" style="font-size:11px;margin:10px 0 0">Para consultar cada teste, a mensagem, os destinatários e os identificadores do provedor, acesse Pipeline B2C → Comunicações da Campanha e selecione esta campanha. O aceite pelo Resend não comprova entrega.</p>'+
+          '<p class="tmu" style="font-size:11px;margin:10px 0 0">Para consultar cada teste, a mensagem, os destinatários e os eventos de entrega/rejeição recebidos, acesse Pipeline B2C → Comunicações da Campanha. Zero notificações pode significar webhook ainda não ativado. O aceite pelo Resend não comprova entrega.</p>'+
         '</div>';
       var paineis={geral:resumo,mensagens:mensagens,execucao:execucao,resultados:resultados};
       return '<div class="camp-card" data-id="'+escH(id)+'">'+
@@ -465,9 +477,10 @@ async function montarModuloCampanhas(containerId, opts) {
         var anterior=btn.textContent;
         btn.textContent='Consultando...';
         try {
-          var atualizados=await Promise.all([cdaCarregarMensagens(),cdaCarregarHistoricoTestes()]);
+          var atualizados=await Promise.all([cdaCarregarMensagens(),cdaCarregarHistoricoTestes(),cdaCarregarEventosEmail()]);
           ST.mensagens=atualizados[0];
           ST.tentativas=atualizados[1];
+          ST.eventosEmail=atualizados[2];
           render();
         } catch(err){
           console.error('Atualizar controle de envios:',err);
