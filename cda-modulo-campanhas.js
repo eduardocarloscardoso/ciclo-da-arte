@@ -416,7 +416,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var preparoMsg = host.querySelector('#camp-preparo-msg');
   var preparoPagina = 0;
   var preparoClassificados = [];
-  var preparoFiltro = 'todos';
+  var preparoFiltro = 'valido';
   var preparoFiltroEl = host.querySelector('#camp-preparo-elegibilidade');
   function fecharPreparo() { modalPreparo.classList.remove('op'); }
   host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
@@ -507,7 +507,7 @@ async function montarModuloCampanhas(containerId, opts) {
   async function prepararEnvio(campanhaId) {
     preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!preparoCampanha) return;
-    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'todos';
+    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'valido';
     preparoResumo.innerHTML = ''; preparoListagem.innerHTML = ''; preparoFiltroEl.innerHTML = '';
     preparoMsg.innerHTML = '<option value="">Carregando...</option>';
     atualizarVisualizarPreparo();
