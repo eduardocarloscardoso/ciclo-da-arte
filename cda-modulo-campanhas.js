@@ -830,7 +830,8 @@ async function montarModuloCampanhas(containerId, opts) {
       host.querySelector('#camp-inclusao-origem').textContent=info.origem;
       host.querySelector('#camp-inclusao-indicadores').innerHTML=
         (info.congelado?kpi(info.totalCongelado,'Destinatários congelados'):'')+
-        kpi(info.elegiveis,'Clientes elegíveis')+
+        (info.congelado?kpi(info.semEmailValido,'Excluídos: e-mail inválido/ausente'):'')+
+        kpi(info.elegiveis,info.congelado?'Clientes com e-mail válido':'Clientes elegíveis')+
         kpi(info.existentes,'Já nesta campanha')+
         kpi(info.novos,'Novos leads previstos')+
         kpi(info.outras,'Também em outras campanhas');
@@ -841,7 +842,9 @@ async function montarModuloCampanhas(containerId, opts) {
         'Atenção: '+info.ausentes+' destinatário(s) congelado(s) não estão disponíveis como clientes completos. A inclusão está bloqueada até corrigir os cadastros.':
         info.novos===0?'Não há novos leads para incluir nesta campanha.':
         'Serão criados '+info.novos.toLocaleString('pt-BR')+' leads nesta campanha. A participação de '+info.outras+' cliente(s) em outras campanhas será preservada.'+
-        (info.repetidos?' Foram encontrados '+info.repetidos+' registros repetidos na origem, desconsiderados.':'');
+        (info.repetidos?' Foram encontrados '+info.repetidos+' registros repetidos na origem, desconsiderados.':'')+
+        (info.semEmailValido?' '+info.semEmailValido+' destinatário(s) não entram no Pipeline por ausência ou invalidade de e-mail.':'')+
+        ' E-mail válido é uma conferência cadastral, não comprovação de entrega.';
       confirmar.disabled=bloqueado;
       confirmar.textContent=bloqueado?'Inclusão indisponível':'Confirmar inclusão de '+info.novos.toLocaleString('pt-BR')+' leads';
       function sair(valor){
@@ -888,11 +891,14 @@ async function montarModuloCampanhas(containerId, opts) {
     var textoOriginal = btn.textContent;
     btn.textContent = 'Conferindo público...'; btn.disabled = true;
     try {
-      var lista = ST.listas[String(campanha.id)], alvo, origem, totalCongelado = 0, ausentes = [];
+      var lista = ST.listas[String(campanha.id)], alvo, origem, totalCongelado = 0, semEmailValido = 0, ausentes = [];
       if (lista) {
         var congelados = await cdaCarregarListaCongelada(campanha.id);
-        var ids = new Set(congelados.map(function(d){return String(d.cliente_id);}));
-        totalCongelado = ids.size;
+        var todosIds = new Set(congelados.map(function(d){return String(d.cliente_id);}));
+        var ids = new Set(congelados.filter(function(d){return d.email_valido===true;})
+          .map(function(d){return String(d.cliente_id);}));
+        totalCongelado = todosIds.size;
+        semEmailValido = totalCongelado-ids.size;
         alvo = clientesValidos.filter(function(c){return ids.has(String(c.id));});
         var localizados = new Set(alvo.map(function(c){return String(c.id);}));
         ausentes = Array.from(ids).filter(function(id){return !localizados.has(id);});
@@ -923,7 +929,7 @@ async function montarModuloCampanhas(containerId, opts) {
 
       var autorizado=await confirmarInclusaoNoModal({
         campanha:campanha.nome,origem:origem,congelado:!!lista,
-        totalCongelado:totalCongelado,elegiveis:alvo.length,
+        totalCongelado:totalCongelado,semEmailValido:semEmailValido,elegiveis:alvo.length,
         existentes:existentes,novos:novos,outras:emOutrasCampanhas.size,
         etapa:etapaLabel,ausentes:ausentes.length,repetidos:repetidos
       });
