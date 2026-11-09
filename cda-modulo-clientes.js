@@ -116,6 +116,11 @@ async function montarModuloClientes(containerId, opts) {
             '<div class="ct" id="cdacli-m-ctags"></div>' +
             '<div class="acr"><select id="cdacli-m-csel"><option value="">Selecione canal...</option></select><button class="btn sm" id="cdacli-btn-addcanal">+ Vincular</button></div>' +
           '</div>' +
+          '<div style="grid-column:1/-1;border:1px solid var(--border2,#ccc);padding:12px;margin:8px 0 4px">' +
+            '<div style="font-weight:700;font-size:13px;margin-bottom:5px">Canais vinculados × Canais com compras</div>' +
+            '<p style="font-size:11px;color:var(--muted,#777);margin:0 0 8px">Consulta comparativa, sem sincronização automática. O vínculo no cadastro pode existir mesmo sem compra; os canais das compras vêm do Histórico de Compras.</p>' +
+            '<div id="cdacli-m-comp-canais" aria-live="polite" style="font-size:12px">Abra um cliente para visualizar a comparação.</div>' +
+          '</div>' +
         '</div></div>' +
         '<div class="mo-f"><button class="btn" id="cdacli-m-cancelar">Cancelar</button><button class="btn rust" id="cdacli-m-salvar">💾 Salvar</button></div>' +
       '</div>' +
@@ -225,12 +230,76 @@ async function montarModuloClientes(containerId, opts) {
 
   // ── Modal (Novo/Editar) ──
   var modal = host.querySelector('#cdacli-modal');
+  var canaisComprasAtual = null, canaisComprasClienteId = null, consultaCanaisToken = 0;
+  function escComp(v) { return String(v == null ? '' : v).replace(/[&<>"']/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+  }); }
+  function rotuloCanal(id) {
+    var c = canalById[String(id)]; return c ? c.nome : 'Canal #'+String(id);
+  }
+  function renderComparativoCanais() {
+    var box = host.querySelector('#cdacli-m-comp-canais');
+    if (!box) return;
+    if (!ST.editId) { box.textContent='Disponível após salvar o cliente.'; return; }
+    if (canaisComprasClienteId !== String(ST.editId) || canaisComprasAtual === null) {
+      box.textContent='Consultando canais do Histórico de Compras...'; return;
+    }
+    var vinculados = [...new Set(ST.cTags.map(String))];
+    var comprados = Object.keys(canaisComprasAtual);
+    var apenasCompras = comprados.filter(function(id){return vinculados.indexOf(id) === -1;});
+    var apenasVinculos = vinculados.filter(function(id){return comprados.indexOf(id) === -1;});
+    function lista(ids, contador) {
+      return ids.length ? '<ul style="margin:4px 0 0 17px;padding:0">'+ids.map(function(id){
+        return '<li>'+escComp(rotuloCanal(id)) + (contador ? ' <span style="color:var(--muted,#777)">('+canaisComprasAtual[id]+' compra(s))</span>' : '')+'</li>';
+      }).join('')+'</ul>' : '<div style="color:var(--muted,#777)">Nenhum</div>';
+    }
+    box.innerHTML =
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">' +
+        '<section><b>Canais vinculados ao cadastro ('+vinculados.length+')</b>'+lista(vinculados,false)+'</section>' +
+        '<section><b>Canais com compras ('+comprados.length+')</b>'+lista(comprados,true)+'</section>' +
+      '</div>' +
+      '<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border2,#ddd)">' +
+        '<b>Somente no Histórico de Compras ('+apenasCompras.length+')</b>'+lista(apenasCompras,true)+
+        '<div style="margin-top:8px"><b>Vinculados sem compras registradas ('+apenasVinculos.length+')</b>'+lista(apenasVinculos,false)+'</div>' +
+      '</div>' +
+      '<p style="font-size:10px;color:var(--muted,#777);margin:10px 0 0">A comparação usa os vínculos exibidos acima (inclusive alterações ainda não salvas) e os registros de compras. Nenhum vínculo é alterado automaticamente.</p>';
+  }
+  async function carregarComparativoCanais(clienteId) {
+    var token=++consultaCanaisToken;
+    canaisComprasAtual=null;
+    canaisComprasClienteId=clienteId ? String(clienteId) : null;
+    renderComparativoCanais();
+    if (!clienteId) return;
+    try {
+      var registros=[],inicio=0,lote=1000;
+      // Consulta somente leitura, paginada para contemplar clientes com muitos itens comprados.
+      while (true) {
+        var res=await cdaClient.from('compras').select('canal_id').eq('cliente_id',clienteId).range(inicio,inicio+lote-1);
+        if (res.error) throw res.error;
+        if (token!==consultaCanaisToken) return;
+        var bloco=res.data||[];
+        registros.push.apply(registros,bloco);
+        if (bloco.length < lote) break;
+        inicio+=lote;
+      }
+      if(token!==consultaCanaisToken)return;
+      var mapa={};
+      registros.forEach(function(r){if(r.canal_id!=null){var id=String(r.canal_id);mapa[id]=(mapa[id]||0)+1;}});
+      canaisComprasAtual=mapa;
+      renderComparativoCanais();
+    } catch(e) {
+      if(token!==consultaCanaisToken)return;
+      var box=host.querySelector('#cdacli-m-comp-canais');
+      box.textContent='Não foi possível consultar o Histórico de Compras: '+(e.message||String(e));
+    }
+  }
   function rCTags() {
     var wrap = host.querySelector('#cdacli-m-ctags');
     wrap.innerHTML = ST.cTags.map(function (cid) {
       var cv = canalById[String(cid)];
       return '<span class="badge b-vio">' + (cv ? cv.nome : cid) + ' <a href="#" data-rmcanal="' + cid + '" style="color:inherit">✕</a></span>';
     }).join('') || '<span class="tmu" style="font-size:11px">Nenhum canal vinculado</span>';
+    renderComparativoCanais();
     wrap.querySelectorAll('[data-rmcanal]').forEach(function (a) {
       a.addEventListener('click', function (e) { e.preventDefault(); ST.cTags = ST.cTags.filter(function (x) { return x !== a.dataset.rmcanal; }); rCTags(); });
     });
@@ -267,8 +336,9 @@ async function montarModuloClientes(containerId, opts) {
     ST.cTags = c ? ST.clienteCanais.filter(function (x) { return String(x.clienteId) === String(c.id); }).map(function (x) { return String(x.canalId); }) : [];
     rCTags();
     modal.classList.add('op');
+    carregarComparativoCanais(c ? c.id : null);
   }
-  function fecharModal() { modal.classList.remove('op'); }
+  function fecharModal() { consultaCanaisToken++; modal.classList.remove('op'); }
 
   host.querySelector('#cdacli-btn-addcanal').addEventListener('click', function () {
     var v = host.querySelector('#cdacli-m-csel').value;
