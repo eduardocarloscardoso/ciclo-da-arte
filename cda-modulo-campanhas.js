@@ -65,6 +65,12 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0;font-size:11px;}' +
       '.camp-grid .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
       '.camp-acoes{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}' +
+      '.camp-abas{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border2,#ccc);margin:14px 0 0;padding:0 0 8px;}' +
+      '.camp-aba{border:1px solid var(--border2,#aaa);background:var(--paper,#fff);color:var(--ink,#222);font:inherit;font-size:11px;font-weight:700;padding:8px 11px;cursor:pointer;border-radius:4px;}' +
+      '.camp-aba[aria-selected="true"]{background:var(--ink,#222);color:var(--paper,#fff);border-color:var(--ink,#222);}' +
+      '.camp-aba:focus-visible{outline:3px solid var(--rust,#c0392b);outline-offset:2px;}' +
+      '.camp-painel{padding:13px 1px 3px;min-height:65px;}' +
+      '.camp-painel h4{font-size:13px;margin:0 0 7px;}' +
       '.camp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,#ccc);}' +
       '.camp-kpi .v{font-size:18px;font-weight:700;}' +
       '.camp-kpi .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
@@ -344,6 +350,15 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>';
   }
 
+  // Abas por campanha: estado apenas da apresentação, sem gravação no banco.
+  var abaPorCampanha = Object.create(null);
+  var abasCampanha = [
+    {id:'geral',nome:'Visão Geral'},
+    {id:'publico',nome:'Público'},
+    {id:'mensagens',nome:'Mensagens'},
+    {id:'execucao',nome:'Execução'},
+    {id:'resultados',nome:'Resultados'}
+  ];
   var filtroCampanha = host.querySelector('#camp-f-campanha');
   filtroCampanha.addEventListener('change', render);
 
@@ -366,34 +381,67 @@ async function montarModuloCampanhas(containerId, opts) {
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       var kpi = calcularKpi(c);
       var beneficioInfo = CDA_TIPOS_BENEFICIO.find(function (b) { return b.id === c.beneficioTipo; });
-      return '<div class="camp-card" data-id="' + c.id + '">' +
-        '<div class="camp-topo"><div class="camp-nome">' + c.nome + '</div><span class="camp-badge" style="background:' + statusInfo.cor + '">' + statusInfo.label + '</span></div>' +
-        (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
+      var id = String(c.id), abaAtual = abaPorCampanha[id] || 'geral';
+      function acao(atributo, rotulo, destaque) {
+        return editavel ? '<button class="btn sm'+(destaque?' rust':'')+'" type="button" '+atributo+'="'+escH(id)+'">'+rotulo+'</button>' : '';
+      }
+      var resumo =
         '<div class="camp-grid">' +
-          '<div><div class="l">Público-Alvo</div><b>' + (qtdPublico != null ? qtdPublico.toLocaleString('pt-BR') + ' cliente(s)' : '—') + '</b></div>' +
-          '<div><div class="l">Segmentação</div>' + (seg ? escH(seg.nome) + '<div class="tmu" style="font-size:10px">' + escH(seg.modelo ? seg.resumo : cdaResumoTipos(seg.filtros)) + '</div>' : '<i>segmentação não encontrada</i>') + '</div>' +
-          '<div><div class="l">Lista congelada</div>' + (lista ? '<b>' + lista.total.toLocaleString('pt-BR') + '</b> cliente(s) · ' + lista.comEmail.toLocaleString('pt-BR') + ' com e-mail<div class="tmu" style="font-size:10px">em ' + fmtDataHora(lista.congeladoEm) + '</div>' : '<span class="tmu">ainda não congelada</span>') + '</div>' +
-          '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
-          '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
-          '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
-          '<div><div class="l">Responsável(is)</div>' + ((c.responsavelIds || []).map(function (id) { return equipePorId[id] ? equipePorId[id].nome : null; }).filter(Boolean).join(', ') || '—') + '</div>' +
-          '<div><div class="l">Mensagens de e-mail</div>' + (function () { var n = ST.mensagens.filter(function (m) { return String(m.campanhaId) === String(c.id); }).length; return n ? '📧 <b>' + n + '</b> na Biblioteca' : '<span class="tmu">nenhuma</span>'; })() + '</div>' +
-          '<div><div class="l">Benefício</div>' + (beneficioInfo && beneficioInfo.id !== 'nenhum' ? beneficioInfo.label + (c.beneficioValor ? ' — ' + c.beneficioValor : '') : '—') + '</div>' +
-        '</div>' +
-        (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
-        (editavel ?
-        '<div class="camp-acoes">' +
-          '<button class="btn sm rust" data-congelar="' + c.id + '">🧊 ' + (lista ? 'Recongelar lista' : 'Congelar lista') + '</button>' +
-          '<button class="btn sm" data-preparar="' + c.id + '">✉ Preparar Envio</button>' +
-          '<button class="btn sm" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
-          '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
-          '<button class="btn sm" data-gerar-roadmap="' + c.id + '">🗺 Gerar Roadmap de Tarefas</button>' +
-          '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
-          '<button class="btn sm" data-duplicar="' + c.id + '">⧉ Duplicar</button>' +
-        '</div>' : '') +
-      '</div>';
+          '<div><div class="l">Público-alvo</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR')+' cliente(s)':'—')+'</b></div>' +
+          '<div><div class="l">E-mails na lista</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>' +
+          '<div><div class="l">Segmentação</div><b>'+(seg?escH(seg.nome):'Não encontrada')+'</b></div>' +
+          '<div><div class="l">Mensagens</div><b>'+ST.mensagens.filter(function(m){return String(m.campanhaId)===id;}).length+' na Biblioteca</b></div>' +
+          '<div><div class="l">Período</div>'+fmtData(c.periodoInicio)+' – '+fmtData(c.periodoFim)+'</div>' +
+          '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div>' +
+          '<div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>' +
+          '<div><div class="l">Meta</div>'+escH(c.metaDescricao||'—')+'</div>' +
+          '<div><div class="l">Benefício</div>'+(beneficioInfo&&beneficioInfo.id!=='nenhum'?escH(beneficioInfo.label+(c.beneficioValor?' — '+c.beneficioValor:'')):'—')+'</div>' +
+        '</div>'+
+        (editavel?'<div class="camp-acoes">'+acao('data-editar','✎ Editar')+acao('data-duplicar','⧉ Duplicar')+'</div>':'');
+      var publico =
+        '<h4>Segmentação e destinatários</h4>'+
+        '<div class="camp-grid">'+
+          '<div><div class="l">Público calculado</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR'):'—')+' cliente(s)</b></div>'+
+          '<div><div class="l">Segmentação</div>'+ (seg ? escH(seg.nome)+'<div class="tmu">'+escH(seg.modelo?seg.resumo:cdaResumoTipos(seg.filtros))+'</div>' : 'Segmentação não encontrada')+'</div>'+
+          '<div><div class="l">Lista congelada</div>'+(lista?'<b>'+lista.total.toLocaleString('pt-BR')+'</b> cliente(s), '+lista.comEmail.toLocaleString('pt-BR')+' com e-mail<div class="tmu">em '+escH(fmtDataHora(lista.congeladoEm))+'</div>':'Ainda não congelada')+'</div>'+
+        '</div>'+
+        (editavel?'<div class="camp-acoes">'+acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+'</div>':'')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">Os filtros e critérios são mantidos na edição da campanha. Recongelar substitui a lista somente após confirmação.</p>';
+      var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
+      var mensagens =
+        '<h4>Comunicação e preparação</h4>'+
+        '<div class="camp-grid"><div><div class="l">Mensagens na Biblioteca</div><b>'+mensagensVinculadas.length+'</b></div>'+
+        '<div><div class="l">Destinatários congelados</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'—')+'</b></div></div>'+
+        (mensagensVinculadas.length?'<div class="tmu" style="font-size:12px">'+mensagensVinculadas.map(function(m){return escH(m.nome);}).join(' · ')+'</div>':'<div class="tmu">Nenhuma mensagem vinculada a esta campanha.</div>')+
+        (editavel?'<div class="camp-acoes">'+acao('data-preparar','✉ Preparar Envio',true)+'</div>':'')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">Visualizar Mensagem e Enviar Teste ficam em Preparar Envio. O envio em massa permanece desabilitado.</p>';
+      var execucao =
+        '<h4>Pipeline e atividades</h4>'+
+        '<div class="camp-grid"><div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>'+
+        '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div></div>'+
+        (editavel?'<div class="camp-acoes">'+
+          acao('data-add-publico','➕ Adicionar público ao Pipeline')+
+          acao('data-gerar-msg','🚀 Gerar Mensagens')+
+          acao('data-gerar-roadmap','🗺 Gerar Roadmap de Tarefas')+'</div>':'');
+      var resultados =
+        '<h4>Indicadores da campanha</h4>'+
+        (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">O painel de controle de envios será desenvolvido em etapa futura; nenhum disparo em massa foi ativado.</p>';
+      var paineis={geral:resumo,publico:publico,mensagens:mensagens,execucao:execucao,resultados:resultados};
+      return '<div class="camp-card" data-id="'+escH(id)+'">'+
+        '<div class="camp-topo"><div class="camp-nome">'+escH(c.nome)+'</div><span class="camp-badge" style="background:'+statusInfo.cor+'">'+statusInfo.label+'</span></div>'+
+        (c.objetivo?'<p class="tmu" style="margin:4px 0 0">'+escH(c.objetivo)+'</p>':'')+
+        '<div class="camp-abas" role="tablist" aria-label="Seções da campanha '+escH(c.nome)+'">'+
+          abasCampanha.map(function(a){return '<button type="button" class="camp-aba" role="tab" aria-selected="'+(abaAtual===a.id?'true':'false')+'" data-camp-aba="'+a.id+'" data-camp-id="'+escH(id)+'">'+a.nome+'</button>';}).join('')+
+        '</div><div class="camp-painel" role="tabpanel">'+paineis[abaAtual]+'</div></div>';
     }).join('');
 
+    box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        abaPorCampanha[String(btn.dataset.campId)] = btn.dataset.campAba;
+        render();
+      });
+    });
     if (editavel) {
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
     box.querySelectorAll('[data-duplicar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.duplicar, true); }); });
