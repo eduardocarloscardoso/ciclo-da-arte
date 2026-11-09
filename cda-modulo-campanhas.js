@@ -81,6 +81,15 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-sugestao{background:#fff9e6;border-left:3px solid #F59E0B;padding:8px 10px;font-size:11px;margin-top:6px;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
       '#camp-modal .mo-box{max-width:min(900px,94vw);}' +
+      '#camp-inclusao-modal{padding:12px;box-sizing:border-box;}' +
+      '#camp-inclusao-modal .mo-box{width:min(710px,100%);max-width:710px;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}' +
+      '#camp-inclusao-modal .mo-b{overflow-y:auto;flex:1 1 auto;min-height:0;padding:18px 20px;}' +
+      '#camp-inclusao-modal .mo-f{flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}' +
+      '.camp-inclusao-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0;}' +
+      '.camp-inclusao-kpi{background:var(--card,#f5f0e8);border:1px solid var(--border2,#aaa);padding:12px;}' +
+      '.camp-inclusao-kpi b{font-size:22px;display:block;margin-bottom:4px;font-variant-numeric:tabular-nums;}' +
+      '.camp-inclusao-kpi span{font-size:11px;color:var(--muted,#777);}' +
+      '@media(max-width:600px){#camp-inclusao-modal{padding:5px;}#camp-inclusao-modal .mo-box{max-height:calc(100dvh - 10px);}#camp-inclusao-modal .mo-b{padding:12px;}}' +
       '#camp-lgpd-modal .mo-box{max-width:min(900px,95vw);max-height:90dvh;display:flex;flex-direction:column;overflow:hidden;}' +
       '#camp-lgpd-modal .mo-b{overflow-y:auto;min-height:0;}' +
       '.camp-lgpd-card{border:1px solid #aaa;padding:10px;margin:7px 0;font-size:12px;}' +
@@ -131,6 +140,23 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>' +
     '</div>' +
 
+    '<div class="mo" id="camp-inclusao-modal" role="dialog" aria-modal="true" aria-labelledby="camp-inclusao-titulo">' +
+      '<div class="mo-box">' +
+        '<div class="mo-h"><h3 id="camp-inclusao-titulo">Prévia de inclusão no Pipeline B2C</h3><button type="button" class="mo-x" id="camp-inclusao-x" aria-label="Fechar prévia">✕</button></div>' +
+        '<div class="mo-b">' +
+          '<div id="camp-inclusao-campanha" style="font-size:15px;font-weight:700;margin-bottom:4px"></div>' +
+          '<div id="camp-inclusao-origem" style="font-size:11px;color:var(--muted,#777)"></div>' +
+          '<div class="camp-inclusao-kpis" id="camp-inclusao-indicadores"></div>' +
+          '<div id="camp-inclusao-etapa" style="font-size:12px"></div>' +
+          '<div id="camp-inclusao-aviso" style="font-size:12px;margin:12px 0;border-left:3px solid #c67b33;background:#fff8e9;color:#51330d;padding:10px"></div>' +
+          '<p style="font-size:11px;color:var(--muted,#777)">Esta é apenas uma simulação. Nenhum lead será criado até você confirmar expressamente a inclusão. As campanhas existentes e o histórico de e-mails não serão alterados.</p>' +
+        '</div>' +
+        '<div class="mo-f">' +
+          '<button type="button" class="btn" id="camp-inclusao-cancelar">Cancelar</button>' +
+          '<button type="button" class="btn rust" id="camp-inclusao-confirmar">Confirmar inclusão</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
     '<div class="mo" id="camp-lgpd-modal"><div class="mo-box">' +
       '<div class="mo-h"><h3>⚖ Bases Legais LGPD</h3><button type="button" class="mo-x" id="camp-lgpd-x">✕</button></div>' +
       '<div class="mo-b"><p style="font-size:12px">Modelos informativos editáveis. O uso do modelo não substitui avaliação jurídica.</p>' +
@@ -788,6 +814,68 @@ async function montarModuloCampanhas(containerId, opts) {
     }
   }
 
+  // Diálogo próprio da aplicação: sem confirm() nativo e sem gravação antes do aceite.
+  // Os listeners são removidos ao encerrar a promessa, evitando confirmações duplicadas.
+  function confirmarInclusaoNoModal(info) {
+    return new Promise(function(resolve) {
+      var modal=host.querySelector('#camp-inclusao-modal');
+      var confirmar=host.querySelector('#camp-inclusao-confirmar');
+      var cancelar=host.querySelector('#camp-inclusao-cancelar');
+      var fechar=host.querySelector('#camp-inclusao-x');
+      var anterior=document.activeElement;
+      function kpi(valor,label){
+        return '<div class="camp-inclusao-kpi"><b>'+Number(valor).toLocaleString('pt-BR')+'</b><span>'+escH(label)+'</span></div>';
+      }
+      host.querySelector('#camp-inclusao-campanha').textContent=info.campanha;
+      host.querySelector('#camp-inclusao-origem').textContent=info.origem;
+      host.querySelector('#camp-inclusao-indicadores').innerHTML=
+        (info.congelado?kpi(info.totalCongelado,'Destinatários congelados'):'')+
+        kpi(info.elegiveis,'Clientes elegíveis')+
+        kpi(info.existentes,'Já nesta campanha')+
+        kpi(info.novos,'Novos leads previstos')+
+        kpi(info.outras,'Também em outras campanhas');
+      host.querySelector('#camp-inclusao-etapa').textContent='Etapa de entrada: '+info.etapa;
+      var aviso=host.querySelector('#camp-inclusao-aviso');
+      var bloqueado=info.ausentes>0||info.novos===0;
+      aviso.textContent=info.ausentes?
+        'Atenção: '+info.ausentes+' destinatário(s) congelado(s) não estão disponíveis como clientes completos. A inclusão está bloqueada até corrigir os cadastros.':
+        info.novos===0?'Não há novos leads para incluir nesta campanha.':
+        'Serão criados '+info.novos.toLocaleString('pt-BR')+' leads nesta campanha. A participação de '+info.outras+' cliente(s) em outras campanhas será preservada.'+
+        (info.repetidos?' Foram encontrados '+info.repetidos+' registros repetidos na origem, desconsiderados.':'');
+      confirmar.disabled=bloqueado;
+      confirmar.textContent=bloqueado?'Inclusão indisponível':'Confirmar inclusão de '+info.novos.toLocaleString('pt-BR')+' leads';
+      function sair(valor){
+        modal.classList.remove('op');
+        confirmar.removeEventListener('click',aceitar);
+        cancelar.removeEventListener('click',recusar);
+        fechar.removeEventListener('click',recusar);
+        modal.removeEventListener('click',clicarFundo);
+        document.removeEventListener('keydown',teclado);
+        if(anterior&&typeof anterior.focus==='function')anterior.focus();
+        resolve(valor);
+      }
+      function aceitar(){if(!confirmar.disabled)sair(true);}
+      function recusar(){sair(false);}
+      function clicarFundo(e){if(e.target===modal)recusar();}
+      function teclado(e){
+        if(e.key==='Escape'){e.preventDefault();recusar();}
+        if(e.key==='Tab'){
+          var visiveis=[fechar,cancelar,confirmar].filter(function(x){return !x.disabled;});
+          var i=visiveis.indexOf(document.activeElement);
+          if(e.shiftKey&&i===0){e.preventDefault();visiveis[visiveis.length-1].focus();}
+          else if(!e.shiftKey&&i===visiveis.length-1){e.preventDefault();visiveis[0].focus();}
+        }
+      }
+      confirmar.addEventListener('click',aceitar);
+      cancelar.addEventListener('click',recusar);
+      fechar.addEventListener('click',recusar);
+      modal.addEventListener('click',clicarFundo);
+      document.addEventListener('keydown',teclado);
+      modal.classList.add('op');
+      cancelar.focus();
+    });
+  }
+
   async function adicionarPublico(campanhaId, btn) {
     var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!campanha) return;
@@ -833,20 +921,13 @@ async function montarModuloCampanhas(containerId, opts) {
       var etapaInfo = CDA_ETAPAS_CAMPANHA.find(function(e){return e.id===(campanha.pipelineEtapaEntrada||'novo_lead');});
       var etapaLabel = etapaInfo ? etapaInfo.label : 'Novo Lead';
 
-      var resumo = 'PRÉVIA DE INCLUSÃO NO PIPELINE B2C\n\n'+
-        'Campanha: '+campanha.nome+'\n'+origem+'\n'+
-        (lista?'Destinatários distintos congelados: '+totalCongelado+'\n':'')+
-        'Clientes elegíveis encontrados: '+alvo.length+'\n'+
-        'Já cadastrados nesta campanha: '+existentes+'\n'+
-        'Novos leads previstos: '+novos+'\n'+
-        'Clientes que participam de outras campanhas: '+emOutrasCampanhas.size+' (vínculo independente)\n'+
-        'Etapa de entrada: '+etapaLabel+'\n'+
-        (repetidos?'Registros repetidos na origem: '+repetidos+'\n':'')+
-        (ausentes.length?'ATENÇÃO: '+ausentes.length+' destinatário(s) congelado(s) não estão disponíveis como clientes com cadastro completo. A inclusão foi bloqueada para evitar divergências.\n':'')+
-        '\nNenhum lead foi incluído nesta prévia.';
-      if (ausentes.length) {alert(resumo+'\n\nRevise os cadastros antes de repetir.');return;}
-      if (!novos) {alert(resumo+'\n\nNenhuma inclusão necessária.');return;}
-      if (!confirm(resumo+'\n\nCONFIRMA incluir '+novos+' lead(s) no Pipeline?'))return;
+      var autorizado=await confirmarInclusaoNoModal({
+        campanha:campanha.nome,origem:origem,congelado:!!lista,
+        totalCongelado:totalCongelado,elegiveis:alvo.length,
+        existentes:existentes,novos:novos,outras:emOutrasCampanhas.size,
+        etapa:etapaLabel,ausentes:ausentes.length,repetidos:repetidos
+      });
+      if(!autorizado)return;
 
       btn.textContent = 'Incluindo leads...';
       var resultado = await cdaAdicionarPublicoCampanha(campanha, alvo, nomeUsuarioAtual());
