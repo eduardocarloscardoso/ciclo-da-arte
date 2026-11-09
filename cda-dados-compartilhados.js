@@ -1060,7 +1060,7 @@ function cdaMontarEmailMensagem(mensagem, campanha, cliente, opts) {
 // Envio de TESTE (Edge Function enviar-email-teste): até 3 endereços, só membros logados da equipe
 async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
   const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
-  const { data, error } = await cdaClient.functions.invoke('enviar-email-teste', {
+  const { data, error } = await cdaClient.functions.invoke('enviar-email-teste-historico-preview', {
     body: { mensagem_id: mensagem.id, para: para, assunto: email.assunto, html: email.html, texto: email.texto, usuario: (window.cu && window.cu.name) || null }
   });
   if (error) {
