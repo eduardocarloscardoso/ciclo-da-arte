@@ -126,6 +126,17 @@ async function montarModuloCampanhas(containerId, opts) {
         '<div class="mo-b"><div class="fg">' +
           '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:4px"><label style="font-size:11px">⚖️ Fundamentação LGPD da campanha · registro informativo</label></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-base">Base legal LGPD</label><select id="camp-m-lgpd-base">' +
+            '<option value="">Não informada / em análise</option>' +
+            '<option value="legitimo_interesse">Legítimo interesse</option>' +
+            '<option value="consentimento">Consentimento</option>' +
+            '<option value="execucao_contrato">Execução de contrato</option>' +
+            '<option value="obrigacao_legal">Obrigação legal ou regulatória</option>' +
+            '<option value="outra">Outra (detalhar no texto)</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-finalidade">Finalidade e Fundamentação LGPD</label>' +
+            '<textarea id="camp-m-lgpd-finalidade" rows="3" placeholder="Descreva a finalidade, origem dos contatos, hipótese legal e justificativa para esta campanha."></textarea>' +
+            '<div class="tmu" style="font-size:11px;margin-top:4px">Registro informativo para rastreabilidade. O preenchimento não substitui avaliação de necessidade, transparência e demais requisitos aplicáveis.</div></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Público — segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual centro de custo, qual UF)</span></label><div id="camp-m-filtros"></div>' +
             '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
@@ -724,6 +735,8 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelector('#camp-modal-title').textContent = !id ? 'Nova Campanha' : (duplicar ? 'Duplicar Campanha' : 'Editar Campanha');
     host.querySelector('#camp-m-nome').value = c ? (duplicar ? 'Cópia de ' + c.nome : c.nome) : '';
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
+    host.querySelector('#camp-m-lgpd-base').value = c ? (c.lgpdBaseLegal || '') : '';
+    host.querySelector('#camp-m-lgpd-finalidade').value = c ? (c.lgpdFinalidadeFundamentacao || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
     montarFiltrosDaCampanha(c ? segmentoPorId[c.publicoSegmentoId] : null, c ? JSON.parse(JSON.stringify(filtrosDaCampanha(c) || [])) : null);
     selEtapa.value = c ? c.pipelineEtapaEntrada : 'novo_lead';
@@ -761,6 +774,8 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!filtrosValores.length) { alert('Preencha ao menos um filtro da campanha.'); return; }
     var o = {
       id: ST.editId || undefined, nome: nome, objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
+      lgpdBaseLegal: host.querySelector('#camp-m-lgpd-base').value,
+      lgpdFinalidadeFundamentacao: host.querySelector('#camp-m-lgpd-finalidade').value.trim(),
       publicoSegmentoId: segmentoId, filtrosValores: filtrosValores,
       pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
