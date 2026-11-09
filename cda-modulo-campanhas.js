@@ -148,6 +148,11 @@ async function montarModuloCampanhas(containerId, opts) {
             '<textarea id="camp-m-lgpd-finalidade" rows="3" placeholder="Descreva a finalidade, origem dos contatos, hipótese legal e justificativa para esta campanha."></textarea>' +
             '<div class="tmu" style="font-size:11px;margin-top:4px">Registro informativo para rastreabilidade. O preenchimento não substitui avaliação de necessidade, transparência e demais requisitos aplicáveis.</div></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Público — segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Canais de Vendas da Campanha</label>' +
+            '<div style="font-size:11px;color:var(--muted,#777);margin-bottom:8px">Canais B2C cadastrados no Financeiro. É possível selecionar vários. Diferente dos meios de comunicação (e-mail, WhatsApp etc.).</div>' +
+            '<label style="display:inline-flex;align-items:center;gap:6px;font-size:12px;margin:4px 0 10px"><input type="checkbox" id="camp-m-vendas-todos" checked> Todos os Canais de Vendas (inclui clientes sem compras)</label>' +
+            '<div id="camp-m-vendas-lista" class="camp-checks" style="max-height:170px;overflow:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;border:1px solid var(--border2,#ccc);padding:8px"></div>' +
+            '<div id="camp-m-vendas-aviso" style="font-size:11px;color:var(--muted,#777);margin-top:6px"></div></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual centro de custo, qual UF)</span></label><div id="camp-m-filtros"></div>' +
             '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
           '<div class="fgr"><label>Etapa de entrada no Pipeline</label><select id="camp-m-etapa"></select></div>' +
@@ -264,7 +269,14 @@ async function montarModuloCampanhas(containerId, opts) {
     var seg = segmentoPorId[c.publicoSegmentoId];
     return seg ? (seg.filtros || []) : null;
   }
-  function publicoDe(filtros) { return clientesValidos.filter(function (c) { return filtros.every(function (f) { return motor.passa(c, f); }); }); }
+  function publicoDe(filtros, canaisVendasIds) {
+    var ids = (canaisVendasIds || []).map(String);
+    return clientesValidos.filter(function(c) {
+      if (!filtros.every(function(f) { return motor.passa(c,f); })) return false;
+      // Qualquer um dos canais selecionados basta. Sem seleção = todos, inclusive sem compras.
+      return !ids.length || ids.some(function(id) { return motor.passa(c, { tipo:'canal', valor:id }); });
+    });
+  }
   function emailsUnicos(lista) {
     var vistos = {}, n = 0;
     lista.forEach(function (c) { if (!cdaEmailValido(c.email)) return; var e = String(c.email).trim().toLowerCase(); if (!vistos[e]) { vistos[e] = 1; n++; } });
@@ -287,6 +299,34 @@ async function montarModuloCampanhas(containerId, opts) {
   host.querySelector('#camp-m-canais').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
     return '<label><input type="checkbox" class="camp-canal-check" value="' + c.id + '"> ' + c.label + '</label>';
   }).join('');
+  var vendasTodos = host.querySelector('#camp-m-vendas-todos');
+  var vendasLista = host.querySelector('#camp-m-vendas-lista');
+  var vendasAviso = host.querySelector('#camp-m-vendas-aviso');
+  var canaisB2c = ST.canais.filter(function(c) { return (c.escopo || 'b2c') === 'b2c'; });
+  var vendasCarregadas = !!resultados[7].ok;
+  function vendasSelecionados(){
+    return vendasTodos.checked ? [] : Array.from(vendasLista.querySelectorAll('.camp-venda-check:checked')).map(function(x){return String(x.value);});
+  }
+  function vendasAtualizar(){
+    var todos = vendasTodos.checked;
+    vendasLista.querySelectorAll('.camp-venda-check').forEach(function(x){x.disabled=todos;});
+    vendasLista.style.opacity=todos ? '.55' : '1';
+    vendasAviso.textContent = !vendasCarregadas ? 'Cadastro de canais indisponível nesta consulta. Recarregue a tela antes de alterar os canais.' :
+      todos ? 'Todos os canais B2C; também inclui clientes sem compras, respeitados os demais filtros.' :
+      'A campanha incluirá clientes com compras em pelo menos um dos canais marcados; os demais filtros continuam válidos.';
+    atualizarPublicoAlvoNoModal();
+  }
+  vendasLista.innerHTML = canaisB2c.slice().sort(function(a,b){return String(a.nome).localeCompare(String(b.nome),'pt-BR');})
+    .map(function(c){return '<label style="display:flex;align-items:center;gap:6px"><input type="checkbox" class="camp-venda-check" value="'+escH(c.id)+'"> '+escH(c.nome)+'</label>';}).join('') ||
+    '<span class="tmu">Nenhum canal B2C disponível.</span>';
+  vendasTodos.addEventListener('change', vendasAtualizar);
+  vendasLista.addEventListener('change', vendasAtualizar);
+  function vendasDefinir(ids) {
+    ids = (ids || []).map(String);
+    vendasTodos.checked = ids.length === 0;
+    vendasLista.querySelectorAll('.camp-venda-check').forEach(function(x){x.checked=ids.indexOf(String(x.value))!==-1;});
+    vendasAtualizar();
+  }
   host.querySelector('#camp-m-resp').innerHTML = ST.equipe.map(function (e) {
     return '<label><input type="checkbox" class="camp-resp-check" value="' + e.id + '"> ' + e.nome + '</label>';
   }).join('');
@@ -359,7 +399,7 @@ async function montarModuloCampanhas(containerId, opts) {
     box.innerHTML = visiveis.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
       var filtrosC = filtrosDaCampanha(c);
-      var qtdPublico = filtrosC ? publicoDe(filtrosC).length : null;
+      var qtdPublico = filtrosC ? publicoDe(filtrosC,c.canaisVendasIds).length : null;
       var lista = ST.listas[String(c.id)];
       var etapa = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === c.pipelineEtapaEntrada; });
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
@@ -370,6 +410,11 @@ async function montarModuloCampanhas(containerId, opts) {
         (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
         '<div class="camp-grid">' +
           '<div><div class="l">Público-Alvo</div><b>' + (qtdPublico != null ? qtdPublico.toLocaleString('pt-BR') + ' cliente(s)' : '—') + '</b></div>' +
+          '<div><div class="l">Canais de Vendas</div>' +
+            ((c.canaisVendasIds || []).length ? escH((c.canaisVendasIds || []).map(function(id){
+              var cv=ST.canais.find(function(v){return String(v.id)===String(id);});
+              return cv ? cv.nome : 'Canal #'+id;
+            }).join(', ')) : 'Todos os Canais') + '</div>' +
           '<div><div class="l">Segmentação</div>' + (seg ? escH(seg.nome) + '<div class="tmu" style="font-size:10px">' + escH(seg.modelo ? seg.resumo : cdaResumoTipos(seg.filtros)) + '</div>' : '<i>segmentação não encontrada</i>') + '</div>' +
           '<div><div class="l">Lista congelada</div>' + (lista ? '<b>' + lista.total.toLocaleString('pt-BR') + '</b> cliente(s) · ' + lista.comEmail.toLocaleString('pt-BR') + ' com e-mail<div class="tmu" style="font-size:10px">em ' + fmtDataHora(lista.congeladoEm) + '</div>' : '<span class="tmu">ainda não congelada</span>') + '</div>' +
           '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
@@ -616,7 +661,10 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!campanha) return;
     var filtrosC = filtrosDaCampanha(campanha);
     if (!filtrosC || !filtrosC.length) { alert('Preencha os filtros da campanha (✎ Editar) antes de congelar a lista.'); return; }
-    var alvo = publicoDe(filtrosC);
+    if ((campanha.canaisVendasIds || []).length && !vendasCarregadas) {
+      alert('Os canais do Financeiro não foram carregados. Recarregue antes de congelar a lista.'); return;
+    }
+    var alvo = publicoDe(filtrosC, campanha.canaisVendasIds);
     if (!alvo.length) { alert('Com os filtros atuais o público está vazio — revise a campanha.'); return; }
     var anterior = ST.listas[String(campanha.id)];
     if (!confirm((anterior ? 'Substituir a lista congelada em ' + fmtDataHora(anterior.congeladoEm) + ' (' + anterior.total + ' clientes)?\n\n' : '') +
@@ -645,7 +693,10 @@ async function montarModuloCampanhas(containerId, opts) {
       alvo = clientesValidos.filter(function (c) { return ids[String(c.id)]; });
       origem = 'A lista congelada em ' + fmtDataHora(lista.congeladoEm);
     } else {
-      alvo = publicoDe(filtrosC);
+      if ((campanha.canaisVendasIds || []).length && !vendasCarregadas) {
+        alert('Os canais do Financeiro não foram carregados. Recarregue a tela.'); return;
+      }
+      alvo = publicoDe(filtrosC, campanha.canaisVendasIds);
       origem = 'O público calculado agora (lista ainda não congelada)';
     }
     if (!alvo.length) { alert('O público desta campanha está vazio.'); return; }
@@ -806,7 +857,12 @@ async function montarModuloCampanhas(containerId, opts) {
   function atualizarPublicoAlvoNoModal() {
     var box = host.querySelector('#camp-m-publico-alvo');
     if (!cfCampanha) { box.innerHTML = ''; return; }
-    var alvo = clientesValidos.filter(function (c) { return cfCampanha.passa(c); });
+    var idsVendas = vendasSelecionados();
+    var alvo = clientesValidos.filter(function(c) {
+      return cfCampanha.passa(c) && (!idsVendas.length || idsVendas.some(function(id){
+        return motor.passa(c,{tipo:'canal',valor:id});
+      }));
+    });
     box.innerHTML = '👥 <b>Público: ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s)</b> · 📧 ' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s) — recalculado agora';
   }
   host.querySelector('#camp-m-segmento').addEventListener('change', function () {
@@ -853,6 +909,7 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelector('#camp-modal-title').textContent = !id ? 'Nova Campanha' : (duplicar ? 'Duplicar Campanha' : 'Editar Campanha');
     host.querySelector('#camp-m-nome').value = c ? (duplicar ? 'Cópia de ' + c.nome : c.nome) : '';
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
+    vendasDefinir(c ? c.canaisVendasIds : []);
     host.querySelector('#camp-m-lgpd-base').value = c ? (c.lgpdBaseLegal || '') : '';
     host.querySelector('#camp-m-lgpd-finalidade').value = c ? (c.lgpdFinalidadeFundamentacao || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
@@ -888,6 +945,12 @@ async function montarModuloCampanhas(containerId, opts) {
     var segmentoId = host.querySelector('#camp-m-segmento').value;
     if (!nome) { alert('Informe o nome da campanha.'); return; }
     if (!segmentoId) { alert('Selecione a segmentação (público) da campanha.'); return; }
+    if (!vendasCarregadas && !vendasTodos.checked) {
+      alert('Não foi possível consultar os canais B2C do Financeiro. Recarregue a página antes de salvar.'); return;
+    }
+    if (!vendasTodos.checked && !vendasSelecionados().length) {
+      alert('Selecione ao menos um Canal de Vendas ou marque Todos os Canais.'); return;
+    }
     var filtrosValores = cfCampanha ? JSON.parse(JSON.stringify(cfCampanha.filtros())) : [];
     if (!filtrosValores.length) { alert('Preencha ao menos um filtro da campanha.'); return; }
     var o = {
@@ -895,6 +958,7 @@ async function montarModuloCampanhas(containerId, opts) {
       lgpdBaseLegal: host.querySelector('#camp-m-lgpd-base').value,
       lgpdFinalidadeFundamentacao: host.querySelector('#camp-m-lgpd-finalidade').value.trim(),
       publicoSegmentoId: segmentoId, filtrosValores: filtrosValores,
+      canaisVendasIds: vendasSelecionados(),
       pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
