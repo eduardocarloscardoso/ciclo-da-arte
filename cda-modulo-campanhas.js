@@ -107,8 +107,9 @@ async function montarModuloCampanhas(containerId, opts) {
         '</div>' +
         '<div class="mo-b">' +
           '<div id="camp-preparo-listagem"></div>' +
-          '<div class="fgr"><label>Pré-visualização da mensagem selecionada</label>' +
-            '<iframe id="camp-preparo-previa" title="Pré-visualização do e-mail" sandbox="allow-popups"></iframe></div>' +
+          '<div class="fgr" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+            '<button type="button" class="btn" id="camp-preparo-visualizar" disabled>👁 Visualizar Mensagem</button>' +
+            '<span class="tmu" style="font-size:12px">Abre o e-mail completo em outra aba, como na Biblioteca de Mensagens.</span></div>' +
           '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
             '<b>Envio indisponível nesta etapa.</b> A contagem de endereços é preliminar. ' +
             'Consentimento, descadastros e bloqueios ainda deverão ser verificados antes de qualquer disparo real.</p>' +
@@ -392,7 +393,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var preparoEstado = host.querySelector('#camp-preparo-estado');
   var preparoMsg = host.querySelector('#camp-preparo-msg');
   var preparoPagina = 0;
-  function fecharPreparo() { modalPreparo.classList.remove('op'); host.querySelector('#camp-preparo-previa').srcdoc = ''; }
+  function fecharPreparo() { modalPreparo.classList.remove('op'); }
   host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
   host.querySelector('#camp-preparo-voltar').addEventListener('click', fecharPreparo);
 
@@ -419,21 +420,21 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelector('#camp-preparo-anterior').addEventListener('click', function () { if(preparoPagina>0){preparoPagina--;apresentarPreparo();} });
     host.querySelector('#camp-preparo-proximo').addEventListener('click', function () { if((preparoPagina+1)*25<preparoElegiveis.length){preparoPagina++;apresentarPreparo();} });
   }
-  function atualizarPreviaPreparo() {
+  function atualizarVisualizarPreparo() {
     var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
-    var frame = host.querySelector('#camp-preparo-previa');
-    if (!msg) { frame.srcdoc = ''; return; }
-    try {
-      var exemplo = preparoElegiveis[0] || {nome:'Cliente',email:''};
-      var email = cdaMontarEmailMensagem(msg, preparoCampanha, exemplo, {});
-      frame.srcdoc = email.html;
-    } catch (err) {
-      console.error('Prévia da preparação:',err);
-      frame.srcdoc = '';
-      preparoEstado.textContent = 'A prévia não pôde ser gerada: ' + (err.message || 'erro desconhecido');
-    }
+    var btn = host.querySelector('#camp-preparo-visualizar');
+    btn.disabled = !msg;
+    btn.title = msg ? 'Abrir mensagem completa em outra aba' : 'Selecione uma mensagem da Biblioteca';
   }
-  preparoMsg.addEventListener('change', atualizarPreviaPreparo);
+  preparoMsg.addEventListener('change', atualizarVisualizarPreparo);
+  host.querySelector('#camp-preparo-visualizar').addEventListener('click', function () {
+    var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
+    if (!msg || !preparoCampanha) return;
+    var exemplo = preparoElegiveis[0] || { nome: 'Cliente', email: '' };
+    // Reutiliza a mesma visualização já homologada na Biblioteca.
+    // Este botão apenas abre a prévia; não dispara e-mails aos clientes.
+    cdaMsgAbrirEmNovaAba(msg, preparoCampanha, exemplo);
+  });
 
   async function prepararEnvio(campanhaId) {
     preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
@@ -441,7 +442,7 @@ async function montarModuloCampanhas(containerId, opts) {
     preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoPagina = 0;
     preparoResumo.innerHTML = ''; preparoListagem.innerHTML = '';
     preparoMsg.innerHTML = '<option value="">Carregando...</option>';
-    host.querySelector('#camp-preparo-previa').srcdoc = '';
+    atualizarVisualizarPreparo();
     host.querySelector('#camp-preparo-campanha').textContent = preparoCampanha.nome;
     preparoEstado.textContent = 'Consultando lista congelada e mensagens...';
     modalPreparo.classList.add('op');
@@ -468,7 +469,7 @@ async function montarModuloCampanhas(containerId, opts) {
       preparoEstado.textContent = congelados.length ? 'Pré-seleção concluída · sem envio de mensagens.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
       if (!preparoMensagens.length) preparoEstado.textContent += ' Nenhuma mensagem cadastrada para esta campanha.';
       apresentarPreparo();
-      atualizarPreviaPreparo();
+      atualizarVisualizarPreparo();
     } catch (err) {
       console.error('Preparar envio:', err);
       preparoEstado.textContent = 'Falha ao consultar os dados: ' + ((err && err.message) || 'erro desconhecido') + '. Nenhum envio foi realizado.';
