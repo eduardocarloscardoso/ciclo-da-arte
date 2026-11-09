@@ -114,9 +114,10 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div id="camp-preparo-listagem"></div>' +
           '<div class="fgr" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
             '<button type="button" class="btn" id="camp-preparo-visualizar" disabled>👁 Visualizar Mensagem</button>' +
-            '<span class="tmu" style="font-size:12px">Abre o e-mail completo em outra aba, como na Biblioteca de Mensagens.</span></div>' +
+            (editavel ? '<button type="button" class="btn" id="camp-preparo-teste" disabled>✉ Enviar Teste</button>' : '') +
+            '<span class="tmu" style="font-size:12px">Visualizar abre a prévia. Enviar Teste utiliza o mesmo fluxo da Biblioteca, para até três endereços informados manualmente; não usa a lista congelada.</span></div>' +
           '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
-            '<b>Envio indisponível nesta etapa.</b> Este painel confere somente a lista e os endereços. ' +
+            '<b>Envio em massa indisponível nesta etapa.</b> O botão Enviar Teste é exclusivamente para endereços informados manualmente. ' +
             'A adequação da base legal à finalidade e ao público e eventuais oposições aplicáveis devem ser respeitadas antes de qualquer disparo real.</p>' +
         '</div>' +
         '<div class="mo-f"><button type="button" class="btn" id="camp-preparo-voltar">Fechar preparação</button>' +
@@ -521,8 +522,23 @@ async function montarModuloCampanhas(containerId, opts) {
     var btn = host.querySelector('#camp-preparo-visualizar');
     btn.disabled = !msg;
     btn.title = msg ? 'Abrir mensagem completa em outra aba' : 'Selecione uma mensagem da Biblioteca';
+    var btnTeste = host.querySelector('#camp-preparo-teste');
+    if (btnTeste) {
+      btnTeste.disabled = !msg;
+      btnTeste.title = msg ? 'Enviar somente aos e-mails de teste informados manualmente (até 3)' : 'Selecione uma mensagem da Biblioteca';
+    }
   }
   preparoMsg.addEventListener('change', atualizarVisualizarPreparo);
+  if (editavel) host.querySelector('#camp-preparo-teste').addEventListener('click', async function () {
+    var msg = preparoMensagens.find(function(m){return String(m.id)===preparoMsg.value;});
+    if (!msg || !preparoCampanha || this.disabled) return;
+    if (typeof cdaMsgPerguntarEEnviarTeste !== 'function') {
+      alert('O recurso de testes da Biblioteca de Mensagens não foi carregado. Atualize a página.'); return;
+    }
+    // Mensagem renderizada com dados de exemplo, nunca usando destinatários reais da lista congelada.
+    await cdaMsgPerguntarEEnviarTeste(msg, preparoCampanha,
+      {nome:'Cliente de Teste', cidade:'São Paulo', estado:'SP'}, this);
+  });
   host.querySelector('#camp-preparo-visualizar').addEventListener('click', function () {
     var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
     if (!msg || !preparoCampanha) return;
