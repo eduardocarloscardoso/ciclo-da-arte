@@ -793,34 +793,73 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!campanha) return;
     var filtrosC = filtrosDaCampanha(campanha);
     if (!filtrosC) { alert('A segmentação desta campanha não foi encontrada — edite a campanha e escolha o público.'); return; }
-    // Com lista congelada, o público é exatamente o da lista; sem ela, o cálculo de agora
-    var lista = ST.listas[String(campanha.id)], alvo, origem;
-    if (lista) {
-      var congelados = await cdaCarregarListaCongelada(campanha.id);
-      var ids = {}; congelados.forEach(function (d) { ids[String(d.cliente_id)] = 1; });
-      alvo = clientesValidos.filter(function (c) { return ids[String(c.id)]; });
-      origem = 'A lista congelada em ' + fmtDataHora(lista.congeladoEm);
-    } else {
-      alvo = publicoDe(filtrosC);
-      origem = 'O público calculado agora (lista ainda não congelada)';
-    }
-    if (!alvo.length) { alert('O público desta campanha está vazio.'); return; }
 
-    var etapaLabel = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === campanha.pipelineEtapaEntrada; }).label;
-    if (!confirm(origem + ' tem ' + alvo.length + ' cliente(s).\n\nAdicionar ao Pipeline B2C, na etapa "' + etapaLabel + '", vinculados à campanha "' + campanha.nome + '"?\n\n(quem já foi adicionado antes nesta campanha não duplica)')) return;
-
+    // Primeiro simula sem gravar: mostra correspondência com a lista congelada, leads
+    // existentes e clientes também participantes de outras campanhas.
+    // Só executa após confirmação explícita do operador.
     var textoOriginal = btn.textContent;
-    btn.textContent = 'Adicionando...'; btn.disabled = true;
+    btn.textContent = 'Conferindo público...'; btn.disabled = true;
     try {
+      var lista = ST.listas[String(campanha.id)], alvo, origem, totalCongelado = 0, ausentes = [];
+      if (lista) {
+        var congelados = await cdaCarregarListaCongelada(campanha.id);
+        var ids = new Set(congelados.map(function(d){return String(d.cliente_id);}));
+        totalCongelado = ids.size;
+        alvo = clientesValidos.filter(function(c){return ids.has(String(c.id));});
+        var localizados = new Set(alvo.map(function(c){return String(c.id);}));
+        ausentes = Array.from(ids).filter(function(id){return !localizados.has(id);});
+        origem = 'Lista congelada em '+fmtDataHora(lista.congeladoEm);
+      } else {
+        alvo = publicoDe(filtrosC);
+        origem = 'Público calculado agora (lista ainda não congelada)';
+      }
+
+      if (!alvo.length) {alert('Não há clientes elegíveis para incluir nesta campanha.');return;}
+      // Defesa adicional contra repetições no conjunto de entrada.
+      var idsAlvo = new Set(), repetidos = 0;
+      alvo = alvo.filter(function(c){
+        var id = String(c.id);
+        if (idsAlvo.has(id)) {repetidos++;return false;}
+        idsAlvo.add(id);return true;
+      });
+      var leadsAtuais = await cdaCarregarLeadsB2C();
+      var nestaCampanha = new Set(leadsAtuais.filter(function(l){return String(l.campanhaId)===String(campanha.id);})
+        .map(function(l){return String(l.clienteId);}));
+      var emOutrasCampanhas = new Set(leadsAtuais.filter(function(l){
+        return String(l.campanhaId)!==String(campanha.id) && idsAlvo.has(String(l.clienteId));
+      }).map(function(l){return String(l.clienteId);}));
+      var existentes = alvo.filter(function(c){return nestaCampanha.has(String(c.id));}).length;
+      var novos = alvo.length-existentes;
+      var etapaInfo = CDA_ETAPAS_CAMPANHA.find(function(e){return e.id===(campanha.pipelineEtapaEntrada||'novo_lead');});
+      var etapaLabel = etapaInfo ? etapaInfo.label : 'Novo Lead';
+
+      var resumo = 'PRÉVIA DE INCLUSÃO NO PIPELINE B2C\\n\\n'+
+        'Campanha: '+campanha.nome+'\\n'+origem+'\\n'+
+        (lista?'Destinatários distintos congelados: '+totalCongelado+'\\n':'')+
+        'Clientes elegíveis encontrados: '+alvo.length+'\\n'+
+        'Já cadastrados nesta campanha: '+existentes+'\\n'+
+        'Novos leads previstos: '+novos+'\\n'+
+        'Clientes que participam de outras campanhas: '+emOutrasCampanhas.size+' (vínculo independente)\\n'+
+        'Etapa de entrada: '+etapaLabel+'\\n'+
+        (repetidos?'Registros repetidos na origem: '+repetidos+'\\n':'')+
+        (ausentes.length?'ATENÇÃO: '+ausentes.length+' destinatário(s) congelado(s) não estão disponíveis como clientes com cadastro completo. A inclusão foi bloqueada para evitar divergências.\\n':'')+
+        '\\nNenhum lead foi incluído nesta prévia.';
+      if (ausentes.length) {alert(resumo+'\\n\\nRevise os cadastros antes de repetir.');return;}
+      if (!novos) {alert(resumo+'\\n\\nNenhuma inclusão necessária.');return;}
+      if (!confirm(resumo+'\\n\\nCONFIRMA incluir '+novos+' lead(s) no Pipeline?'))return;
+
+      btn.textContent = 'Incluindo leads...';
       var resultado = await cdaAdicionarPublicoCampanha(campanha, alvo, nomeUsuarioAtual());
-      alert('Pronto!\n\n' + resultado.adicionados + ' novo(s) lead(s) adicionado(s) ao Pipeline.' +
-        (resultado.jaExistentes ? '\n' + resultado.jaExistentes + ' já estavam nesta campanha (não duplicados).' : ''));
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao adicionar público:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
-    } finally {
-      btn.textContent = textoOriginal; btn.disabled = false;
-    }
+      ST.leads = await cdaCarregarLeadsB2C();
+      alert('Inclusão concluída.\\n\\n'+resultado.adicionados+' novo(s) lead(s) no Pipeline.'+
+        (resultado.jaExistentes?'\\n'+resultado.jaExistentes+' já estavam nesta campanha (sem duplicar).':'')+
+        '\\n\\nO histórico de comunicações e a lista congelada não foram alterados.');
+      render();
+    }catch(err) {
+      console.error('Incluir público no Pipeline:',err);
+      alert('Não foi possível concluir a operação. Consulte o Pipeline para verificar os registros existentes antes de repetir.\\n\\n'+
+        ((err&&(err.message||err.details||err.hint))||'Erro desconhecido'));
+    }finally{btn.textContent=textoOriginal;btn.disabled=false;}
   }
 
 
