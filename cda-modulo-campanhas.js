@@ -353,8 +353,7 @@ async function montarModuloCampanhas(containerId, opts) {
   // Abas por campanha: estado apenas da apresentação, sem gravação no banco.
   var abaPorCampanha = Object.create(null);
   var abasCampanha = [
-    {id:'geral',nome:'Visão Geral'},
-    {id:'publico',nome:'Público'},
+    {id:'geral',nome:'Campanha e Público'},
     {id:'mensagens',nome:'Mensagens'},
     {id:'execucao',nome:'Execução'},
     {id:'resultados',nome:'Resultados'}
@@ -381,32 +380,30 @@ async function montarModuloCampanhas(containerId, opts) {
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       var kpi = calcularKpi(c);
       var beneficioInfo = CDA_TIPOS_BENEFICIO.find(function (b) { return b.id === c.beneficioTipo; });
-      var id = String(c.id), abaAtual = abaPorCampanha[id] || 'geral';
+      var id = String(c.id), abaAtual = abaPorCampanha[id] === 'publico' ? 'geral' : (abaPorCampanha[id] || 'geral');
       function acao(atributo, rotulo, destaque) {
         return editavel ? '<button class="btn sm'+(destaque?' rust':'')+'" type="button" '+atributo+'="'+escH(id)+'">'+rotulo+'</button>' : '';
       }
+      // Campanha e Público: informações gerais e segmentação no mesmo painel, sem repetição.
       var resumo =
-        '<div class="camp-grid">' +
-          '<div><div class="l">Público-alvo</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR')+' cliente(s)':'—')+'</b></div>' +
-          '<div><div class="l">E-mails na lista</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>' +
-          '<div><div class="l">Segmentação</div><b>'+(seg?escH(seg.nome):'Não encontrada')+'</b></div>' +
-          '<div><div class="l">Mensagens</div><b>'+ST.mensagens.filter(function(m){return String(m.campanhaId)===id;}).length+' na Biblioteca</b></div>' +
-          '<div><div class="l">Período</div>'+fmtData(c.periodoInicio)+' – '+fmtData(c.periodoFim)+'</div>' +
-          '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div>' +
-          '<div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>' +
-          '<div><div class="l">Meta</div>'+escH(c.metaDescricao||'—')+'</div>' +
-          '<div><div class="l">Benefício</div>'+(beneficioInfo&&beneficioInfo.id!=='nenhum'?escH(beneficioInfo.label+(c.beneficioValor?' — '+c.beneficioValor:'')):'—')+'</div>' +
-        '</div>'+
-        (editavel?'<div class="camp-acoes">'+acao('data-editar','✎ Editar')+acao('data-duplicar','⧉ Duplicar')+'</div>':'');
-      var publico =
-        '<h4>Segmentação e destinatários</h4>'+
+        '<h4>Dados da campanha e composição do público</h4>'+
         '<div class="camp-grid">'+
-          '<div><div class="l">Público calculado</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR'):'—')+' cliente(s)</b></div>'+
-          '<div><div class="l">Segmentação</div>'+ (seg ? escH(seg.nome)+'<div class="tmu">'+escH(seg.modelo?seg.resumo:cdaResumoTipos(seg.filtros))+'</div>' : 'Segmentação não encontrada')+'</div>'+
-          '<div><div class="l">Lista congelada</div>'+(lista?'<b>'+lista.total.toLocaleString('pt-BR')+'</b> cliente(s), '+lista.comEmail.toLocaleString('pt-BR')+' com e-mail<div class="tmu">em '+escH(fmtDataHora(lista.congeladoEm))+'</div>':'Ainda não congelada')+'</div>'+
+          '<div><div class="l">Público-alvo</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR')+' cliente(s)':'—')+'</b></div>'+
+          '<div><div class="l">E-mails na lista congelada</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
+          '<div><div class="l">Segmentação</div>'+(seg?'<b>'+escH(seg.nome)+'</b><div class="tmu" style="font-size:11px">'+escH(seg.modelo?seg.resumo:cdaResumoTipos(seg.filtros))+'</div>':'Não encontrada')+'</div>'+
+          '<div><div class="l">Lista congelada</div>'+(lista?'<b>'+lista.total.toLocaleString('pt-BR')+'</b> cliente(s)<div class="tmu" style="font-size:11px">em '+escH(fmtDataHora(lista.congeladoEm))+'</div>':'Ainda não congelada')+'</div>'+
+          '<div><div class="l">Período</div>'+fmtData(c.periodoInicio)+' – '+fmtData(c.periodoFim)+'</div>'+
+          '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div>'+
+          '<div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>'+
+          '<div><div class="l">Meta</div>'+escH(c.metaDescricao||'—')+'</div>'+
+          '<div><div class="l">Benefício</div>'+(beneficioInfo&&beneficioInfo.id!=='nenhum'?escH(beneficioInfo.label+(c.beneficioValor?' — '+c.beneficioValor:'')):'—')+'</div>'+
         '</div>'+
-        (editavel?'<div class="camp-acoes">'+acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+'</div>':'')+
-        '<p class="tmu" style="font-size:11px;margin-top:10px">Os filtros e critérios são mantidos na edição da campanha. Recongelar substitui a lista somente após confirmação.</p>';
+        (editavel?'<div class="camp-acoes">'+
+          acao('data-editar','✎ Editar')+
+          acao('data-duplicar','⧉ Duplicar')+
+          acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+
+        '</div>':'')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
       var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
       var mensagens =
         '<h4>Comunicação e preparação</h4>'+
@@ -427,7 +424,7 @@ async function montarModuloCampanhas(containerId, opts) {
         '<h4>Indicadores da campanha</h4>'+
         (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
         '<p class="tmu" style="font-size:11px;margin-top:10px">O painel de controle de envios será desenvolvido em etapa futura; nenhum disparo em massa foi ativado.</p>';
-      var paineis={geral:resumo,publico:publico,mensagens:mensagens,execucao:execucao,resultados:resultados};
+      var paineis={geral:resumo,mensagens:mensagens,execucao:execucao,resultados:resultados};
       return '<div class="camp-card" data-id="'+escH(id)+'">'+
         '<div class="camp-topo"><div class="camp-nome">'+escH(c.nome)+'</div><span class="camp-badge" style="background:'+statusInfo.cor+'">'+statusInfo.label+'</span></div>'+
         (c.objetivo?'<p class="tmu" style="margin:4px 0 0">'+escH(c.objetivo)+'</p>':'')+
