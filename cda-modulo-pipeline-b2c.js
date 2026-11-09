@@ -89,9 +89,15 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '<select id="pb2c-f-resp"><option value="">Todos os responsáveis</option></select>' +
       '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
       '<button class="btn sm" id="pb2c-btn-diario">📔 Diário</button>' +
+      '<button class="btn sm" id="pb2c-btn-comunicacoes" aria-expanded="false" aria-controls="pb2c-comunicacoes">✉ Comunicações da Campanha</button>' +
       '<button class="btn sm" id="pb2c-btn-export-whats">📲 Exportar WhatsApp</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
+    '<section id="pb2c-comunicacoes" style="display:none;border:2px solid var(--ink,#1a1a1a);padding:14px 16px;margin:10px 0 16px;background:var(--paper,#fff)">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0;font-size:16px">Comunicações da Campanha</h3><button type="button" class="btn sm" id="pb2c-comunicacoes-atualizar">↻ Atualizar histórico</button></div>' +
+      '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0">Consulta somente leitura do histórico de testes. A seleção de campanha acima determina os resultados. Os eventos de entrega e abertura ainda não estão integrados.</p>' +
+      '<div id="pb2c-comunicacoes-conteudo" aria-live="polite" style="font-size:12px">Abra o painel para consultar o histórico.</div>' +
+    '</section>' +
     '<div class="pb2c-board" id="pb2c-board"></div>' +
 
     '<div class="pb2c-diario-overlay" id="pb2c-diario-overlay">' +
@@ -234,6 +240,70 @@ async function montarModuloPipelineB2C(containerId, opts) {
       ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
   }
   popularFiltros();
+
+  // Consulta do histórico de testes por campanha, independente de quantos leads há no funil.
+  // Não cria leads, não grava interações nem emite e-mails.
+  var comunicacoesAberto = false;
+  var comunicacoesDados = null;
+  var comunicacoesCarregando = false;
+  function escCom(v) { return String(v == null ? '' : v).replace(/[&<>"']/g,function(ch){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
+  }); }
+  function dataCom(iso) {
+    if (!iso) return '—';
+    return new Date(iso).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'});
+  }
+  async function carregarComunicacoes() {
+    if (comunicacoesCarregando) return;
+    comunicacoesCarregando=true;
+    var out=host.querySelector('#pb2c-comunicacoes-conteudo');
+    out.textContent='Consultando histórico de testes no Supabase...';
+    try {
+      // Fetch paralelo; a consulta usa a mesma fonte de dados do painel de Campanhas.
+      var [testes,mensagens]=await Promise.all([
+        cdaFetchAll('cda_email_tentativas','id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id'),
+        cdaCarregarMensagens()
+      ]);
+      comunicacoesDados={testes:testes||[],mensagens:mensagens||[]};
+      renderComunicacoes();
+    }catch(e){
+      comunicacoesDados=null;
+      out.textContent='Não foi possível consultar o histórico: '+((e&&e.message)||String(e));
+    }finally{comunicacoesCarregando=false;}
+  }
+  function renderComunicacoes() {
+    if (!comunicacoesAberto) return;
+    var out=host.querySelector('#pb2c-comunicacoes-conteudo');
+    var filtro=host.querySelector('#pb2c-f-campanha').value;
+    if (!comunicacoesDados) { out.textContent='Clique em Atualizar histórico para consultar.'; return; }
+    var registros=comunicacoesDados.testes.filter(function(t){
+      return filtro!=='__sem_campanha__' && (!filtro || String(t.campanha_id)===filtro);
+    }).sort(function(a,b){return String(b.criado_em).localeCompare(String(a.criado_em));});
+    var nomes=Object.create(null);
+    comunicacoesDados.mensagens.forEach(function(m){nomes[String(m.id)]=m.nome;});
+    var aceitos=registros.filter(function(t){return t.situacao==='aceito_provedor';}).length;
+    var falhas=registros.filter(function(t){return t.situacao==='falha_tecnica'||t.situacao==='rejeitado_provedor';}).length;
+    var pendentes=registros.length-aceitos-falhas;
+    out.innerHTML='<p style="font-size:11px;margin:8px 0"><b>Campanha:</b> '+escCom(filtro ? (filtro==='__sem_campanha__'?'Sem campanha vinculada':(campanhaPorId[filtro]||{}).nome||'Campanha #'+filtro) : 'Todas as campanhas')+'</p>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px"><span><b>'+registros.length+'</b> tentativas</span><span><b>'+aceitos+'</b> aceitas pelo provedor</span><span><b>'+falhas+'</b> falhas/recusas</span><span><b>'+pendentes+'</b> sem conclusão</span></div>'+
+      (registros.length?'<div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr><th>Data/hora</th><th>Campanha</th><th>Mensagem</th><th>E-mails de teste</th><th>Situação</th><th>ID Resend</th></tr></thead><tbody>'+
+      registros.map(function(t){var c=campanhaPorId[String(t.campanha_id)];return '<tr style="border-top:1px solid var(--border2,#ddd)">'+
+        '<td style="padding:8px;white-space:nowrap">'+escCom(dataCom(t.criado_em))+'</td>'+
+        '<td style="padding:8px">'+escCom(c?c.nome:'#'+t.campanha_id)+'</td>'+
+        '<td style="padding:8px">'+escCom(nomes[String(t.mensagem_id)]||'#'+t.mensagem_id)+'</td>'+
+        '<td style="padding:8px">'+escCom((t.destinatarios||[]).join(', '))+'</td>'+
+        '<td style="padding:8px">'+escCom(({aceito_provedor:'Aceito pelo Resend · entrega não confirmada',rejeitado_provedor:'Recusado pelo provedor',falha_tecnica:'Falha técnica',solicitado:'Solicitado'})[t.situacao]||t.situacao)+(t.erro?'<div style="font-size:10px">'+escCom(t.erro)+'</div>':'')+'</td>'+
+        '<td style="padding:8px;overflow-wrap:anywhere">'+escCom(t.resend_email_id||'—')+'</td></tr>';}).join('')+
+      '</tbody></table></div>':'<p style="color:var(--muted,#777)">Nenhum teste registrado para esta seleção.</p>')+
+      '<p style="font-size:10px;color:var(--muted,#777);margin-top:12px">Registros desde a ativação da rastreabilidade. Aceitação do Resend não confirma entrega. Histórico de compras e leads não são alterados por esta consulta.</p>';
+  }
+  host.querySelector('#pb2c-btn-comunicacoes').addEventListener('click',function(){
+    comunicacoesAberto=!comunicacoesAberto;
+    host.querySelector('#pb2c-comunicacoes').style.display=comunicacoesAberto?'':'none';
+    this.setAttribute('aria-expanded',comunicacoesAberto?'true':'false');
+    if(comunicacoesAberto) comunicacoesDados?renderComunicacoes():carregarComunicacoes();
+  });
+  host.querySelector('#pb2c-comunicacoes-atualizar').addEventListener('click',carregarComunicacoes);
   host.querySelector('#pb2c-m-resp').innerHTML = '<option value="">—</option>' +
     ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
 
@@ -1015,7 +1085,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
   host.querySelector('#pb2c-t-cancelar').addEventListener('click', fecharModalTransicao);
   host.querySelector('#pb2c-t-x').addEventListener('click', fecharModalTransicao);
   host.querySelector('#pb2c-t-confirmar').addEventListener('click', confirmarTransicao);
-  host.querySelector('#pb2c-f-campanha').addEventListener('change', render);
+  host.querySelector('#pb2c-f-campanha').addEventListener('change', function(){render();renderComunicacoes();});
   host.querySelector('#pb2c-f-cliente').addEventListener('input', render);
   host.querySelector('#pb2c-f-canal').addEventListener('change', render);
   host.querySelector('#pb2c-f-resp').addEventListener('change', render);
