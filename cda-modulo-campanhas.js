@@ -106,6 +106,7 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div id="camp-preparo-resumo" style="margin:6px 0"></div>' +
         '</div>' +
         '<div class="mo-b">' +
+          '<div id="camp-preparo-elegibilidade" style="margin:8px 0"></div>' +
           '<div id="camp-preparo-listagem"></div>' +
           '<div class="fgr" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
             '<button type="button" class="btn" id="camp-preparo-visualizar" disabled>👁 Visualizar Mensagem</button>' +
@@ -393,32 +394,68 @@ async function montarModuloCampanhas(containerId, opts) {
   var preparoEstado = host.querySelector('#camp-preparo-estado');
   var preparoMsg = host.querySelector('#camp-preparo-msg');
   var preparoPagina = 0;
+  var preparoClassificados = [];
+  var preparoFiltro = 'todos';
+  var preparoFiltroEl = host.querySelector('#camp-preparo-elegibilidade');
   function fecharPreparo() { modalPreparo.classList.remove('op'); }
   host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
   host.querySelector('#camp-preparo-voltar').addEventListener('click', fecharPreparo);
 
   function apresentarPreparo() {
     if (!preparoSelecionada) return;
-    var email = preparoSelecionada.email || '';
-    var info = preparoSelecionada.info || '';
+    var total = preparoSelecionada.total;
     preparoResumo.innerHTML = '<div class="camp-grid">' +
-      '<div><div class="l">Lista congelada</div><b>' + preparoSelecionada.total.toLocaleString('pt-BR') + '</b> cliente(s)</div>' +
+      '<div><div class="l">Lista congelada</div><b>' + total.toLocaleString('pt-BR') + '</b> cliente(s)</div>' +
       '<div><div class="l">E-mails válidos e únicos</div><b>' + preparoSelecionada.aptos.toLocaleString('pt-BR') + '</b> (pré-seleção)</div>' +
       '<div><div class="l">Sem e-mail / inválidos</div><b>' + preparoSelecionada.invalidos.toLocaleString('pt-BR') + '</b></div>' +
       '<div><div class="l">Duplicidades de e-mail</div><b>' + preparoSelecionada.duplicados.toLocaleString('pt-BR') + '</b></div>' +
       '<div><div class="l">Congelada em</div>' + escH(fmtDataHora(preparoSelecionada.data)) + '</div></div>' +
-      '<p style="font-size:11px;color:var(--muted,#777)">Endereços válidos e únicos NÃO significam autorização para envio. Os bloqueios e descadastros ainda não estão integrados.</p>';
-    var inicio = preparoPagina * 25, pagina = preparoElegiveis.slice(inicio, inicio + 25);
+      '<p style="font-size:11px;color:var(--muted,#777)">Validação sintática e ausência de duplicidade não comprovam autorização de contato.</p>';
+
+    var contagens = { apto: 0, pendente: 0, excluido: 0 };
+    preparoClassificados.forEach(function (d) { contagens[d.situacao]++; });
+    preparoFiltroEl.innerHTML =
+      '<h4 style="font-size:15px;margin:8px 0">Elegibilidade dos Destinatários · avaliação preliminar</h4>' +
+      '<div class="camp-grid" style="padding:9px 12px;border:1px solid var(--border2,#ccc);margin:0 0 8px">' +
+        '<div><div class="l">Aptos comprovados</div><b>' + contagens.apto.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Pendentes de comprovação</div><b>' + contagens.pendente.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Excluídos tecnicamente</div><b>' + contagens.excluido.toLocaleString('pt-BR') + '</b></div>' +
+      '</div>' +
+      '<p style="font-size:11px;margin:5px 0 10px">A situação <b>Pendente</b> significa que não existe autorização verificável integrada a esta tela; não significa que o cliente recusou contato. ' +
+      'Descadastros e bloqueios comerciais ainda precisam ser integrados. <b>Não enviar.</b></p>' +
+      '<label for="camp-preparo-filtro" style="font-size:12px">Consultar por situação</label> ' +
+      '<select id="camp-preparo-filtro" style="max-width:330px;margin:0 0 8px">' +
+        '<option value="todos">Todos os registros</option>' +
+        '<option value="apto">Aptos comprovados</option>' +
+        '<option value="pendente">Pendentes de comprovação</option>' +
+        '<option value="excluido">Excluídos tecnicamente</option>' +
+      '</select>';
+    var filtroEl = host.querySelector('#camp-preparo-filtro');
+    filtroEl.value = preparoFiltro;
+    filtroEl.addEventListener('change', function () { preparoFiltro = this.value; preparoPagina = 0; apresentarPreparo(); });
+
+    var visiveis = preparoClassificados.filter(function (d) { return preparoFiltro === 'todos' || d.situacao === preparoFiltro; });
+    var inicio = preparoPagina * 25, pagina = visiveis.slice(inicio, inicio + 25);
+    var qtdPaginas = Math.max(1, Math.ceil(visiveis.length / 25));
     preparoListagem.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">' +
-      '<b>Destinatários pré-selecionados · ' + preparoElegiveis.length.toLocaleString('pt-BR') + '</b>' +
-      '<span>Página ' + (preparoPagina + 1) + ' de ' + Math.max(1,Math.ceil(preparoElegiveis.length/25)) +
+      '<b>Destinatários · ' + visiveis.length.toLocaleString('pt-BR') + '</b>' +
+      '<span>Página ' + (preparoPagina + 1) + ' de ' + qtdPaginas +
       ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
-      ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= preparoElegiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
-      '<div style="max-height:clamp(140px,23vh,200px);overflow:auto"><table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th></tr></thead><tbody>' +
-      pagina.map(function (d) { return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) + '</td></tr>'; }).join('') +
+      ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= visiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
+      '<div style="max-height:clamp(160px,32vh,330px);overflow:auto">' +
+      '<table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th><th>Situação</th><th>Motivo / origem</th></tr></thead><tbody>' +
+      (pagina.length ? pagina.map(function (d) {
+        return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) +
+          '</td><td>' + (d.situacao === 'apto' ? 'Apto' : d.situacao === 'excluido' ? 'Excluído' : 'Pendente') +
+          '</td><td>' + escH(d.motivo) + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="padding:12px">Nenhum registro nesta situação.</td></tr>') +
       '</tbody></table></div>';
-    host.querySelector('#camp-preparo-anterior').addEventListener('click', function () { if(preparoPagina>0){preparoPagina--;apresentarPreparo();} });
-    host.querySelector('#camp-preparo-proximo').addEventListener('click', function () { if((preparoPagina+1)*25<preparoElegiveis.length){preparoPagina++;apresentarPreparo();} });
+    host.querySelector('#camp-preparo-anterior').addEventListener('click', function () {
+      if(preparoPagina > 0){ preparoPagina--; apresentarPreparo(); }
+    });
+    host.querySelector('#camp-preparo-proximo').addEventListener('click', function () {
+      if((preparoPagina+1)*25 < visiveis.length){ preparoPagina++; apresentarPreparo(); }
+    });
   }
   function atualizarVisualizarPreparo() {
     var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
@@ -439,8 +476,8 @@ async function montarModuloCampanhas(containerId, opts) {
   async function prepararEnvio(campanhaId) {
     preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!preparoCampanha) return;
-    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoPagina = 0;
-    preparoResumo.innerHTML = ''; preparoListagem.innerHTML = '';
+    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'todos';
+    preparoResumo.innerHTML = ''; preparoListagem.innerHTML = ''; preparoFiltroEl.innerHTML = '';
     preparoMsg.innerHTML = '<option value="">Carregando...</option>';
     atualizarVisualizarPreparo();
     host.querySelector('#camp-preparo-campanha').textContent = preparoCampanha.nome;
@@ -454,19 +491,33 @@ async function montarModuloCampanhas(containerId, opts) {
       preparoMsg.innerHTML = '<option value="">Selecione a mensagem...</option>' +
         preparoMensagens.map(function (m) { return '<option value="' + escH(m.id) + '">' + escH(m.nome) + '</option>'; }).join('');
       if (preparoMensagens.length) preparoMsg.value = String(preparoMensagens[0].id);
-      var vistos = {}, invalidos = 0, duplicados = 0;
+      var vistos = Object.create(null), invalidos = 0, duplicados = 0;
       congelados.forEach(function (d) {
         var e = String(d.email || '').trim().toLowerCase();
-        if (!cdaEmailValido(e)) { invalidos++; return; }
-        if (vistos[e]) { duplicados++; return; }
-        vistos[e] = 1; preparoElegiveis.push(d);
+        var item = {
+          nome: d.nome || '', email: d.email || '', uf: d.uf || '',
+          situacao: 'pendente', motivo: 'Autorização de contato não verificada · origem: lista congelada'
+        };
+        if (!cdaEmailValido(e)) {
+          invalidos++;
+          item.situacao = 'excluido';
+          item.motivo = e ? 'Endereço de e-mail inválido · lista congelada' : 'E-mail não informado · lista congelada';
+        } else if (vistos[e]) {
+          duplicados++;
+          item.situacao = 'excluido';
+          item.motivo = 'E-mail duplicado · lista congelada';
+        } else {
+          vistos[e] = 1;
+          preparoElegiveis.push(d);
+        }
+        preparoClassificados.push(item);
       });
       preparoSelecionada = {
         total: congelados.length, aptos: preparoElegiveis.length,
         invalidos: invalidos, duplicados: duplicados,
         data: congelados.length ? congelados[0].congelado_em : null
       };
-      preparoEstado.textContent = congelados.length ? 'Pré-seleção concluída · sem envio de mensagens.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
+      preparoEstado.textContent = congelados.length ? 'Pré-seleção concluída · elegibilidade pendente de comprovação · sem envio.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
       if (!preparoMensagens.length) preparoEstado.textContent += ' Nenhuma mensagem cadastrada para esta campanha.';
       apresentarPreparo();
       atualizarVisualizarPreparo();
