@@ -95,7 +95,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
     '</div>' +
     '<section id="pb2c-comunicacoes" style="display:none;border:2px solid var(--ink,#1a1a1a);padding:14px 16px;margin:10px 0 16px;background:var(--paper,#fff)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0;font-size:16px">Comunicações da Campanha</h3><button type="button" class="btn sm" id="pb2c-comunicacoes-atualizar">↻ Atualizar histórico</button></div>' +
-      '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0">Consulta somente leitura do histórico de testes. A seleção de campanha acima determina os resultados. Os eventos de entrega e abertura ainda não estão integrados.</p>' +
+      '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0">Consulta somente leitura do histórico de testes. A seleção de campanha acima determina os resultados. Eventos de entrega e rejeição aparecerão após a ativação do webhook assinado do Resend. Aberturas ainda não são acompanhadas.</p>' +
       '<div id="pb2c-comunicacoes-conteudo" aria-live="polite" style="font-size:12px">Abra o painel para consultar o histórico.</div>' +
     '</section>' +
     '<div class="pb2c-board" id="pb2c-board"></div>' +
@@ -260,11 +260,12 @@ async function montarModuloPipelineB2C(containerId, opts) {
     out.textContent='Consultando histórico de testes no Supabase...';
     try {
       // Fetch paralelo; a consulta usa a mesma fonte de dados do painel de Campanhas.
-      var [testes,mensagens]=await Promise.all([
+      var [testes,mensagens,eventos]=await Promise.all([
         cdaFetchAll('cda_email_tentativas','id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id'),
-        cdaCarregarMensagens()
+        cdaCarregarMensagens(),
+        cdaFetchAll('cda_email_eventos','id,tentativa_id,tipo,ocorrido_em,recebido_em','id')
       ]);
-      comunicacoesDados={testes:testes||[],mensagens:mensagens||[]};
+      comunicacoesDados={testes:testes||[],mensagens:mensagens||[],eventos:eventos||[]};
       renderComunicacoes();
     }catch(e){
       comunicacoesDados=null;
@@ -284,18 +285,31 @@ async function montarModuloPipelineB2C(containerId, opts) {
     var aceitos=registros.filter(function(t){return t.situacao==='aceito_provedor';}).length;
     var falhas=registros.filter(function(t){return t.situacao==='falha_tecnica'||t.situacao==='rejeitado_provedor';}).length;
     var pendentes=registros.length-aceitos-falhas;
+    var eventosPorTentativa=Object.create(null);
+    (comunicacoesDados.eventos||[]).forEach(function(e){
+      var k=String(e.tentativa_id);
+      (eventosPorTentativa[k]||(eventosPorTentativa[k]=[])).push(e);
+    });
+    var entregues=registros.filter(function(t){return (eventosPorTentativa[String(t.id)]||[]).some(function(e){return e.tipo==='email.delivered';});}).length;
+    var devolvidos=registros.filter(function(t){return (eventosPorTentativa[String(t.id)]||[]).some(function(e){return e.tipo==='email.bounced';});}).length;
+    var reclamacoes=registros.filter(function(t){return (eventosPorTentativa[String(t.id)]||[]).some(function(e){return e.tipo==='email.complained';});}).length;
     out.innerHTML='<p style="font-size:11px;margin:8px 0"><b>Campanha:</b> '+escCom(filtro ? (filtro==='__sem_campanha__'?'Sem campanha vinculada':(campanhaPorId[filtro]||{}).nome||'Campanha #'+filtro) : 'Todas as campanhas')+'</p>'+
-      '<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px"><span><b>'+registros.length+'</b> tentativas</span><span><b>'+aceitos+'</b> aceitas pelo provedor</span><span><b>'+falhas+'</b> falhas/recusas</span><span><b>'+pendentes+'</b> sem conclusão</span></div>'+
-      (registros.length?'<div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr><th>Data/hora</th><th>Campanha</th><th>Mensagem</th><th>E-mails de teste</th><th>Situação</th><th>ID Resend</th></tr></thead><tbody>'+
+      '<div style="display:flex;gap:16px;flex-wrap:wrap;margin:8px 0 12px"><span><b>'+registros.length+'</b> tentativas</span><span><b>'+aceitos+'</b> aceitas pelo provedor</span><span><b>'+falhas+'</b> falhas/recusas</span><span><b>'+pendentes+'</b> sem conclusão</span><span><b>'+entregues+'</b> entregas notificadas</span><span><b>'+devolvidos+'</b> devoluções notificadas</span><span><b>'+reclamacoes+'</b> reclamações notificadas</span></div>'+
+      (registros.length?'<div style="overflow-x:auto"><table style="width:100%;font-size:11px;border-collapse:collapse"><thead><tr><th>Data/hora</th><th>Campanha</th><th>Mensagem</th><th>E-mails de teste</th><th>Aceitação do pedido</th><th>Evento posterior</th><th>ID Resend</th></tr></thead><tbody>'+
       registros.map(function(t){var c=campanhaPorId[String(t.campanha_id)];return '<tr style="border-top:1px solid var(--border2,#ddd)">'+
         '<td style="padding:8px;white-space:nowrap">'+escCom(dataCom(t.criado_em))+'</td>'+
         '<td style="padding:8px">'+escCom(c?c.nome:'#'+t.campanha_id)+'</td>'+
         '<td style="padding:8px">'+escCom(nomes[String(t.mensagem_id)]||'#'+t.mensagem_id)+'</td>'+
         '<td style="padding:8px">'+escCom((t.destinatarios||[]).join(', '))+'</td>'+
         '<td style="padding:8px">'+escCom(({aceito_provedor:'Aceito pelo Resend · entrega não confirmada',rejeitado_provedor:'Recusado pelo provedor',falha_tecnica:'Falha técnica',solicitado:'Solicitado'})[t.situacao]||t.situacao)+(t.erro?'<div style="font-size:10px">'+escCom(t.erro)+'</div>':'')+'</td>'+
+        '<td style="padding:8px">'+(function(){
+          var ev=(eventosPorTentativa[String(t.id)]||[]).slice().sort(function(a,b){return String(b.ocorrido_em).localeCompare(String(a.ocorrido_em));});
+          var labels={'email.delivered':'Entregue','email.bounced':'Devolvido / rejeitado','email.delivery_delayed':'Entrega adiada','email.complained':'Reclamação de spam'};
+          return ev.length ? ev.map(function(e){return '<div>'+escCom(labels[e.tipo]||e.tipo)+' · '+escCom(dataCom(e.ocorrido_em))+'</div>';}).join('') : '<span style="color:var(--muted,#777)">Sem evento recebido</span>';
+        })()+'</td>'+
         '<td style="padding:8px;overflow-wrap:anywhere">'+escCom(t.resend_email_id||'—')+'</td></tr>';}).join('')+
       '</tbody></table></div>':'<p style="color:var(--muted,#777)">Nenhum teste registrado para esta seleção.</p>')+
-      '<p style="font-size:10px;color:var(--muted,#777);margin-top:12px">Registros desde a ativação da rastreabilidade. Aceitação do Resend não confirma entrega. Histórico de compras e leads não são alterados por esta consulta.</p>';
+      '<p style="font-size:10px;color:var(--muted,#777);margin-top:12px">Eventos posteriores são registrados apenas quando recebidos de webhook assinado e associados ao teste. Zero eventos não prova ausência de entregas enquanto o webhook não estiver ativado. Histórico de compras e leads não são alterados por esta consulta.</p>';
   }
   host.querySelector('#pb2c-btn-comunicacoes').addEventListener('click',function(){
     comunicacoesAberto=!comunicacoesAberto;
