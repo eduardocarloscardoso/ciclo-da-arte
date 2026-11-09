@@ -420,10 +420,32 @@ async function montarModuloCampanhas(containerId, opts) {
           acao('data-add-publico','➕ Adicionar público ao Pipeline')+
           acao('data-gerar-msg','🚀 Gerar Mensagens')+
           acao('data-gerar-roadmap','🗺 Gerar Roadmap de Tarefas')+'</div>':'');
+      var mensagensTeste=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
+      var comTeste=mensagensTeste.filter(function(m){return !!m.ultimoTesteEm;})
+        .sort(function(a,b){return String(b.ultimoTesteEm).localeCompare(String(a.ultimoTesteEm));});
       var resultados =
-        '<h4>Indicadores da campanha</h4>'+
+        '<h4>Resultados comerciais</h4>'+
         (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
-        '<p class="tmu" style="font-size:11px;margin-top:10px">O painel de controle de envios será desenvolvido em etapa futura; nenhum disparo em massa foi ativado.</p>';
+        '<div style="border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:16px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+            '<h4 style="margin:0">Painel de Controle de Envios</h4>'+
+            '<button type="button" class="btn sm" data-atualizar-controle="'+escH(id)+'">↻ Atualizar dados</button>'+
+          '</div>'+
+          '<p class="tmu" style="font-size:11px;margin:7px 0 10px">Indicadores baseados no Supabase. O último teste registrado por mensagem representa aceitação do pedido pelo provedor, não comprovação de entrega na caixa postal.</p>'+
+          '<div class="camp-grid">'+
+            '<div><div class="l">Público congelado</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'Sem lista')+'</b></div>'+
+            '<div><div class="l">E-mails registrados como válidos</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
+            '<div><div class="l">Mensagens vinculadas</div><b>'+mensagensTeste.length+'</b></div>'+
+            '<div><div class="l">Mensagens com teste registrado</div><b>'+comTeste.length+'</b></div>'+
+            '<div><div class="l">Envios de campanha</div><b>Não habilitados</b></div>'+
+          '</div>'+
+          '<h4 style="margin:14px 0 7px">Último teste registrado por mensagem</h4>'+
+          (comTeste.length?'<div style="overflow-x:auto"><table style="font-size:12px;width:100%;border-collapse:collapse">'+
+            '<thead><tr><th style="text-align:left;padding:7px">Mensagem</th><th style="text-align:left;padding:7px">Data/hora</th><th style="text-align:left;padding:7px">Destinatário(s) de teste</th><th style="text-align:left;padding:7px">Situação conhecida</th></tr></thead><tbody>'+
+            comTeste.map(function(m){return '<tr style="border-top:1px solid var(--border2,#ddd)"><td style="padding:7px">'+escH(m.nome)+'</td><td style="padding:7px">'+escH(fmtDataHora(m.ultimoTesteEm))+'</td><td style="padding:7px">'+escH(m.ultimoTestePara||'—')+'</td><td style="padding:7px">Pedido aceito pelo Resend</td></tr>';}).join('')+
+            '</tbody></table></div>':'<p class="tmu">Nenhum teste registrado nas mensagens desta campanha.</p>')+
+          '<p class="tmu" style="font-size:11px;margin:10px 0 0">O cadastro atual conserva somente o último teste por mensagem, não o histórico completo. Eventos de entrega, rejeição, abertura e resposta ainda não estão integrados; por isso não são exibidos números para esses indicadores.</p>'+
+        '</div>';
       var paineis={geral:resumo,mensagens:mensagens,execucao:execucao,resultados:resultados};
       return '<div class="camp-card" data-id="'+escH(id)+'">'+
         '<div class="camp-topo"><div class="camp-nome">'+escH(c.nome)+'</div><span class="camp-badge" style="background:'+statusInfo.cor+'">'+statusInfo.label+'</span></div>'+
@@ -433,6 +455,22 @@ async function montarModuloCampanhas(containerId, opts) {
         '</div><div class="camp-painel" role="tabpanel">'+paineis[abaAtual]+'</div></div>';
     }).join('');
 
+    box.querySelectorAll('[data-atualizar-controle]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        btn.disabled=true;
+        var anterior=btn.textContent;
+        btn.textContent='Consultando...';
+        try {
+          ST.mensagens=await cdaCarregarMensagens();
+          render();
+        } catch(err){
+          console.error('Atualizar controle de envios:',err);
+          btn.textContent=anterior;
+          btn.disabled=false;
+          alert('Não foi possível atualizar os dados de teste no Supabase: '+((err&&err.message)||'erro desconhecido'));
+        }
+      });
+    });
     box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
       btn.addEventListener('click', function() {
         abaPorCampanha[String(btn.dataset.campId)] = btn.dataset.campAba;
