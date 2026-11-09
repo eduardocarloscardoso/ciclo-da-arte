@@ -833,31 +833,31 @@ async function montarModuloCampanhas(containerId, opts) {
       var etapaInfo = CDA_ETAPAS_CAMPANHA.find(function(e){return e.id===(campanha.pipelineEtapaEntrada||'novo_lead');});
       var etapaLabel = etapaInfo ? etapaInfo.label : 'Novo Lead';
 
-      var resumo = 'PRÉVIA DE INCLUSÃO NO PIPELINE B2C\\n\\n'+
-        'Campanha: '+campanha.nome+'\\n'+origem+'\\n'+
-        (lista?'Destinatários distintos congelados: '+totalCongelado+'\\n':'')+
-        'Clientes elegíveis encontrados: '+alvo.length+'\\n'+
-        'Já cadastrados nesta campanha: '+existentes+'\\n'+
-        'Novos leads previstos: '+novos+'\\n'+
-        'Clientes que participam de outras campanhas: '+emOutrasCampanhas.size+' (vínculo independente)\\n'+
-        'Etapa de entrada: '+etapaLabel+'\\n'+
-        (repetidos?'Registros repetidos na origem: '+repetidos+'\\n':'')+
-        (ausentes.length?'ATENÇÃO: '+ausentes.length+' destinatário(s) congelado(s) não estão disponíveis como clientes com cadastro completo. A inclusão foi bloqueada para evitar divergências.\\n':'')+
-        '\\nNenhum lead foi incluído nesta prévia.';
-      if (ausentes.length) {alert(resumo+'\\n\\nRevise os cadastros antes de repetir.');return;}
-      if (!novos) {alert(resumo+'\\n\\nNenhuma inclusão necessária.');return;}
-      if (!confirm(resumo+'\\n\\nCONFIRMA incluir '+novos+' lead(s) no Pipeline?'))return;
+      var resumo = 'PRÉVIA DE INCLUSÃO NO PIPELINE B2C\n\n'+
+        'Campanha: '+campanha.nome+'\n'+origem+'\n'+
+        (lista?'Destinatários distintos congelados: '+totalCongelado+'\n':'')+
+        'Clientes elegíveis encontrados: '+alvo.length+'\n'+
+        'Já cadastrados nesta campanha: '+existentes+'\n'+
+        'Novos leads previstos: '+novos+'\n'+
+        'Clientes que participam de outras campanhas: '+emOutrasCampanhas.size+' (vínculo independente)\n'+
+        'Etapa de entrada: '+etapaLabel+'\n'+
+        (repetidos?'Registros repetidos na origem: '+repetidos+'\n':'')+
+        (ausentes.length?'ATENÇÃO: '+ausentes.length+' destinatário(s) congelado(s) não estão disponíveis como clientes com cadastro completo. A inclusão foi bloqueada para evitar divergências.\n':'')+
+        '\nNenhum lead foi incluído nesta prévia.';
+      if (ausentes.length) {alert(resumo+'\n\nRevise os cadastros antes de repetir.');return;}
+      if (!novos) {alert(resumo+'\n\nNenhuma inclusão necessária.');return;}
+      if (!confirm(resumo+'\n\nCONFIRMA incluir '+novos+' lead(s) no Pipeline?'))return;
 
       btn.textContent = 'Incluindo leads...';
       var resultado = await cdaAdicionarPublicoCampanha(campanha, alvo, nomeUsuarioAtual());
       ST.leads = await cdaCarregarLeadsB2C();
-      alert('Inclusão concluída.\\n\\n'+resultado.adicionados+' novo(s) lead(s) no Pipeline.'+
-        (resultado.jaExistentes?'\\n'+resultado.jaExistentes+' já estavam nesta campanha (sem duplicar).':'')+
-        '\\n\\nO histórico de comunicações e a lista congelada não foram alterados.');
+      alert('Inclusão concluída.\n\n'+resultado.adicionados+' novo(s) lead(s) no Pipeline.'+
+        (resultado.jaExistentes?'\n'+resultado.jaExistentes+' já estavam nesta campanha (sem duplicar).':'')+
+        '\n\nO histórico de comunicações e a lista congelada não foram alterados.');
       render();
     }catch(err) {
       console.error('Incluir público no Pipeline:',err);
-      alert('Não foi possível concluir a operação. Consulte o Pipeline para verificar os registros existentes antes de repetir.\\n\\n'+
+      alert('Não foi possível concluir a operação. Consulte o Pipeline para verificar os registros existentes antes de repetir.\n\n'+
         ((err&&(err.message||err.details||err.hint))||'Erro desconhecido'));
     }finally{btn.textContent=textoOriginal;btn.disabled=false;}
   }
