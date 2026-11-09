@@ -129,7 +129,8 @@ async function montarModuloCampanhas(containerId, opts) {
       '<div class="mo-b"><p style="font-size:12px">Modelos informativos editáveis. O uso do modelo não substitui avaliação jurídica.</p>' +
       '<div id="camp-lgpd-status" role="status" style="font-size:12px"></div><div id="camp-lgpd-lista"></div>' +
       '<h4 id="camp-lgpd-titulo">Nova fundamentação</h4><input type="hidden" id="camp-lgpd-id">' +
-      '<div class="fgr"><label>Código interno *</label><input id="camp-lgpd-codigo" maxlength="80"></div>' +
+      '<input type="hidden" id="camp-lgpd-codigo">' +
+      '<p style="font-size:11px;margin:4px 0 12px;color:var(--muted,#777)">O código interno é gerado automaticamente ao cadastrar uma nova base.</p>' +
       '<div class="fgr"><label>Base legal *</label><input id="camp-lgpd-nome" maxlength="160"></div>' +
       '<div class="fgr"><label>Fundamentação padrão *</label><textarea id="camp-lgpd-texto" rows="5"></textarea></div>' +
       '<div style="display:flex;gap:8px;margin:12px 0"><button type="button" class="btn rust" id="camp-lgpd-salvar">Salvar</button>' +
@@ -676,7 +677,8 @@ async function montarModuloCampanhas(containerId, opts) {
       return '<div class="camp-lgpd-card"><b>'+lgpdE(x.nome)+'</b> <span class="tmu">('+lgpdE(x.codigo)+', versão '+Number(x.versao||1)+(x.ativo?'':', inativa')+')</span>'+
       '<p style="white-space:pre-wrap">'+lgpdE(x.fundamentacao)+'</p>'+
       '<button class="btn sm" type="button" data-lgpd-edit="'+x.id+'">Editar</button> '+
-      '<button class="btn sm" type="button" data-lgpd-toggle="'+x.id+'">'+(x.ativo?'Desativar':'Reativar')+'</button></div>';
+      '<button class="btn sm" type="button" data-lgpd-toggle="'+x.id+'">'+(x.ativo?'Desativar':'Reativar')+'</button> '+
+      '<button class="btn sm" type="button" data-lgpd-delete="'+x.id+'" title="Excluir definitivamente somente se nenhuma campanha utilizar esta base">Excluir</button></div>';
     }).join('')||'<p>Nenhum modelo cadastrado.</p>';
   }
   async function lgpdCarregar(){
@@ -687,11 +689,22 @@ async function montarModuloCampanhas(containerId, opts) {
     lgpdSel.innerHTML='<option value="">Não informada / em análise</option>'+lgpdModelos.filter(function(x){return x.ativo||x.codigo===v;}).map(function(x){return '<option value="'+lgpdE(x.codigo)+'">'+lgpdE(x.nome)+'</option>';}).join('');
     lgpdSel.value=v;lgpdRender();
   }
+  function lgpdGerarCodigo(nome){
+    var base=String(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+      .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,68);
+    if(!/^[a-z]/.test(base))base='base_'+base;
+    if(!base)base='base_legal';
+    var cod=base,seq=2;
+    while(lgpdModelos.some(function(x){return x.codigo===cod;})){
+      cod=base.slice(0,70)+'_'+seq++;
+    }
+    return cod;
+  }
   function lgpdLimpar(){
     host.querySelector('#camp-lgpd-titulo').textContent='Nova fundamentação';
     host.querySelector('#camp-lgpd-id').value='';
     host.querySelector('#camp-lgpd-codigo').value='';
-    host.querySelector('#camp-lgpd-codigo').disabled=false;
+
     host.querySelector('#camp-lgpd-nome').value='';
     host.querySelector('#camp-lgpd-texto').value='';
   }
@@ -705,15 +718,30 @@ async function montarModuloCampanhas(containerId, opts) {
   });
   lgpdLista.addEventListener('click',async function(event){
     var b=event.target.closest('button');if(!b)return;
-    var id=b.dataset.lgpdEdit||b.dataset.lgpdToggle;
+    var id=b.dataset.lgpdEdit||b.dataset.lgpdToggle||b.dataset.lgpdDelete;
     var x=lgpdModelos.find(function(v){return String(v.id)===id;});if(!x)return;
     if(b.dataset.lgpdEdit){
       host.querySelector('#camp-lgpd-titulo').textContent='Editar fundamentação';
       host.querySelector('#camp-lgpd-id').value=x.id;
       host.querySelector('#camp-lgpd-codigo').value=x.codigo;
-      host.querySelector('#camp-lgpd-codigo').disabled=true;
+
       host.querySelector('#camp-lgpd-nome').value=x.nome;
       host.querySelector('#camp-lgpd-texto').value=x.fundamentacao;return;
+    }
+    if(b.dataset.lgpdDelete){
+      if(!confirm('Excluir DEFINITIVAMENTE a base "'+x.nome+'"? Esta operação é irreversível e somente será permitida se não houver campanhas vinculadas.'))return;
+      b.disabled=true;
+      try{
+        var uso=await cdaClient.from('cda_campanhas').select('id',{count:'exact',head:true}).eq('lgpd_base_legal',x.codigo);
+        if(uso.error)throw uso.error;
+        if(uso.count>0)throw new Error('Esta base legal está utilizada em '+uso.count+' campanha(s). Use Desativar.');
+        var removido=await cdaClient.from('cda_lgpd_fundamentacoes').delete().eq('id',x.id).select('id');
+        if(removido.error)throw removido.error;
+        if(!removido.data||!removido.data.length)throw new Error('Exclusão não confirmada. Verifique suas permissões.');
+        await lgpdCarregar();lgpdLimpar();lgpdStatus.textContent='Fundamentação excluída definitivamente.';
+      }catch(e){lgpdStatus.textContent='Não foi possível excluir: '+e.message;}
+      finally{b.disabled=false;}
+      return;
     }
     if(!confirm((x.ativo?'Desativar ':'Reativar ')+x.nome+'? As campanhas salvas serão preservadas.'))return;
     b.disabled=true;
@@ -724,9 +752,8 @@ async function montarModuloCampanhas(containerId, opts) {
   });
   host.querySelector('#camp-lgpd-salvar').addEventListener('click',async function(){
     var id=host.querySelector('#camp-lgpd-id').value;
-    var codigo=host.querySelector('#camp-lgpd-codigo').value.trim().toLowerCase();
     var nome=host.querySelector('#camp-lgpd-nome').value.trim(),texto=host.querySelector('#camp-lgpd-texto').value.trim();
-    if(!/^[a-z][a-z0-9_]{1,79}$/.test(codigo)||!nome||!texto){lgpdStatus.textContent='Preencha código válido, nome e fundamentação.';return;}
+    if(!nome||!texto){lgpdStatus.textContent='Preencha o nome e a fundamentação.';return;}
     var b=this;b.disabled=true;
     try{
       var dados={nome:nome,fundamentacao:texto,atualizado_em:new Date().toISOString()};
@@ -736,7 +763,7 @@ async function montarModuloCampanhas(containerId, opts) {
         dados.versao=Number(x.versao||1)+1;
         res=await cdaClient.from('cda_lgpd_fundamentacoes').update(dados).eq('id',id).select().single();
       }else{
-        dados.codigo=codigo;
+        dados.codigo=lgpdGerarCodigo(nome);
         res=await cdaClient.from('cda_lgpd_fundamentacoes').insert(dados).select().single();
       }
       if(res.error)throw res.error;lgpdLimpar();await lgpdCarregar();lgpdStatus.textContent='Fundamentação salva.';
