@@ -445,12 +445,26 @@ async function montarModuloCampanhas(containerId, opts) {
         '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
       var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
       var mensagens =
-        '<h4>Comunicação e preparação</h4>'+
+        '<h4>Plano de Comunicação · ações de e-mail</h4>'+
+        '<p class="tmu" style="font-size:11px;margin:5px 0 12px">Visão inicial das mensagens associadas à campanha. Cada mensagem pode ser utilizada em uma ação futura; não há agendamento ou disparo automático.</p>'+
         '<div class="camp-grid"><div><div class="l">Mensagens na Biblioteca</div><b>'+mensagensVinculadas.length+'</b></div>'+
         '<div><div class="l">Destinatários congelados</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'—')+'</b></div></div>'+
-        (mensagensVinculadas.length?'<div class="tmu" style="font-size:12px">'+mensagensVinculadas.map(function(m){return escH(m.nome);}).join(' · ')+'</div>':'<div class="tmu">Nenhuma mensagem vinculada a esta campanha.</div>')+
+        (mensagensVinculadas.length?mensagensVinculadas.map(function(m){
+          var de=m.remetenteEmail||'Não configurado';
+          var reply=m.responderPara||'Não configurado';
+          return '<div style="border:1px solid var(--border2,#ccc);padding:12px;margin:10px 0;background:var(--paper,#fff)">'+
+            '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+escH(m.nome)+'</b>'+
+            '<span class="tmu" style="font-size:10px">Mensagem da Biblioteca · sem envio programado</span></div>'+
+            '<div style="font-size:11px;margin-top:8px;line-height:1.8">'+
+              '<div><b>Assunto:</b> '+escH(m.assunto||'—')+'</div>'+
+              '<div><b>Remetente (From):</b> '+escH(de)+'</div>'+
+              '<div><b>Respostas (Reply-To):</b> '+escH(reply)+'</div>'+
+              '<div><b>Responsável humano:</b> A definir — o endereço Reply-To não identifica automaticamente uma pessoa</div>'+
+              '<div><b>Situação:</b> '+(m.ultimoTesteEm?'Teste registrado em '+escH(fmtDataHora(m.ultimoTesteEm)):'Sem teste registrado')+'</div>'+
+            '</div></div>';
+        }).join(''):'<div class="tmu" style="font-size:12px">Nenhuma mensagem vinculada a esta campanha.</div>')+
         (editavel?'<div class="camp-acoes">'+acao('data-preparar','✉ Preparar Envio',true)+'</div>':'')+
-        '<p class="tmu" style="font-size:11px;margin-top:10px">Visualizar Mensagem e Enviar Teste ficam em Preparar Envio. O envio em massa permanece desabilitado.</p>';
+        '<p class="tmu" style="font-size:11px;margin-top:10px">O Reply-To direciona respostas à caixa postal indicada. O recebimento e a leitura dessas respostas não são integrados automaticamente ao Pipeline. Visualizar Mensagem e Enviar Teste ficam em Preparar Envio. Envio em massa desabilitado.</p>';
       var execucao =
         '<h4>Pipeline e atividades</h4>'+
         '<div class="camp-grid"><div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>'+
