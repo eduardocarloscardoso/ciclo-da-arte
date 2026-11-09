@@ -1114,33 +1114,27 @@ async function cdaExcluirCampanha(id) {
 
 // Adiciona em lote os clientes de um segmento ao Pipeline, vinculados a uma campanha.
 // Não duplica: pula quem já tem lead nessa campanha específica.
+// Inclui público com controle transacional de duplicidade no Supabase.
+// A prévia e confirmação explícita permanecem em Campanhas → Execução.
+// A RPC valida clientes, campanha e lista congelada, insere leads únicos e
+// registra a entrada de cada um no histórico na mesma transação.
 async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
-  const { data: existentes, error: errExist } = await cdaClient.from('leads_b2c').select('cliente_id').eq('campanha_id', campanha.id);
-  if (errExist) throw errExist;
-  const jaAdicionados = new Set((existentes || []).map(r => String(r.cliente_id)));
-  const novos = clientesAlvo.filter(c => !jaAdicionados.has(String(c.id)));
-  if (!novos.length) return { adicionados: 0, jaExistentes: clientesAlvo.length };
-
-  const agora = new Date().toISOString();
-  const leadRows = novos.map(c => ({
-    id: 'lb2c' + cdaUid() + Math.random().toString(36).slice(2, 6),
-    nome: c.nome, telefone: c['telefone-celular'] || c['telefone-principal'] || null, email: c.email || null,
-    canal_id: null, etapa: campanha.pipelineEtapaEntrada || 'novo_lead', cliente_id: c.id,
-    campanha_id: campanha.id, movido_em: agora, obs: 'Adicionado via campanha "' + campanha.nome + '"'
-  }));
-  const { data: inseridos, error: errIns } = await cdaClient.from('leads_b2c').insert(leadRows).select();
-  if (errIns) throw errIns;
-
-  const histRows = (inseridos || []).map(l => ({
-    lead_id: l.id, cliente_id: l.cliente_id, etapa_nova: l.etapa, resultado_id: null,
-    observacao: 'Entrou no funil via campanha "' + campanha.nome + '"', criado_por: usuario || 'Usuário',
-    tipo_interacao: 'pipeline', origem_evento: 'manual', campanha_id: campanha.id
-  }));
-  if (histRows.length) {
-    const { error: errHist } = await cdaClient.from('cda_historico_interacoes').insert(histRows);
-    if (errHist) throw errHist;
+  if (!campanha || !campanha.id) throw new Error('Campanha não informada.');
+  var ids = Array.from(new Set((clientesAlvo || []).map(function(c) { return Number(c.id); })));
+  if (!ids.length || ids.some(function(id){ return !Number.isSafeInteger(id) || id <= 0; })) {
+    throw new Error('Seleção de clientes vazia ou inválida.');
   }
-  return { adicionados: novos.length, jaExistentes: clientesAlvo.length - novos.length };
+  var { data, error } = await cdaClient.rpc('cda_incluir_publico_pipeline_seguro', {
+    p_campanha_id: Number(campanha.id),
+    p_cliente_ids: ids,
+    p_usuario: usuario || 'Usuário'
+  });
+  if (error) throw error;
+  var resultado = Array.isArray(data) ? data[0] : data;
+  if (!resultado || resultado.adicionados == null || resultado.ja_existentes == null) {
+    throw new Error('A importação não retornou confirmação das quantidades.');
+  }
+  return { adicionados: Number(resultado.adicionados), jaExistentes: Number(resultado.ja_existentes) };
 }
 
 // ── EQUIPE (responsáveis reais, usados por Tarefas e outros módulos) ─
