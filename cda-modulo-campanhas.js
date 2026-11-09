@@ -417,6 +417,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var preparoPagina = 0;
   var preparoClassificados = [];
   var preparoFiltro = 'valido';
+  var preparoBusca = '';
   var preparoFiltroEl = host.querySelector('#camp-preparo-elegibilidade');
   function fecharPreparo() { modalPreparo.classList.remove('op'); }
   host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
@@ -465,11 +466,23 @@ async function montarModuloCampanhas(containerId, opts) {
     filtroEl.value = preparoFiltro;
     filtroEl.addEventListener('change', function () { preparoFiltro = this.value; preparoPagina = 0; apresentarPreparo(); });
 
-    var visiveis = preparoClassificados.filter(function (d) { return preparoFiltro === 'todos' || d.situacao === preparoFiltro; });
+    function normalizarBusca(valor) {
+      return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+    var busca = normalizarBusca(preparoBusca);
+    var visiveis = preparoClassificados.filter(function (d) {
+      if (preparoFiltro !== 'todos' && d.situacao !== preparoFiltro) return false;
+      return !busca || normalizarBusca(d.nome).includes(busca) || normalizarBusca(d.email).includes(busca);
+    });
     var inicio = preparoPagina * 25, pagina = visiveis.slice(inicio, inicio + 25);
     var qtdPaginas = Math.max(1, Math.ceil(visiveis.length / 25));
     preparoListagem.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">' +
-      '<b>Destinatários · ' + visiveis.length.toLocaleString('pt-BR') + '</b>' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<b>Destinatários · ' + visiveis.length.toLocaleString('pt-BR') + '</b>' +
+        '<label for="camp-preparo-busca" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Pesquisar destinatário por nome ou e-mail</label>' +
+        '<input type="search" id="camp-preparo-busca" autocomplete="off" placeholder="Pesquisar nome ou e-mail" value="' + escH(preparoBusca) + '" style="width:min(270px,66vw);font-size:12px;padding:7px 9px;border:1px solid var(--border2,#aaa);border-radius:4px">' +
+        '<button type="button" class="btn sm" id="camp-preparo-limpar" ' + (!preparoBusca ? 'disabled' : '') + '>Limpar</button>' +
+      '</div>' +
       '<span>Página ' + (preparoPagina + 1) + ' de ' + qtdPaginas +
       ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
       ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= visiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
@@ -481,6 +494,21 @@ async function montarModuloCampanhas(containerId, opts) {
           '</td><td>' + escH(d.motivo) + '</td></tr>';
       }).join('') : '<tr><td colspan="5" style="padding:12px">Nenhum registro nesta situação.</td></tr>') +
       '</tbody></table></div>';
+    host.querySelector('#camp-preparo-busca').addEventListener('input', function () {
+      var pos = this.selectionStart;
+      preparoBusca = this.value;
+      preparoPagina = 0;
+      apresentarPreparo();
+      var campo = host.querySelector('#camp-preparo-busca');
+      campo.focus();
+      try { campo.setSelectionRange(pos, pos); } catch(e) {}
+    });
+    host.querySelector('#camp-preparo-limpar').addEventListener('click', function () {
+      preparoBusca = '';
+      preparoPagina = 0;
+      apresentarPreparo();
+      host.querySelector('#camp-preparo-busca').focus();
+    });
     host.querySelector('#camp-preparo-anterior').addEventListener('click', function () {
       if(preparoPagina > 0){ preparoPagina--; apresentarPreparo(); }
     });
@@ -507,7 +535,7 @@ async function montarModuloCampanhas(containerId, opts) {
   async function prepararEnvio(campanhaId) {
     preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!preparoCampanha) return;
-    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'valido';
+    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'valido'; preparoBusca = '';
     preparoResumo.innerHTML = ''; preparoListagem.innerHTML = ''; preparoFiltroEl.innerHTML = '';
     preparoMsg.innerHTML = '<option value="">Carregando...</option>';
     atualizarVisualizarPreparo();
