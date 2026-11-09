@@ -428,61 +428,27 @@ async function montarModuloCampanhas(containerId, opts) {
           acao('data-gerar-msg','🚀 Gerar Mensagens')+
           acao('data-gerar-roadmap','🗺 Gerar Roadmap de Tarefas')+'</div>':'');
       var mensagensTeste=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
-      var tentativas=ST.tentativas.filter(function(t){return String(t.campanha_id)===id;})
-        .sort(function(a,b){return String(b.criado_em).localeCompare(String(a.criado_em));});
+      var tentativas=ST.tentativas.filter(function(t){return String(t.campanha_id)===id;});
       var aceitos=tentativas.filter(function(t){return t.situacao==='aceito_provedor';}).length;
       var falhasTeste=tentativas.filter(function(t){return t.situacao==='rejeitado_provedor'||t.situacao==='falha_tecnica';}).length;
-      var msgPorId=Object.create(null);
-      mensagensTeste.forEach(function(m){msgPorId[String(m.id)]=m.nome;});
-      var situacaoTeste={
-        solicitado:'Solicitado · sem resultado final',
-        aceito_provedor:'Aceito pelo Resend · entrega não confirmada',
-        rejeitado_provedor:'Recusado pelo provedor',
-        falha_tecnica:'Falha técnica / resultado não confirmado'
-      };
-      var comTeste=mensagensTeste.filter(function(m){return !!m.ultimoTesteEm;})
-        .sort(function(a,b){return String(b.ultimoTesteEm).localeCompare(String(a.ultimoTesteEm));});
       var resultados =
         '<h4>Resultados comerciais</h4>'+
         (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
         '<div style="border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:16px">'+
           '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
-            '<h4 style="margin:0">Painel de Controle de Envios</h4>'+
+            '<h4 style="margin:0">Resumo das comunicações</h4>'+
             '<button type="button" class="btn sm" data-atualizar-controle="'+escH(id)+'">↻ Atualizar dados</button>'+
           '</div>'+
-          '<p class="tmu" style="font-size:11px;margin:7px 0 10px">Indicadores baseados no Supabase. O último teste registrado por mensagem representa aceitação do pedido pelo provedor, não comprovação de entrega na caixa postal.</p>'+
           '<div class="camp-grid">'+
             '<div><div class="l">Público congelado</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'Sem lista')+'</b></div>'+
-            '<div><div class="l">E-mails registrados como válidos</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
+            '<div><div class="l">E-mails válidos</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
             '<div><div class="l">Mensagens vinculadas</div><b>'+mensagensTeste.length+'</b></div>'+
-            '<div><div class="l">Mensagens com teste registrado</div><b>'+comTeste.length+'</b></div>'+
-            '<div><div class="l">Envios de campanha</div><b>Não habilitados</b></div>'+
-          '</div>'+
-          '<h4 style="margin:14px 0 7px">Histórico de testes (desde a ativação da rastreabilidade)</h4>'+
-          '<div class="camp-grid">'+
             '<div><div class="l">Tentativas registradas</div><b>'+tentativas.length+'</b></div>'+
             '<div><div class="l">Aceitas pelo Resend</div><b>'+aceitos+'</b></div>'+
             '<div><div class="l">Falhas ou recusas</div><b>'+falhasTeste+'</b></div>'+
-            '<div><div class="l">Pendente de conclusão</div><b>'+(tentativas.length-aceitos-falhasTeste)+'</b></div>'+
+            '<div><div class="l">Envio em massa</div><b>Desabilitado</b></div>'+
           '</div>'+
-          (tentativas.length?'<div style="overflow-x:auto"><table style="font-size:12px;width:100%;border-collapse:collapse">'+
-            '<thead><tr><th style="text-align:left;padding:7px">Data/hora</th><th style="text-align:left;padding:7px">Mensagem</th><th style="text-align:left;padding:7px">E-mail(s) de teste</th><th style="text-align:left;padding:7px">Situação</th><th style="text-align:left;padding:7px">Identificador Resend</th></tr></thead><tbody>'+
-            tentativas.map(function(t){return '<tr style="border-top:1px solid var(--border2,#ddd)">'+
-              '<td style="padding:7px;white-space:nowrap">'+escH(fmtDataHora(t.criado_em))+'</td>'+
-              '<td style="padding:7px">'+escH(msgPorId[String(t.mensagem_id)]||'Mensagem #'+t.mensagem_id)+'</td>'+
-              '<td style="padding:7px">'+escH((t.destinatarios||[]).join(', '))+'</td>'+
-              '<td style="padding:7px">'+escH(situacaoTeste[t.situacao]||t.situacao)+
-                (t.erro?'<div class="tmu" style="font-size:11px">'+escH(t.erro)+'</div>':'')+'</td>'+
-              '<td style="padding:7px;overflow-wrap:anywhere">'+escH(t.resend_email_id||'—')+'</td></tr>';}).join('')+
-            '</tbody></table></div>':
-            '<p class="tmu" style="font-size:12px">Nenhuma tentativa registrada desde a ativação deste histórico. Testes anteriores permanecem no quadro de último teste abaixo.</p>')+
-          '<p class="tmu" style="font-size:11px;margin:8px 0 12px">Histórico criado nesta etapa: não existem registros retroativos. Entrega, rejeição posterior, abertura e resposta dependem de eventos do provedor ainda não integrados.</p>'+
-          '<h4 style="margin:14px 0 7px">Último teste registrado por mensagem</h4>'+
-          (comTeste.length?'<div style="overflow-x:auto"><table style="font-size:12px;width:100%;border-collapse:collapse">'+
-            '<thead><tr><th style="text-align:left;padding:7px">Mensagem</th><th style="text-align:left;padding:7px">Data/hora</th><th style="text-align:left;padding:7px">Destinatário(s) de teste</th><th style="text-align:left;padding:7px">Situação conhecida</th></tr></thead><tbody>'+
-            comTeste.map(function(m){return '<tr style="border-top:1px solid var(--border2,#ddd)"><td style="padding:7px">'+escH(m.nome)+'</td><td style="padding:7px">'+escH(fmtDataHora(m.ultimoTesteEm))+'</td><td style="padding:7px">'+escH(m.ultimoTestePara||'—')+'</td><td style="padding:7px">Pedido aceito pelo Resend</td></tr>';}).join('')+
-            '</tbody></table></div>':'<p class="tmu">Nenhum teste registrado nas mensagens desta campanha.</p>')+
-          '<p class="tmu" style="font-size:11px;margin:10px 0 0">O cadastro atual conserva somente o último teste por mensagem, não o histórico completo. Eventos de entrega, rejeição, abertura e resposta ainda não estão integrados; por isso não são exibidos números para esses indicadores.</p>'+
+          '<p class="tmu" style="font-size:11px;margin:10px 0 0">Para consultar cada teste, a mensagem, os destinatários e os identificadores do provedor, acesse Pipeline B2C → Comunicações da Campanha e selecione esta campanha. O aceite pelo Resend não comprova entrega.</p>'+
         '</div>';
       var paineis={geral:resumo,mensagens:mensagens,execucao:execucao,resultados:resultados};
       return '<div class="camp-card" data-id="'+escH(id)+'">'+
