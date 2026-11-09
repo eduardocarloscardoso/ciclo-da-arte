@@ -53,7 +53,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { mensagens: [], campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, editId: null };
+  var ST = { mensagens: [], campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, tentativas: [], editId: null };
   var motor = null, clientesValidos = [], cfCampanha = null;
 
   host.innerHTML =
@@ -205,6 +205,11 @@ async function montarModuloCampanhas(containerId, opts) {
   var campAviso = host.querySelector('#camp-carregamento-aviso');
   campAviso.textContent = 'Carregando campanhas...';
   try {
+    async function cdaCarregarHistoricoTestes() {
+      // Histórico real, paginado pelo helper compartilhado; apenas leitura.
+      return cdaFetchAll('cda_email_tentativas',
+        'id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id');
+    }
     var carregamentos = [
       ['Campanhas', cdaCarregarCampanhas],
       ['Segmentação', cdaCarregarSegmentos],
@@ -217,7 +222,8 @@ async function montarModuloCampanhas(containerId, opts) {
       ['Hierarquia de receitas', cdaCarregarHierarquiaReceita],
       ['Listas congeladas', cdaCarregarResumoListas],
       ['Produtos', cdaCarregarProdutos],
-      ['Mensagens', cdaCarregarMensagens]
+      ['Mensagens', cdaCarregarMensagens],
+      ['Histórico de testes', cdaCarregarHistoricoTestes]
     ];
     var resultados = await Promise.all(carregamentos.map(function (item) {
       return Promise.race([
@@ -241,6 +247,7 @@ async function montarModuloCampanhas(containerId, opts) {
     ST.listas = resultados[9].ok ? (resultados[9].dados || {}) : {};
     ST.produtos = resultados[10].ok ? (resultados[10].dados || []) : [];
     ST.mensagens = resultados[11].ok ? (resultados[11].dados || []) : [];
+    ST.tentativas = resultados[12].ok ? (resultados[12].dados || []) : [];
     var falhas = carregamentos.filter(function (item, i) { return i !== 0 && !resultados[i].ok; })
       .map(function (item) { return item[0]; });
     if (falhas.length) {
@@ -421,6 +428,18 @@ async function montarModuloCampanhas(containerId, opts) {
           acao('data-gerar-msg','🚀 Gerar Mensagens')+
           acao('data-gerar-roadmap','🗺 Gerar Roadmap de Tarefas')+'</div>':'');
       var mensagensTeste=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
+      var tentativas=ST.tentativas.filter(function(t){return String(t.campanha_id)===id;})
+        .sort(function(a,b){return String(b.criado_em).localeCompare(String(a.criado_em));});
+      var aceitos=tentativas.filter(function(t){return t.situacao==='aceito_provedor';}).length;
+      var falhasTeste=tentativas.filter(function(t){return t.situacao==='rejeitado_provedor'||t.situacao==='falha_tecnica';}).length;
+      var msgPorId=Object.create(null);
+      mensagensTeste.forEach(function(m){msgPorId[String(m.id)]=m.nome;});
+      var situacaoTeste={
+        solicitado:'Solicitado · sem resultado final',
+        aceito_provedor:'Aceito pelo Resend · entrega não confirmada',
+        rejeitado_provedor:'Recusado pelo provedor',
+        falha_tecnica:'Falha técnica / resultado não confirmado'
+      };
       var comTeste=mensagensTeste.filter(function(m){return !!m.ultimoTesteEm;})
         .sort(function(a,b){return String(b.ultimoTesteEm).localeCompare(String(a.ultimoTesteEm));});
       var resultados =
@@ -439,6 +458,25 @@ async function montarModuloCampanhas(containerId, opts) {
             '<div><div class="l">Mensagens com teste registrado</div><b>'+comTeste.length+'</b></div>'+
             '<div><div class="l">Envios de campanha</div><b>Não habilitados</b></div>'+
           '</div>'+
+          '<h4 style="margin:14px 0 7px">Histórico de testes (desde a ativação da rastreabilidade)</h4>'+
+          '<div class="camp-grid">'+
+            '<div><div class="l">Tentativas registradas</div><b>'+tentativas.length+'</b></div>'+
+            '<div><div class="l">Aceitas pelo Resend</div><b>'+aceitos+'</b></div>'+
+            '<div><div class="l">Falhas ou recusas</div><b>'+falhasTeste+'</b></div>'+
+            '<div><div class="l">Pendente de conclusão</div><b>'+(tentativas.length-aceitos-falhasTeste)+'</b></div>'+
+          '</div>'+
+          (tentativas.length?'<div style="overflow-x:auto"><table style="font-size:12px;width:100%;border-collapse:collapse">'+
+            '<thead><tr><th style="text-align:left;padding:7px">Data/hora</th><th style="text-align:left;padding:7px">Mensagem</th><th style="text-align:left;padding:7px">E-mail(s) de teste</th><th style="text-align:left;padding:7px">Situação</th><th style="text-align:left;padding:7px">Identificador Resend</th></tr></thead><tbody>'+
+            tentativas.map(function(t){return '<tr style="border-top:1px solid var(--border2,#ddd)">'+
+              '<td style="padding:7px;white-space:nowrap">'+escH(fmtDataHora(t.criado_em))+'</td>'+
+              '<td style="padding:7px">'+escH(msgPorId[String(t.mensagem_id)]||'Mensagem #'+t.mensagem_id)+'</td>'+
+              '<td style="padding:7px">'+escH((t.destinatarios||[]).join(', '))+'</td>'+
+              '<td style="padding:7px">'+escH(situacaoTeste[t.situacao]||t.situacao)+
+                (t.erro?'<div class="tmu" style="font-size:11px">'+escH(t.erro)+'</div>':'')+'</td>'+
+              '<td style="padding:7px;overflow-wrap:anywhere">'+escH(t.resend_email_id||'—')+'</td></tr>';}).join('')+
+            '</tbody></table></div>':
+            '<p class="tmu" style="font-size:12px">Nenhuma tentativa registrada desde a ativação deste histórico. Testes anteriores permanecem no quadro de último teste abaixo.</p>')+
+          '<p class="tmu" style="font-size:11px;margin:8px 0 12px">Histórico criado nesta etapa: não existem registros retroativos. Entrega, rejeição posterior, abertura e resposta dependem de eventos do provedor ainda não integrados.</p>'+
           '<h4 style="margin:14px 0 7px">Último teste registrado por mensagem</h4>'+
           (comTeste.length?'<div style="overflow-x:auto"><table style="font-size:12px;width:100%;border-collapse:collapse">'+
             '<thead><tr><th style="text-align:left;padding:7px">Mensagem</th><th style="text-align:left;padding:7px">Data/hora</th><th style="text-align:left;padding:7px">Destinatário(s) de teste</th><th style="text-align:left;padding:7px">Situação conhecida</th></tr></thead><tbody>'+
@@ -461,7 +499,9 @@ async function montarModuloCampanhas(containerId, opts) {
         var anterior=btn.textContent;
         btn.textContent='Consultando...';
         try {
-          ST.mensagens=await cdaCarregarMensagens();
+          var atualizados=await Promise.all([cdaCarregarMensagens(),cdaCarregarHistoricoTestes()]);
+          ST.mensagens=atualizados[0];
+          ST.tentativas=atualizados[1];
           render();
         } catch(err){
           console.error('Atualizar controle de envios:',err);
