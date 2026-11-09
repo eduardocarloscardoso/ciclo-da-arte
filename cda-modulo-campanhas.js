@@ -76,6 +76,15 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
       '#camp-modal .mo-box{max-width:min(900px,94vw);}' +
       '.camp-msg-linha{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border2,#ccc);margin-bottom:5px;font-size:12px;}' +
+      '#camp-preparo-modal{padding:12px;box-sizing:border-box;}' +
+      '#camp-preparo-modal .mo-box{width:min(1050px,100%);max-width:1050px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);height:auto;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}' +
+      '#camp-preparo-modal .mo-h,#camp-preparo-modal .mo-f{flex-shrink:0;}' +
+      '#camp-preparo-modal .camp-preparo-fixo{flex-shrink:0;padding:10px 16px 8px;max-height:36vh;overflow:auto;border-bottom:1px solid var(--border2,#ccc);}' +
+      '#camp-preparo-modal .mo-b{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 16px;}' +
+      '#camp-preparo-modal #camp-preparo-listagem{margin:0 0 12px;}' +
+      '#camp-preparo-modal #camp-preparo-previa{display:block;width:100%;height:clamp(260px,42vh,420px);box-sizing:border-box;background:#fff;border:1px solid #aaa;}' +
+      '#camp-preparo-modal .mo-f{background:var(--paper,#fff);border-top:1px solid var(--border2,#ccc);padding:10px 16px;}' +
+      '@media(max-width:700px){#camp-preparo-modal{padding:5px;}#camp-preparo-modal .mo-box{max-height:calc(100dvh - 10px);}#camp-preparo-modal .camp-preparo-fixo{max-height:43vh;}#camp-preparo-modal #camp-preparo-previa{height:300px;}}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
@@ -90,14 +99,16 @@ async function montarModuloCampanhas(containerId, opts) {
     '<div class="mo" id="camp-preparo-modal">' +
       '<div class="mo-box" style="max-width:min(1050px,96vw)">' +
         '<div class="mo-h"><h3>✉ Preparar Envio · somente conferência</h3><button type="button" class="mo-x" id="camp-preparo-fechar">✕</button></div>' +
+        '<div class="camp-preparo-fixo">' +
+          '<p id="camp-preparo-campanha" style="font-weight:700;margin:0 0 6px"></p>' +
+          '<div class="fgr" style="margin:0 0 6px"><label for="camp-preparo-msg">Mensagem da Biblioteca</label><select id="camp-preparo-msg"></select></div>' +
+          '<div id="camp-preparo-estado" role="status" style="margin:6px 0;font-size:12px"></div>' +
+          '<div id="camp-preparo-resumo" style="margin:6px 0"></div>' +
+        '</div>' +
         '<div class="mo-b">' +
-          '<p id="camp-preparo-campanha" style="font-weight:700"></p>' +
-          '<div class="fgr"><label for="camp-preparo-msg">Mensagem da Biblioteca</label><select id="camp-preparo-msg"></select></div>' +
-          '<div id="camp-preparo-estado" role="status" style="margin:10px 0;font-size:12px"></div>' +
-          '<div id="camp-preparo-resumo" style="margin:12px 0"></div>' +
-          '<div id="camp-preparo-listagem" style="margin:10px 0"></div>' +
+          '<div id="camp-preparo-listagem"></div>' +
           '<div class="fgr"><label>Pré-visualização da mensagem selecionada</label>' +
-            '<iframe id="camp-preparo-previa" title="Pré-visualização do e-mail" sandbox="allow-popups" style="height:430px;width:100%;background:#fff;border:1px solid #aaa"></iframe></div>' +
+            '<iframe id="camp-preparo-previa" title="Pré-visualização do e-mail" sandbox="allow-popups"></iframe></div>' +
           '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
             '<b>Envio indisponível nesta etapa.</b> A contagem de endereços é preliminar. ' +
             'Consentimento, descadastros e bloqueios ainda deverão ser verificados antes de qualquer disparo real.</p>' +
@@ -402,7 +413,7 @@ async function montarModuloCampanhas(containerId, opts) {
       '<span>Página ' + (preparoPagina + 1) + ' de ' + Math.max(1,Math.ceil(preparoElegiveis.length/25)) +
       ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
       ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= preparoElegiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
-      '<div style="max-height:270px;overflow:auto"><table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th></tr></thead><tbody>' +
+      '<div style="max-height:clamp(140px,23vh,200px);overflow:auto"><table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th></tr></thead><tbody>' +
       pagina.map(function (d) { return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) + '</td></tr>'; }).join('') +
       '</tbody></table></div>';
     host.querySelector('#camp-preparo-anterior').addEventListener('click', function () { if(preparoPagina>0){preparoPagina--;apresentarPreparo();} });
