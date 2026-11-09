@@ -116,8 +116,8 @@ async function montarModuloCampanhas(containerId, opts) {
             '<button type="button" class="btn" id="camp-preparo-visualizar" disabled>👁 Visualizar Mensagem</button>' +
             '<span class="tmu" style="font-size:12px">Abre o e-mail completo em outra aba, como na Biblioteca de Mensagens.</span></div>' +
           '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
-            '<b>Envio indisponível nesta etapa.</b> A contagem de endereços é preliminar. ' +
-            'Consentimento, descadastros e bloqueios ainda deverão ser verificados antes de qualquer disparo real.</p>' +
+            '<b>Envio indisponível nesta etapa.</b> Este painel confere somente a lista e os endereços. ' +
+            'A adequação da base legal à finalidade e ao público e eventuais oposições aplicáveis devem ser respeitadas antes de qualquer disparo real.</p>' +
         '</div>' +
         '<div class="mo-f"><button type="button" class="btn" id="camp-preparo-voltar">Fechar preparação</button>' +
           '<button type="button" class="btn rust" disabled title="Aguardando homologação e regras de envio">Enviar campanha · indisponível</button></div>' +
@@ -427,28 +427,38 @@ async function montarModuloCampanhas(containerId, opts) {
     var total = preparoSelecionada.total;
     preparoResumo.innerHTML = '<div class="camp-grid">' +
       '<div><div class="l">Lista congelada</div><b>' + total.toLocaleString('pt-BR') + '</b> cliente(s)</div>' +
-      '<div><div class="l">E-mails válidos e únicos</div><b>' + preparoSelecionada.aptos.toLocaleString('pt-BR') + '</b> (pré-seleção)</div>' +
+      '<div><div class="l">E-mails válidos e únicos</div><b>' + preparoSelecionada.aptos.toLocaleString('pt-BR') + '</b></div>' +
       '<div><div class="l">Sem e-mail / inválidos</div><b>' + preparoSelecionada.invalidos.toLocaleString('pt-BR') + '</b></div>' +
       '<div><div class="l">Duplicidades de e-mail</div><b>' + preparoSelecionada.duplicados.toLocaleString('pt-BR') + '</b></div>' +
       '<div><div class="l">Congelada em</div>' + escH(fmtDataHora(preparoSelecionada.data)) + '</div></div>' +
-      '<p style="font-size:11px;color:var(--muted,#777)">Validação sintática e ausência de duplicidade não comprovam autorização de contato.</p>';
+      '<p style="font-size:11px;color:var(--muted,#777)">A classificação técnica do e-mail é distinta da base legal registrada para a campanha.</p>';
 
-    var contagens = { apto: 0, pendente: 0, excluido: 0 };
+    var contagens = { valido: 0, excluido: 0 };
     preparoClassificados.forEach(function (d) { contagens[d.situacao]++; });
+    var baseNome = {legitimo_interesse:'Legítimo interesse',consentimento:'Consentimento',
+      execucao_contrato:'Execução de contrato',obrigacao_legal:'Obrigação legal ou regulatória',
+      outra:'Outra'};
+    var baseCodigo = preparoCampanha ? (preparoCampanha.lgpdBaseLegal || '') : '';
+    var baseLabel = baseNome[baseCodigo] || baseCodigo || 'Não informada / em análise';
+    var fundamentacao = preparoCampanha ? (preparoCampanha.lgpdFinalidadeFundamentacao || '') : '';
     preparoFiltroEl.innerHTML =
-      '<h4 style="font-size:15px;margin:8px 0">Elegibilidade dos Destinatários · avaliação preliminar</h4>' +
+      '<h4 style="font-size:15px;margin:8px 0">Destinatários da Campanha</h4>' +
       '<div class="camp-grid" style="padding:9px 12px;border:1px solid var(--border2,#ccc);margin:0 0 8px">' +
-        '<div><div class="l">Aptos comprovados</div><b>' + contagens.apto.toLocaleString('pt-BR') + '</b></div>' +
-        '<div><div class="l">Pendentes de comprovação</div><b>' + contagens.pendente.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Público congelado</div><b>' + total.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Com e-mail válido e único</div><b>' + contagens.valido.toLocaleString('pt-BR') + '</b></div>' +
         '<div><div class="l">Excluídos tecnicamente</div><b>' + contagens.excluido.toLocaleString('pt-BR') + '</b></div>' +
       '</div>' +
-      '<p style="font-size:11px;margin:5px 0 10px">A situação <b>Pendente</b> significa que não existe autorização verificável integrada a esta tela; não significa que o cliente recusou contato. ' +
-      'Descadastros e bloqueios comerciais ainda precisam ser integrados. <b>Não enviar.</b></p>' +
-      '<label for="camp-preparo-filtro" style="font-size:12px">Consultar por situação</label> ' +
+      '<div style="border:1px solid var(--border2,#ccc);padding:10px 12px;margin:0 0 10px;font-size:12px">' +
+        '<b>Base legal LGPD da campanha: ' + escH(baseLabel) + '</b>' +
+        '<div style="margin-top:6px"><b>Finalidade e fundamentação registrada:</b></div>' +
+        '<div style="white-space:pre-wrap;margin-top:4px">' + escH(fundamentacao || 'Não registrada nesta campanha.') + '</div>' +
+        '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0 0">A fundamentação registrada não substitui avaliação de sua adequação ao público e à finalidade. ' +
+        'Quando a hipótese aplicável for legítimo interesse, não se exige consentimento individual com fundamento nessa hipótese; eventuais oposições e demais direitos dos titulares devem ser respeitados.</p>' +
+      '</div>' +
+      '<label for="camp-preparo-filtro" style="font-size:12px">Consultar por situação técnica</label> ' +
       '<select id="camp-preparo-filtro" style="max-width:330px;margin:0 0 8px">' +
         '<option value="todos">Todos os registros</option>' +
-        '<option value="apto">Aptos comprovados</option>' +
-        '<option value="pendente">Pendentes de comprovação</option>' +
+        '<option value="valido">Com e-mail válido e único</option>' +
         '<option value="excluido">Excluídos tecnicamente</option>' +
       '</select>';
     var filtroEl = host.querySelector('#camp-preparo-filtro');
@@ -464,10 +474,10 @@ async function montarModuloCampanhas(containerId, opts) {
       ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
       ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= visiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
       '<div style="max-height:clamp(160px,32vh,330px);overflow:auto">' +
-      '<table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th><th>Situação</th><th>Motivo / origem</th></tr></thead><tbody>' +
+      '<table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th><th>Situação técnica</th><th>Critério</th></tr></thead><tbody>' +
       (pagina.length ? pagina.map(function (d) {
         return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) +
-          '</td><td>' + (d.situacao === 'apto' ? 'Apto' : d.situacao === 'excluido' ? 'Excluído' : 'Pendente') +
+          '</td><td>' + (d.situacao === 'valido' ? 'E-mail válido' : 'Excluído tecnicamente') +
           '</td><td>' + escH(d.motivo) + '</td></tr>';
       }).join('') : '<tr><td colspan="5" style="padding:12px">Nenhum registro nesta situação.</td></tr>') +
       '</tbody></table></div>';
@@ -517,7 +527,7 @@ async function montarModuloCampanhas(containerId, opts) {
         var e = String(d.email || '').trim().toLowerCase();
         var item = {
           nome: d.nome || '', email: d.email || '', uf: d.uf || '',
-          situacao: 'pendente', motivo: 'Autorização de contato não verificada · origem: lista congelada'
+          situacao: 'valido', motivo: 'E-mail válido e único · lista congelada'
         };
         if (!cdaEmailValido(e)) {
           invalidos++;
@@ -538,7 +548,7 @@ async function montarModuloCampanhas(containerId, opts) {
         invalidos: invalidos, duplicados: duplicados,
         data: congelados.length ? congelados[0].congelado_em : null
       };
-      preparoEstado.textContent = congelados.length ? 'Pré-seleção concluída · elegibilidade pendente de comprovação · sem envio.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
+      preparoEstado.textContent = congelados.length ? 'Conferência técnica concluída · base LGPD registrada na campanha · sem envio.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
       if (!preparoMensagens.length) preparoEstado.textContent += ' Nenhuma mensagem cadastrada para esta campanha.';
       apresentarPreparo();
       atualizarVisualizarPreparo();
