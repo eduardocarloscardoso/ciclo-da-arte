@@ -204,12 +204,12 @@ async function montarModuloCampanhas(containerId, opts) {
   // Cada consulta tem limite de espera e falhas são informadas sem apagar campanhas.
   var campAviso = host.querySelector('#camp-carregamento-aviso');
   campAviso.textContent = 'Carregando campanhas...';
+  // Compartilhada entre carregamento inicial e botão "Atualizar dados".
+  async function cdaCarregarHistoricoTestes() {
+    return cdaFetchAll('cda_email_tentativas',
+      'id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id');
+  }
   try {
-    async function cdaCarregarHistoricoTestes() {
-      // Histórico real, paginado pelo helper compartilhado; apenas leitura.
-      return cdaFetchAll('cda_email_tentativas',
-        'id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id');
-    }
     var carregamentos = [
       ['Campanhas', cdaCarregarCampanhas],
       ['Segmentação', cdaCarregarSegmentos],
