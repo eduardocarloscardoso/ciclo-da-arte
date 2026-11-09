@@ -94,7 +94,11 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
     '<section id="pb2c-comunicacoes" style="display:none;border:2px solid var(--ink,#1a1a1a);padding:14px 16px;margin:10px 0 16px;background:var(--paper,#fff)">' +
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0;font-size:16px">Comunicações da Campanha</h3><button type="button" class="btn sm" id="pb2c-comunicacoes-atualizar">↻ Atualizar histórico</button></div>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0;font-size:16px">Comunicações da Campanha</h3><div style="display:flex;gap:6px;flex-wrap:wrap">'+
+        '<button type="button" class="btn sm" id="pb2c-comunicacoes-atualizar">↻ Atualizar histórico</button>'+
+        (editavel?'<button type="button" class="btn sm" id="pb2c-comunicacoes-ativar">⚙ Ativar eventos Resend</button>':'')+
+      '</div></div>' +
+      '<div id="pb2c-comunicacoes-ativacao-status" role="status" style="font-size:11px;margin:8px 0"></div>' +
       '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0">Consulta somente leitura do histórico de testes. A seleção de campanha acima determina os resultados. Eventos de entrega e rejeição aparecerão após a ativação do webhook assinado do Resend. Aberturas ainda não são acompanhadas.</p>' +
       '<div id="pb2c-comunicacoes-conteudo" aria-live="polite" style="font-size:12px">Abra o painel para consultar o histórico.</div>' +
     '</section>' +
@@ -318,6 +322,27 @@ async function montarModuloPipelineB2C(containerId, opts) {
     if(comunicacoesAberto) comunicacoesDados?renderComunicacoes():carregarComunicacoes();
   });
   host.querySelector('#pb2c-comunicacoes-atualizar').addEventListener('click',carregarComunicacoes);
+  if (editavel) host.querySelector('#pb2c-comunicacoes-ativar').addEventListener('click',async function(){
+    if(!confirm('Configurar automaticamente no Resend os quatro eventos de entrega/rejeição e guardar o segredo de assinatura no Supabase Vault?\n\nEsta operação é restrita a administradores e NÃO envia e-mails.')) return;
+    var btn=this, msg=host.querySelector('#pb2c-comunicacoes-ativacao-status');
+    btn.disabled=true;btn.textContent='Configurando webhook...';
+    msg.textContent='Validando administrador e conectando ao Resend...';
+    try {
+      var res=await cdaClient.functions.invoke('configurar-webhook-resend-preview',{body:{}});
+      var data=res.data;
+      if(res.error){
+        if(res.error.context && typeof res.error.context.json==='function'){
+          try{ data=await res.error.context.json(); }catch(e){}
+        }
+        throw new Error((data&&data.erro)||res.error.message||'Falha ao configurar webhook');
+      }
+      if(!data||!data.ok)throw new Error((data&&data.erro)||'Configuração não concluída.');
+      msg.textContent='Webhook configurado no Resend e segredo protegido no Vault. ID: '+data.webhook_id+
+        '. Faça um novo Enviar Teste em Campanhas e depois clique em Atualizar histórico.';
+    } catch(err){
+      msg.textContent='Configuração não concluída: '+((err&&err.message)||String(err));
+    } finally {btn.disabled=false;btn.textContent='⚙ Ativar eventos Resend';}
+  });
   host.querySelector('#pb2c-m-resp').innerHTML = '<option value="">—</option>' +
     ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
 
