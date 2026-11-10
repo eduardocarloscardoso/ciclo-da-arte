@@ -22,7 +22,7 @@ Deno.serve(async(req:Request)=>{
   try {body=await req.json();}catch{return response({ok:false,erro:"Dados inválidos."},400);}
   const campanha=Number(body.campanha_id),mensagem=Number(body.mensagem_id);
   const acao=String(body.acao||"status");
-  if(!["status","preparar","interromper","retomar","validar"].includes(acao))return response({ok:false,erro:"Operação não permitida."},400);
+  if(!["status","preparar","interromper","retomar","validar","simular"].includes(acao))return response({ok:false,erro:"Operação não permitida."},400);
   if(!Number.isSafeInteger(campanha)||campanha<1||!Number.isSafeInteger(mensagem)||mensagem<1)
     return response({ok:false,erro:"Campanha e mensagem obrigatórias."},400);
   const h={apikey:sk,Authorization:"Bearer "+sk};
@@ -52,6 +52,18 @@ Deno.serve(async(req:Request)=>{
     r=await consulta().catch(()=>null);
     if(!r?.ok)return response({ok:false,erro:"Controle registrado, falha ao recarregar lote."},503);
     lote=(await r.json())[0]||null;
+  }
+  // Só pré-voo SQL. Esta função não possui caminho de envio ao Resend.
+  let simulacao:null|Record<string,unknown>=null;
+  if(acao==="simular"){
+    if(!lote)return response({ok:false,erro:"Prepare o lote antes da simulação."},404);
+    const sim=await fetch(url+"/rest/v1/rpc/cda_simular_execucao_lote",{
+      method:"POST",headers:{...h,"Content-Type":"application/json"},
+      body:JSON.stringify({p_lote_id:lote.id})
+    }).catch(()=>null);
+    if(!sim?.ok)return response({ok:false,erro:"Não foi possível executar pré-voo sem envio."},503);
+    simulacao=await sim.json().catch(()=>null);
+    if(!simulacao)return response({ok:false,erro:"Resultado de simulação inválido."},503);
   }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
@@ -108,7 +120,7 @@ Deno.serve(async(req:Request)=>{
     contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
     validacao:{consulta_concluida:true,sem_impedimentos:impedimentos.length===0,impedimentos,autorizado:false,
       observacao:"Pré-validação não autoriza disparos nem substitui análise de LGPD, idempotência Resend e liberação manual."},
-    auditoria,
+    auditoria,simulacao,
     envio_habilitado:false,
     aviso:"Rastreio em modo somente leitura. Nenhuma mensagem é enviada por esta função."});
 });
