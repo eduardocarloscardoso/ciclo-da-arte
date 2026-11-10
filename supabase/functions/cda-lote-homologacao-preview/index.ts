@@ -49,6 +49,15 @@ Deno.serve(async(req:Request)=>{
       body:JSON.stringify({p_lote_id:lote.id,p_acao:acao,p_usuario:usuario.id})
     }).catch(()=>null);
     if(!ctl?.ok)return response({ok:false,erro:"Não foi possível atualizar o controle do lote."},503);
+    // Interromper revoga inclusive eventual aprovação ainda ativa.
+    // Retomar não pode reutilizar permissão anterior.
+    if(acao==="interromper"){
+      const rev=await fetch(url+"/rest/v1/rpc/cda_revogar_lote_homologacao",{
+        method:"POST",headers:{...h,"Content-Type":"application/json"},
+        body:JSON.stringify({p_lote_id:lote.id})
+      }).catch(()=>null);
+      if(!rev?.ok)return response({ok:false,erro:"Lote interrompido, revogação requer revisão."},503);
+    }
     r=await consulta().catch(()=>null);
     if(!r?.ok)return response({ok:false,erro:"Controle registrado, falha ao recarregar lote."},503);
     lote=(await r.json())[0]||null;
