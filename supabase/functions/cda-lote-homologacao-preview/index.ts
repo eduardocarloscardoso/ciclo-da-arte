@@ -54,7 +54,7 @@ Deno.serve(async(req:Request)=>{
     }
   }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
-  const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,chave_idempotencia,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
+  const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
   if(!itensResp?.ok)return response({ok:false,erro:"Lote criado; falha ao consultar destinatários."},503);
   const itens=await itensResp.json();
   // Apresenta a situação técnica de cada item sem reclassificar entrega como abertura.
