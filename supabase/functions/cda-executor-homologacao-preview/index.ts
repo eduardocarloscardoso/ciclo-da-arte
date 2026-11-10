@@ -1,12 +1,13 @@
 // @ts-nocheck
 // A lógica de renderização abaixo é cópia fiel das funções já homologadas
 // em cda-dados-compartilhados.js; o retorno nunca é enviado ao Resend.
-// Fase 1 — CONTRATO do executor de lote de homologação (SEM ENVIO).
-// Nenhum cliente Resend, nenhuma requisição externa de email, nenhuma reivindicação.
-// Contrato "enviar" devolve sempre 423. Somente "diagnosticar" consulta dados.
+// Executor de homologação: transmissão individual condicionada a aprovação
+// assinada no banco, expiração, fingerprint e identidade do aprovador.
+// Sem qualquer aprovação atual. Nenhum envio é iniciado na implantação.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { executarItemHomologacaoBloqueado, sha256Json } from "./executor-transacional.mjs";
 import { criarStoreTransacional } from "./store-transacional.mjs";
+import { prepararEnvelopeHomologacao } from "./envelope-homologacao.mjs";
 function cdaPrimeiroNome(nome) {
   const p = String(nome || '').trim().split(/\s+/)[0] || '';
   return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
@@ -141,10 +142,60 @@ Deno.serve(async(req:Request)=>{
   const loteId=Number(body.lote_id),acao=String(body.acao||"diagnosticar");
   if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","simular_orquestracao","enviar"].includes(acao))
     return reply({ok:false,erro:"Ação ou lote inválido"},400);
-  // BLOQUEIO IRREVOGÁVEL NESTA VERSÃO:
-  // conferir apenas depois da autenticação, mas antes de acessar operações.
-  if(acao==="enviar")
-    return reply({ok:false,erro:"EXECUTOR_BLOQUEADO: autorização e envio ainda indisponíveis",envio_habilitado:false},423);
+  // Motor real: só existe caminho de transmissão para lote explicitamente
+  // aprovado em RPC service_role (aprovação com prazo + fingerprint imutável).
+  // O request informa APENAS lote_id e item_id. Nenhum payload, destino ou
+  // segredo é aceito do navegador. Uma chamada = no máximo um e-mail.
+  if(acao==="enviar"){
+    const itemId=Number(body.item_id);
+    if(!Number.isSafeInteger(itemId)||itemId<1)
+      return reply({ok:false,erro:"Identificador de destinatário inválido"},400);
+    const store=criarStoreTransacional({supabaseUrl:url,serviceRoleKey:sk});
+    let approval;
+    try{
+      const status=await store.autorizar(loteId);
+      if(status.habilitado!==true||status.autorizado!==true||
+        status.modo!=="homologacao"||status.lote_id!==loteId)
+        return reply({ok:false,erro:"EXECUTOR_BLOQUEADO: lote sem aprovação válida",envio_habilitado:false},423);
+      // A chamada somente pode ser feita pelo próprio usuário autenticado
+      // que autorizou o lote, não por qualquer outro membro da equipe.
+      const authResp=await fetch(url+"/rest/v1/cda_aprovacoes_envio_homologacao?lote_id=eq."+
+        loteId+"&select=autorizado_por,expira_em,revogado_em&limit=1",{
+        headers:{apikey:sk,Authorization:"Bearer "+sk}
+      });
+      if(!authResp.ok)throw Error("Consulta de autorização indisponível");
+      approval=(await authResp.json())[0];
+      if(!approval||approval.autorizado_por!==usuario.id||
+        approval.revogado_em||Date.parse(approval.expira_em)<=Date.now())
+        return reply({ok:false,erro:"Aprovação pessoal ausente ou expirada",envio_habilitado:false},403);
+    }catch{
+      return reply({ok:false,erro:"Não foi possível validar a autorização",envio_habilitado:false},503);
+    }
+    // Verificar segredo antes de reservar (não deixar tentativa pendente por
+    // falta de configuração). O segredo nunca integra resposta ou payload.
+    const apiKey=Deno.env.get("RESEND_API_KEY")||"";
+    if(apiKey.length<8)return reply({ok:false,erro:"Provedor ainda não configurado",envio_habilitado:false},503);
+    try{
+      const envelope=await prepararEnvelopeHomologacao({
+        url,serviceRoleKey:sk,loteId,itemId,montar:cdaMontarEmailCampanha
+      });
+      const sha=await sha256Json(envelope.payload);
+      const result=await executarItemHomologacaoBloqueado({
+        loteId,itemId,payload:envelope.payload,chave:envelope.chave,
+        sha256:sha,apiKey,store
+      });
+      return reply({
+        ok:result.estado==="aceita",
+        lote_id:loteId,item_id:itemId,estado:result.estado,
+        reenvio_automatico:false,
+        envio_habilitado:result.estado!=="bloqueado"
+      },result.estado==="bloqueado"?423:result.estado==="aceita"?200:202);
+    }catch{
+      // Se a RPC de reserva falhar, nunca chamar Resend. Se o resultado for
+      // ambíguo, o item continua no diário para revisão manual.
+      return reply({ok:false,erro:"Operação indisponível ou item não elegível. Verificar o diário antes de nova ação.",reenvio_automatico:false},409);
+    }
+  }
   // Simulação EXCLUSIVAMENTE sintética: sem dados da campanha, sem SQL de
   // escrita e com adaptadores que lançam se alguém tentar reservar ou enviar.
   if(acao==="simular_orquestracao"){
