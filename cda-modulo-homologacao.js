@@ -253,6 +253,7 @@ async function montarModuloHomologacao(containerId, opts) {
         itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+esc(labels[i.situacao_observada||i.situacao]||i.situacao_observada||i.situacao)+'</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+'</tbody></table></div>'+
         '<p style="font-size:12px;margin:0;color:#64748b">Envio bloqueado. Aceitação pelo Resend não confirma entrega ou leitura.</p>';
       const validacao=dados.validacao||{};
+      const executor=dados.executor||{};
       const auditoria=Array.isArray(dados.auditoria)?dados.auditoria:[];
       const resultado=root.querySelector('#homolog-lote-seguranca');
       const falhas=Array.isArray(validacao.impedimentos)?validacao.impedimentos:[];
@@ -260,6 +261,9 @@ async function montarModuloHomologacao(containerId, opts) {
         '<p style="margin:0"><b>Pré-validação:</b> '+esc(validacao.consulta_concluida?
           (falhas.length?'Requer revisão':'Sem impedimentos detectados nesta consulta'):'Não concluída')+
         ' · <b>Autorização de envio:</b> NÃO concedida · <b>Executor:</b> desabilitado</p>'+
+        '<p style="margin:0;font-size:12px">Trava de execução: <b>'+esc(executor.trava_ativa===true?'ATIVA':'SEM DIAGNÓSTICO')+
+        '</b> · Reivindicação permitida: NÃO · Destinatários em revisão: '+esc(Number(executor.em_revisao)||0)+
+        '. A estrutura de concorrência não envia mensagens e permanece indisponível.</p>'+
         (falhas.length?'<ul style="margin:0;padding-left:22px">'+falhas.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+
         '<p style="margin:0;font-size:12px">A pré-validação não substitui autorização específica, conformidade LGPD nem idempotência do provedor.</p>'+
         '<h4 style="margin:4px 0 0">Histórico de controle</h4>'+
