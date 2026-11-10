@@ -219,11 +219,12 @@ async function montarModuloHomologacao(containerId, opts) {
     const mensagemId=Number(root.querySelector('#homolog-lote-mensagem').value);
     if(!mensagemId){el.textContent='Selecione uma mensagem da campanha.';return;}
     if(acao==='preparar' && !confirm('Congelar a lista atual para esta mensagem? Esta operação só registra o lote e NÃO envia e-mails.'))return;
-    if(acao==='interromper' && !confirm('Interromper este lote? Não houve envio. A retomada dependerá de liberação posterior.'))return;
-    const a=root.querySelector('#homolog-lote-preparar'),b=root.querySelector('#homolog-lote-interromper');
-    a.disabled=true;b.disabled=true;
+    if(acao==='interromper' && !confirm('Interromper este lote? Nenhuma mensagem será enviada.'))return;
+    if(acao==='retomar' && !confirm('Retomar a preparação do lote? Isso NÃO autoriza nem executa envios.'))return;
+    const a=root.querySelector('#homolog-lote-preparar'),b=root.querySelector('#homolog-lote-interromper'),c=root.querySelector('#homolog-lote-retomar');
+    a.disabled=true;b.disabled=true;c.disabled=true;
     el.textContent=acao==='preparar'?'Preparando lista e registrando destinatários (sem envio)...':
-      acao==='interromper'?'Registrando interrupção...':'Consultando operação...';
+      acao==='interromper'?'Registrando interrupção...':acao==='retomar'?'Registrando retomada segura...':'Consultando operação...';
     try {
       const res=await cdaClient.functions.invoke('cda-lote-homologacao-preview',{
         body:{acao,campanha_id:Number(campanhaId),mensagem_id:mensagemId}
@@ -270,7 +271,23 @@ async function montarModuloHomologacao(containerId, opts) {
         '</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+
         '</tbody></table></div>'+
         '<p style="font-size:12px;margin:0">O lote não será executado automaticamente, mesmo após recarregar ou retomar a página.</p>';
-      b.disabled=lote.situacao!=='preparado';
+      const validacao=dados.validacao||{};
+      const auditoria=Array.isArray(dados.auditoria)?dados.auditoria:[];
+      const resultado=root.querySelector('#homolog-lote-seguranca');
+      const falhas=Array.isArray(validacao.impedimentos)?validacao.impedimentos:[];
+      resultado.innerHTML='<div style="display:grid;gap:7px"><h4 style="margin:0">Verificação de segurança · somente leitura</h4>'+
+        '<p style="margin:0"><b>Pré-validação:</b> '+esc(validacao.consulta_concluida?
+          (falhas.length?'Requer revisão':'Sem impedimentos detectados nesta consulta'):'Não concluída')+
+        ' · <b>Autorização de envio:</b> NÃO concedida · <b>Executor:</b> desabilitado</p>'+
+        (falhas.length?'<ul style="margin:0;padding-left:22px">'+falhas.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'')+
+        '<p style="margin:0;font-size:12px">A pré-validação não substitui autorização específica, conformidade LGPD nem idempotência do provedor.</p>'+
+        '<h4 style="margin:4px 0 0">Histórico de controle</h4>'+
+        (auditoria.length?'<div style="overflow-x:auto"><table style="width:100%"><thead><tr><th>Ação</th><th>Anterior</th><th>Atual</th><th>Data</th></tr></thead><tbody>'+
+          auditoria.map(x=>'<tr><td>'+esc(x.acao)+'</td><td>'+esc(x.situacao_anterior)+'</td><td>'+esc(x.situacao_nova)+'</td><td>'+esc(x.ocorrido_em)+'</td></tr>').join('')+
+          '</tbody></table></div>':'<p style="margin:0;font-size:12px">Nenhuma interrupção ou retomada registrada.</p>')+
+        '</div>';
+      b.disabled=lote.situacao!=='preparado'||!editavel;
+      c.disabled=lote.situacao!=='interrompido'||!editavel;
       a.disabled=true;
     }catch(e){
       console.error(e);
@@ -296,8 +313,9 @@ async function montarModuloHomologacao(containerId, opts) {
       '<label for="homolog-lote-mensagem"><b>Mensagem da campanha</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select>'+
       '<div id="homolog-lote-detalhes" aria-live="polite">Preparando lista de destinatários...</div>'+
       '<p id="homolog-lote-aviso" role="status" style="margin:0"></p>'+
-      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar lote (bloqueado)</button></div>'+ 
-      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Selecione a mensagem para consultar lotes anteriores.</div>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar lote (bloqueado)</button></div>'+ 
+      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Selecione a mensagem para consultar lotes anteriores.</div>'+ 
+      '<div id="homolog-lote-seguranca" style="border-top:1px solid #9ca3af;padding-top:10px" aria-live="polite"></div>'+
       '<p style="margin:0;font-size:12px">Modo Oficial bloqueado. A lista congelada de clientes e o Pipeline B2C não são consultados nesta preparação.</p>'+
     '</section>'+
     '<p id="homolog-msg" role="status" aria-live="polite" style="display:none;padding:12px;border:1px solid #64748b;border-radius:8px"></p>'+
@@ -307,6 +325,7 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{desenharPreparo();if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
   root.querySelector('#homolog-lote-preparar').addEventListener('click',()=>acionarLote('preparar'));
   root.querySelector('#homolog-lote-interromper').addEventListener('click',()=>acionarLote('interromper'));
+  root.querySelector('#homolog-lote-retomar').addEventListener('click',()=>acionarLote('retomar'));
   root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await carregarMensagensLote();});
   root.querySelector('#homolog-busca').addEventListener('input',desenhar);
   root.addEventListener('click',acaoTabela);
