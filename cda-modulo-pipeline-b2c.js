@@ -1012,7 +1012,13 @@ async function montarModuloPipelineB2C(containerId, opts) {
     if (!lead) return;
     var cliente = clientePorId[lead.clienteId];
     var campanha = campanhaPorId[lead.campanhaId];
-    var template = (campanha && (campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || CDA_TEMPLATE_PADRAO;
+    var template = campanha
+      ? String(campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida || '').trim()
+      : CDA_TEMPLATE_PADRAO;
+    if (!template) {
+      alert('Esta campanha não possui modelo de mensagem configurado. Defina o modelo na campanha antes de gerar textos.');
+      return;
+    }
     var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
     var texto = cdaExplodirTemplate(template, dados);
     try {
@@ -1292,7 +1298,15 @@ async function montarModuloPipelineB2C(containerId, opts) {
   host.querySelector('#pb2c-btn-gerar-msg-filtro').addEventListener('click', async function () {
     var lista = getFiltro();
     if (!lista.length) { alert('Nenhum lead corresponde aos filtros atuais.'); return; }
-    if (!confirm('Gerar/atualizar a mensagem sugerida de ' + lista.length + ' lead(s) filtrado(s)?\n\nUsa o molde da campanha de cada lead (ou o padrão do sistema, se ele não tiver campanha/molde).')) return;
+    var semModelo = lista.filter(function (lead) {
+      var c = campanhaPorId[lead.campanhaId];
+      return c && !String(c.modeloMensagemFinal || c.modeloMensagemSugerida || '').trim();
+    });
+    if (semModelo.length) {
+      alert('Geração bloqueada: ' + semModelo.length + ' lead(s) pertencem a campanhas sem modelo configurado.\n\nConfigure primeiro o modelo de cada campanha; o texto genérico não será aplicado automaticamente.');
+      return;
+    }
+    if (!confirm('Gerar/atualizar a mensagem sugerida de ' + lista.length + ' lead(s) filtrado(s)?\n\nEsta operação altera textos sugeridos nos leads, mas NÃO envia mensagens.')) return;
     var btn = this;
     var textoOriginal = btn.textContent;
     btn.textContent = 'Gerando...'; btn.disabled = true;
@@ -1300,13 +1314,18 @@ async function montarModuloPipelineB2C(containerId, opts) {
       var atualizacoes = lista.map(function (lead) {
         var cliente = clientePorId[lead.clienteId];
         var campanha = campanhaPorId[lead.campanhaId];
-        var template = (campanha && (campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida)) || CDA_TEMPLATE_PADRAO;
+        var template = campanha
+          ? String(campanha.modeloMensagemFinal || campanha.modeloMensagemSugerida || '').trim()
+          : CDA_TEMPLATE_PADRAO;
         var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
         var texto = cdaExplodirTemplate(template, dados);
-        lead.mensagemSugerida = texto;
         return { id: lead.id, mensagemSugerida: texto };
       });
       await cdaSalvarMensagensLote(atualizacoes);
+      atualizacoes.forEach(function (at) {
+        var lead = ST.leads.find(function (l) { return l.id === at.id; });
+        if (lead) lead.mensagemSugerida = at.mensagemSugerida;
+      });
       alert('Pronto! ' + atualizacoes.length + ' mensagem(ns) gerada(s)/atualizada(s).');
     } catch (err) {
       console.error(err);
