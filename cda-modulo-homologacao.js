@@ -63,13 +63,29 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-email-linha').hidden=false;
     root.querySelector('#homolog-principal-linha').hidden=false;
     root.querySelector('#homolog-email').required=true;
+    root.querySelector('#homolog-excluir-pessoa').disabled=true;
   }
   function trocarPessoa(){
     if(editPessoa!==null||editEmail!==null)return;
     const outra=!!root.querySelector('#homolog-selec-pessoa').value;
+    root.querySelector('#homolog-excluir-pessoa').disabled=!outra;
     root.querySelector('#homolog-nome-linha').hidden=outra;
     root.querySelector('#homolog-nome').value='';
     root.querySelector('#homolog-form-titulo').textContent=outra?'Adicionar e-mail à pessoa existente':'Cadastrar pessoa e e-mail';
+  }
+  async function excluirPessoaSemVinculos(){
+    const id=Number(root.querySelector('#homolog-selec-pessoa').value);
+    const pessoa=pessoas.find(p=>Number(p.id)===id);
+    if(!pessoa)return;
+    try{
+      const r=await cdaClient.from('cda_homologacao_destinatarios').select('id',{count:'exact',head:true}).eq('pessoa_id',id);
+      if(r.error)throw r.error;
+      if(r.count){banner('Pessoa vinculada a e-mails. Remova os vínculos em todas as campanhas antes de excluir.');return;}
+      if(!confirm('Excluir definitivamente a pessoa '+pessoa.nome+'?'))return;
+      const x=await cdaClient.from('cda_homologacao_pessoas').delete().eq('id',id);
+      if(x.error)throw x.error;
+      limparForm();await atualizar();banner('Pessoa excluída do cadastro de homologação. Nenhum envio realizado.');
+    }catch(e){console.error(e);banner('Falha na exclusão: '+(e.message||e));}
   }
   async function salvarCadastro(e){
     e.preventDefault();if(!editavel)return;
@@ -349,7 +365,7 @@ async function montarModuloHomologacao(containerId, opts) {
       '<div id="homolog-nome-linha" style="display:grid;gap:6px"><label>Nome da nova pessoa</label><input id="homolog-nome" maxlength="180" style="padding:9px;color:#111;background:#fff"></div>'+
       '<div id="homolog-email-linha" style="display:grid;gap:6px"><label>E-mail</label><input id="homolog-email" type="email" maxlength="254" required style="padding:9px;color:#111;background:#fff"></div>'+
       '<label id="homolog-principal-linha"><input id="homolog-principal" type="checkbox"> E-mail principal</label>'+
-      '<div class="hom-toolbar"><button type="submit" id="homolog-salvar-cadastro" class="btn rust">Salvar cadastro</button><button type="button" id="homolog-cancelar-cadastro" class="btn">Cancelar</button></div>'+
+      '<div class="hom-toolbar"><button type="submit" id="homolog-salvar-cadastro" class="btn rust">Salvar cadastro</button><button type="button" id="homolog-cancelar-cadastro" class="btn">Cancelar</button><button type="button" id="homolog-excluir-pessoa" class="btn" disabled>Excluir pessoa sem vínculos</button></div>'+
       '</form></details>' : '')+
     '</div>'+
     '<div id="homolog-pane-lote" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-lote" hidden>'+
@@ -391,6 +407,7 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-form-cadastro').addEventListener('submit',salvarCadastro);
     root.querySelector('#homolog-selec-pessoa').addEventListener('change',trocarPessoa);
     root.querySelector('#homolog-cancelar-cadastro').addEventListener('click',limparForm);
+    root.querySelector('#homolog-excluir-pessoa').addEventListener('click',excluirPessoaSemVinculos);
   }
   try {
     campanhas=await consultar('cda_campanhas',cdaClient.from('cda_campanhas').select('id,nome').order('nome'));
