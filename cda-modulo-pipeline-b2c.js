@@ -196,8 +196,8 @@ async function montarModuloPipelineB2C(containerId, opts) {
             '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="pb2c-m-nome"><div class="pb2c-aviso-duplicata" id="pb2c-m-aviso-duplicata" style="display:none"></div></div>' +
             '<div class="fgr"><label>Telefone</label><input type="text" id="pb2c-m-tel"></div>' +
             '<div class="fgr"><label>E-mail</label><input type="email" id="pb2c-m-email"></div>' +
-            '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
-            '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div><p id="pb2c-m-meios-aviso" role="status" style="font-size:11px;color:var(--muted);margin:4px 0 0"></p></div>' +
+            '<div class="fgr"><label>Canal de origem comercial</label><select id="pb2c-m-canal"><option value="">—</option></select><span style="font-size:11px;color:var(--muted)">Origem das compras ou da captação. Não é um meio de envio.</span></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Meios de comunicação <span class="tmu" style="font-weight:400">(herdados da campanha, editáveis para o lead)</span></label><div class="camp-checks" id="pb2c-m-meios"></div><p id="pb2c-m-meios-aviso" role="status" style="font-size:11px;color:var(--muted);margin:4px 0 0"></p></div>' +
             '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
             '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
             '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
