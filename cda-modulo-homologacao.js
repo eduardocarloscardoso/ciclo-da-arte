@@ -230,6 +230,7 @@ async function montarModuloHomologacao(containerId, opts) {
       if(!dados||!dados.ok)throw new Error((dados&&dados.erro)||'Falha na consulta');
       const lote=dados.lote;
       if(!lote){
+        root.querySelector('#homolog-verificacao').textContent='Nenhum lote preparado. Veja os detalhes técnicos para preparar um lote sem envio.';
         el.textContent='Nenhum lote persistido para esta campanha/mensagem. Utilize Preparar lote (sem envio).';
         a.disabled=false;
         return;
@@ -267,20 +268,19 @@ async function montarModuloHomologacao(containerId, opts) {
           '</tbody></table></div>':'<p style="margin:0;font-size:12px">Nenhuma interrupção ou retomada registrada.</p>')+
         '</div>';
       const simul=dados.simulacao;
-      if(acao==='simular'&&simul)root.querySelector('#homolog-abrir-simulacao').open=true;
-      const destinoSim=root.querySelector('#homolog-lote-simulacao');
-      if(acao==='simular'&&simul){
-        const estados=Array.isArray(simul.destinatarios)?simul.destinatarios:[];
-        destinoSim.innerHTML='<h4 style="margin:0 0 8px">Simulação do executor — nenhum disparo</h4>'+
-          '<p style="margin:0 0 8px"><b>Elegíveis: '+esc(simul.elegiveis)+'</b> de '+esc(simul.total)+
+      const aviso=root.querySelector('#homolog-verificacao');
+      if(simul){
+        const impedimentos=(simul.inativos||0)+(simul.suprimidos||0)+(simul.bloqueados||0)+(simul.ja_processados||0);
+        const elegivel=impedimentos===0 && lote.situacao==='preparado';
+        aviso.textContent=elegivel?'Verificação automática: '+simul.elegiveis+' destinatários elegíveis. Envio não autorizado.':
+          'Verificação automática: '+simul.elegiveis+' elegíveis; '+impedimentos+' requerem revisão. Envio não autorizado.';
+        aviso.style.color=elegivel?'#166534':'#9a3412';
+        root.querySelector('#homolog-lote-simulacao').innerHTML=
+          '<p style="margin:0">Elegíveis: <b>'+esc(simul.elegiveis)+'</b> / '+esc(simul.total)+
           ' · Inativos: '+esc(simul.inativos)+' · Suprimidos: '+esc(simul.suprimidos)+
           ' · Bloqueados: '+esc(simul.bloqueados)+' · Já processados: '+esc(simul.ja_processados)+'</p>'+
-          '<p style="margin:0 0 8px">Solicitações ao Resend: <b>0</b> · Execução habilitada: <b>NÃO</b></p>'+
-          '<table style="width:100%"><thead><tr><th>Item ID</th><th>Classificação técnica</th></tr></thead><tbody>'+
-          estados.map(i=>'<tr><td>'+esc(i.item_id)+'</td><td>'+esc(i.situacao)+'</td></tr>').join('')+
-          '</tbody></table>'+
-          '<p style="margin:8px 0 0;font-size:12px">A simulação é leitura. Não reserva destinatários e não altera o lote.</p>';
-      }else if(acao!=='status') destinoSim.textContent='Simulação anterior não é mais válida; execute novamente para consultar o estado atual.';
+          '<p style="margin:6px 0 0">Pré-validação de leitura, sem reservas nem envios.</p>';
+      }else aviso.textContent='Verificação automática indisponível. Envio permanece bloqueado.';
       b.disabled=lote.situacao!=='preparado'||!editavel;
       c.disabled=lote.situacao!=='interrompido'||!editavel;
       d.disabled=!editavel;
@@ -335,11 +335,15 @@ async function montarModuloHomologacao(containerId, opts) {
       '<div><h3>Operação do lote</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Acompanhamento da campanha selecionada. Envio ainda não autorizado.</p></div>'+
       '<div id="homolog-lote-mensagem-linha" style="display:grid;gap:6px"><label for="homolog-lote-mensagem"><b>Mensagem</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
       '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
-      '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Simular fila (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar (bloqueado)</button></div>'+
-      '<details class="hom-fold"><summary>Controles administrativos</summary><div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button></div></details>'+ 
-      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Selecione a mensagem para consultar lotes anteriores.</div>'+ 
-      '<details class="hom-fold" id="homolog-abrir-simulacao"><summary>Resultado da simulação</summary><div id="homolog-lote-simulacao" role="status" aria-live="polite">Execute uma simulação para exibir o resultado.</div></details>'+
-      '<details class="hom-fold" id="homolog-abrir-seguranca"><summary>Segurança e histórico de controle</summary><div id="homolog-lote-seguranca" aria-live="polite"></div></details>'+
+      '<p id="homolog-verificacao" role="status" aria-live="polite" style="margin:0;font-size:13px">Verificando destinatários automaticamente...</p>'+
+      '<button type="button" class="btn rust" disabled title="Aguardando executor seguro e autorização específica">Enviar mensagens — aguardando autorização</button>'+
+      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+
+      '<details class="hom-fold" id="homolog-detalhes-tecnicos"><summary>Detalhes técnicos e auditoria</summary><div style="display:grid;gap:14px;margin-top:12px">'+
+        '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Rever simulação</button>'+
+        '<button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
+        '<div id="homolog-lote-simulacao" role="status" aria-live="polite"></div>'+
+        '<div id="homolog-lote-seguranca" aria-live="polite"></div>'+
+      '</div></details>'+
       '<p style="margin:0;font-size:12px">Modo Oficial bloqueado. A lista congelada de clientes e o Pipeline B2C não são consultados nesta preparação.</p>'+
     '</section></div>'+
     '<p id="homolog-msg" role="status" aria-live="polite" style="display:none;padding:12px;border:1px solid #64748b;border-radius:8px"></p>'+
