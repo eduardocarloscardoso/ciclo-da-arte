@@ -176,6 +176,7 @@ async function montarModuloHomologacao(containerId, opts) {
         mensagensLote.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+' — '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       seletor.disabled = false;
       if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
+      else if (mensagensLote.length===1) seletor.value=String(mensagensLote[0].id);
       desenharPreparo();
       if(seletor.value)await acionarLote('status');
       else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem para consultar ou preparar o lote.';
@@ -237,14 +238,38 @@ async function montarModuloHomologacao(containerId, opts) {
         return;
       }
       const itens=Array.isArray(dados.itens)?dados.itens:[];
+      const cont=dados.contagens||{};
+      const total=itens.length;
+      const processados=Number(dados.processados)||0;
+      const contagem=k=>Number(cont[k])||0;
+      const percent=total?Math.round(processados*100/total):0;
+      const labels={pendente:'Pendente',bloqueado:'Bloqueado',processando:'Processando',
+        indeterminado:'Resultado indeterminado',aceito:'Aceito pelo Resend',
+        entregue:'Entregue',falha:'Falha',devolvido:'Devolvido',reclamacao:'Reclamação',atrasado:'Entrega atrasada'};
+      const indicadores=[
+        ['Pendentes',contagem('pendente')],['Processando',contagem('processando')],
+        ['Aceitos pelo Resend',contagem('aceito')],['Entregues',contagem('entregue')],
+        ['Falhas',contagem('falha')],['Devolvidos',contagem('devolvido')],
+        ['Bloqueados',contagem('bloqueado')],['Indeterminados',contagem('indeterminado')]
+      ];
       el.innerHTML='<p style="margin:0"><b>Lote #'+esc(lote.id)+'</b> · '+
         esc(lote.situacao==='interrompido'?'Operação interrompida':'Preparado, aguardando autorização')+
-        ' · <b>'+itens.length+' destinatário(s) registrado(s)</b></p>'+
-        '<p style="margin:0;font-size:12px">Snapshot persistente e independente do cadastro atual. '+
-        'Nenhuma solicitação foi enviada ao Resend. Pedidos aceitos: 0 · Entregas confirmadas: 0.</p>'+
-        '<div style="max-height:170px;overflow:auto"><table style="width:100%"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th></tr></thead><tbody>'+
-        itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+esc(i.situacao)+'</td></tr>').join('')+
-        '</tbody></table></div>';
+        ' · <b>'+total+' destinatário(s) registrado(s)</b></p>'+
+        '<p style="margin:0"><b>'+processados+' de '+total+' destinatários processados</b> · '+percent+'%'+
+        ' (processamento técnico, não necessariamente entrega)</p>'+
+        '<div style="height:9px;border-radius:9px;background:#d1d5db;overflow:hidden" aria-label="Progresso">'+
+        '<div style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:7px">'+indicadores.map(x=>
+          '<span style="border:1px solid #9ca3af;border-radius:6px;padding:5px 9px;font-size:12px">'+
+          esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
+        '<p style="margin:0;font-size:12px">Snapshot persistente. Envio desabilitado, sem autorização de disparo. '+
+        'Aceitação do provedor não confirma entrega; entrega não confirma leitura. Os eventos exibidos provêm do histórico técnico.</p>'+
+        '<div style="overflow:auto"><table style="width:100%;min-width:680px"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th><th>Resend</th></tr></thead><tbody>'+
+        itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+
+        esc(labels[i.situacao_observada||i.situacao]||i.situacao_observada||i.situacao)+
+        '</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+
+        '</tbody></table></div>'+
+        '<p style="font-size:12px;margin:0">O lote não será executado automaticamente, mesmo após recarregar ou retomar a página.</p>';
       b.disabled=lote.situacao!=='preparado';
       a.disabled=true;
     }catch(e){
