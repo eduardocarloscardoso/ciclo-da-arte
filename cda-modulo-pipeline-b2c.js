@@ -97,6 +97,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
       '<button class="btn sm" id="pb2c-btn-diario">📔 Diário</button>' +
       '<button class="btn sm" id="pb2c-btn-comunicacoes" aria-expanded="false" aria-controls="pb2c-comunicacoes">✉ Comunicações da Campanha</button>' +
+      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Gerenciar destinatários internos desta campanha, sem envios">🧪 Lista de Homologação</button>' +
       '<button class="btn sm" id="pb2c-btn-export-whats">📲 Exportar WhatsApp</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
@@ -370,6 +371,11 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '</tbody></table></div>':'<p style="color:var(--muted,#777)">Nenhum teste registrado para esta seleção.</p>')+
       '<p style="font-size:10px;color:var(--muted,#777);margin-top:12px">Eventos posteriores são registrados apenas quando recebidos de webhook assinado e associados ao teste. Zero eventos não prova ausência de entregas enquanto o webhook não estiver ativado. Histórico de compras e leads não são alterados por esta consulta.</p>';
   }
+  host.querySelector('#pb2c-btn-homologacao').addEventListener('click',function(){
+    var filtro=host.querySelector('#pb2c-f-campanha').value;
+    window._cdaHomologacaoCampanhaId = (filtro && filtro !== '__sem_campanha__') ? filtro : '';
+    navigateCRM('homologacao');
+  });
   host.querySelector('#pb2c-btn-comunicacoes').addEventListener('click',function(){
     comunicacoesAberto=!comunicacoesAberto;
     host.querySelector('#pb2c-comunicacoes').style.display=comunicacoesAberto?'':'none';
