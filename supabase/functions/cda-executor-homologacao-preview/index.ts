@@ -366,16 +366,18 @@ Deno.serve(async(req:Request)=>{
     return await res.json();
   };
   try{
-    const [executor,diario,integridade]=await Promise.all([
+    const [executor,diario,integridade,resumo]=await Promise.all([
       consultar("cda_diagnosticar_executor_lote"),
       consultar("cda_diagnosticar_diario_lote"),
-      consultar("cda_auditar_integridade_lote")
+      consultar("cda_auditar_integridade_lote"),
+      consultar("cda_resumo_preenvio_homologacao")
     ]);
     if(executor?.trava_ativa!==true||executor?.pode_enviar!==false||
        diario?.envio_habilitado!==false||integridade?.envio_habilitado!==false||
-       integridade?.chaves_consistentes!==true)
+       integridade?.chaves_consistentes!==true||resumo?.autorizado!==false||
+       resumo?.envio_habilitado!==false)
       return reply({ok:false,erro:"Diagnóstico de segurança inconsistente"},503);
-    return reply({ok:true,executor,diario,integridade,envio_habilitado:false,envios_solicitados:0});
+    return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:false,envios_solicitados:0});
   }catch{
     return reply({ok:false,erro:"Não foi possível consultar o diário de segurança"},503);
   }
