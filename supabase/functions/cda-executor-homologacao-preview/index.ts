@@ -70,10 +70,11 @@ Deno.serve(async(req:Request)=>{
       if(!String(c.texto||"").trim())issues.push("Corpo da mensagem ausente");
       const link=String(c.botaoLink||"").trim();
       if(!/^https:\/\/[^\s]+$/i.test(link))issues.push("Link de ação inválido ou não HTTPS");
-      // O montador atual usa '#descadastrar' como fallback. Isso não é link
-      // válido. Nenhuma mensagem está pronta até existir token individual
-      // de descadastro no HTML e na versão texto, validado pelo servidor.
-      issues.push("Descadastramento individual ainda não implementado no executor");
+      // Decisão recuperada de 09–10/11/2026: para a lista interna de
+      // homologação o descadastramento não é requisito bloqueante nesta etapa.
+      // O fallback '#descadastrar' continua uma pendência do fluxo comercial,
+      // que deve ser revista antes de liberar o modo oficial.
+      // A supressão de endereços continua sendo verificada logo abaixo.
       if(lote.situacao!=="preparado")issues.push("Lote não está preparado");
       const normalize=(v:unknown)=>String(v||"").trim().toLowerCase();
       const ativos=new Set(origens.map((i:Record<string,unknown>)=>normalize(i.email)));
@@ -94,7 +95,8 @@ Deno.serve(async(req:Request)=>{
         assunto,remetente,quantidade:itens.length,elegiveis:aptos,em_revisao:ignorar,
         conteudo_presente:!!String(c.texto||"").trim(),
         url_acao_https:/^https:\/\//i.test(link),
-        descadastro_funcional:false,pronto_para_envio:false,envio_habilitado:false,
+        descadastro_funcional:false,conteudo_conferido_sem_descadastro:issues.length===0,
+        pronto_para_envio:false,envio_habilitado:false,
         bloqueios:issues,envios_solicitados:0});
     }catch{
       return reply({ok:false,erro:"Falha na conferência, execução permanece bloqueada"},503);
