@@ -185,7 +185,9 @@ async function montarModuloHomologacao(containerId, opts) {
     campanhas=await consultar('cda_campanhas',cdaClient.from('cda_campanhas').select('id,nome').order('nome'));
     const sel=root.querySelector('#homolog-campanha');
     sel.innerHTML=campanhas.map(c=>'<option value="'+c.id+'">'+esc(c.nome)+'</option>').join('');
-    const preferida=campanhas.find(c=>c.id===4);
+    const preferenciaPipeline=String(window._cdaHomologacaoCampanhaId || '');
+    const preferida=campanhas.find(c=>String(c.id)===preferenciaPipeline) || campanhas.find(c=>Number(c.id)===4);
+    window._cdaHomologacaoCampanhaId = '';
     campanhaId=String(preferida?preferida.id:(campanhas[0]&&campanhas[0].id)||'');
     if(!campanhaId){banner('Cadastre uma campanha antes de criar listas de homologação.');return;}
     sel.value=campanhaId;
