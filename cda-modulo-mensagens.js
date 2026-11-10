@@ -364,18 +364,39 @@ async function montarModuloMensagens(containerId, opts) {
   var editavel = opts.editavel !== false;
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-mensagens: container #' + containerId + ' não encontrado'); return; }
-  var ST = { mensagens: [], campanhas: [] };
+  var ST = { mensagens: [], campanhas: [], materiais: [] };
 
   host.innerHTML =
     '<div class="row-bt">' +
-      '<div><div class="sec-t">📚 Biblioteca de Mensagens</div><div class="sec-d">Mensagens de e-mail guardadas, cada uma ligada à sua campanha · envio de teste antes do disparo</div></div>' +
+      '<div><div class="sec-t">📚 Biblioteca de Conteúdos</div><div class="sec-d">Acervo compartilhado de mensagens e materiais comerciais. Mensagens de e-mail e testes existentes são preservados.</div></div>' +
       (editavel ? '<button class="btn rust" id="msg-btn-nova">＋ Nova mensagem</button>' : '') +
     '</div>' +
+    '<h3 style="font-size:15px;margin:16px 0 8px">Mensagens de e-mail · acervo existente</h3>' +
     '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"><select id="msg-f-campanha"><option value="">Todas as campanhas</option></select></div>' +
     '<div class="tw"><div class="ts"><table>' +
       '<thead><tr><th>Campanha</th><th>Mensagem</th><th>Assunto</th><th>Remetente</th><th>Responder para</th><th>Atualizada</th><th>Último teste</th><th>Ações</th></tr></thead>' +
       '<tbody id="msg-tb"><tr><td colspan="8" class="tmu">Carregando...</td></tr></tbody>' +
-    '</table></div></div>';
+    '</table></div></div>' +
+    '<section style="margin-top:26px;border-top:1px solid var(--border2,#ccc);padding-top:15px" aria-label="Materiais comerciais compartilhados">'+
+      '<div class="row-bt"><div><h3 style="font-size:15px;margin:0 0 5px">Materiais comerciais · acervo compartilhado</h3><div class="tmu" style="font-size:11px">Cadastre referências de imagens, vídeos, ofertas, links e outros materiais. O cadastro não envia mensagens nem vincula automaticamente o material a campanhas.</div></div>'+
+        (editavel?'<button class="btn rust" type="button" id="msg-mat-novo">＋ Novo material</button>':'')+
+      '</div>'+
+      '<div style="display:flex;gap:9px;flex-wrap:wrap;margin:12px 0"><select id="msg-mat-tipo" aria-label="Filtrar tipo de material"><option value="">Todos os tipos</option><option value="imagem">Imagens</option><option value="video">Vídeos</option><option value="oferta">Ofertas</option><option value="link">Links</option><option value="outro">Outros materiais</option></select>'+
+      '<select id="msg-mat-situacao" aria-label="Filtrar aprovação"><option value="">Todas as situações</option><option value="rascunho">Rascunhos</option><option value="em_revisao">Em revisão</option><option value="aprovado">Aprovados</option><option value="arquivado">Arquivados</option></select>'+
+      '<input type="search" id="msg-mat-busca" placeholder="Buscar por título ou descrição..." style="min-width:220px;flex:1"></div>'+
+      '<div id="msg-mat-lista" aria-live="polite" style="font-size:12px">Carregando materiais...</div>'+
+      '<form id="msg-mat-form" style="display:none;margin-top:14px;border:1px solid var(--border2,#ccc);padding:15px">'+
+        '<h4 id="msg-mat-form-titulo" style="margin:0 0 10px">Novo material</h4>'+
+        '<input type="hidden" id="msg-mat-id">'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px">Tipo *<select id="msg-mat-tipo-ed" required style="width:100%"><option value="imagem">Imagem</option><option value="video">Vídeo</option><option value="oferta">Oferta</option><option value="link">Link</option><option value="outro">Outro</option></select></label>'+
+        '<label style="flex:2;min-width:210px">Título *<input id="msg-mat-titulo" maxlength="180" required style="width:100%"></label>'+
+        '<label style="flex:1;min-width:160px">Situação<select id="msg-mat-situacao-ed" style="width:100%"><option value="rascunho">Rascunho</option><option value="em_revisao">Em revisão</option><option value="aprovado">Aprovado</option><option value="arquivado">Arquivado</option></select></label></div>'+
+        '<label style="display:block;margin-top:9px">URL do conteúdo (HTTPS)<input id="msg-mat-url" type="url" placeholder="https://..." style="width:100%"></label>'+
+        '<label style="display:block;margin-top:9px">Descrição<textarea id="msg-mat-descricao" rows="3" style="width:100%"></textarea></label>'+
+        '<label style="display:block;margin-top:9px">Direitos, créditos ou condições de uso<textarea id="msg-mat-direitos" rows="2" style="width:100%"></textarea></label>'+
+        '<div style="display:flex;gap:8px;margin-top:10px"><button class="btn rust" type="submit" id="msg-mat-salvar">Salvar material</button><button class="btn" type="button" id="msg-mat-cancelar">Cancelar</button></div>'+
+      '</form>'+
+    '</section>';
 
   try {
     var res = await Promise.all([cdaCarregarMensagens(), cdaCarregarCampanhas()]);
@@ -457,6 +478,96 @@ async function montarModuloMensagens(containerId, opts) {
       catch (err) { console.error(err); alert('Erro ao excluir:\n' + ((err && err.message) || 'Erro desconhecido')); }
     }
   });
+
+  // Acervo complementar: mensagens seguem em cda_campanha_mensagens, sem duplicação.
+  async function carregarMateriais() {
+    var box=host.querySelector('#msg-mat-lista');
+    try {
+      var resp=await cdaClient.from('cda_biblioteca_conteudos').select('*').order('atualizado_em',{ascending:false}).limit(1000);
+      if(resp.error)throw resp.error;
+      ST.materiais=resp.data||[];
+      renderMateriais();
+    } catch(err) {
+      box.textContent='Não foi possível consultar os materiais: '+((err&&err.message)||String(err));
+    }
+  }
+  function renderMateriais() {
+    var tipo=host.querySelector('#msg-mat-tipo').value;
+    var situacao=host.querySelector('#msg-mat-situacao').value;
+    var busca=host.querySelector('#msg-mat-busca').value.trim().toLowerCase();
+    var dados=ST.materiais.filter(function(m){
+      return (!tipo||m.tipo===tipo)&&(!situacao||m.situacao===situacao)&&
+        (!busca||(m.titulo+' '+(m.descricao||'')).toLowerCase().includes(busca));
+    });
+    host.querySelector('#msg-mat-lista').innerHTML=dados.length?
+      '<div class="tw"><div class="ts"><table style="width:100%"><thead><tr><th>Tipo</th><th>Título</th><th>Situação</th><th>Referência</th><th>Direitos</th><th>Ações</th></tr></thead><tbody>'+
+      dados.map(function(m){
+        var u=String(m.url||'');
+        var seguro=/^https:\/\//i.test(u);
+        return '<tr><td>'+cdaMsgEsc(({imagem:'Imagem',video:'Vídeo',oferta:'Oferta',link:'Link',outro:'Outro'})[m.tipo]||m.tipo)+'</td>'+
+          '<td><b>'+cdaMsgEsc(m.titulo)+'</b><div class="tmu">'+cdaMsgEsc(m.descricao||'')+'</div></td>'+
+          '<td>'+cdaMsgEsc(({rascunho:'Rascunho',em_revisao:'Em revisão',aprovado:'Aprovado',arquivado:'Arquivado'})[m.situacao]||m.situacao)+'</td>'+
+          '<td>'+(seguro?'<a href="'+cdaMsgEsc(u)+'" target="_blank" rel="noopener noreferrer">Abrir referência</a>':'—')+'</td>'+
+          '<td>'+cdaMsgEsc(m.observacoes_direitos||'—')+'</td>'+
+          '<td>'+(editavel?'<button class="btn sm" type="button" data-mat-editar="'+m.id+'">Editar</button>':'—')+'</td></tr>';
+      }).join('')+'</tbody></table></div></div>':
+      '<div class="tmu" style="padding:12px">Nenhum material encontrado. As mensagens de e-mail permanecem disponíveis na seção acima.</div>';
+  }
+  var matForm=host.querySelector('#msg-mat-form');
+  function editarMaterial(m) {
+    if(!editavel)return;
+    matForm.style.display='';
+    host.querySelector('#msg-mat-form-titulo').textContent=m?'Editar material':'Novo material';
+    host.querySelector('#msg-mat-id').value=m?m.id:'';
+    host.querySelector('#msg-mat-tipo-ed').value=m?m.tipo:'imagem';
+    host.querySelector('#msg-mat-titulo').value=m?m.titulo:'';
+    host.querySelector('#msg-mat-situacao-ed').value=m?m.situacao:'rascunho';
+    host.querySelector('#msg-mat-url').value=m?m.url||'':'';
+    host.querySelector('#msg-mat-descricao').value=m?m.descricao||'':'';
+    host.querySelector('#msg-mat-direitos').value=m?m.observacoes_direitos||'':'';
+    matForm.scrollIntoView({behavior:'smooth',block:'nearest'});
+  }
+  host.querySelector('#msg-mat-tipo').addEventListener('change',renderMateriais);
+  host.querySelector('#msg-mat-situacao').addEventListener('change',renderMateriais);
+  host.querySelector('#msg-mat-busca').addEventListener('input',renderMateriais);
+  host.querySelector('#msg-mat-lista').addEventListener('click',function(ev){
+    var b=ev.target.closest('[data-mat-editar]');
+    if(!b)return;
+    editarMaterial(ST.materiais.find(function(m){return String(m.id)===b.dataset.matEditar;}));
+  });
+  host.querySelector('#msg-mat-cancelar').addEventListener('click',function(){matForm.style.display='none';});
+  if(editavel) {
+    host.querySelector('#msg-mat-novo').addEventListener('click',function(){editarMaterial(null);});
+    matForm.addEventListener('submit',async function(ev){
+      ev.preventDefault();
+      var id=host.querySelector('#msg-mat-id').value;
+      var url=host.querySelector('#msg-mat-url').value.trim();
+      if(url&&!/^https:\/\//i.test(url)){alert('Informe uma URL HTTPS válida.');return;}
+      var dado={
+        tipo:host.querySelector('#msg-mat-tipo-ed').value,
+        titulo:host.querySelector('#msg-mat-titulo').value.trim(),
+        situacao:host.querySelector('#msg-mat-situacao-ed').value,
+        url:url||null,
+        descricao:host.querySelector('#msg-mat-descricao').value.trim()||null,
+        observacoes_direitos:host.querySelector('#msg-mat-direitos').value.trim()||null,
+        atualizado_em:new Date().toISOString(),
+        atualizado_por:(window.cu&&window.cu.name)||null
+      };
+      if(!dado.titulo){alert('Informe o título.');return;}
+      var btn=host.querySelector('#msg-mat-salvar');btn.disabled=true;
+      try{
+        var req=id?cdaClient.from('cda_biblioteca_conteudos').update(dado).eq('id',id):
+          cdaClient.from('cda_biblioteca_conteudos').insert(Object.assign({criado_por:dado.atualizado_por},dado));
+        var resp=await req.select().single();
+        if(resp.error)throw resp.error;
+        matForm.style.display='none';
+        await carregarMateriais();
+      }catch(err){alert('Não foi possível salvar o material: '+((err&&err.message)||String(err)));}
+      finally{btn.disabled=false;}
+    });
+  }
+  carregarMateriais();
+
   fSel.addEventListener('change', render);
   if (editavel) host.querySelector('#msg-btn-nova').addEventListener('click', function () { abrirEditor(null, false); });
   if (opts.campanhaId) { fSel.value = String(opts.campanhaId); }
