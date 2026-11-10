@@ -528,8 +528,10 @@ async function montarModuloMensagens(containerId, opts) {
       '<div class="tmu" style="padding:12px">Nenhum material encontrado. As mensagens de e-mail permanecem disponíveis na seção acima.</div>';
   }
   var matForm=host.querySelector('#msg-mat-form');
+  var estruturaModeloCopia=null;
   function editarMaterial(m) {
     if(!editavel)return;
+    estruturaModeloCopia=null;
     matForm.style.display='';
     host.querySelector('#msg-mat-form-titulo').textContent=m?'Editar material':'Novo material';
     host.querySelector('#msg-mat-id').value=m?m.id:'';
@@ -553,6 +555,10 @@ async function montarModuloMensagens(containerId, opts) {
     if(!origem)return;
     if(b.dataset.matDuplicar){
       editarMaterial(null);
+      if(origem.tipo==='modelo' && origem.estrutura_modelo){
+        estruturaModeloCopia=JSON.parse(JSON.stringify(origem.estrutura_modelo));
+        estruturaModeloCopia.origem_referencia={modelo_id:origem.id,nota:'Cópia de modelo, sem copiar público, cupom, imagem ou link do artista anterior'};
+      }
       host.querySelector('#msg-mat-tipo-ed').value=origem.tipo;
       host.querySelector('#msg-mat-categoria-ed').value=origem.categoria||'geral';
       host.querySelector('#msg-mat-titulo').value=origem.tipo==='modelo'?'Campanhas de Shows · NOVO ARTISTA · NOVA PRAÇA · NOVO PÚBLICO':'Cópia de '+origem.titulo;
@@ -579,6 +585,10 @@ async function montarModuloMensagens(containerId, opts) {
         observacoes_direitos:host.querySelector('#msg-mat-direitos').value.trim()||null,
         atualizado_em:new Date().toISOString(),
         atualizado_por:(window.cu&&window.cu.name)||null
+      };
+      if(!id&&dado.tipo==='modelo')dado.estrutura_modelo=estruturaModeloCopia||{
+        campos_obrigatorios:['ARTISTA','PRAÇA','PÚBLICO'],
+        campos_complementares:['DATA_SHOW','LOCAL','OBJETIVO','MENSAGEM','FLYER','OFERTA','LINK_CTA','CANAL','REMETENTE','REPLY_TO','ELEGIBILIDADE','APROVAÇÃO']
       };
       if(!dado.titulo){alert('Informe o título.');return;}
       var btn=host.querySelector('#msg-mat-salvar');btn.disabled=true;
