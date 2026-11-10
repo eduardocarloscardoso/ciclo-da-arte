@@ -24,7 +24,6 @@ async function montarModuloHomologacao(containerId, opts) {
         consultar('cda_homologacao_destinatarios', cdaClient.from('cda_homologacao_destinatarios').select('id,campanha_id,pessoa_id,email,principal,ativo').eq('campanha_id', Number(campanhaId)).order('email'))
       ]);
       desenhar();
-      desenharPreparo();
     } catch (e) { console.error(e); banner('Erro ao carregar lista: '+(e.message || e)); }
   }
   function nomePessoa(id) { const p=pessoas.find(p => String(p.id)===String(id)); return p ? p.nome : 'Pessoa #'+id; }
@@ -194,9 +193,13 @@ async function montarModuloHomologacao(containerId, opts) {
       seletor.innerHTML = '<option value="">Selecione a mensagem</option>' +
         mensagensLote.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+' — '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       seletor.disabled = false;
+      const single=mensagensLote.length===1;
+      root.querySelector('#homolog-lote-mensagem-linha').hidden=single;
+      const resumoMensagem=root.querySelector('#homolog-lote-mensagem-unica');
+      resumoMensagem.hidden=!single;
+      resumoMensagem.textContent=single?'Mensagem: '+mensagensLote[0].nome+(mensagensLote[0].assunto?' · '+mensagensLote[0].assunto:''):'';
       if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
       else if (mensagensLote.length===1) seletor.value=String(mensagensLote[0].id);
-      desenharPreparo();
       if(seletor.value)await acionarLote('status');
       else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem para consultar ou preparar o lote.';
     } catch(e) {
@@ -205,33 +208,7 @@ async function montarModuloHomologacao(containerId, opts) {
       root.querySelector('#homolog-lote-detalhes').textContent = 'Falha ao consultar mensagens: '+(e.message||e);
     }
   }
-  function desenharPreparo() {
-    const painel=root.querySelector('#homolog-lote-detalhes');
-    if(!painel)return;
-    const selecionada=mensagensLote.find(m=>String(m.id)===root.querySelector('#homolog-lote-mensagem').value);
-    const ativos=destinos.filter(d=>d.ativo);
-    const emails=new Set();
-    const elegiveis=[], invalidos=[], repetidos=[];
-    for(const d of ativos) {
-      const email=normalEmail(d.email);
-      const item={email,nome:nomePessoa(d.pessoa_id),id:d.id};
-      if(!emailValido(email)) invalidos.push(item);
-      else if(emails.has(email)) repetidos.push(item);
-      else {emails.add(email);elegiveis.push(item);}
-    }
-    painel.innerHTML =
-      '<div><b>Modo:</b> Homologação · <b>Campanha:</b> '+esc((campanhas.find(c=>String(c.id)===String(campanhaId))||{}).nome||'')+
-      ' · <b>Mensagem:</b> '+esc(selecionada?selecionada.nome:'não selecionada')+'</div>'+
-      '<div><b>'+elegiveis.length+' destinatário(s) elegível(is)</b> · '+invalidos.length+' inválido(s) · '+repetidos.length+' duplicado(s) · '+destinos.filter(d=>!d.ativo).length+' inativo(s) excluído(s).</div>'+
-      '<div style="overflow-x:auto;max-height:230px;overflow-y:auto"><table style="width:100%"><thead><tr><th>Pessoa</th><th>E-mail</th><th>Situação</th></tr></thead><tbody>'+
-      elegiveis.map(d=>'<tr><td>'+esc(d.nome)+'</td><td>'+esc(d.email)+'</td><td>Pendente · não enviado</td></tr>').join('')+
-      '</tbody></table></div>'+
-      '<p style="margin:0;font-size:12px">Prévia calculada sobre os cadastros atuais. Antes de qualquer envio, o servidor deverá congelar novamente os destinatários, verificar permissões, supressões, idempotência e autorização específica.</p>';
-    root.querySelector('#homolog-lote-aviso').textContent=selecionada
-      ? 'Preparação concluída. Nenhuma mensagem enviada. Envio bloqueado nesta etapa de segurança.'
-      : 'Selecione uma mensagem para concluir a preparação. Envio bloqueado.';
-  }
-
+  // Visualização consolidada: os destinos congelados aparecem só na tabela do lote.
   // Operações persistidas no servidor, SEM envio (Edge Function não conhece o Resend).
   async function acionarLote(acao) {
     const el=root.querySelector('#homolog-lote-operacao');
@@ -266,30 +243,14 @@ async function montarModuloHomologacao(containerId, opts) {
       const labels={pendente:'Pendente',bloqueado:'Bloqueado',processando:'Processando',
         indeterminado:'Resultado indeterminado',aceito:'Aceito pelo Resend',
         entregue:'Entregue',falha:'Falha',devolvido:'Devolvido',reclamacao:'Reclamação',atrasado:'Entrega atrasada'};
-      const indicadores=[
-        ['Pendentes',contagem('pendente')],['Processando',contagem('processando')],
-        ['Aceitos pelo Resend',contagem('aceito')],['Entregues',contagem('entregue')],
-        ['Falhas',contagem('falha')],['Devolvidos',contagem('devolvido')],
-        ['Bloqueados',contagem('bloqueado')],['Indeterminados',contagem('indeterminado')]
-      ];
-      el.innerHTML='<p style="margin:0"><b>Lote #'+esc(lote.id)+'</b> · '+
-        esc(lote.situacao==='interrompido'?'Operação interrompida':'Preparado, aguardando autorização')+
-        ' · <b>'+total+' destinatário(s) registrado(s)</b></p>'+
-        '<p style="margin:0"><b>'+processados+' de '+total+' destinatários processados</b> · '+percent+'%'+
-        ' (processamento técnico, não necessariamente entrega)</p>'+
-        '<div style="height:9px;border-radius:9px;background:#d1d5db;overflow:hidden" aria-label="Progresso">'+
-        '<div style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:7px">'+indicadores.map(x=>
-          '<span style="border:1px solid #9ca3af;border-radius:6px;padding:5px 9px;font-size:12px">'+
-          esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
-        '<p style="margin:0;font-size:12px">Snapshot persistente. Envio desabilitado, sem autorização de disparo. '+
-        'Aceitação do provedor não confirma entrega; entrega não confirma leitura. Os eventos exibidos provêm do histórico técnico.</p>'+
-        '<div style="overflow:auto"><table style="width:100%;min-width:680px"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th><th>Resend</th></tr></thead><tbody>'+
-        itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+
-        esc(labels[i.situacao_observada||i.situacao]||i.situacao_observada||i.situacao)+
-        '</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+
-        '</tbody></table></div>'+
-        '<p style="font-size:12px;margin:0">O lote não será executado automaticamente, mesmo após recarregar ou retomar a página.</p>';
+      const indicadores=[['Pendentes',contagem('pendente')],['Aceitos',contagem('aceito')],['Entregues',contagem('entregue')],['Falhas',contagem('falha')+contagem('devolvido')+contagem('reclamacao')],['Em andamento',contagem('processando')+contagem('atrasado')+contagem('indeterminado')]];
+      const situacaoLote=lote.situacao==='interrompido'?'Interrompido':'Preparado';
+      el.innerHTML='<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><span><b>Lote #'+esc(lote.id)+'</b> · '+esc(situacaoLote)+' · '+total+' destinatários</span><b>'+processados+'/'+total+' processados</b></div>'+
+        '<div style="height:7px;border-radius:7px;background:#d1d5db;overflow:hidden"><div style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">'+indicadores.map(x=>'<span style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">'+esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
+        '<div style="overflow:auto"><table style="width:100%;min-width:630px"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th><th>Resend</th></tr></thead><tbody>'+
+        itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+esc(labels[i.situacao_observada||i.situacao]||i.situacao_observada||i.situacao)+'</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+'</tbody></table></div>'+
+        '<p style="font-size:12px;margin:0;color:#64748b">Envio bloqueado. Aceitação pelo Resend não confirma entrega ou leitura.</p>';
       const validacao=dados.validacao||{};
       const auditoria=Array.isArray(dados.auditoria)?dados.auditoria:[];
       const resultado=root.querySelector('#homolog-lote-seguranca');
@@ -370,12 +331,11 @@ async function montarModuloHomologacao(containerId, opts) {
     '</div>'+
     '<div id="homolog-pane-lote" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-lote" hidden>'+
     '<section class="hom-card" aria-label="Preparação de envio em lote">'+
-      '<div><h3>Operação de homologação</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Selecione a mensagem e acompanhe o lote. Envio real bloqueado.</p></div>'+
-      '<label for="homolog-lote-mensagem"><b>Mensagem da campanha</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select>'+
-      '<details class="hom-fold"><summary>Conferência detalhada de destinatários</summary>'+
-        '<div id="homolog-lote-detalhes" aria-live="polite">Preparando lista de destinatários...</div>'+
-        '<p id="homolog-lote-aviso" role="status" style="margin:9px 0 0"></p></details>'+
-      '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Simular fila (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar lote (bloqueado)</button></div>'+ 
+      '<div><h3>Operação do lote</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Acompanhamento da campanha selecionada. Envio ainda não autorizado.</p></div>'+
+      '<div id="homolog-lote-mensagem-linha" style="display:grid;gap:6px"><label for="homolog-lote-mensagem"><b>Mensagem</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
+      '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
+      '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Simular fila (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar (bloqueado)</button></div>'+
+      '<details class="hom-fold"><summary>Controles administrativos</summary><div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button></div></details>'+ 
       '<div id="homolog-lote-operacao" role="status" aria-live="polite">Selecione a mensagem para consultar lotes anteriores.</div>'+ 
       '<details class="hom-fold" id="homolog-abrir-simulacao"><summary>Resultado da simulação</summary><div id="homolog-lote-simulacao" role="status" aria-live="polite">Execute uma simulação para exibir o resultado.</div></details>'+
       '<details class="hom-fold" id="homolog-abrir-seguranca"><summary>Segurança e histórico de controle</summary><div id="homolog-lote-seguranca" aria-live="polite"></div></details>'+
@@ -395,7 +355,7 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-tab-dest').addEventListener('click',()=>selecionarArea('dest'));
   root.querySelector('#homolog-tab-lote').addEventListener('click',()=>selecionarArea('lote'));
   root.querySelector('#homolog-campanha').addEventListener('change', async e=>{campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();});
-  root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{desenharPreparo();if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
+  root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
   root.querySelector('#homolog-lote-preparar').addEventListener('click',()=>acionarLote('preparar'));
   root.querySelector('#homolog-lote-interromper').addEventListener('click',()=>acionarLote('interromper'));
   root.querySelector('#homolog-lote-retomar').addEventListener('click',()=>acionarLote('retomar'));
