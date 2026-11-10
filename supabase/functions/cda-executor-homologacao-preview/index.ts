@@ -427,10 +427,11 @@ Deno.serve(async(req:Request)=>{
     ]);
     if(executor?.trava_ativa!==true||executor?.pode_enviar!==false||
        diario?.envio_habilitado!==false||integridade?.envio_habilitado!==false||
-       integridade?.chaves_consistentes!==true||resumo?.autorizado!==false||
-       resumo?.envio_habilitado!==false)
+       integridade?.chaves_consistentes!==true||
+       typeof resumo?.autorizado!=="boolean"||
+       resumo?.envio_habilitado!==resumo?.autorizado)
       return reply({ok:false,erro:"Diagnóstico de segurança inconsistente"},503);
-    return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:false,envios_solicitados:0});
+    return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:resumo.autorizado,envios_solicitados:0});
   }catch{
     return reply({ok:false,erro:"Não foi possível consultar o diário de segurança"},503);
   }
