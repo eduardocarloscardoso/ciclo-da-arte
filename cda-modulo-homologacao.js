@@ -43,24 +43,26 @@ async function montarModuloHomologacao(containerId, opts) {
           btn('excluir-email','Excluir','data-id="'+d.id+'"') : 'Somente leitura')+
        '</div></td></tr>').join('')+'</tbody></table></div>' :
       '<p style="padding:12px">Nenhum endereço nesta campanha'+(filtro?' corresponde à busca':'')+'.</p>';
-    root.querySelector('#homolog-selec-pessoa').innerHTML = '<option value="">Selecione uma pessoa</option>'+
+    if(editavel) root.querySelector('#homolog-selec-pessoa').innerHTML = '<option value="">Selecione uma pessoa</option>'+
       pessoas.map(p=>'<option value="'+p.id+'">'+esc(p.nome)+'</option>').join('');
     root.querySelector('#homolog-pessoas').innerHTML = pessoas.length ?
       '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pessoas.map(p=>
        '<div style="border:1px solid #667085;border-radius:8px;padding:9px;display:flex;align-items:center;gap:8px">'+esc(p.nome)+
        (editavel ? btn('editar-pessoa','Editar','data-id="'+p.id+'"')+' '+btn('excluir-pessoa','Excluir','data-id="'+p.id+'"') : '')+
        '</div>').join('')+'</div>' : 'Nenhuma pessoa cadastrada.';
-    if(editPessoa)root.querySelector('#homolog-selec-pessoa').value=String(editPessoa);
+    if(editavel && editPessoa)root.querySelector('#homolog-selec-pessoa').value=String(editPessoa);
   }
   function limparForm() {
     editPessoa=null;editEmail=null;
-    root.querySelector('#homolog-nome').value='';
-    root.querySelector('#homolog-id-pessoa').value='';
-    root.querySelector('#homolog-email').value='';
-    root.querySelector('#homolog-selec-pessoa').value='';
-    root.querySelector('#homolog-principal').checked=false;
-    root.querySelector('#homolog-form-pessoa-titulo').textContent='Nova pessoa';
-    root.querySelector('#homolog-form-email-titulo').textContent='Adicionar e-mail à campanha';
+    if(editavel)root.querySelector('#homolog-nome').value='';
+    if(editavel)root.querySelector('#homolog-id-pessoa').value='';
+    if(editavel)root.querySelector('#homolog-email').value='';
+    if(editavel)root.querySelector('#homolog-selec-pessoa').value='';
+    if(editavel) {
+      root.querySelector('#homolog-principal').checked=false;
+      root.querySelector('#homolog-form-pessoa-titulo').textContent='Nova pessoa';
+      root.querySelector('#homolog-form-email-titulo').textContent='Adicionar e-mail à campanha';
+    }
   }
   async function gravarPessoa(ev) {
     ev.preventDefault(); if(!editavel)return;
