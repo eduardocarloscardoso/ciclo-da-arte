@@ -158,7 +158,7 @@ Deno.serve(async(req:Request)=>{
       return Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,"0")).join("");
     };
     const normal=e=>String(e||"").trim().toLowerCase();
-    const mail=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    const mail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     try{
       const lotes=await rows("cda_envio_lotes?id=eq."+loteId+"&modo=eq.homologacao&select=id,campanha_id,mensagem_id,situacao&limit=1");
       const lote=lotes[0];
