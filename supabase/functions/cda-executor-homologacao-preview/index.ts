@@ -62,14 +62,14 @@ Deno.serve(async(req:Request)=>{
       const assunto=String(msg?.assunto||"").trim();
       const remetente=String(msg?.remetente_email||"").trim().toLowerCase();
       const resposta=String(msg?.responder_para||"").trim().toLowerCase();
-      const mail=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+      const mail=/^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
       if(!assunto)issues.push("Assunto ausente");
       if(!mail.test(remetente)||!remetente.endsWith("@send.ciclodaarte.com.br"))
         issues.push("Remetente fora do domínio autorizado");
       if(!mail.test(resposta))issues.push("Responder para inválido");
       if(!String(c.texto||"").trim())issues.push("Corpo da mensagem ausente");
       const link=String(c.botaoLink||"").trim();
-      if(!/^https:\/\/[^\\s]+$/i.test(link))issues.push("Link de ação inválido ou não HTTPS");
+      if(!/^https:\/\/[^\s]+$/i.test(link))issues.push("Link de ação inválido ou não HTTPS");
       // O montador atual usa '#descadastrar' como fallback. Isso não é link
       // válido. Nenhuma mensagem está pronta até existir token individual
       // de descadastro no HTML e na versão texto, validado pelo servidor.
