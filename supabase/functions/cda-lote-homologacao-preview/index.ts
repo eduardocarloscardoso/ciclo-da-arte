@@ -55,7 +55,7 @@ Deno.serve(async(req:Request)=>{
   }
   // Só pré-voo SQL. Esta função não possui caminho de envio ao Resend.
   let simulacao:null|Record<string,unknown>=null;
-  if(acao==="simular"){
+  if(acao==="simular" || acao==="status" || acao==="validar"){
     if(!lote)return response({ok:false,erro:"Prepare o lote antes da simulação."},404);
     const sim=await fetch(url+"/rest/v1/rpc/cda_simular_execucao_lote",{
       method:"POST",headers:{...h,"Content-Type":"application/json"},
