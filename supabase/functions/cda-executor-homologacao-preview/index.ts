@@ -6,6 +6,7 @@
 // Contrato "enviar" devolve sempre 423. Somente "diagnosticar" consulta dados.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { executarItemHomologacaoBloqueado, sha256Json } from "./executor-transacional.mjs";
+import { criarStoreTransacional } from "./store-transacional.mjs";
 function cdaPrimeiroNome(nome) {
   const p = String(nome || '').trim().split(/\s+/)[0] || '';
   return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
@@ -159,14 +160,15 @@ Deno.serve(async(req:Request)=>{
         loteId,itemId:1,payload:dummy,sha256:sha,
         chave:"00000000-0000-4000-8000-000000000001",
         apiKey:"NAO_EXISTE_CHAVE_REAL",
-        store:{autorizar:async()=>({
-          habilitado:false,autorizado:false,modo:"homologacao",lote_id:loteId
-        }),reservar:negar,marcarSolicitacao:negar,concluir:negar},
+        store:{autorizar:criarStoreTransacional({
+          supabaseUrl:url,serviceRoleKey:sk
+        }).autorizar,reservar:negar,marcarSolicitacao:negar,concluir:negar},
         transmitir:negar
       });
       if(resultado.estado!=="bloqueado")return reply({ok:false,erro:"Simulação inconsistente"},503);
       return reply({ok:true,estado:"bloqueado",envio_habilitado:false,
-        envios_solicitados:0,operacoes_criadas:0,modo:"simulacao_sintetica"});
+        envios_solicitados:0,operacoes_criadas:0,modo:"simulacao_sintetica",
+        consulta_autorizacao:"lote_real_somente_leitura"});
     }catch{
       return reply({ok:false,erro:"Simulação falhou sem efetuar envios"},503);
     }
