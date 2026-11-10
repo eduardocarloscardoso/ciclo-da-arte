@@ -37,12 +37,15 @@ async function montarModuloHomologacao(containerId, opts) {
       .sort((a,b) => nomePessoa(a.pessoa_id).localeCompare(nomePessoa(b.pessoa_id),'pt-BR') || Number(b.principal)-Number(a.principal) || a.email.localeCompare(b.email));
     root.querySelector('#homolog-lista').innerHTML = registros.length ?
       '<div style="overflow-x:auto"><table style="width:100%;min-width:770px"><thead><tr><th>Pessoa</th><th>E-mail</th><th>Tipo</th><th>Situação</th><th>Ações</th></tr></thead><tbody>'+
-      registros.map(d=>'<tr><td>'+esc(nomePessoa(d.pessoa_id))+'</td><td>'+esc(d.email)+'</td><td>'+(d.principal?'Principal':'Adicional')+'</td><td>'+(d.ativo?'Ativo':'Inativo')+'</td><td><div style="display:flex;gap:5px;flex-wrap:wrap">'+
-       (editavel ? btn('editar-email','Editar','data-id="'+d.id+'"')+' '+
-          (!d.principal && d.ativo ? btn('principal','Tornar principal','data-id="'+d.id+'"') : '')+' '+
-          btn('ativar',d.ativo?'Desativar':'Reativar','data-id="'+d.id+'"')+' '+
-          btn('excluir-email','Excluir','data-id="'+d.id+'"') : 'Somente leitura')+
-       '</div></td></tr>').join('')+'</tbody></table></div>' :
+      registros.map(d=>'<tr><td>'+esc(nomePessoa(d.pessoa_id))+'</td><td>'+esc(d.email)+'</td><td>'+(d.principal?'Principal':'Adicional')+'</td><td>'+(d.ativo?'Ativo':'Inativo')+'</td><td>'+
+       (editavel ? '<details class="hom-row-actions"><summary style="cursor:pointer;font-weight:700">Gerenciar</summary>'+
+         '<div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:8px">'+
+         btn('editar-email','Editar','data-id="'+d.id+'"')+' '+
+         (!d.principal && d.ativo ? btn('principal','Tornar principal','data-id="'+d.id+'"') : '')+' '+
+         btn('ativar',d.ativo?'Desativar':'Reativar','data-id="'+d.id+'"')+' '+
+         btn('excluir-email','Excluir','data-id="'+d.id+'"')+
+         '</div></details>' : 'Somente leitura')+
+       '</td></tr>').join('')+'</tbody></table></div>' :
       '<p style="padding:12px">Nenhum endereço nesta campanha'+(filtro?' corresponde à busca':'')+'.</p>';
     if(editavel) root.querySelector('#homolog-selec-pessoa').innerHTML = '<option value="">Selecione uma pessoa</option>'+
       pessoas.map(p=>'<option value="'+p.id+'">'+esc(p.nome)+'</option>').join('');
@@ -55,6 +58,7 @@ async function montarModuloHomologacao(containerId, opts) {
   }
   function limparForm() {
     editPessoa=null;editEmail=null;
+    if(editavel){root.querySelector('#homolog-abrir-pessoa').open=false;root.querySelector('#homolog-abrir-email').open=false;}
     if(editavel)root.querySelector('#homolog-nome').value='';
     if(editavel)root.querySelector('#homolog-id-pessoa').value='';
     if(editavel)root.querySelector('#homolog-email').value='';
