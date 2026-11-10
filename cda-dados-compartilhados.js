@@ -957,6 +957,10 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
   const pTxt = fonte + 'margin:0 0 14px;font-size:16px;line-height:1.55;color:#1a1a1a;';
   const link = cdaLinkComUtm(k.botaoLink, campanha);
   const descadastro = opts.linkDescadastro || '#descadastrar';
+  // Links institucionais verificados. Únicos para todas as mensagens atuais,
+  // inclusive as já salvas; não altera conteúdos, testes nem o Reply-To.
+  const siteCiclo = 'https://www.ciclodaarte.com.br/';
+  const redesCiclo = 'https://linktr.ee/ciclo_arte';
   const assunto = v((campanha && campanha.emailAssunto) || '');
   const previa = v((campanha && campanha.emailPrevia) || '');
   const sacEmail = String(k.sacEmail || '').trim();
@@ -1004,12 +1008,16 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '</td></tr></table></td></tr>' : '') +
       '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
         esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
-        '<br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
+        '<br><br><b style="color:#444">Acompanhe a Ciclo da Arte</b>' +
+        '<br>Site oficial: <a href="' + esc(siteCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">www.ciclodaarte.com.br</a>' +
+        '<br>Redes sociais e novidades: <a href="' + esc(redesCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">Ciclo da Arte · redes sociais</a>' +
+        '<br><br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
     '</table></td></tr></table></body></html>';
   const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
     k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
     link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '',
     (sacEmail || sacTel) ? v(k.sacTitulo || 'Fale Conosco · SAC') : '', sacTel ? 'Telefone/WhatsApp: ' + sacTel : '', sacEmail ? 'E-mail: ' + sacEmail : '', '', v(k.rodape),
+    '', 'Site oficial: ' + siteCiclo, 'Redes sociais e novidades: ' + redesCiclo,
     'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
   return { assunto: assunto, previa: previa, html: html, texto: texto };
 }
