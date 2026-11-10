@@ -22,7 +22,7 @@ Deno.serve(async(req:Request)=>{
   try {body=await req.json();}catch{return response({ok:false,erro:"Dados inválidos."},400);}
   const campanha=Number(body.campanha_id),mensagem=Number(body.mensagem_id);
   const acao=String(body.acao||"status");
-  if(!["status","preparar","interromper"].includes(acao))return response({ok:false,erro:"Operação não permitida."},400);
+  if(!["status","preparar","interromper","retomar","validar"].includes(acao))return response({ok:false,erro:"Operação não permitida."},400);
   if(!Number.isSafeInteger(campanha)||campanha<1||!Number.isSafeInteger(mensagem)||mensagem<1)
     return response({ok:false,erro:"Campanha e mensagem obrigatórias."},400);
   const h={apikey:sk,Authorization:"Bearer "+sk};
@@ -42,16 +42,16 @@ Deno.serve(async(req:Request)=>{
   let r=await consulta().catch(()=>null);
   if(!r?.ok)return response({ok:false,erro:"Não foi possível consultar o lote."},503);
   lote=(await r.json())[0]||null;
-  if(acao==="interromper"){
+  if(acao==="interromper" || acao==="retomar"){
     if(!lote)return response({ok:false,erro:"Lote ainda não preparado."},404);
-    if(lote.situacao==="preparado"){
-      const upd=await fetch(url+"/rest/v1/cda_envio_lotes?id=eq."+lote.id+"&situacao=eq.preparado",{
-        method:"PATCH",headers:{...h,"Content-Type":"application/json",Prefer:"return=representation"},
-        body:JSON.stringify({situacao:"interrompido",atualizado_em:new Date().toISOString()})
-      }).catch(()=>null);
-      if(!upd?.ok)return response({ok:false,erro:"Não foi possível interromper."},503);
-      r=await consulta();lote=(await r.json())[0]||null;
-    }
+    const ctl=await fetch(url+"/rest/v1/rpc/cda_controlar_lote_sem_envio",{
+      method:"POST",headers:{...h,"Content-Type":"application/json"},
+      body:JSON.stringify({p_lote_id:lote.id,p_acao:acao,p_usuario:usuario.id})
+    }).catch(()=>null);
+    if(!ctl?.ok)return response({ok:false,erro:"Não foi possível atualizar o controle do lote."},503);
+    r=await consulta().catch(()=>null);
+    if(!r?.ok)return response({ok:false,erro:"Controle registrado, falha ao recarregar lote."},503);
+    lote=(await r.json())[0]||null;
   }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
@@ -59,6 +59,26 @@ Deno.serve(async(req:Request)=>{
   const itens=await itensResp.json();
   // Apresenta a situação técnica de cada item sem reclassificar entrega como abertura.
   // Os eventos só serão vinculados quando cada item possuir tentativa_id auditada.
+  // Pré-validação em modo leitura; NÃO equivale a autorização de envio.
+  // Revalida estado vivo e supressões, sem editar o snapshot.
+  const impedimentos:string[]=[];
+  if(lote.situacao!=="preparado")impedimentos.push("Lote interrompido");
+  if(!itens.length)impedimentos.push("Lote sem destinatários");
+  if(itens.some((i:Record<string,unknown>)=>i.situacao!=="pendente"))
+    impedimentos.push("Lote contém itens fora do estado pendente; revisar histórico antes de liberar");
+  const liveResp=await fetch(url+"/rest/v1/cda_homologacao_destinatarios?campanha_id=eq."+campanha+"&ativo=eq.true&select=email&limit=1000",{headers:h}).catch(()=>null);
+  if(!liveResp?.ok)return response({ok:false,erro:"Não foi possível validar destinatários ativos."},503);
+  const ativos=new Set((await liveResp.json()).map((x:Record<string,unknown>)=>String(x.email||"").trim().toLowerCase()));
+  const supResp=await fetch(url+"/rest/v1/cda_email_supressoes?select=email&limit=5000",{headers:h}).catch(()=>null);
+  if(!supResp?.ok)return response({ok:false,erro:"Não foi possível validar supressões."},503);
+  const suprimidos=new Set((await supResp.json()).map((x:Record<string,unknown>)=>String(x.email||"").trim().toLowerCase()));
+  const irregular=itens.filter((i:Record<string,unknown>)=>!ativos.has(String(i.email||"").toLowerCase()));
+  const suprimidosNoLote=itens.filter((i:Record<string,unknown>)=>suprimidos.has(String(i.email||"").toLowerCase()));
+  if(irregular.length)impedimentos.push(irregular.length+" destinatário(s) não está(ão) mais ativo(s) na lista atual");
+  if(suprimidosNoLote.length)impedimentos.push(suprimidosNoLote.length+" destinatário(s) presente(s) na lista de supressão");
+  const auditResp=await fetch(url+"/rest/v1/cda_envio_lote_auditoria?lote_id=eq."+lote.id+"&select=id,acao,situacao_anterior,situacao_nova,ocorrido_em&order=id.desc&limit=20",{headers:h}).catch(()=>null);
+  if(!auditResp?.ok)return response({ok:false,erro:"Não foi possível consultar auditoria."},503);
+  const auditoria=await auditResp.json();
   const ids=itens.map((i:Record<string,unknown>)=>Number(i.tentativa_id)).filter((id:number)=>Number.isSafeInteger(id)&&id>0);
   const eventosPorTentativa=new Map<number,Record<string,unknown>[]>();
   if(ids.length){
@@ -86,6 +106,9 @@ Deno.serve(async(req:Request)=>{
   }
   return response({ok:true,lote,itens:enriquecidos,quantidade:enriquecidos.length,
     contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
+    validacao:{consulta_concluida:true,sem_impedimentos:impedimentos.length===0,impedimentos,autorizado:false,
+      observacao:"Pré-validação não autoriza disparos nem substitui análise de LGPD, idempotência Resend e liberação manual."},
+    auditoria,
     envio_habilitado:false,
     aviso:"Rastreio em modo somente leitura. Nenhuma mensagem é enviada por esta função."});
 });
