@@ -165,6 +165,7 @@ async function montarModuloHomologacao(containerId, opts) {
   let mensagensLote = [];
   async function carregarMensagensLote() {
     const seletor = root.querySelector('#homolog-lote-mensagem');
+    const mensagemAnterior=seletor.value;
     seletor.innerHTML = '<option value="">Carregando mensagens...</option>';
     seletor.disabled = true;
     try {
@@ -174,6 +175,7 @@ async function montarModuloHomologacao(containerId, opts) {
       seletor.innerHTML = '<option value="">Selecione a mensagem</option>' +
         mensagensLote.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+' — '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       seletor.disabled = false;
+      if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
       desenharPreparo();
     } catch(e) {
       mensagensLote = [];
