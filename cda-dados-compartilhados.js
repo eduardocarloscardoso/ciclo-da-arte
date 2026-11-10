@@ -1067,17 +1067,37 @@ function cdaMontarEmailMensagem(mensagem, campanha, cliente, opts) {
 }
 // Envio de TESTE (Edge Function enviar-email-teste): até 3 endereços, só membros logados da equipe
 async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
+  // Cada teste usa UM destinatário por tentativa / ID Resend. Assim o webhook
+  // confirma a entrega por endereço, sem compartilhar status entre pessoas.
+  // Controle de testes: no máximo três endereços explicitamente informados.
+  const destinos = [...new Set((Array.isArray(para) ? para : [para])
+    .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
+  if (!destinos.length || destinos.length > 3 || destinos.some(x => !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x)))
+    throw new Error('Informe de 1 a 3 e-mails válidos para teste.');
   const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
-  const { data, error } = await cdaClient.functions.invoke('enviar-email-teste-historico-preview', {
-    body: { mensagem_id: mensagem.id, para: para, assunto: email.assunto, html: email.html, texto: email.texto, usuario: (window.cu && window.cu.name) || null }
-  });
-  if (error) {
-    let detalhe = '';
-    try { const b = await error.context.json(); detalhe = b && b.erro; } catch (e) { /* sem corpo */ }
-    throw new Error(detalhe || error.message || 'Falha ao chamar o envio de teste');
+  const resultados = [];
+  for (const destino of destinos) {
+    let data, error;
+    try {
+      ({ data, error } = await cdaClient.functions.invoke('enviar-email-teste-historico-preview', {
+        body: { mensagem_id: mensagem.id, para: [destino], assunto: email.assunto, html: email.html, texto: email.texto, usuario: (window.cu && window.cu.name) || null }
+      }));
+    } catch (e) {
+      throw new Error('Falha no teste para ' + destino + '. ' + resultados.length +
+        ' endereço(s) anterior(es) podem ter sido aceitos pelo Resend; confira o histórico antes de repetir. ' + String(e));
+    }
+    if (error || !data || !data.ok) {
+      let detalhe = '';
+      if (error) {
+        try { const body = await error.context.json(); detalhe = body && body.erro; } catch (_) {}
+      }
+      throw new Error('Falha no teste para ' + destino + '. ' + resultados.length +
+        ' endereço(s) anterior(es) podem ter sido aceitos pelo Resend; confira o histórico antes de repetir. ' +
+        (detalhe || (data && data.erro) || (error && error.message) || 'Erro desconhecido'));
+    }
+    resultados.push({ para: destino, tentativa_id: data.tentativa_id, resend_email_id: data.id });
   }
-  if (!data || !data.ok) throw new Error((data && data.erro) || 'O envio de teste falhou');
-  return data;
+  return { ok: true, para: destinos, testes: resultados };
 }
 
 // ── LISTA CONGELADA DA CAMPANHA (cda_campanha_destinatarios) ─────────
