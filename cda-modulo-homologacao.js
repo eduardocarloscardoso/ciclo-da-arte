@@ -24,6 +24,7 @@ async function montarModuloHomologacao(containerId, opts) {
         consultar('cda_homologacao_destinatarios', cdaClient.from('cda_homologacao_destinatarios').select('id,campanha_id,pessoa_id,email,principal,ativo').eq('campanha_id', Number(campanhaId)).order('email'))
       ]);
       desenhar();
+      desenharPreparo();
     } catch (e) { console.error(e); banner('Erro ao carregar lista: '+(e.message || e)); }
   }
   function nomePessoa(id) { const p=pessoas.find(p => String(p.id)===String(id)); return p ? p.nome : 'Pessoa #'+id; }
@@ -158,6 +159,54 @@ async function montarModuloHomologacao(containerId, opts) {
       limparForm();await atualizar();banner('Cadastro atualizado. Nenhum envio foi realizado.');
     } catch(e){console.error(e);await atualizar();banner('Não foi possível concluir: '+(e.message||e));}
   }
+
+  // Pré-voo exclusivamente de leitura. Não cria tentativa nem chama Edge Function.
+  // O envio somente será habilitado após motor transacional/idempotente no servidor.
+  let mensagensLote = [];
+  async function carregarMensagensLote() {
+    const seletor = root.querySelector('#homolog-lote-mensagem');
+    seletor.innerHTML = '<option value="">Carregando mensagens...</option>';
+    seletor.disabled = true;
+    try {
+      mensagensLote = await consultar('cda_campanha_mensagens', cdaClient
+        .from('cda_campanha_mensagens').select('id,nome,assunto,campanha_id')
+        .eq('campanha_id',Number(campanhaId)).order('nome'));
+      seletor.innerHTML = '<option value="">Selecione a mensagem</option>' +
+        mensagensLote.map(m=>'<option value="'+m.id+'">'+esc(m.nome)+' — '+esc(m.assunto||'Sem assunto')+'</option>').join('');
+      seletor.disabled = false;
+      desenharPreparo();
+    } catch(e) {
+      mensagensLote = [];
+      seletor.innerHTML = '<option value="">Não foi possível consultar mensagens</option>';
+      root.querySelector('#homolog-lote-detalhes').textContent = 'Falha ao consultar mensagens: '+(e.message||e);
+    }
+  }
+  function desenharPreparo() {
+    const painel=root.querySelector('#homolog-lote-detalhes');
+    if(!painel)return;
+    const selecionada=mensagensLote.find(m=>String(m.id)===root.querySelector('#homolog-lote-mensagem').value);
+    const ativos=destinos.filter(d=>d.ativo);
+    const emails=new Set();
+    const elegiveis=[], invalidos=[], repetidos=[];
+    for(const d of ativos) {
+      const email=normalEmail(d.email);
+      const item={email,nome:nomePessoa(d.pessoa_id),id:d.id};
+      if(!emailValido(email)) invalidos.push(item);
+      else if(emails.has(email)) repetidos.push(item);
+      else {emails.add(email);elegiveis.push(item);}
+    }
+    painel.innerHTML =
+      '<div><b>Modo:</b> Homologação · <b>Campanha:</b> '+esc((campanhas.find(c=>String(c.id)===String(campanhaId))||{}).nome||'')+
+      ' · <b>Mensagem:</b> '+esc(selecionada?selecionada.nome:'não selecionada')+'</div>'+
+      '<div><b>'+elegiveis.length+' destinatário(s) elegível(is)</b> · '+invalidos.length+' inválido(s) · '+repetidos.length+' duplicado(s) · '+destinos.filter(d=>!d.ativo).length+' inativo(s) excluído(s).</div>'+
+      '<div style="overflow-x:auto;max-height:230px;overflow-y:auto"><table style="width:100%"><thead><tr><th>Pessoa</th><th>E-mail</th><th>Situação</th></tr></thead><tbody>'+
+      elegiveis.map(d=>'<tr><td>'+esc(d.nome)+'</td><td>'+esc(d.email)+'</td><td>Pendente · não enviado</td></tr>').join('')+
+      '</tbody></table></div>'+
+      '<p style="margin:0;font-size:12px">Prévia calculada sobre os cadastros atuais. Antes de qualquer envio, o servidor deverá congelar novamente os destinatários, verificar permissões, supressões, idempotência e autorização específica.</p>';
+    root.querySelector('#homolog-lote-aviso').textContent=selecionada
+      ? 'Preparação concluída. Nenhuma mensagem enviada. Envio bloqueado nesta etapa de segurança.'
+      : 'Selecione uma mensagem para concluir a preparação. Envio bloqueado.';
+  }
   root.innerHTML = '<div style="padding:18px;display:grid;gap:18px">'+
     '<div><h2 style="margin:0 0 8px">Lista de Homologação</h2><p style="margin:0;color:var(--text-muted,#64748b)">Equipe de testes independente dos clientes e do Pipeline B2C. Esta tela não realiza disparos.</p></div>'+
     '<div style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px">'+
@@ -169,10 +218,21 @@ async function montarModuloHomologacao(containerId, opts) {
       '<form id="homolog-form-email" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-email-titulo" style="margin:0">Adicionar e-mail à campanha</h3><label>Pessoa</label><select id="homolog-selec-pessoa" required style="padding:9px;color:#111;background:#fff"></select><label>Endereço de e-mail</label><input id="homolog-email" type="email" required maxlength="254" style="padding:9px;color:#111;background:#fff"><label><input id="homolog-principal" type="checkbox"> E-mail principal desta pessoa nesta campanha</label><div style="display:flex;gap:8px"><button id="homolog-salvar-email" class="btn rust" type="submit">Salvar e-mail</button><button class="btn" type="button" id="homolog-cancelar-email">Cancelar edição</button></div></form></div>'+
       '<div style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 style="margin:0">Pessoas cadastradas</h3><p style="margin:0;font-size:12px">Uma pessoa pode ter vários endereços e participar de várias campanhas. A exclusão da pessoa exige retirar antes todos os vínculos.</p><div id="homolog-pessoas"></div></div>' :
       '<div style="border:1px solid #64748b;border-radius:10px;padding:14px"><h3 style="margin:0 0 8px">Pessoas cadastradas</h3><div id="homolog-pessoas"></div></div>')+
+    '<section style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px" aria-label="Preparação de envio em lote">'+
+      '<h3 style="margin:0">Preparação de envio em lote · Homologação</h3>'+
+      '<p style="margin:0">Conferência de destinatários e mensagem, sem qualquer disparo. A execução permanece bloqueada até implantação do controle transacional no servidor e nova autorização.</p>'+
+      '<label for="homolog-lote-mensagem"><b>Mensagem da campanha</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select>'+
+      '<div id="homolog-lote-detalhes" aria-live="polite">Preparando lista de destinatários...</div>'+
+      '<p id="homolog-lote-aviso" role="status" style="margin:0"></p>'+
+      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn rust" disabled title="Aguardando motor seguro e autorização específica">Enviar lote (bloqueado)</button></div>'+
+      '<p style="margin:0;font-size:12px">Modo Oficial bloqueado. A lista congelada de clientes e o Pipeline B2C não são consultados nesta preparação.</p>'+
+    '</section>'+
     '<p id="homolog-msg" role="status" aria-live="polite" style="display:none;padding:12px;border:1px solid #64748b;border-radius:8px"></p>'+
     '<p style="font-size:12px;color:var(--text-muted,#64748b)">Somente a equipe autorizada pode acessar estes registros. Não é a lista oficial de transmissão e não altera a quantidade de leads.</p>'+
     '</div>';
-  root.querySelector('#homolog-campanha').addEventListener('change', e=>{campanhaId=e.target.value;limparForm();atualizar();});
+  root.querySelector('#homolog-campanha').addEventListener('change', async e=>{campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();});
+  root.querySelector('#homolog-lote-mensagem').addEventListener('change',desenharPreparo);
+  root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await carregarMensagensLote();});
   root.querySelector('#homolog-busca').addEventListener('input',desenhar);
   root.addEventListener('click',acaoTabela);
   if(editavel) {
@@ -192,5 +252,6 @@ async function montarModuloHomologacao(containerId, opts) {
     if(!campanhaId){banner('Cadastre uma campanha antes de criar listas de homologação.');return;}
     sel.value=campanhaId;
     await atualizar();
+    await carregarMensagensLote();
   }catch(e){console.error(e);banner('Erro ao consultar campanhas: '+(e.message||e));}
 }
