@@ -97,7 +97,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '<button class="btn sm" id="pb2c-btn-gerar-msg-filtro">🚀 Gerar Mensagens (filtrados)</button>' +
       '<button class="btn sm" id="pb2c-btn-diario">📔 Diário</button>' +
       '<button class="btn sm" id="pb2c-btn-comunicacoes" aria-expanded="false" aria-controls="pb2c-comunicacoes">✉ Comunicações da Campanha</button>' +
-      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Gerenciar destinatários internos desta campanha, sem envios">🧪 Lista de Homologação</button>' +
+      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Abrir a mesma Lista de Homologação, com cadastros e operação do lote">🧪 Abrir Homologação</button>' +
       '<button class="btn sm" id="pb2c-btn-export-whats">📲 Exportar WhatsApp</button>' +
       '<span class="fc" id="pb2c-cnt"></span>' +
     '</div>' +
