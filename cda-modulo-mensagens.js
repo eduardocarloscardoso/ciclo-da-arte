@@ -176,7 +176,7 @@ var cdaEditorMensagem = (function () {
         '@media (max-width:900px){#cda-msg-modal .msg-grid{grid-template-columns:1fr;}#cda-msg-modal .msg-previa{position:static;}}' +
       '</style>' +
       '<div class="mo-box">' +
-        '<div class="mo-h"><h3 id="msg-titulo-modal">Mensagem de e-mail</h3><button class="mo-x" id="msg-x">✕</button></div>' +
+        '<div class="mo-h"><h3 id="msg-titulo-modal">Mensagem de e-mail</h3><button type="button" class="mo-x" id="msg-x" title="Fechar edição" aria-label="Fechar edição">✕</button></div>' +
         '<div class="mo-b"><div class="msg-grid">' +
           '<div class="msg-campos">' +
             '<div class="fgr"><label>Campanha *</label><select id="msg-campanha"></select></div>' +
@@ -217,15 +217,17 @@ var cdaEditorMensagem = (function () {
         '</div></div>' +
         '<div class="mo-f">' +
           '<button class="btn" id="msg-excluir" style="margin-right:auto;background:var(--rust,#c0392b);color:#fff;display:none">🗑 Excluir</button>' +
-          '<button class="btn" id="msg-cancelar">Cancelar</button>' +
+          '<button type="button" class="btn" id="msg-cancelar">Sair da edição</button>' +
           '<button class="btn" id="msg-teste">✉ Salvar e enviar teste</button>' +
           '<button class="btn rust" id="msg-salvar">💾 Salvar</button>' +
         '</div>' +
       '</div>';
-    document.body.appendChild(el);
+    var destino = document.querySelector('#main-content .crm-embed');
+    (destino || document.body).appendChild(el);
 
     q('#msg-x').addEventListener('click', fechar);
     q('#msg-cancelar').addEventListener('click', fechar);
+    el.addEventListener('keydown', function(ev){ if(ev.key==='Escape' && el.classList.contains('op')) { ev.preventDefault(); fechar(); } });
     q('#msg-salvar').addEventListener('click', function () { salvar(false); });
     q('#msg-teste').addEventListener('click', function () { salvar(true); });
     q('#msg-excluir').addEventListener('click', excluir);
@@ -322,11 +324,15 @@ var cdaEditorMensagem = (function () {
   function mostrarUltimoTeste(m) {
     q('#msg-ultimo-teste').textContent = m && m.ultimoTesteEm ? 'Último teste: ' + cdaMsgDataHora(m.ultimoTesteEm) + ' → ' + m.ultimoTestePara : '';
   }
-  function fechar() { el.classList.remove('op'); }
+  function fechar() { if (!el) return; clearTimeout(timer); el.classList.remove('op'); }
 
   // opts: {mensagem, duplicar, campanhaId, campanhas, editavel, onSalvo, onExcluido}
   function abrir(opts) {
     if (!el) criar();
+    // O editor precisa estar dentro de .crm-embed: estilos de modal e botões
+    // não se aplicam a overlays inseridos diretamente em document.body.
+    var destino=document.querySelector('#main-content .crm-embed');
+    if(destino && el.parentNode!==destino) destino.appendChild(el);
     ctx = opts || {};
     var m = ctx.mensagem || null;
     var k = (m && m.conteudo) || {};
