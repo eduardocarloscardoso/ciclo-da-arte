@@ -65,6 +65,19 @@ Deno.serve(async(req:Request)=>{
     simulacao=await sim.json().catch(()=>null);
     if(!simulacao)return response({ok:false,erro:"Resultado de simulação inválido."},503);
   }
+  // Diagnóstico da trava física: consulta somente leitura.
+  // Nunca expor nesta Edge Function um caminho para reivindicar itens ou enviar e-mails.
+  let executor:null|Record<string,unknown>=null;
+  if(lote){
+    const diag=await fetch(url+"/rest/v1/rpc/cda_diagnosticar_executor_lote",{
+      method:"POST",headers:{...h,"Content-Type":"application/json"},
+      body:JSON.stringify({p_lote_id:lote.id})
+    }).catch(()=>null);
+    if(!diag?.ok)return response({ok:false,erro:"Diagnóstico de segurança indisponível. Envio permanece bloqueado."},503);
+    executor=await diag.json().catch(()=>null);
+    if(!executor||executor.trava_ativa!==true||executor.pode_enviar!==false)
+      return response({ok:false,erro:"Estado da trava inesperado. Operação bloqueada."},503);
+  }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
   if(!itensResp?.ok)return response({ok:false,erro:"Lote criado; falha ao consultar destinatários."},503);
@@ -120,7 +133,7 @@ Deno.serve(async(req:Request)=>{
     contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
     validacao:{consulta_concluida:true,sem_impedimentos:impedimentos.length===0,impedimentos,autorizado:false,
       observacao:"Pré-validação não autoriza disparos nem substitui análise de LGPD, idempotência Resend e liberação manual."},
-    auditoria,simulacao,
+    auditoria,simulacao,executor,
     envio_habilitado:false,
     aviso:"Rastreio em modo somente leitura. Nenhuma mensagem é enviada por esta função."});
 });
