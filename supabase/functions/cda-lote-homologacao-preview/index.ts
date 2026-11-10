@@ -84,8 +84,11 @@ Deno.serve(async(req:Request)=>{
     }).catch(()=>null);
     if(!diag?.ok)return response({ok:false,erro:"Diagnóstico de segurança indisponível. Envio permanece bloqueado."},503);
     executor=await diag.json().catch(()=>null);
-    if(!executor||executor.trava_ativa!==true||executor.pode_enviar!==false)
-      return response({ok:false,erro:"Estado da trava inesperado. Operação bloqueada."},503);
+    // O estado de autorização pode mudar: diagnóstico dinâmico do banco.
+    // A pré-validação permanece leitura; esta função jamais envia e-mails.
+    if(!executor||typeof executor.pode_enviar!=="boolean"||
+      executor.trava_ativa===executor.pode_enviar)
+      return response({ok:false,erro:"Diagnóstico de autorização inconsistente."},503);
   }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
