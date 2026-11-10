@@ -119,11 +119,13 @@ async function montarModuloHomologacao(containerId, opts) {
     const p=pessoas.find(x=>Number(x.id)===id);
     try {
       if(ac==='editar-pessoa' && p) {
+        root.querySelector('#homolog-abrir-pessoa').open=true;
         editPessoa=p.id;root.querySelector('#homolog-nome').value=p.nome;
         root.querySelector('#homolog-form-pessoa-titulo').textContent='Editar pessoa';
         root.querySelector('#homolog-form-pessoa').scrollIntoView({block:'nearest',behavior:'smooth'});return;
       }
       if(ac==='editar-email' && d) {
+        root.querySelector('#homolog-abrir-email').open=true;
         editEmail=d.id;root.querySelector('#homolog-selec-pessoa').value=String(d.pessoa_id);
         root.querySelector('#homolog-email').value=d.email;
         root.querySelector('#homolog-principal').checked=d.principal;
@@ -287,6 +289,7 @@ async function montarModuloHomologacao(containerId, opts) {
           '</tbody></table></div>':'<p style="margin:0;font-size:12px">Nenhuma interrupção ou retomada registrada.</p>')+
         '</div>';
       const simul=dados.simulacao;
+      if(acao==='simular'&&simul)root.querySelector('#homolog-abrir-simulacao').open=true;
       const destinoSim=root.querySelector('#homolog-lote-simulacao');
       if(acao==='simular'&&simul){
         const estados=Array.isArray(simul.destinatarios)?simul.destinatarios:[];
@@ -311,32 +314,67 @@ async function montarModuloHomologacao(containerId, opts) {
       a.disabled=true;
     }
   }
-  root.innerHTML = '<div style="padding:18px;display:grid;gap:18px">'+
-    '<div><h2 style="margin:0 0 8px">Lista de Homologação</h2><p style="margin:0;color:var(--text-muted,#64748b)">Equipe de testes independente dos clientes e do Pipeline B2C. Esta tela não realiza disparos.</p></div>'+
-    '<div style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px">'+
-      '<label for="homolog-campanha"><b>Campanha</b></label><select id="homolog-campanha" style="max-width:600px;padding:9px;color:#111;background:#fff"></select>'+
-      '<div id="homolog-resumo" style="font-weight:700"></div><input id="homolog-busca" placeholder="Buscar por pessoa ou e-mail" style="max-width:500px;padding:9px;color:#111;background:#fff">'+
-      '<div id="homolog-lista"></div></div>'+
-    (editavel ? '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px">'+
-      '<form id="homolog-form-pessoa" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-pessoa-titulo" style="margin:0">Nova pessoa</h3><label>Nome completo</label><input id="homolog-nome" required maxlength="180" style="padding:9px;color:#111;background:#fff"><input id="homolog-id-pessoa" type="hidden"><div style="display:flex;gap:8px"><button id="homolog-salvar-pessoa" class="btn rust" type="submit">Salvar pessoa</button><button class="btn" type="button" id="homolog-cancelar-pessoa">Cancelar edição</button></div></form>'+
-      '<form id="homolog-form-email" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-email-titulo" style="margin:0">Adicionar e-mail à campanha</h3><label>Pessoa</label><select id="homolog-selec-pessoa" required style="padding:9px;color:#111;background:#fff"></select><label>Endereço de e-mail</label><input id="homolog-email" type="email" required maxlength="254" style="padding:9px;color:#111;background:#fff"><label><input id="homolog-principal" type="checkbox"> E-mail principal desta pessoa nesta campanha</label><div style="display:flex;gap:8px"><button id="homolog-salvar-email" class="btn rust" type="submit">Salvar e-mail</button><button class="btn" type="button" id="homolog-cancelar-email">Cancelar edição</button></div></form></div>'+
-      '<div style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 style="margin:0">Pessoas cadastradas</h3><p style="margin:0;font-size:12px">Uma pessoa pode ter vários endereços e participar de várias campanhas. A exclusão da pessoa exige retirar antes todos os vínculos.</p><div id="homolog-pessoas"></div></div>' :
-      '<div style="border:1px solid #64748b;border-radius:10px;padding:14px"><h3 style="margin:0 0 8px">Pessoas cadastradas</h3><div id="homolog-pessoas"></div></div>')+
-    '<section style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px" aria-label="Preparação de envio em lote">'+
-      '<h3 style="margin:0">Preparação de envio em lote · Homologação</h3>'+
-      '<p style="margin:0">Conferência de destinatários e mensagem, sem qualquer disparo. A execução permanece bloqueada até implantação do controle transacional no servidor e nova autorização.</p>'+
+  root.innerHTML =
+    '<style>'+
+      '#'+containerId+' .hom-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 0}'+
+      '#'+containerId+' .hom-tabs button{border:1px solid #94a3b8;background:transparent;color:inherit;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer}'+
+      '#'+containerId+' .hom-tabs button[aria-selected="true"]{background:#1f2937;color:#fff;border-color:#1f2937}'+
+      '#'+containerId+' .hom-pane[hidden]{display:none!important}'+
+      '#'+containerId+' .hom-pane{display:grid;gap:14px}'+
+      '#'+containerId+' .hom-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:grid;gap:12px;background:rgba(255,255,255,.18)}'+
+      '#'+containerId+' .hom-fold{border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px}'+
+      '#'+containerId+' .hom-fold summary{cursor:pointer;font-weight:700;list-style-position:inside}'+
+      '#'+containerId+' .hom-fold[open] summary{margin-bottom:12px}'+
+      '#'+containerId+' .hom-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}'+
+      '#'+containerId+' .hom-toolbar .btn{white-space:normal}'+
+      '#'+containerId+' .hom-pane h3{margin:0;font-size:17px}'+
+      '@media(max-width:650px){#'+containerId+' .hom-tabs button{flex:1;min-width:130px}#'+containerId+' .hom-card{padding:11px}}'+
+    '</style>'+
+    '<div style="padding:18px;display:grid;gap:16px">'+
+    '<div style="display:grid;gap:6px"><h2 style="margin:0">Lista de Homologação</h2><p style="margin:0;color:var(--text-muted,#64748b)">Cadastros de teste separados dos clientes oficiais. Nenhum envio autorizado.</p></div>'+
+    '<div class="hom-card"><label for="homolog-campanha"><b>Campanha</b></label><select id="homolog-campanha" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
+    '<nav class="hom-tabs" role="tablist" aria-label="Áreas da homologação">'+
+      '<button type="button" id="homolog-tab-dest" role="tab" aria-selected="true" aria-controls="homolog-pane-dest">1 · Destinatários</button>'+
+      '<button type="button" id="homolog-tab-lote" role="tab" aria-selected="false" aria-controls="homolog-pane-lote">2 · Operação do lote</button>'+
+    '</nav>'+
+    '<div id="homolog-pane-dest" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-dest">'+
+      '<section class="hom-card"><div><h3>Endereços da campanha</h3><p style="margin:4px 0 0;color:var(--text-muted,#64748b)">Uma pessoa pode ter vários e-mails. Gerencie os endereços aqui.</p></div>'+
+      '<div id="homolog-resumo" style="font-weight:700"></div><input id="homolog-busca" placeholder="Buscar pessoa ou e-mail" aria-label="Buscar pessoa ou e-mail" style="max-width:500px;padding:9px;color:#111;background:#fff">'+
+      '<div id="homolog-lista"></div></section>'+
+    (editavel ? '<div style="display:grid;gap:10px">'+
+      '<details class="hom-fold" id="homolog-abrir-pessoa"><summary>Cadastrar ou editar pessoa</summary>'+
+      '<form id="homolog-form-pessoa" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-pessoa-titulo" style="margin:0">Nova pessoa</h3><label>Nome completo</label><input id="homolog-nome" required maxlength="180" style="padding:9px;color:#111;background:#fff"><input id="homolog-id-pessoa" type="hidden"><div style="display:flex;gap:8px"><button id="homolog-salvar-pessoa" class="btn rust" type="submit">Salvar pessoa</button><button class="btn" type="button" id="homolog-cancelar-pessoa">Cancelar edição</button></div></form></details>'+
+      '<details class="hom-fold" id="homolog-abrir-email"><summary>Adicionar ou editar e-mail</summary>'+
+      '<form id="homolog-form-email" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-email-titulo" style="margin:0">Adicionar e-mail à campanha</h3><label>Pessoa</label><select id="homolog-selec-pessoa" required style="padding:9px;color:#111;background:#fff"></select><label>Endereço de e-mail</label><input id="homolog-email" type="email" required maxlength="254" style="padding:9px;color:#111;background:#fff"><label><input id="homolog-principal" type="checkbox"> E-mail principal desta pessoa nesta campanha</label><div style="display:flex;gap:8px"><button id="homolog-salvar-email" class="btn rust" type="submit">Salvar e-mail</button><button class="btn" type="button" id="homolog-cancelar-email">Cancelar edição</button></div></form></details></div>'+
+      '<details class="hom-fold" id="homolog-abrir-pessoas"><summary>Gerenciar cadastro de pessoas</summary><p style="font-size:12px">Cadastros globais. Para excluir uma pessoa, retire primeiro todos os vínculos com campanhas.</p><div id="homolog-pessoas"></div></details>' :
+      '<details class="hom-fold" id="homolog-abrir-pessoas"><summary>Consultar pessoas cadastradas</summary><div id="homolog-pessoas"></div></details>')+
+    '</div>'+
+    '<div id="homolog-pane-lote" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-lote" hidden>'+
+    '<section class="hom-card" aria-label="Preparação de envio em lote">'+
+      '<div><h3>Operação de homologação</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Selecione a mensagem e acompanhe o lote. Envio real bloqueado.</p></div>'+
       '<label for="homolog-lote-mensagem"><b>Mensagem da campanha</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select>'+
-      '<div id="homolog-lote-detalhes" aria-live="polite">Preparando lista de destinatários...</div>'+
-      '<p id="homolog-lote-aviso" role="status" style="margin:0"></p>'+
-      '<div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Simular fila (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar lote (bloqueado)</button></div>'+ 
+      '<details class="hom-fold"><summary>Conferência detalhada de destinatários</summary>'+
+        '<div id="homolog-lote-detalhes" aria-live="polite">Preparando lista de destinatários...</div>'+
+        '<p id="homolog-lote-aviso" role="status" style="margin:9px 0 0"></p></details>'+
+      '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar conferência</button><button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper lote</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar preparação (sem envio)</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Simular fila (sem envio)</button><button type="button" class="btn rust" disabled title="Aguardando autorização específica e segurança transacional">Enviar lote (bloqueado)</button></div>'+ 
       '<div id="homolog-lote-operacao" role="status" aria-live="polite">Selecione a mensagem para consultar lotes anteriores.</div>'+ 
-      '<div id="homolog-lote-simulacao" style="border-top:1px solid #9ca3af;padding-top:10px" role="status" aria-live="polite"></div>'+ 
-      '<div id="homolog-lote-seguranca" style="border-top:1px solid #9ca3af;padding-top:10px" aria-live="polite"></div>'+
+      '<details class="hom-fold" id="homolog-abrir-simulacao"><summary>Resultado da simulação</summary><div id="homolog-lote-simulacao" role="status" aria-live="polite">Execute uma simulação para exibir o resultado.</div></details>'+
+      '<details class="hom-fold" id="homolog-abrir-seguranca"><summary>Segurança e histórico de controle</summary><div id="homolog-lote-seguranca" aria-live="polite"></div></details>'+
       '<p style="margin:0;font-size:12px">Modo Oficial bloqueado. A lista congelada de clientes e o Pipeline B2C não são consultados nesta preparação.</p>'+
-    '</section>'+
+    '</section></div>'+
     '<p id="homolog-msg" role="status" aria-live="polite" style="display:none;padding:12px;border:1px solid #64748b;border-radius:8px"></p>'+
     '<p style="font-size:12px;color:var(--text-muted,#64748b)">Somente a equipe autorizada pode acessar estes registros. Não é a lista oficial de transmissão e não altera a quantidade de leads.</p>'+
     '</div>';
+  // Navegação local: formulários e consultas mantêm seus IDs e handlers originais.
+  function selecionarArea(area) {
+    const op=area==='lote';
+    root.querySelector('#homolog-pane-dest').hidden=op;
+    root.querySelector('#homolog-pane-lote').hidden=!op;
+    root.querySelector('#homolog-tab-dest').setAttribute('aria-selected',String(!op));
+    root.querySelector('#homolog-tab-lote').setAttribute('aria-selected',String(op));
+  }
+  root.querySelector('#homolog-tab-dest').addEventListener('click',()=>selecionarArea('dest'));
+  root.querySelector('#homolog-tab-lote').addEventListener('click',()=>selecionarArea('lote'));
   root.querySelector('#homolog-campanha').addEventListener('change', async e=>{campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();});
   root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{desenharPreparo();if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
   root.querySelector('#homolog-lote-preparar').addEventListener('click',()=>acionarLote('preparar'));
