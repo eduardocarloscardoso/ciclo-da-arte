@@ -197,7 +197,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
             '<div class="fgr"><label>Telefone</label><input type="text" id="pb2c-m-tel"></div>' +
             '<div class="fgr"><label>E-mail</label><input type="email" id="pb2c-m-email"></div>' +
             '<div class="fgr"><label>Canal</label><select id="pb2c-m-canal"><option value="">—</option></select></div>' +
-            '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div></div>' +
+            '<div class="fgr" style="grid-column:1/-1"><label>Meios de Contato <span class="tmu" style="font-weight:400">(herda da campanha por padrão, editável)</span></label><div class="camp-checks" id="pb2c-m-meios"></div><p id="pb2c-m-meios-aviso" role="status" style="font-size:11px;color:var(--muted);margin:4px 0 0"></p></div>' +
             '<div class="fgr"><label>Etapa atual</label><div id="pb2c-m-etapa-atual" style="padding:8px 0;font-weight:700"></div></div>' +
             '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
             '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
@@ -972,8 +972,20 @@ async function montarModuloPipelineB2C(containerId, opts) {
     host.querySelector('#pb2c-m-meios').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
       return '<label><input type="checkbox" class="pb2c-meio-check" value="' + c.id + '"> ' + c.label + '</label>';
     }).join('');
-    var meiosAtivos = (l && l.meiosSelecionados != null) ? l.meiosSelecionados : ((campanhaDoLeadMeios && campanhaDoLeadMeios.canaisSelecionados) || []);
-    host.querySelectorAll('.pb2c-meio-check').forEach(function (chk) { chk.checked = meiosAtivos.indexOf(chk.value) !== -1; });
+    var meiosIndividuais = l && Array.isArray(l.meiosSelecionados) ? l.meiosSelecionados : null;
+    var meiosCampanha = campanhaDoLeadMeios && Array.isArray(campanhaDoLeadMeios.canaisSelecionados) ? campanhaDoLeadMeios.canaisSelecionados : [];
+    var meiosAtivos = meiosIndividuais !== null ? meiosIndividuais : meiosCampanha;
+    host.querySelectorAll('.pb2c-meio-check').forEach(function (chk) { chk.checked = meiosAtivos.map(String).indexOf(String(chk.value)) !== -1; });
+    var avisoMeios = host.querySelector('#pb2c-m-meios-aviso');
+    if (meiosIndividuais !== null) {
+      avisoMeios.textContent = meiosIndividuais.length
+        ? 'Seleção individual deste lead. Pode ser alterada ao salvar.'
+        : 'Este lead possui uma seleção individual vazia. Nenhum meio está marcado.';
+    } else if (meiosCampanha.length) {
+      avisoMeios.textContent = 'Seleção herdada da campanha; alterações serão aplicadas somente a este lead ao salvar.';
+    } else {
+      avisoMeios.textContent = 'A campanha não possui meios de contato definidos. Nenhuma opção foi marcada automaticamente. Configure os canais da campanha antes de iniciar comunicações.';
+    }
     var etapaAtualEl = host.querySelector('#pb2c-m-etapa-atual');
     etapaAtualEl.textContent = l ? CDA_ETAPAS_B2C.find(function (e) { return e.id === l.etapa; }).label : 'Novo Lead (ao salvar)';
     host.querySelector('#pb2c-m-valor').value = l ? (l.valorEstimado != null ? l.valorEstimado : '') : '';
