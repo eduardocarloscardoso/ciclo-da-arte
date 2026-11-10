@@ -425,11 +425,13 @@ Deno.serve(async(req:Request)=>{
       consultar("cda_auditar_integridade_lote"),
       consultar("cda_resumo_preenvio_homologacao")
     ]);
-    if(executor?.trava_ativa!==true||executor?.pode_enviar!==false||
-       diario?.envio_habilitado!==false||integridade?.envio_habilitado!==false||
+    if(typeof resumo?.autorizado!=="boolean"||
+       executor?.pode_enviar!==resumo.autorizado||
+       executor?.trava_ativa===resumo.autorizado||
+       diario?.envio_habilitado!==resumo.autorizado||
+       integridade?.envio_habilitado!==resumo.autorizado||
        integridade?.chaves_consistentes!==true||
-       typeof resumo?.autorizado!=="boolean"||
-       resumo?.envio_habilitado!==resumo?.autorizado)
+       resumo?.envio_habilitado!==resumo.autorizado)
       return reply({ok:false,erro:"Diagnóstico de segurança inconsistente"},503);
     return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:resumo.autorizado,envios_solicitados:0});
   }catch{
