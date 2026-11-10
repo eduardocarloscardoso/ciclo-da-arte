@@ -1296,6 +1296,11 @@ async function montarModuloPipelineB2C(containerId, opts) {
   host.querySelector('#pb2c-f-resp').addEventListener('change', function(){paginaOperacional=0;render();});
   host.querySelector('#pb2c-btn-export-whats').addEventListener('click', exportarLeadsWhatsApp);
   host.querySelector('#pb2c-btn-gerar-msg-filtro').addEventListener('click', async function () {
+    var campanhaSelecionada=host.querySelector('#pb2c-f-campanha').value;
+    if(!campanhaSelecionada || campanhaSelecionada==='__sem_campanha__'){
+      alert('Selecione uma campanha específica antes de gerar textos em lote. Isso evita alterações acidentais em outras campanhas.');
+      return;
+    }
     var lista = getFiltro();
     if (!lista.length) { alert('Nenhum lead corresponde aos filtros atuais.'); return; }
     var semModelo = lista.filter(function (lead) {
@@ -1306,7 +1311,10 @@ async function montarModuloPipelineB2C(containerId, opts) {
       alert('Geração bloqueada: ' + semModelo.length + ' lead(s) pertencem a campanhas sem modelo configurado.\n\nConfigure primeiro o modelo de cada campanha; o texto genérico não será aplicado automaticamente.');
       return;
     }
-    if (!confirm('Gerar/atualizar a mensagem sugerida de ' + lista.length + ' lead(s) filtrado(s)?\n\nEsta operação altera textos sugeridos nos leads, mas NÃO envia mensagens.')) return;
+    var campanhaAtual=campanhaPorId[campanhaSelecionada];
+    if (!confirm('Campanha: '+(campanhaAtual?campanhaAtual.nome:campanhaSelecionada)+
+      '\n\nGerar/atualizar a mensagem sugerida de '+lista.length+
+      ' lead(s) filtrado(s)?\n\nEsta ação grava textos no cadastro. NÃO envia mensagens.')) return;
     var btn = this;
     var textoOriginal = btn.textContent;
     btn.textContent = 'Gerando...'; btn.disabled = true;
