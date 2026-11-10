@@ -36,7 +36,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-pipeline-b2c: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], compras: [], equipe: [], tarefas: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
+  var ST = { leads: [], canais: [], statusCrm: [], clientes: [], campanhas: [], compras: [], equipe: [], tarefas: [], rastreioEmails: [], editId: null, dragId: null, transicao: null, clienteSelecionado: null };
 
   host.innerHTML =
     '<style>' +
@@ -119,7 +119,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
         '</div>'+
         '<span id="pb2c-oper-resumo" style="font-size:11px"></span>'+
       '</div>'+
-      '<div id="pb2c-oper-tabela" style="overflow-x:auto"><table class="pb2c-oper-table"><thead><tr><th>Cliente</th><th>Campanha</th><th>Etapa</th><th>Responsável</th><th>Canal</th><th>Tarefas</th><th>Última movimentação</th><th>Consulta</th></tr></thead><tbody id="pb2c-oper-linhas"></tbody></table><div class="pb2c-oper-pag" id="pb2c-oper-paginacao"></div></div>'+
+      '<div id="pb2c-oper-tabela" style="overflow-x:auto"><table class="pb2c-oper-table"><thead><tr><th>Cliente</th><th>Campanha</th><th>Etapa</th><th>Responsável</th><th>Canal</th><th>Tarefas</th><th>E-mail / Resend</th><th>Data do envio</th><th>Última movimentação</th><th>Consulta</th></tr></thead><tbody id="pb2c-oper-linhas"></tbody></table><div class="pb2c-oper-pag" id="pb2c-oper-paginacao"></div></div>'+
     '</section>' +
     '<div class="pb2c-board" id="pb2c-board" style="display:none"></div>' +
 
@@ -142,6 +142,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
         '<div class="pb2c-tabs" id="pb2c-tabs" style="display:none;background:var(--ink,#1a1a1a);padding:0 20px">' +
           '<button class="pb2c-tab-btn active" data-tab="dados" style="background:none;border:none;color:var(--cream,#faf7f2);padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid var(--rust,#c0392b)">Dados</button>' +
           '<button class="pb2c-tab-btn" data-tab="historico" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Histórico</button>' +
+          '<button class="pb2c-tab-btn" data-tab="emails" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">E-mails / Resend</button>' +
           '<button class="pb2c-tab-btn" data-tab="compras" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Compras</button>' +
           '<button class="pb2c-tab-btn" data-tab="tarefas" style="background:none;border:none;color:var(--cream,#faf7f2);opacity:.6;padding:10px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;cursor:pointer;border-bottom:3px solid transparent">Tarefas</button>' +
         '</div>' +
@@ -179,6 +180,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
             '</div>' +
           '</div></div>' +
           '<div id="pb2c-tabpanel-historico" style="display:none"><div class="pb2c-hist" id="pb2c-m-hist" style="max-height:400px"></div></div>' +
+          '<div id="pb2c-tabpanel-emails" style="display:none"><p class="tmu" style="font-size:11px">Eventos de entrega não alteram a etapa comercial do cliente.</p><button type="button" class="btn sm" id="pb2c-emails-atualizar">↻ Atualizar e-mails</button><div id="pb2c-emails-lead-lista" style="margin-top:12px"></div></div>' +
           '<div id="pb2c-tabpanel-compras" style="display:none">' +
             '<div id="pb2c-c-resumo" class="pb2c-transicao-info" style="text-align:left"></div>' +
             '<div class="pb2c-hist" id="pb2c-c-lista" style="max-height:320px"></div>' +
@@ -263,6 +265,40 @@ async function montarModuloPipelineB2C(containerId, opts) {
       ST.equipe.map(function (e) { return '<option value="' + e.id + '">' + e.nome + '</option>'; }).join('');
   }
   popularFiltros();
+
+  // Rastreio técnico por destinatário: consulta separada das etapas comerciais.
+  var rastreioErro=null;
+  function chaveEmail(email,campanhaId){return String(campanhaId||'')+'|'+String(email||'').trim().toLowerCase();}
+  var rastreioPorCliente=Object.create(null);
+  function indexarRastreio(){
+    rastreioPorCliente=Object.create(null);
+    ST.rastreioEmails.forEach(function(e){
+      var chave=chaveEmail(e.email_destinatario,e.campanha_id);
+      (rastreioPorCliente[chave]||(rastreioPorCliente[chave]=[])).push(e);
+    });
+    Object.keys(rastreioPorCliente).forEach(function(ch){rastreioPorCliente[ch].sort(function(a,b){return String(b.solicitado_em).localeCompare(String(a.solicitado_em));});});
+  }
+  async function atualizarRastreio(){
+    try{
+      var r=await cdaFetchAll('cda_rastreio_email_por_destinatario','tentativa_id,campanha_id,mensagem_id,email_destinatario,tipo_envio,situacao_pedido,solicitado_em,atualizado_em,resend_email_id,erro,total_eventos,evento_recente,evento_recente_em,entregue_em,devolvido_em,reclamacao_em,destinatarios_na_tentativa','tentativa_id');
+      ST.rastreioEmails=r||[];rastreioErro=null;indexarRastreio();
+    }catch(e){rastreioErro=(e&&e.message)||String(e);ST.rastreioEmails=[];indexarRastreio();}
+  }
+  function registrosEmailLead(lead){return lead?(rastreioPorCliente[chaveEmail(lead.email,lead.campanhaId)]||[]):[];}
+  function situacaoEmail(e){
+    if(!e)return 'Aguardando envio';
+    if(e.destinatarios_na_tentativa>1&&e.total_eventos>0)return 'Evento coletivo · confirmar no Resend';
+    if(e.reclamacao_em)return 'Reclamação de spam';
+    if(e.devolvido_em)return 'Devolvido';
+    if(e.entregue_em)return 'Entregue';
+    if(e.evento_recente==='email.delivery_delayed')return 'Entrega adiada';
+    return ({aceito_provedor:'Aceito pelo Resend · não entregue ainda',rejeitado_provedor:'Recusado pelo Resend',falha_tecnica:'Falha técnica',solicitado:'Solicitado'})[e.situacao_pedido]||e.situacao_pedido||'Situação não informada';
+  }
+  function resumoEmailLead(l){
+    var todos=registrosEmailLead(l), oficiais=todos.filter(function(e){return e.tipo_envio!=='teste';});
+    return oficiais[0]||todos[0]||null;
+  }
+  atualizarRastreio().then(function(){render();});
 
   // Consulta do histórico de testes por campanha, independente de quantos leads há no funil.
   // Não cria leads, não grava interações nem emite e-mails.
@@ -462,16 +498,19 @@ async function montarModuloPipelineB2C(containerId, opts) {
       var campanha=campanhaPorId[l.campanhaId],resp=equipePorId[l.responsavelId],canal=canalById[l.canalId];
       var mov=l.movidoEm?new Date(l.movidoEm):null;
       var dia=mov&&!isNaN(mov.getTime())?mov.toLocaleDateString('pt-BR'):'—';
+      var ultimoEmail=resumoEmailLead(l);
       return '<tr>'+
         '<td><b>'+escCom(l.nome||'—')+'</b><div style="color:var(--muted,#777);font-size:10px">'+escCom(l.email||'Sem e-mail cadastrado')+'</div></td>'+
         '<td>'+escCom(campanha?campanha.nome:'—')+'</td>'+
         '<td>'+escCom(etapaNome(l.etapa))+'</td>'+
         '<td>'+escCom(resp?resp.nome:'Não definido')+'</td>'+
         '<td>'+escCom(canal?canal.nome:'—')+'</td>'+
-        '<td>'+Number(tarefasAtivas[String(l.id)]||0)+'</td>'+
+        '<td>'+Number(tarefasAtivas[String(l.id)]||0)+'</td>'+ 
+        '<td>'+escCom(rastreioErro?'Consulta indisponível':situacaoEmail(ultimoEmail))+(ultimoEmail&&ultimoEmail.tipo_envio==='teste'?'<div class="tmu">TESTE</div>':'')+'</td>'+ 
+        '<td>'+escCom(ultimoEmail?dataCom(ultimoEmail.solicitado_em):'—')+'</td>'+
         '<td>'+escCom(dia)+'</td>'+
         '<td><button type="button" class="btn sm" data-pb2c-oper-abrir="'+escCom(l.id)+'">Abrir</button></td></tr>';
-    }).join('')||'<tr><td colspan="8" style="padding:16px">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';
+    }).join('')||'<tr><td colspan="10" style="padding:16px">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';
     var pag=host.querySelector('#pb2c-oper-paginacao');
     pag.innerHTML='<span>Exibindo '+(lista.length?inicio+1:0)+'–'+Math.min(inicio+tamanhoPaginaOperacional,lista.length)+' de '+lista.length+'</span>'+
       '<button type="button" class="btn sm" id="pb2c-oper-anterior" '+(paginaOperacional===0?'disabled':'')+'>Anterior</button>'+
@@ -703,17 +742,30 @@ async function montarModuloPipelineB2C(containerId, opts) {
 
   var modal = host.querySelector('#pb2c-modal');
   function trocarAba(tab) {
-    ['dados', 'historico', 'compras', 'tarefas'].forEach(function (t) {
+    ['dados', 'historico', 'emails', 'compras', 'tarefas'].forEach(function (t) {
       var painel = host.querySelector('#pb2c-tabpanel-' + t);
       if (painel) painel.style.display = (t === tab) ? '' : 'none';
       var btn = host.querySelector('.pb2c-tab-btn[data-tab="' + t + '"]');
       if (btn) { btn.style.opacity = (t === tab) ? '1' : '.6'; btn.style.borderBottomColor = (t === tab) ? 'var(--rust,#c0392b)' : 'transparent'; }
     });
     if (tab === 'historico') carregarAbaHistorico();
+    if (tab === 'emails') renderEmailsLead();
     if (tab === 'compras') carregarAbaCompras();
     if (tab === 'tarefas') abrirModalTarefas(ST.editId);
   }
-  async function carregarAbaHistorico() {
+  function renderEmailsLead(){
+    var out=host.querySelector('#pb2c-emails-lead-lista');
+    var l=ST.leads.find(function(x){return x.id===ST.editId;});
+    if(!l){out.textContent='Nenhum cliente selecionado.';return;}
+    if(rastreioErro){out.textContent='Consulta de e-mails indisponível: '+rastreioErro;return;}
+    var registros=registrosEmailLead(l);
+    out.innerHTML=registros.length?'<div style="overflow:auto"><table style="width:100%;font-size:11px"><thead><tr><th>Solicitado em</th><th>Mensagem</th><th>Tipo</th><th>Situação técnica</th><th>ID Resend</th></tr></thead><tbody>'+registros.map(function(e){return '<tr><td>'+escCom(dataCom(e.solicitado_em))+'</td><td>#'+Number(e.mensagem_id)+'</td><td>'+escCom(e.tipo_envio==='teste'?'Teste':'Oficial')+'</td><td>'+escCom(situacaoEmail(e))+'</td><td>'+escCom(e.resend_email_id||'—')+'</td></tr>';}).join('')+'</tbody></table></div>':'<p class="tmu" style="padding:10px">Aguardando envio: não existe tentativa registrada para este endereço nesta campanha.</p>';
+  }
+  host.querySelector('#pb2c-emails-atualizar').addEventListener('click',async function(){
+    var b=this;b.disabled=true;b.textContent='Atualizando...';
+    try{await atualizarRastreio();renderEmailsLead();render();}finally{b.disabled=false;b.textContent='↻ Atualizar e-mails';}
+  });
+    async function carregarAbaHistorico() {
     if (!ST.editId) return;
     var histBox = host.querySelector('#pb2c-m-hist');
     histBox.innerHTML = '<div class="pb2c-hist-item">Carregando...</div>';
