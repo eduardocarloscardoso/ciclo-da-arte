@@ -1,7 +1,114 @@
+// @ts-nocheck
+// A lógica de renderização abaixo é cópia fiel das funções já homologadas
+// em cda-dados-compartilhados.js; o retorno nunca é enviado ao Resend.
 // Fase 1 — CONTRATO do executor de lote de homologação (SEM ENVIO).
 // Nenhum cliente Resend, nenhuma requisição externa de email, nenhuma reivindicação.
 // Contrato "enviar" devolve sempre 423. Somente "diagnosticar" consulta dados.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+function cdaPrimeiroNome(nome) {
+  const p = String(nome || '').trim().split(/\s+/)[0] || '';
+  return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
+}
+
+function cdaUfDe(cliente) { return String((cliente && cliente.estado) || '').trim().toUpperCase(); }
+
+function cdaVariaveisEmail(texto, cliente) {
+  const c = cliente || {};
+  const nome = cdaPrimeiroNome(c.nome) || 'cliente';
+  return String(texto || '')
+    .replace(/\{nome\}/g, nome).replace(/\{nome_completo\}/g, (c.nome || nome).trim())
+    .replace(/\{cidade\}/g, c.cidade || '').replace(/\{uf\}/g, cdaUfDe(c));
+}
+
+function cdaLinkComUtm(link, campanha) {
+  if (!link) return '';
+  try {
+    const u = new URL(link);
+    const slug = String((campanha && campanha.nome) || 'campanha').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'ciclodarte');
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+    if (!u.searchParams.has('utm_campaign')) u.searchParams.set('utm_campaign', slug);
+    return u.toString();
+  } catch (e) { return link; }
+}
+
+function cdaMontarEmailCampanha(campanha, cliente, opts) {
+  opts = opts || {};
+  const k = (campanha && campanha.emailConteudo) || {};
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const v = t => cdaVariaveisEmail(t, cliente);
+  // texto livre → parágrafos (linha em branco) e quebras de linha
+  const paragrafos = (t, estilo) => v(t).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .map(p => '<p style="' + estilo + '">' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  const fonte = "font-family:Arial,Helvetica,sans-serif;";
+  const pTxt = fonte + 'margin:0 0 14px;font-size:16px;line-height:1.55;color:#1a1a1a;';
+  const link = cdaLinkComUtm(k.botaoLink, campanha);
+  const descadastro = opts.linkDescadastro || '#descadastrar';
+  // Links institucionais verificados. Únicos para todas as mensagens atuais,
+  // inclusive as já salvas; não altera conteúdos, testes nem o Reply-To.
+  const siteCiclo = 'https://www.ciclodaarte.com.br/';
+  const redesCiclo = 'https://linktr.ee/ciclo_arte';
+  const assunto = v((campanha && campanha.emailAssunto) || '');
+  const previa = v((campanha && campanha.emailPrevia) || '');
+  const sacEmail = String(k.sacEmail || '').trim();
+  const sacTel = String(k.sacTelefone || '').trim();
+  const linkSacEmail = sacEmail ? 'mailto:' + sacEmail : '';
+  // Botão "à prova de Outlook": cor de fundo na célula (bgcolor) e cor do texto repetida no <span>
+  const botao = (href, texto, cor, tam, pad) => '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:4px;"><tr><td bgcolor="' + cor + '" style="background:' + cor + ';border-radius:4px;mso-padding-alt:' + pad + ';">' +
+    '<a href="' + esc(href) + '"' + (String(href).indexOf('mailto:') === 0 ? '' : ' target="_blank"') + ' style="display:inline-block;padding:' + pad + ';' + fonte + 'font-size:' + tam + 'px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;"><span style="color:#ffffff;">' + texto + '</span></a></td></tr></table>';
+  const digitosTel = sacTel.replace(/\D/g, '');
+  const linkWhats = digitosTel.length >= 10 ? 'https://wa.me/' + (digitosTel.length <= 11 ? '55' : '') + digitosTel : '';
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
+    '<body style="margin:0;padding:0;background:#f2efe9;">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">' + esc(previa) + '&#847;&zwnj;&nbsp;'.repeat(30) + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe9;"><tr><td align="center" style="padding:24px 12px;">' +
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;">' +
+      '<tr><td style="background:#1a1a1a;padding:14px 24px;' + fonte + 'font-size:13px;letter-spacing:3px;color:#ffffff;font-weight:bold;">CICLO DA ARTE</td></tr>' +
+      (k.imagemUrl ? '<tr><td><a href="' + esc(link || '#') + '"><img src="' + esc(k.imagemUrl) + '" width="600" alt="' + esc(v(k.imagemAlt || k.titulo || '')) + '" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>' : '') +
+      '<tr><td style="padding:28px 32px 8px;">' +
+        (k.titulo ? '<h1 style="' + fonte + 'margin:0 0 16px;font-size:24px;line-height:1.25;color:#1a1a1a;">' + esc(v(k.titulo)) + '</h1>' : '') +
+        (k.saudacao ? paragrafos(k.saudacao, pTxt) : '') +
+        (k.texto ? paragrafos(k.texto, pTxt) : '') +
+      '</td></tr>' +
+      (k.cupomCodigo ? '<tr><td align="center" style="padding:6px 32px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed #c0392b;"><tr><td align="center" style="padding:14px 28px;' + fonte + '">' +
+        '<div style="font-size:12px;letter-spacing:2px;color:#c0392b;font-weight:bold;">CUPOM</div>' +
+        '<div style="font-size:28px;letter-spacing:3px;color:#1a1a1a;font-weight:bold;">' + esc(k.cupomCodigo) + '</div>' +
+        (k.cupomTexto ? '<div style="font-size:14px;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)) + '</div>' : '') +
+        '</td></tr></table></td></tr>' : '') +
+      (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;">' + botao(link, esc(v(k.botaoTexto)), '#c0392b', 16, '15px 30px') + '</td></tr>' : '') +
+      (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
+        (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
+        '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
+      // Fale Conosco · SAC (nov/2026): telefone/e-mail visíveis + botões que abrem o e-mail e o WhatsApp do cliente
+      (sacEmail || sacTel ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e1d8;"><tr><td align="center" style="padding:18px 20px;' + fonte + '">' +
+        '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:6px;">' + esc(v(k.sacTitulo || 'Fale Conosco · SAC')) + '</div>' +
+        '<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;">' +
+          (sacTel ? '📞 ' + esc(sacTel) : '') + (sacTel && sacEmail ? '<br>' : '') +
+          (sacEmail ? '✉ <a href="mailto:' + esc(sacEmail) + '" style="color:#333;">' + esc(sacEmail) + '</a>' : '') + '</div>' +
+        // Uma única linha de tabela, com uma célula por botão: evita empilhamento no Outlook desktop.
+        (sacEmail || linkWhats ? '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 0;border-collapse:collapse;"><tr>' +
+          (sacEmail ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkSacEmail, '✉ Enviar e-mail', '#2f6fb3', 14, '11px 20px') + '</td>' : '') +
+          (linkWhats ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkWhats, '💬 WhatsApp', '#1f8a4c', 14, '11px 20px') + '</td>' : '') +
+          '</tr></table>' : '') +
+        '</td></tr></table></td></tr>' : '') +
+      '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
+        esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
+        '<br><br><b style="color:#444">Acompanhe a Ciclo da Arte</b>' +
+        '<br>Site oficial: <a href="' + esc(siteCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">www.ciclodaarte.com.br</a>' +
+        '<br>Redes sociais e novidades: <a href="' + esc(redesCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">Ciclo da Arte · redes sociais</a>' +
+        '<br><br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
+    '</table></td></tr></table></body></html>';
+  const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
+    k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
+    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '',
+    (sacEmail || sacTel) ? v(k.sacTitulo || 'Fale Conosco · SAC') : '', sacTel ? 'Telefone/WhatsApp: ' + sacTel : '', sacEmail ? 'E-mail: ' + sacEmail : '', '', v(k.rodape),
+    '', 'Site oficial: ' + siteCiclo, 'Redes sociais e novidades: ' + redesCiclo,
+    'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
+  return { assunto: assunto, previa: previa, html: html, texto: texto };
+}
+
 const cors={
   "Access-Control-Allow-Origin":"*",
   "Access-Control-Allow-Headers":"authorization,apikey,x-client-info,content-type",
@@ -30,13 +137,101 @@ Deno.serve(async(req:Request)=>{
   let body:Record<string,unknown>;
   try{body=await req.json()}catch{return reply({ok:false,erro:"Dados inválidos"},400)}
   const loteId=Number(body.lote_id),acao=String(body.acao||"diagnosticar");
-  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","enviar"].includes(acao))
+  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","enviar"].includes(acao))
     return reply({ok:false,erro:"Ação ou lote inválido"},400);
   // BLOQUEIO IRREVOGÁVEL NESTA VERSÃO:
   // conferir apenas depois da autenticação, mas antes de acessar operações.
   if(acao==="enviar")
     return reply({ok:false,erro:"EXECUTOR_BLOQUEADO: autorização e envio ainda indisponíveis",envio_habilitado:false},423);
   const h={apikey:sk,Authorization:"Bearer "+sk,"Content-Type":"application/json"};
+  // Gera a composição FINAL de HTML e texto em memória usando EXATAMENTE
+  // o montador aprovado no navegador. Não escreve na base nem chama o Resend.
+  // Os dados vêm do banco, nunca de campos de email enviados no request.
+  if(acao==="conferir_payload"){
+    const rows=async(path)=>{
+      const r=await fetch(url+"/rest/v1/"+path,{headers:h}).catch(()=>null);
+      if(!r?.ok)throw Error("Consulta indisponível");
+      return await r.json();
+    };
+    const hash=async(input)=>{
+      const digest=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(input));
+      return Array.from(new Uint8Array(digest),n=>n.toString(16).padStart(2,"0")).join("");
+    };
+    const normal=e=>String(e||"").trim().toLowerCase();
+    const mail=/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
+    try{
+      const lotes=await rows("cda_envio_lotes?id=eq."+loteId+"&modo=eq.homologacao&select=id,campanha_id,mensagem_id,situacao&limit=1");
+      const lote=lotes[0];
+      if(!lote)return reply({ok:false,erro:"Lote de homologação inexistente"},404);
+      const [msgs,camps,itens,ativos,supressoes,operacoes]=await Promise.all([
+        rows("cda_campanha_mensagens?id=eq."+lote.mensagem_id+"&campanha_id=eq."+lote.campanha_id+"&select=id,assunto,previa,conteudo,remetente_nome,remetente_email,responder_para,atualizado_em&limit=1"),
+        rows("cda_campanhas?id=eq."+lote.campanha_id+"&select=id,nome&limit=1"),
+        rows("cda_envio_lote_itens?lote_id=eq."+loteId+"&select=id,nome,email,situacao,chave_idempotencia,tentativa_id,resend_email_id,inicio_processamento_em&order=id.asc&limit=1000"),
+        rows("cda_homologacao_destinatarios?campanha_id=eq."+lote.campanha_id+"&ativo=eq.true&select=email&limit=1000"),
+        rows("cda_email_supressoes?select=email&limit=5000"),
+        rows("cda_envio_lote_operacoes?lote_id=eq."+loteId+"&select=item_id&limit=1000")
+      ]);
+      const msg=msgs[0],camp=camps[0];
+      const impedimentos=[];
+      if(!msg||!camp)impedimentos.push("Campanha ou mensagem indisponível");
+      if(lote.situacao!=="preparado")impedimentos.push("Lote não preparado");
+      const from=normal(msg?.remetente_email),replyTo=normal(msg?.responder_para);
+      if(!mail.test(from)||!from.endsWith("@send.ciclodaarte.com.br"))
+        impedimentos.push("Remetente inválido");
+      if(!mail.test(replyTo))impedimentos.push("Responder para inválido");
+      if(!String(msg?.assunto||"").trim()||!String(msg?.conteudo?.texto||"").trim())
+        impedimentos.push("Assunto ou texto ausente");
+      const ativosSet=new Set(ativos.map(x=>normal(x.email)));
+      const supSet=new Set(supressoes.map(x=>normal(x.email)));
+      const anteriores=new Set(operacoes.map(x=>String(x.item_id)));
+      const emails=new Set(),assinaturas=[];
+      if(itens.length===0||itens.length>=1000)impedimentos.push("Lista vazia ou limite excedido");
+      for(const item of itens){
+        const email=normal(item.email);
+        if(!mail.test(email)||emails.has(email)||!ativosSet.has(email)||supSet.has(email)||
+          item.situacao!=="pendente"||item.tentativa_id||item.resend_email_id||
+          item.inicio_processamento_em||!item.chave_idempotencia||anteriores.has(String(item.id))){
+          impedimentos.push("Destinatário não elegível: item "+item.id);
+          continue;
+        }
+        emails.add(email);
+        if(!msg||!camp)continue;
+        const render=cdaMontarEmailCampanha({
+          nome:camp.nome,emailConteudo:msg.conteudo||{},
+          emailAssunto:msg.assunto,emailPrevia:msg.previa
+        },{nome:item.nome},{});
+        if(!render.html||!render.texto||render.assunto!==msg.assunto){
+          impedimentos.push("Falha na renderização do item "+item.id);
+          continue;
+        }
+        const payload={
+          from:msg.remetente_nome?String(msg.remetente_nome).trim()+" <"+from+">":from,
+          to:[email],
+          subject:"[TESTE] "+render.assunto,
+          html:render.html,
+          text:render.texto,
+          reply_to:replyTo,
+          tags:[{name:"mensagem_id",value:String(msg.id)},{name:"tipo",value:"teste"}]
+        };
+        const json=JSON.stringify(payload);
+        assinaturas.push({
+          item_id:item.id,
+          payload_sha256:await hash(json),
+          tamanho_html:render.html.length,tamanho_texto:render.texto.length,
+          chave_idempotencia_preservada:true,
+          saudacao_personalizada:render.html.includes("Oi, "+cdaPrimeiroNome(item.nome)+"!"),
+          cupom_presente:render.html.includes(String(msg.conteudo?.cupomCodigo||"")),
+          link_acao_presente:render.html.includes(String(msg.conteudo?.botaoLink||""))
+        });
+      }
+      return reply({ok:true,lote_id:loteId,mensagem_id:lote.mensagem_id,
+        destinatarios:itens.length,construidos:assinaturas.length,
+        assinaturas,impedimentos,envio_habilitado:false,envios_solicitados:0,
+        observacao:"Hashes do JSON do futuro payload Resend, calculados em memória. Nenhum envio ou tentativa foi registrado."});
+    }catch(e){
+      return reply({ok:false,erro:"Não foi possível conferir o payload. Nenhum envio solicitado."},503);
+    }
+  }
   // Conferência sem side effects da mensagem e dos destinatários congelados.
   // Não gera HTML definitivo nem autoriza a execução. Os dados vêm EXCLUSIVAMENTE
   // do Supabase; assunto, destinatários e conteúdo jamais são aceitos do navegador.
