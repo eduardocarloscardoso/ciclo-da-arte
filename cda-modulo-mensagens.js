@@ -91,25 +91,59 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
 
 // Pergunta os endereços e envia o teste. Retorna a mensagem atualizada (último teste) ou null.
 // O botão (opcional) só muda para "Enviando..." DEPOIS da confirmação e sempre volta ao normal.
+// Estado explícito do teste: envio em andamento → aceito pelo provedor ou erro.
+// Mantém o diálogo aberto até o operador reconhecer o resultado.
+function cdaMsgStatusEnvio(janela, destinos) {
+  var doc = janela && !janela.closed ? janela.document : document;
+  var overlay = doc.createElement('div');
+  overlay.setAttribute('role', 'presentation');
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:100001;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:16px';
+  overlay.innerHTML =
+    '<div role="dialog" aria-modal="true" aria-labelledby="cda-msg-status-titulo" style="box-sizing:border-box;width:min(100%,510px);background:#182235;color:#f5f3ee;border:1px solid #536078;border-radius:12px;padding:25px;box-shadow:0 16px 45px rgba(0,0,0,.5);font-family:Arial,Helvetica,sans-serif">' +
+      '<h3 id="cda-msg-status-titulo" style="margin:0 0 12px;font-size:20px">⏳ Enviando mensagem de teste...</h3>' +
+      '<p id="cda-msg-status-detalhe" role="status" aria-live="polite" style="margin:0 0 10px;line-height:1.6;overflow-wrap:anywhere"></p>' +
+      '<p id="cda-msg-status-aviso" style="margin:0 0 18px;font-size:12px;color:#d2d9e3;line-height:1.5">Não feche a tela nem clique novamente em Enviar teste enquanto o pedido estiver em andamento.</p>' +
+      '<div style="text-align:right"><button id="cda-msg-status-fechar" type="button" disabled style="display:none;cursor:pointer;padding:11px 22px;background:#d94835;color:white;border:0;border-radius:6px;font-weight:700">Fechar</button></div>' +
+    '</div>';
+  doc.body.appendChild(overlay);
+  var titulo = overlay.querySelector('#cda-msg-status-titulo');
+  var detalhe = overlay.querySelector('#cda-msg-status-detalhe');
+  var aviso = overlay.querySelector('#cda-msg-status-aviso');
+  var fechar = overlay.querySelector('#cda-msg-status-fechar');
+  detalhe.textContent = 'Solicitando envio para ' + destinos.length + ' endereço(s): ' + destinos.join(', ');
+  fechar.addEventListener('click', function () { overlay.remove(); });
+  return {
+    concluir: function (ok, mensagem, observacao) {
+      titulo.textContent = ok ? '✅ Mensagem de teste aceita pelo Resend' : '❌ Envio de teste não concluído';
+      detalhe.textContent = mensagem;
+      aviso.textContent = observacao;
+      fechar.disabled = false;
+      fechar.style.display = 'inline-block';
+      fechar.focus();
+    }
+  };
+}
+
 async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao, janela) {
   if (!mensagem || !mensagem.id) { alert('Salve a mensagem antes de enviar o teste.'); return null; }
   var padrao = (window.cu && window.cu.email) || '';
   var para = await cdaMsgSolicitarDestinatarios(mensagem, padrao, janela);
   if (para === null) return null; // Cancelar: não envia, não altera a mensagem.
   var textoBotao = botao ? botao.textContent : '';
-  if (botao) { botao.textContent = 'Enviando...'; botao.disabled = true; }
+  if (botao) { botao.textContent = '⏳ Enviando...'; botao.disabled = true; }
+  var status = cdaMsgStatusEnvio(janela, para);
   try {
-    var limite = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('O envio demorou mais de 30 segundos. Confira em alguns minutos na tela Emails do Resend se ele saiu.')); }, 30000); });
+    var limite = new Promise(function (_, rej) { setTimeout(function () { rej(new Error('Tempo de resposta excedido. O Resend pode ter aceitado parte ou todos os pedidos; confira o histórico antes de tentar novamente.')); }, 30000); });
     await Promise.race([cdaEnviarTesteMensagem(mensagem, campanha, cliente || CDA_MSG_CLIENTE_EXEMPLO, para), limite]);
     mensagem.ultimoTesteEm = new Date().toISOString();
     mensagem.ultimoTestePara = para.join(', ');
-    if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
-    alert('✅ Teste enviado para: ' + para.join(', ') + '\n\nO assunto chega com "[TESTE]" na frente. Confira também a caixa de spam.');
+    status.concluir(true, 'Solicitação aceita para: ' + para.join(', ') + '.',
+      'O aceite do Resend não confirma a entrega na caixa de entrada. Verifique o recebimento e os eventos em Comunicações da Campanha. O assunto começa com [TESTE].');
     return mensagem;
   } catch (err) {
     console.error(err);
-    if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
-    alert('❌ O teste não foi enviado:\n' + ((err && err.message) || 'Erro desconhecido'));
+    status.concluir(false, (err && err.message) || 'Erro desconhecido.',
+      'Nenhum novo envio será feito automaticamente. Se houver resultado parcial ou dúvida de entrega, confira as tentativas no histórico antes de repetir.');
     return null;
   } finally {
     if (botao) { botao.textContent = textoBotao; botao.disabled = false; }
