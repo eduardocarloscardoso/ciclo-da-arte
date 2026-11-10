@@ -387,16 +387,18 @@ async function montarModuloMensagens(containerId, opts) {
       '<div class="row-bt"><div><h3 style="font-size:15px;margin:0 0 5px">Materiais comerciais · acervo compartilhado</h3><div class="tmu" style="font-size:11px">Cadastre referências de imagens, vídeos, ofertas, links e outros materiais. O cadastro não envia mensagens nem vincula automaticamente o material a campanhas.</div></div>'+
         (editavel?'<button class="btn rust" type="button" id="msg-mat-novo">＋ Novo material</button>':'')+
       '</div>'+
-      '<div style="display:flex;gap:9px;flex-wrap:wrap;margin:12px 0"><select id="msg-mat-tipo" aria-label="Filtrar tipo de material"><option value="">Todos os tipos</option><option value="imagem">Imagens</option><option value="video">Vídeos</option><option value="oferta">Ofertas</option><option value="link">Links</option><option value="outro">Outros materiais</option></select>'+
+      '<div style="display:flex;gap:9px;flex-wrap:wrap;margin:12px 0"><select id="msg-mat-tipo" aria-label="Filtrar tipo de material"><option value="">Todos os tipos</option><option value="modelo">Modelos de campanha</option><option value="imagem">Imagens</option><option value="video">Vídeos</option><option value="oferta">Ofertas</option><option value="link">Links</option><option value="outro">Outros materiais</option></select>'+
+      '<select id="msg-mat-categoria" aria-label="Filtrar categoria"><option value="">Todas as categorias</option><option value="campanhas_shows">Campanhas de Shows</option><option value="geral">Outros materiais</option></select>'+
       '<select id="msg-mat-situacao" aria-label="Filtrar aprovação"><option value="">Todas as situações</option><option value="rascunho">Rascunhos</option><option value="em_revisao">Em revisão</option><option value="aprovado">Aprovados</option><option value="arquivado">Arquivados</option></select>'+
       '<input type="search" id="msg-mat-busca" placeholder="Buscar por título ou descrição..." style="min-width:220px;flex:1"></div>'+
       '<div id="msg-mat-lista" aria-live="polite" style="font-size:12px">Carregando materiais...</div>'+
       '<form id="msg-mat-form" style="display:none;margin-top:14px;border:1px solid var(--border2,#ccc);padding:15px">'+
         '<h4 id="msg-mat-form-titulo" style="margin:0 0 10px">Novo material</h4>'+
         '<input type="hidden" id="msg-mat-id">'+
-        '<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px">Tipo *<select id="msg-mat-tipo-ed" required style="width:100%"><option value="imagem">Imagem</option><option value="video">Vídeo</option><option value="oferta">Oferta</option><option value="link">Link</option><option value="outro">Outro</option></select></label>'+
+        '<div style="display:flex;gap:10px;flex-wrap:wrap"><label style="flex:1;min-width:150px">Tipo *<select id="msg-mat-tipo-ed" required style="width:100%"><option value="modelo">Modelo de campanha</option><option value="imagem">Imagem</option><option value="video">Vídeo</option><option value="oferta">Oferta</option><option value="link">Link</option><option value="outro">Outro</option></select></label>'+
         '<label style="flex:2;min-width:210px">Título *<input id="msg-mat-titulo" maxlength="180" required style="width:100%"></label>'+
         '<label style="flex:1;min-width:160px">Situação<select id="msg-mat-situacao-ed" style="width:100%"><option value="rascunho">Rascunho</option><option value="em_revisao">Em revisão</option><option value="aprovado">Aprovado</option><option value="arquivado">Arquivado</option></select></label></div>'+
+        '<label style="display:block;margin-top:9px">Categoria<select id="msg-mat-categoria-ed" style="width:100%"><option value="campanhas_shows">Campanhas de Shows</option><option value="geral">Outros materiais</option></select></label>'+
         '<label style="display:block;margin-top:9px">URL do conteúdo (HTTPS)<input id="msg-mat-url" type="url" placeholder="https://..." style="width:100%"></label>'+
         '<label style="display:block;margin-top:9px">Descrição<textarea id="msg-mat-descricao" rows="3" style="width:100%"></textarea></label>'+
         '<label style="display:block;margin-top:9px">Direitos, créditos ou condições de uso<textarea id="msg-mat-direitos" rows="2" style="width:100%"></textarea></label>'+
@@ -499,23 +501,29 @@ async function montarModuloMensagens(containerId, opts) {
   }
   function renderMateriais() {
     var tipo=host.querySelector('#msg-mat-tipo').value;
+    var categoria=host.querySelector('#msg-mat-categoria').value;
     var situacao=host.querySelector('#msg-mat-situacao').value;
     var busca=host.querySelector('#msg-mat-busca').value.trim().toLowerCase();
     var dados=ST.materiais.filter(function(m){
-      return (!tipo||m.tipo===tipo)&&(!situacao||m.situacao===situacao)&&
+      return (!tipo||m.tipo===tipo)&&(!categoria||m.categoria===categoria)&&(!situacao||m.situacao===situacao)&&
         (!busca||(m.titulo+' '+(m.descricao||'')).toLowerCase().includes(busca));
     });
     host.querySelector('#msg-mat-lista').innerHTML=dados.length?
-      '<div class="tw"><div class="ts"><table style="width:100%"><thead><tr><th>Tipo</th><th>Título</th><th>Situação</th><th>Referência</th><th>Direitos</th><th>Ações</th></tr></thead><tbody>'+
+      '<div class="tw"><div class="ts"><table style="width:100%"><thead><tr><th>Categoria</th><th>Tipo</th><th>Título</th><th>Situação</th><th>Referência</th><th>Direitos</th><th>Ações</th></tr></thead><tbody>'+
       dados.map(function(m){
         var u=String(m.url||'');
         var seguro=/^https:\/\//i.test(u);
-        return '<tr><td>'+cdaMsgEsc(({imagem:'Imagem',video:'Vídeo',oferta:'Oferta',link:'Link',outro:'Outro'})[m.tipo]||m.tipo)+'</td>'+
-          '<td><b>'+cdaMsgEsc(m.titulo)+'</b><div class="tmu">'+cdaMsgEsc(m.descricao||'')+'</div></td>'+
+        return '<tr><td>'+cdaMsgEsc(m.categoria==='campanhas_shows'?'Campanhas de Shows':'Geral')+'</td>'+
+          '<td>'+cdaMsgEsc(({modelo:'Modelo',imagem:'Imagem',video:'Vídeo',oferta:'Oferta',link:'Link',outro:'Outro'})[m.tipo]||m.tipo)+'</td>'+
+          '<td><b>'+cdaMsgEsc(m.titulo)+'</b><div class="tmu">'+cdaMsgEsc(m.descricao||'')+'</div>'+
+          (m.origem_mensagem_id?'<div class="tmu">Referência à mensagem #'+Number(m.origem_mensagem_id)+' · arquivo não duplicado</div>':'')+
+          (m.tipo==='modelo'&&m.estrutura_modelo&&Array.isArray(m.estrutura_modelo.campos_obrigatorios)?
+          '<div class="tmu">Campos-base: '+m.estrutura_modelo.campos_obrigatorios.map(cdaMsgEsc).join(' · ')+'</div>':'')+'</td>'+
           '<td>'+cdaMsgEsc(({rascunho:'Rascunho',em_revisao:'Em revisão',aprovado:'Aprovado',arquivado:'Arquivado'})[m.situacao]||m.situacao)+'</td>'+
           '<td>'+(seguro?'<a href="'+cdaMsgEsc(u)+'" target="_blank" rel="noopener noreferrer">Abrir referência</a>':'—')+'</td>'+
           '<td>'+cdaMsgEsc(m.observacoes_direitos||'—')+'</td>'+
-          '<td>'+(editavel?'<button class="btn sm" type="button" data-mat-editar="'+m.id+'">Editar</button>':'—')+'</td></tr>';
+          '<td>'+(editavel?'<div style="display:flex;gap:5px;flex-wrap:wrap"><button class="btn sm" type="button" data-mat-editar="'+m.id+'">Editar</button>'+
+          '<button class="btn sm" type="button" data-mat-duplicar="'+m.id+'">Usar como base</button></div>':'—')+'</td></tr>';
       }).join('')+'</tbody></table></div></div>':
       '<div class="tmu" style="padding:12px">Nenhum material encontrado. As mensagens de e-mail permanecem disponíveis na seção acima.</div>';
   }
@@ -526,6 +534,7 @@ async function montarModuloMensagens(containerId, opts) {
     host.querySelector('#msg-mat-form-titulo').textContent=m?'Editar material':'Novo material';
     host.querySelector('#msg-mat-id').value=m?m.id:'';
     host.querySelector('#msg-mat-tipo-ed').value=m?m.tipo:'imagem';
+    host.querySelector('#msg-mat-categoria-ed').value=m?(m.categoria||'geral'):'campanhas_shows';
     host.querySelector('#msg-mat-titulo').value=m?m.titulo:'';
     host.querySelector('#msg-mat-situacao-ed').value=m?m.situacao:'rascunho';
     host.querySelector('#msg-mat-url').value=m?m.url||'':'';
@@ -534,12 +543,23 @@ async function montarModuloMensagens(containerId, opts) {
     matForm.scrollIntoView({behavior:'smooth',block:'nearest'});
   }
   host.querySelector('#msg-mat-tipo').addEventListener('change',renderMateriais);
+  host.querySelector('#msg-mat-categoria').addEventListener('change',renderMateriais);
   host.querySelector('#msg-mat-situacao').addEventListener('change',renderMateriais);
   host.querySelector('#msg-mat-busca').addEventListener('input',renderMateriais);
   host.querySelector('#msg-mat-lista').addEventListener('click',function(ev){
-    var b=ev.target.closest('[data-mat-editar]');
+    var b=ev.target.closest('[data-mat-editar],[data-mat-duplicar]');
     if(!b)return;
-    editarMaterial(ST.materiais.find(function(m){return String(m.id)===b.dataset.matEditar;}));
+    var origem=ST.materiais.find(function(m){return String(m.id)===String(b.dataset.matEditar||b.dataset.matDuplicar);});
+    if(!origem)return;
+    if(b.dataset.matDuplicar){
+      editarMaterial(null);
+      host.querySelector('#msg-mat-tipo-ed').value=origem.tipo;
+      host.querySelector('#msg-mat-categoria-ed').value=origem.categoria||'geral';
+      host.querySelector('#msg-mat-titulo').value=origem.tipo==='modelo'?'Campanhas de Shows · NOVO ARTISTA · NOVA PRAÇA · NOVO PÚBLICO':'Cópia de '+origem.titulo;
+      host.querySelector('#msg-mat-descricao').value=origem.tipo==='modelo'?('Modelo baseado em '+origem.titulo+'. Preencha artista, praça, público, local, data, conteúdos e canais; nenhuma ação será enviada automaticamente.'):(origem.descricao||'');
+      host.querySelector('#msg-mat-direitos').value=origem.tipo==='modelo'?'Validar materiais, direitos e ofertas da nova campanha antes de aprovar.':(origem.observacoes_direitos||'');
+      host.querySelector('#msg-mat-url').value=origem.tipo==='modelo'?'':(origem.url||'');
+    }else editarMaterial(origem);
   });
   host.querySelector('#msg-mat-cancelar').addEventListener('click',function(){matForm.style.display='none';});
   if(editavel) {
@@ -551,6 +571,7 @@ async function montarModuloMensagens(containerId, opts) {
       if(url&&!/^https:\/\//i.test(url)){alert('Informe uma URL HTTPS válida.');return;}
       var dado={
         tipo:host.querySelector('#msg-mat-tipo-ed').value,
+        categoria:host.querySelector('#msg-mat-categoria-ed').value,
         titulo:host.querySelector('#msg-mat-titulo').value.trim(),
         situacao:host.querySelector('#msg-mat-situacao-ed').value,
         url:url||null,
