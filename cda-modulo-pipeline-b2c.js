@@ -80,8 +80,9 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '#pb2c-modal .mo-b .fg{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}' +
       '#pb2c-modal .mo-b .fgr{min-width:0;max-width:100%;}' +
       '#pb2c-modal .mo-b .fgr input,#pb2c-modal .mo-b .fgr select,#pb2c-modal .mo-b .fgr textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box;}' +
-      '#pb2c-modal .mo-b .camp-checks{display:flex;flex-wrap:wrap;gap:8px 12px;min-width:0;}' +
-      '#pb2c-modal .mo-b .camp-checks label{margin:0;white-space:normal;}' +
+      '#pb2c-modal .mo-b .camp-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,170px),1fr));gap:10px 14px;min-width:0;align-items:start;}' +
+      '#pb2c-modal .mo-b .camp-checks label{display:flex;align-items:flex-start;gap:8px;min-width:0;margin:0;white-space:normal;line-height:1.35;font-size:11px;cursor:pointer;overflow-wrap:anywhere;}' +
+      '#pb2c-modal .mo-b .camp-checks input[type="checkbox"]{width:16px;height:16px;min-width:16px;max-width:16px;flex:0 0 16px;margin:0;accent-color:var(--rust);}' +
       '#pb2c-modal .mo-b .pb2c-hist{overflow-wrap:anywhere;white-space:pre-wrap;}' +
       '#pb2c-modal .mo-f{flex-wrap:wrap;align-items:center;}' +
       '#pb2c-modal .mo-f .btn{white-space:normal;}' +
