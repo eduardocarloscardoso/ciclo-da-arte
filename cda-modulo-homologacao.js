@@ -205,7 +205,7 @@ async function montarModuloHomologacao(containerId, opts) {
     } catch(e) {
       mensagensLote = [];
       seletor.innerHTML = '<option value="">Não foi possível consultar mensagens</option>';
-      root.querySelector('#homolog-lote-detalhes').textContent = 'Falha ao consultar mensagens: '+(e.message||e);
+      root.querySelector('#homolog-lote-operacao').textContent = 'Falha ao consultar mensagens: '+(e.message||e);
     }
   }
   // Visualização consolidada: os destinos congelados aparecem só na tabela do lote.
@@ -298,6 +298,7 @@ async function montarModuloHomologacao(containerId, opts) {
       '#'+containerId+' .hom-tabs button{border:1px solid #94a3b8;background:transparent;color:inherit;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer}'+
       '#'+containerId+' .hom-tabs button[aria-selected="true"]{background:#1f2937;color:#fff;border-color:#1f2937}'+
       '#'+containerId+' .hom-pane[hidden]{display:none!important}'+
+      '#'+containerId+' #homolog-lote-mensagem-linha[hidden]{display:none!important}'+
       '#'+containerId+' .hom-pane{display:grid;gap:14px}'+
       '#'+containerId+' .hom-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:grid;gap:12px;background:rgba(255,255,255,.18)}'+
       '#'+containerId+' .hom-fold{border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px}'+
