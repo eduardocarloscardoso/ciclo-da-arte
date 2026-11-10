@@ -230,11 +230,13 @@ async function montarModuloHomologacao(containerId, opts) {
       if(!dados||!dados.ok)throw new Error((dados&&dados.erro)||'Falha na consulta');
       const lote=dados.lote;
       if(!lote){
+        root.querySelector('#homolog-preparacao-inicial').hidden=!editavel;
         root.querySelector('#homolog-verificacao').textContent='Nenhum lote preparado. Veja os detalhes técnicos para preparar um lote sem envio.';
         el.textContent='Nenhum lote persistido para esta campanha/mensagem. Utilize Preparar lote (sem envio).';
         a.disabled=false;
         return;
       }
+      root.querySelector('#homolog-preparacao-inicial').hidden=true;
       const itens=Array.isArray(dados.itens)?dados.itens:[];
       const cont=dados.contagens||{};
       const total=itens.length;
@@ -303,6 +305,7 @@ async function montarModuloHomologacao(containerId, opts) {
       '#'+containerId+' .hom-tabs button[aria-selected="true"]{background:#1f2937;color:#fff;border-color:#1f2937}'+
       '#'+containerId+' .hom-pane[hidden]{display:none!important}'+
       '#'+containerId+' #homolog-lote-mensagem-linha[hidden]{display:none!important}'+
+      '#'+containerId+' #homolog-preparacao-inicial[hidden]{display:none!important}'+
       '#'+containerId+' .hom-pane{display:grid;gap:14px}'+
       '#'+containerId+' .hom-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:grid;gap:12px;background:rgba(255,255,255,.18)}'+
       '#'+containerId+' .hom-fold{border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px}'+
@@ -343,9 +346,12 @@ async function montarModuloHomologacao(containerId, opts) {
       '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+
       '<details class="hom-fold" id="homolog-detalhes-tecnicos"><summary>Ações Finais de Envio de Mensagens</summary><div style="display:grid;gap:14px;margin-top:12px">'+
         '<p style="margin:0;font-size:12px;color:var(--text-muted,#64748b)">Confira os destinatários acima antes de autorizar qualquer operação. O envio permanece bloqueado.</p>'+
-        '<button type="button" class="btn rust" disabled title="Aguardando executor seguro e autorização específica">Enviar mensagens — aguardando autorização</button>'+
-        '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Rever simulação</button>'+
-        '<button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
+        '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button>'+
+        '<button type="button" class="btn rust" disabled title="Aguardando executor seguro e autorização específica">Enviar mensagens</button>'+
+        '<button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
+        '<p style="font-size:12px;margin:0;color:var(--text-muted,#64748b)">Envio bloqueado: aguarda autorização específica e conclusão do executor seguro.</p>'+
+        '<details class="hom-fold" id="homolog-preparacao-inicial" hidden><summary>Preparação inicial (sem envio)</summary><p style="font-size:12px">Disponível apenas para campanhas sem lote. Registra destinatários sem enviar mensagens.</p><button type="button" class="btn" id="homolog-lote-preparar" disabled>Preparar lote</button></details>'+
+        '<button type="button" id="homolog-lote-simular" hidden disabled aria-hidden="true">Verificação automática</button>'+
         '<div id="homolog-lote-simulacao" role="status" aria-live="polite"></div>'+
         '<div id="homolog-lote-seguranca" aria-live="polite"></div>'+
       '</div></details>'+
