@@ -40,81 +40,73 @@ async function montarModuloHomologacao(containerId, opts) {
       registros.map(d=>'<tr><td>'+esc(nomePessoa(d.pessoa_id))+'</td><td>'+esc(d.email)+'</td><td>'+(d.principal?'Principal':'Adicional')+'</td><td>'+(d.ativo?'Ativo':'Inativo')+'</td><td>'+
        (editavel ? '<details class="hom-row-actions"><summary style="cursor:pointer;font-weight:700">Gerenciar</summary>'+
          '<div style="display:flex;gap:5px;flex-wrap:wrap;padding-top:8px">'+
-         btn('editar-email','Editar','data-id="'+d.id+'"')+' '+
+         btn('editar-email','Editar e-mail','data-id="'+d.id+'"')+' '+btn('editar-pessoa','Editar pessoa','data-id="'+d.pessoa_id+'"')+' '+
          (!d.principal && d.ativo ? btn('principal','Tornar principal','data-id="'+d.id+'"') : '')+' '+
          btn('ativar',d.ativo?'Desativar':'Reativar','data-id="'+d.id+'"')+' '+
          btn('excluir-email','Excluir','data-id="'+d.id+'"')+
          '</div></details>' : 'Somente leitura')+
        '</td></tr>').join('')+'</tbody></table></div>' :
       '<p style="padding:12px">Nenhum endereço nesta campanha'+(filtro?' corresponde à busca':'')+'.</p>';
-    if(editavel) root.querySelector('#homolog-selec-pessoa').innerHTML = '<option value="">Selecione uma pessoa</option>'+
-      pessoas.map(p=>'<option value="'+p.id+'">'+esc(p.nome)+'</option>').join('');
-    root.querySelector('#homolog-pessoas').innerHTML = pessoas.length ?
-      '<div style="display:flex;flex-wrap:wrap;gap:8px">'+pessoas.map(p=>
-       '<div style="border:1px solid #667085;border-radius:8px;padding:9px;display:flex;align-items:center;gap:8px">'+esc(p.nome)+
-       (editavel ? btn('editar-pessoa','Editar','data-id="'+p.id+'"')+' '+btn('excluir-pessoa','Excluir','data-id="'+p.id+'"') : '')+
-       '</div>').join('')+'</div>' : 'Nenhuma pessoa cadastrada.';
-    if(editavel && editPessoa)root.querySelector('#homolog-selec-pessoa').value=String(editPessoa);
-  }
-  function limparForm() {
-    editPessoa=null;editEmail=null;
-    if(editavel){root.querySelector('#homolog-abrir-pessoa').open=false;root.querySelector('#homolog-abrir-email').open=false;}
-    if(editavel)root.querySelector('#homolog-nome').value='';
-    if(editavel)root.querySelector('#homolog-id-pessoa').value='';
-    if(editavel)root.querySelector('#homolog-email').value='';
-    if(editavel)root.querySelector('#homolog-selec-pessoa').value='';
-    if(editavel) {
-      root.querySelector('#homolog-principal').checked=false;
-      root.querySelector('#homolog-form-pessoa-titulo').textContent='Nova pessoa';
-      root.querySelector('#homolog-form-email-titulo').textContent='Adicionar e-mail à campanha';
+    if(editavel){const sel=root.querySelector('#homolog-selec-pessoa'),old=sel.value;
+      sel.innerHTML='<option value="">Nova pessoa</option>'+pessoas.map(p=>'<option value="'+p.id+'">'+esc(p.nome)+'</option>').join('');
+      if(pessoas.some(p=>String(p.id)===old))sel.value=old;
     }
   }
-  async function gravarPessoa(ev) {
-    ev.preventDefault(); if(!editavel)return;
-    const nome=root.querySelector('#homolog-nome').value.trim();
-    if(!nome){banner('Informe o nome da pessoa.');return;}
-    const ja=pessoas.find(p=>p.nome.toLocaleLowerCase('pt-BR')===nome.toLocaleLowerCase('pt-BR')&&String(p.id)!==String(editPessoa));
-    if(ja){banner('Já existe uma pessoa com esse nome. Utilize a opção de editar ou inclua um e-mail adicional.');return;}
-    const b=root.querySelector('#homolog-salvar-pessoa');b.disabled=true;
-    try {
-      const query = editPessoa ?
-        cdaClient.from('cda_homologacao_pessoas').update({nome,atualizado_em:new Date().toISOString()}).eq('id',editPessoa) :
-        cdaClient.from('cda_homologacao_pessoas').insert({nome});
-      const resp=await query.select('id').single();
-      if(resp.error)throw resp.error;
-      limparForm();await atualizar();banner('Pessoa salva com sucesso. Adicione o endereço de e-mail abaixo.');
-      root.querySelector('#homolog-selec-pessoa').value=String(resp.data.id);
-    } catch(e){console.error(e);banner('Não foi possível salvar a pessoa: '+(e.message||e));}
-    finally{b.disabled=false;}
+  function limparForm(){
+    editPessoa=null;editEmail=null;if(!editavel)return;
+    root.querySelector('#homolog-cadastro').open=false;
+    const sel=root.querySelector('#homolog-selec-pessoa');sel.disabled=false;sel.value='';
+    root.querySelector('#homolog-nome').value='';root.querySelector('#homolog-email').value='';
+    root.querySelector('#homolog-principal').checked=false;
+    root.querySelector('#homolog-form-titulo').textContent='Cadastrar pessoa e e-mail';
+    root.querySelector('#homolog-nome-linha').hidden=false;
+    root.querySelector('#homolog-email-linha').hidden=false;
+    root.querySelector('#homolog-principal-linha').hidden=false;
+    root.querySelector('#homolog-email').required=true;
   }
-  async function gravarEmail(ev) {
-    ev.preventDefault();if(!editavel)return;
-    const pessoaId=Number(root.querySelector('#homolog-selec-pessoa').value);
-    const email=normalEmail(root.querySelector('#homolog-email').value);
-    const principal=root.querySelector('#homolog-principal').checked;
-    if(!pessoaId || !pessoas.some(p=>Number(p.id)===pessoaId)){banner('Selecione uma pessoa cadastrada.');return;}
-    if(!emailValido(email)){banner('Informe um endereço de e-mail válido.');return;}
-    const duplicado=destinos.find(d=>d.email===email&&String(d.id)!==String(editEmail));
-    if(duplicado){banner('Este endereço já está cadastrado na campanha. Edite ou reative o registro existente.');return;}
-    const b=root.querySelector('#homolog-salvar-email');b.disabled=true;
-    try {
-      // Somente um e-mail principal ativo por pessoa e campanha.
-      if(principal){
-        const outros=destinos.filter(d=>d.principal&&d.ativo&&d.pessoa_id===pessoaId&&String(d.id)!==String(editEmail));
-        for(const d of outros){
-          const r=await cdaClient.from('cda_homologacao_destinatarios').update({principal:false}).eq('id',d.id).eq('campanha_id',Number(campanhaId));
-          if(r.error)throw r.error;
+  function trocarPessoa(){
+    if(editPessoa!==null||editEmail!==null)return;
+    const outra=!!root.querySelector('#homolog-selec-pessoa').value;
+    root.querySelector('#homolog-nome-linha').hidden=outra;
+    root.querySelector('#homolog-nome').value='';
+    root.querySelector('#homolog-form-titulo').textContent=outra?'Adicionar e-mail à pessoa existente':'Cadastrar pessoa e e-mail';
+  }
+  async function salvarCadastro(e){
+    e.preventDefault();if(!editavel)return;
+    const nome=root.querySelector('#homolog-nome').value.trim(),
+      email=normalEmail(root.querySelector('#homolog-email').value),
+      principal=root.querySelector('#homolog-principal').checked,
+      soNome=editPessoa!==null&&editEmail===null;
+    let pid=soNome?Number(editPessoa):Number(root.querySelector('#homolog-selec-pessoa').value);
+    if((!pid||soNome)&&!nome){banner('Informe o nome da pessoa.');return;}
+    if(!soNome&&!emailValido(email)){banner('Informe um e-mail válido.');return;}
+    if(nome&&pessoas.some(p=>p.nome.toLowerCase()===nome.toLowerCase()&&Number(p.id)!==pid)){banner('Pessoa já cadastrada. Selecione-a na lista.');return;}
+    if(!soNome&&destinos.some(d=>normalEmail(d.email)===email&&Number(d.id)!==Number(editEmail))){banner('E-mail já cadastrado nesta campanha.');return;}
+    const btnSalvar=root.querySelector('#homolog-salvar-cadastro');btnSalvar.disabled=true;
+    try{
+      if(soNome){
+        const z=await cdaClient.from('cda_homologacao_pessoas').update({nome,atualizado_em:new Date().toISOString()}).eq('id',pid);
+        if(z.error)throw z.error;
+      }else{
+        if(!pid){
+          const z=await cdaClient.from('cda_homologacao_pessoas').insert({nome}).select('id').single();
+          if(z.error)throw z.error;pid=Number(z.data.id);
         }
+        if(principal){
+          for(const d of destinos.filter(d=>Number(d.pessoa_id)===pid&&d.principal&&d.ativo&&Number(d.id)!==Number(editEmail))){
+            const z=await cdaClient.from('cda_homologacao_destinatarios').update({principal:false}).eq('id',d.id).eq('campanha_id',Number(campanhaId));
+            if(z.error)throw z.error;
+          }
+        }
+        const dados={pessoa_id:pid,email,principal,ativo:true};
+        const q=editEmail!==null?
+          cdaClient.from('cda_homologacao_destinatarios').update(dados).eq('id',editEmail).eq('campanha_id',Number(campanhaId)):
+          cdaClient.from('cda_homologacao_destinatarios').insert({...dados,campanha_id:Number(campanhaId)});
+        const z=await q.select('id').single();if(z.error)throw z.error;
       }
-      const dados={pessoa_id:pessoaId,email,principal,ativo:true};
-      const query=editEmail ?
-        cdaClient.from('cda_homologacao_destinatarios').update(dados).eq('id',editEmail).eq('campanha_id',Number(campanhaId)) :
-        cdaClient.from('cda_homologacao_destinatarios').insert(Object.assign({campanha_id:Number(campanhaId)},dados));
-      const resp=await query.select('id').single();
-      if(resp.error)throw resp.error;
-      limparForm();await atualizar();banner('E-mail salvo na lista de homologação. Nenhuma mensagem foi enviada.');
-    } catch(e){console.error(e);await atualizar();banner('Erro ao salvar e-mail: '+(e.message||e)+'. Confira o principal antes de tentar novamente.');}
-    finally{b.disabled=false;}
+      limparForm();await atualizar();banner('Cadastro salvo. Nenhum envio realizado.');
+    }catch(err){console.error(err);await atualizar();banner('Não foi possível salvar: '+(err.message||err)+'. Confira o cadastro antes de tentar novamente.');}
+    finally{btnSalvar.disabled=false;}
   }
   async function acaoTabela(ev) {
     const b=ev.target.closest('[data-ac]');if(!b||!editavel)return;
@@ -122,19 +114,24 @@ async function montarModuloHomologacao(containerId, opts) {
     const d=destinos.find(x=>Number(x.id)===id);
     const p=pessoas.find(x=>Number(x.id)===id);
     try {
-      if(ac==='editar-pessoa' && p) {
-        root.querySelector('#homolog-abrir-pessoa').open=true;
-        editPessoa=p.id;root.querySelector('#homolog-nome').value=p.nome;
-        root.querySelector('#homolog-form-pessoa-titulo').textContent='Editar pessoa';
-        root.querySelector('#homolog-form-pessoa').scrollIntoView({block:'nearest',behavior:'smooth'});return;
+      if(ac==='editar-pessoa' && p){
+        limparForm();root.querySelector('#homolog-cadastro').open=true;editPessoa=p.id;
+        const sel=root.querySelector('#homolog-selec-pessoa');sel.value=String(p.id);sel.disabled=true;
+        root.querySelector('#homolog-nome').value=p.nome;
+        root.querySelector('#homolog-email-linha').hidden=true;
+        root.querySelector('#homolog-principal-linha').hidden=true;
+        root.querySelector('#homolog-email').required=false;
+        root.querySelector('#homolog-form-titulo').textContent='Editar nome da pessoa';
+        root.querySelector('#homolog-form-cadastro').scrollIntoView({block:'nearest',behavior:'smooth'});return;
       }
-      if(ac==='editar-email' && d) {
-        root.querySelector('#homolog-abrir-email').open=true;
-        editEmail=d.id;root.querySelector('#homolog-selec-pessoa').value=String(d.pessoa_id);
+      if(ac==='editar-email' && d){
+        limparForm();root.querySelector('#homolog-cadastro').open=true;editEmail=d.id;
+        const sel=root.querySelector('#homolog-selec-pessoa');sel.value=String(d.pessoa_id);sel.disabled=true;
+        root.querySelector('#homolog-nome-linha').hidden=true;
         root.querySelector('#homolog-email').value=d.email;
         root.querySelector('#homolog-principal').checked=d.principal;
-        root.querySelector('#homolog-form-email-titulo').textContent='Editar e-mail';
-        root.querySelector('#homolog-form-email').scrollIntoView({block:'nearest',behavior:'smooth'});return;
+        root.querySelector('#homolog-form-titulo').textContent='Editar e-mail de '+nomePessoa(d.pessoa_id);
+        root.querySelector('#homolog-form-cadastro').scrollIntoView({block:'nearest',behavior:'smooth'});return;
       }
       if(ac==='excluir-pessoa' && p) {
         // Segurança: nunca apagar uma pessoa referenciada por outra campanha.
@@ -345,13 +342,15 @@ async function montarModuloHomologacao(containerId, opts) {
       '<section class="hom-card"><div><h3>Endereços da campanha</h3><p style="margin:4px 0 0;color:var(--text-muted,#64748b)">Uma pessoa pode ter vários e-mails. Gerencie os endereços aqui.</p></div>'+
       '<div id="homolog-resumo" style="font-weight:700"></div><input id="homolog-busca" placeholder="Buscar pessoa ou e-mail" aria-label="Buscar pessoa ou e-mail" style="max-width:500px;padding:9px;color:#111;background:#fff">'+
       '<div id="homolog-lista"></div></section>'+
-    (editavel ? '<div style="display:grid;gap:10px">'+
-      '<details class="hom-fold" id="homolog-abrir-pessoa"><summary>Cadastrar ou editar pessoa</summary>'+
-      '<form id="homolog-form-pessoa" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-pessoa-titulo" style="margin:0">Nova pessoa</h3><label>Nome completo</label><input id="homolog-nome" required maxlength="180" style="padding:9px;color:#111;background:#fff"><input id="homolog-id-pessoa" type="hidden"><div style="display:flex;gap:8px"><button id="homolog-salvar-pessoa" class="btn rust" type="submit">Salvar pessoa</button><button class="btn" type="button" id="homolog-cancelar-pessoa">Cancelar edição</button></div></form></details>'+
-      '<details class="hom-fold" id="homolog-abrir-email"><summary>Adicionar ou editar e-mail</summary>'+
-      '<form id="homolog-form-email" style="border:1px solid #64748b;border-radius:10px;padding:14px;display:grid;gap:10px"><h3 id="homolog-form-email-titulo" style="margin:0">Adicionar e-mail à campanha</h3><label>Pessoa</label><select id="homolog-selec-pessoa" required style="padding:9px;color:#111;background:#fff"></select><label>Endereço de e-mail</label><input id="homolog-email" type="email" required maxlength="254" style="padding:9px;color:#111;background:#fff"><label><input id="homolog-principal" type="checkbox"> E-mail principal desta pessoa nesta campanha</label><div style="display:flex;gap:8px"><button id="homolog-salvar-email" class="btn rust" type="submit">Salvar e-mail</button><button class="btn" type="button" id="homolog-cancelar-email">Cancelar edição</button></div></form></details></div>'+
-      '<details class="hom-fold" id="homolog-abrir-pessoas"><summary>Gerenciar cadastro de pessoas</summary><p style="font-size:12px">Cadastros globais. Para excluir uma pessoa, retire primeiro todos os vínculos com campanhas.</p><div id="homolog-pessoas"></div></details>' :
-      '<details class="hom-fold" id="homolog-abrir-pessoas"><summary>Consultar pessoas cadastradas</summary><div id="homolog-pessoas"></div></details>')+
+    (editavel ? '<details class="hom-fold" id="homolog-cadastro"><summary>Adicionar pessoa ou e-mail</summary>'+
+      '<form id="homolog-form-cadastro" style="display:grid;gap:12px;padding:9px 0">'+
+      '<h3 id="homolog-form-titulo">Cadastrar pessoa e e-mail</h3>'+
+      '<label>Pessoa já cadastrada (opcional)</label><select id="homolog-selec-pessoa" style="padding:9px;color:#111;background:#fff"></select>'+
+      '<div id="homolog-nome-linha" style="display:grid;gap:6px"><label>Nome da nova pessoa</label><input id="homolog-nome" maxlength="180" style="padding:9px;color:#111;background:#fff"></div>'+
+      '<div id="homolog-email-linha" style="display:grid;gap:6px"><label>E-mail</label><input id="homolog-email" type="email" maxlength="254" required style="padding:9px;color:#111;background:#fff"></div>'+
+      '<label id="homolog-principal-linha"><input id="homolog-principal" type="checkbox"> E-mail principal</label>'+
+      '<div class="hom-toolbar"><button type="submit" id="homolog-salvar-cadastro" class="btn rust">Salvar cadastro</button><button type="button" id="homolog-cancelar-cadastro" class="btn">Cancelar</button></div>'+
+      '</form></details>' : '')+
     '</div>'+
     '<div id="homolog-pane-lote" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-lote" hidden>'+
     '<section class="hom-card" aria-label="Preparação de envio em lote">'+
@@ -389,10 +388,9 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-busca').addEventListener('input',desenhar);
   root.addEventListener('click',acaoTabela);
   if(editavel) {
-    root.querySelector('#homolog-form-pessoa').addEventListener('submit',gravarPessoa);
-    root.querySelector('#homolog-form-email').addEventListener('submit',gravarEmail);
-    root.querySelector('#homolog-cancelar-pessoa').addEventListener('click',()=>{editPessoa=null;root.querySelector('#homolog-nome').value='';root.querySelector('#homolog-form-pessoa-titulo').textContent='Nova pessoa';});
-    root.querySelector('#homolog-cancelar-email').addEventListener('click',()=>{editEmail=null;root.querySelector('#homolog-email').value='';root.querySelector('#homolog-principal').checked=false;root.querySelector('#homolog-form-email-titulo').textContent='Adicionar e-mail à campanha';});
+    root.querySelector('#homolog-form-cadastro').addEventListener('submit',salvarCadastro);
+    root.querySelector('#homolog-selec-pessoa').addEventListener('change',trocarPessoa);
+    root.querySelector('#homolog-cancelar-cadastro').addEventListener('click',limparForm);
   }
   try {
     campanhas=await consultar('cda_campanhas',cdaClient.from('cda_campanhas').select('id,nome').order('nome'));
