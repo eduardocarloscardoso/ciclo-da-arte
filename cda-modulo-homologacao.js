@@ -341,8 +341,9 @@ async function montarModuloHomologacao(containerId, opts) {
       '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
       '<p id="homolog-verificacao" role="status" aria-live="polite" style="margin:0;font-size:13px">Verificando destinatários automaticamente...</p>'+
       '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+
-      '<button type="button" class="btn rust" disabled title="Aguardando executor seguro e autorização específica">Enviar mensagens — aguardando autorização</button>'+
-      '<details class="hom-fold" id="homolog-detalhes-tecnicos"><summary>Detalhes técnicos e auditoria</summary><div style="display:grid;gap:14px;margin-top:12px">'+
+      '<details class="hom-fold" id="homolog-detalhes-tecnicos"><summary>Ações Finais de Envio de Mensagens</summary><div style="display:grid;gap:14px;margin-top:12px">'+
+        '<p style="margin:0;font-size:12px;color:var(--text-muted,#64748b)">Confira os destinatários acima antes de autorizar qualquer operação. O envio permanece bloqueado.</p>'+
+        '<button type="button" class="btn rust" disabled title="Aguardando executor seguro e autorização específica">Enviar mensagens — aguardando autorização</button>'+
         '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button><button type="button" class="btn" id="homolog-lote-simular" disabled>Rever simulação</button>'+
         '<button type="button" class="btn" id="homolog-lote-preparar">Preparar lote (sem envio)</button><button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
         '<div id="homolog-lote-simulacao" role="status" aria-live="polite"></div>'+
