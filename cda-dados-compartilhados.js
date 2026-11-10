@@ -1072,7 +1072,7 @@ async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
   // Controle de testes: no máximo três endereços explicitamente informados.
   const destinos = [...new Set((Array.isArray(para) ? para : [para])
     .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
-  if (!destinos.length || destinos.length > 3 || destinos.some(x => !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(x)))
+  if (!destinos.length || destinos.length > 3 || destinos.some(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))
     throw new Error('Informe de 1 a 3 e-mails válidos para teste.');
   const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
   const resultados = [];
