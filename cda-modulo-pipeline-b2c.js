@@ -73,6 +73,22 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '.pb2c-vinculado{background:var(--card,#f5f0e8);border:2px solid var(--ink,#1a1a1a);padding:8px 10px;font-size:11px;display:flex;justify-content:space-between;align-items:center;}' +
       '.pb2c-aviso-duplicata{font-size:10px;color:var(--rust,#c0392b);margin-top:4px;cursor:pointer;text-decoration:underline;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
+      /* A janela de cadastro deve caber no viewport e manter os campos completos. */ +
+      '#pb2c-modal.mo{padding:16px;overflow-y:auto;align-items:center;box-sizing:border-box;}' +
+      '#pb2c-modal .mo-box{box-sizing:border-box;width:min(760px,100%);max-width:760px;max-height:calc(100dvh - 32px);overflow-y:auto;overflow-x:hidden;margin:auto;}' +
+      '#pb2c-modal .mo-b{padding:18px 22px;min-width:0;}' +
+      '#pb2c-modal .mo-b .fg{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;}' +
+      '#pb2c-modal .mo-b .fgr{min-width:0;max-width:100%;}' +
+      '#pb2c-modal .mo-b .fgr input,#pb2c-modal .mo-b .fgr select,#pb2c-modal .mo-b .fgr textarea{width:100%;max-width:100%;min-width:0;box-sizing:border-box;}' +
+      '#pb2c-modal .mo-b .camp-checks{display:flex;flex-wrap:wrap;gap:8px 12px;min-width:0;}' +
+      '#pb2c-modal .mo-b .camp-checks label{margin:0;white-space:normal;}' +
+      '#pb2c-modal .mo-b .pb2c-hist{overflow-wrap:anywhere;white-space:pre-wrap;}' +
+      '#pb2c-modal .mo-f{flex-wrap:wrap;align-items:center;}' +
+      '#pb2c-modal .mo-f .btn{white-space:normal;}' +
+      '.pb2c-fold{max-width:100%;box-sizing:border-box;}' +
+      '.pb2c-fold[open]{flex-basis:100% !important;}' +
+      '.pb2c-fold select{max-width:100%;min-width:0;}' +
+      '@media(max-width:740px){#pb2c-modal.mo{padding:8px;align-items:flex-start;}#pb2c-modal .mo-box{width:100%;max-width:100%;max-height:calc(100dvh - 16px);}#pb2c-modal .mo-b{padding:14px;}#pb2c-modal .mo-b .fg{grid-template-columns:minmax(0,1fr);}#pb2c-modal .mo-f{padding:12px;justify-content:flex-start;}}' +
       '.pb2c-diario-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:300;}' +
       '.pb2c-diario-overlay.op{display:block;}' +
       '.pb2c-diario-panel{position:fixed;top:0;right:0;bottom:0;width:340px;max-width:92vw;background:var(--paper,#fff);border-left:2px solid var(--ink,#1a1a1a);box-shadow:-4px 0 16px rgba(0,0,0,.15);display:flex;flex-direction:column;padding:16px;overflow-y:auto;}' +
