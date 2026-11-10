@@ -54,9 +54,38 @@ Deno.serve(async(req:Request)=>{
     }
   }
   if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
-  const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
+  const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,chave_idempotencia,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
   if(!itensResp?.ok)return response({ok:false,erro:"Lote criado; falha ao consultar destinatários."},503);
   const itens=await itensResp.json();
-  return response({ok:true,lote,itens,quantidade:itens.length,envio_habilitado:false,
-    aviso:"Operação de leitura/preparação: nenhum envio solicitado ao Resend."});
+  // Apresenta a situação técnica de cada item sem reclassificar entrega como abertura.
+  // Os eventos só serão vinculados quando cada item possuir tentativa_id auditada.
+  const ids=itens.map((i:Record<string,unknown>)=>Number(i.tentativa_id)).filter((id:number)=>Number.isSafeInteger(id)&&id>0);
+  const eventosPorTentativa=new Map<number,Record<string,unknown>[]>();
+  if(ids.length){
+    const evResp=await fetch(url+"/rest/v1/cda_email_eventos?tentativa_id=in.("+ids.join(",")+")&select=tentativa_id,tipo,ocorrido_em&order=ocorrido_em.asc&limit=2000",{headers:h}).catch(()=>null);
+    if(!evResp?.ok)return response({ok:false,erro:"Falha ao consultar eventos técnicos."},503);
+    for(const evento of await evResp.json()){
+      const id=Number(evento.tentativa_id);
+      eventosPorTentativa.set(id,[...(eventosPorTentativa.get(id)||[]),evento]);
+    }
+  }
+  const prioridade=["email.complained","email.bounced","email.delivered","email.delivery_delayed"];
+  const enriquecidos=itens.map((i:Record<string,unknown>)=>{
+    const eventos=eventosPorTentativa.get(Number(i.tentativa_id))||[];
+    const evento=prioridade.map(tipo=>eventos.filter(e=>e.tipo===tipo).at(-1)).find(Boolean);
+    const situacao=evento ? ({
+      "email.delivered":"entregue","email.bounced":"devolvido",
+      "email.complained":"reclamacao","email.delivery_delayed":"atrasado"
+    } as Record<string,string>)[String(evento.tipo)] : String(i.situacao);
+    return {...i,situacao_observada:situacao,evento_tecnico:evento||null};
+  });
+  const contagens:Record<string,number>={pendente:0,processando:0,indeterminado:0,aceito:0,entregue:0,falha:0,devolvido:0,reclamacao:0,atrasado:0,bloqueado:0};
+  for(const item of enriquecidos){
+    const situacao=String(item.situacao_observada);
+    contagens[situacao]=(contagens[situacao]||0)+1;
+  }
+  return response({ok:true,lote,itens:enriquecidos,quantidade:enriquecidos.length,
+    contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
+    envio_habilitado:false,
+    aviso:"Rastreio em modo somente leitura. Nenhuma mensagem é enviada por esta função."});
 });
