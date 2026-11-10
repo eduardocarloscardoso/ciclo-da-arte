@@ -50,11 +50,12 @@ Deno.serve(async(req:Request)=>{
       const lotes=await fetchRows("cda_envio_lotes?id=eq."+loteId+"&modo=eq.homologacao&select=id,campanha_id,mensagem_id,situacao&limit=1");
       const lote=lotes[0];
       if(!lote)return reply({ok:false,erro:"Lote de homologação não encontrado"},404);
-      const [mensagens,itens,origens,suprimidos]=await Promise.all([
+      const [mensagens,itens,origens,suprimidos,operacoes]=await Promise.all([
         fetchRows("cda_campanha_mensagens?id=eq."+lote.mensagem_id+"&campanha_id=eq."+lote.campanha_id+"&select=id,nome,assunto,remetente_email,responder_para,conteudo,atualizado_em&limit=1"),
         fetchRows("cda_envio_lote_itens?lote_id=eq."+loteId+"&select=id,pessoa_id,nome,email,situacao,chave_idempotencia,tentativa_id,resend_email_id&order=id.asc&limit=1000"),
         fetchRows("cda_homologacao_destinatarios?campanha_id=eq."+lote.campanha_id+"&ativo=eq.true&select=email&limit=1000"),
-        fetchRows("cda_email_supressoes?select=email&limit=5000")
+        fetchRows("cda_email_supressoes?select=email&limit=5000"),
+        fetchRows("cda_envio_lote_operacoes?lote_id=eq."+loteId+"&select=item_id,chave_idempotencia,estado&limit=1000")
       ]);
       const msg=mensagens[0],issues:string[]=[];
       if(!msg)issues.push("Mensagem não encontrada na campanha");
@@ -62,7 +63,7 @@ Deno.serve(async(req:Request)=>{
       const assunto=String(msg?.assunto||"").trim();
       const remetente=String(msg?.remetente_email||"").trim().toLowerCase();
       const resposta=String(msg?.responder_para||"").trim().toLowerCase();
-      const mail=/^[^\s@]+@[^\s@]+\\.[^\s@]+$/;
+      const mail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if(!assunto)issues.push("Assunto ausente");
       if(!mail.test(remetente)||!remetente.endsWith("@send.ciclodaarte.com.br"))
         issues.push("Remetente fora do domínio autorizado");
@@ -79,14 +80,44 @@ Deno.serve(async(req:Request)=>{
       const normalize=(v:unknown)=>String(v||"").trim().toLowerCase();
       const ativos=new Set(origens.map((i:Record<string,unknown>)=>normalize(i.email)));
       const sup=new Set(suprimidos.map((i:Record<string,unknown>)=>normalize(i.email)));
+      // Impressão digital somente leitura: prende o rascunho ao item e à versão
+      // da mensagem, sem reservar item nem criar histórico de tentativa.
+      // NÃO é o hash final do HTML/JSON enviado ao Resend.
+      const canonical=(value:unknown):unknown=>{
+        if(Array.isArray(value))return value.map(canonical);
+        if(value&&typeof value==="object")
+          return Object.fromEntries(Object.entries(value as Record<string,unknown>)
+            .sort(([a],[b])=>a.localeCompare(b)).map(([k,v])=>[k,canonical(v)]));
+        return value;
+      };
+      const digest=async(data:unknown)=>{
+        const raw=new TextEncoder().encode(JSON.stringify(canonical(data)));
+        const bytes=new Uint8Array(await crypto.subtle.digest("SHA-256",raw));
+        return Array.from(bytes,x=>x.toString(16).padStart(2,"0")).join("");
+      };
+      const operados=new Set(operacoes.map((o:Record<string,unknown>)=>String(o.item_id)));
+      const fingerprints:Array<{item_id:number;chave_idempotencia:string;rascunho_sha256:string}>=[];
       const enderecos=new Set<string>();let aptos=0,ignorar=0;
       for(const item of itens){
         const email=normalize(item.email);
         const valido=mail.test(email);
         const unico=!enderecos.has(email);enderecos.add(email);
         const apto=valido&&unico&&ativos.has(email)&&!sup.has(email)&&item.situacao==="pendente"&&
-          !item.tentativa_id&&!item.resend_email_id&&!!item.chave_idempotencia;
-        if(apto)aptos++;else ignorar++;
+          !item.tentativa_id&&!item.resend_email_id&&!!item.chave_idempotencia&&
+          !operados.has(String(item.id));
+        if(apto){
+          aptos++;
+          fingerprints.push({
+            item_id:Number(item.id),chave_idempotencia:String(item.chave_idempotencia),
+            rascunho_sha256:await digest({
+              tipo:"homologacao_preview_rascunho_v1",lote_id:loteId,item_id:item.id,
+              chave_idempotencia:item.chave_idempotencia,email,nome:item.nome,
+              mensagem_id:msg?.id,atualizado_em:msg?.atualizado_em,
+              assunto:msg?.assunto,remetente_email:msg?.remetente_email,
+              responder_para:msg?.responder_para,conteudo:c
+            })
+          });
+        }else ignorar++;
       }
       if(!itens.length)issues.push("Lote sem destinatários");
       if(ignorar)issues.push(ignorar+" destinatários exigem revisão de elegibilidade");
@@ -96,7 +127,9 @@ Deno.serve(async(req:Request)=>{
         conteudo_presente:!!String(c.texto||"").trim(),
         url_acao_https:/^https:\/\//i.test(link),
         descadastro_funcional:false,conteudo_conferido_sem_descadastro:issues.length===0,
-        pronto_para_envio:false,envio_habilitado:false,
+        integridade_diario:operacoes.length===0?"sem_operacoes":operacoes.length+" operações previamente registradas",
+        impressao_digital:"rascunho_de_conteudo_nao_payload_final",
+        fingerprints,pronto_para_envio:false,envio_habilitado:false,
         bloqueios:issues,envios_solicitados:0});
     }catch{
       return reply({ok:false,erro:"Falha na conferência, execução permanece bloqueada"},503);
@@ -110,14 +143,16 @@ Deno.serve(async(req:Request)=>{
     return await res.json();
   };
   try{
-    const [executor,diario]=await Promise.all([
+    const [executor,diario,integridade]=await Promise.all([
       consultar("cda_diagnosticar_executor_lote"),
-      consultar("cda_diagnosticar_diario_lote")
+      consultar("cda_diagnosticar_diario_lote"),
+      consultar("cda_auditar_integridade_lote")
     ]);
     if(executor?.trava_ativa!==true||executor?.pode_enviar!==false||
-       diario?.envio_habilitado!==false)
+       diario?.envio_habilitado!==false||integridade?.envio_habilitado!==false||
+       integridade?.chaves_consistentes!==true)
       return reply({ok:false,erro:"Diagnóstico de segurança inconsistente"},503);
-    return reply({ok:true,executor,diario,envio_habilitado:false,envios_solicitados:0});
+    return reply({ok:true,executor,diario,integridade,envio_habilitado:false,envios_solicitados:0});
   }catch{
     return reply({ok:false,erro:"Não foi possível consultar o diário de segurança"},503);
   }
