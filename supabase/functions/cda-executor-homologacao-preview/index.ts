@@ -5,6 +5,7 @@
 // Nenhum cliente Resend, nenhuma requisição externa de email, nenhuma reivindicação.
 // Contrato "enviar" devolve sempre 423. Somente "diagnosticar" consulta dados.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { executarItemHomologacaoBloqueado, sha256Json } from "./executor-transacional.mjs";
 function cdaPrimeiroNome(nome) {
   const p = String(nome || '').trim().split(/\s+/)[0] || '';
   return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
@@ -137,12 +138,39 @@ Deno.serve(async(req:Request)=>{
   let body:Record<string,unknown>;
   try{body=await req.json()}catch{return reply({ok:false,erro:"Dados inválidos"},400)}
   const loteId=Number(body.lote_id),acao=String(body.acao||"diagnosticar");
-  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","enviar"].includes(acao))
+  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","simular_orquestracao","enviar"].includes(acao))
     return reply({ok:false,erro:"Ação ou lote inválido"},400);
   // BLOQUEIO IRREVOGÁVEL NESTA VERSÃO:
   // conferir apenas depois da autenticação, mas antes de acessar operações.
   if(acao==="enviar")
     return reply({ok:false,erro:"EXECUTOR_BLOQUEADO: autorização e envio ainda indisponíveis",envio_habilitado:false},423);
+  // Simulação EXCLUSIVAMENTE sintética: sem dados da campanha, sem SQL de
+  // escrita e com adaptadores que lançam se alguém tentar reservar ou enviar.
+  if(acao==="simular_orquestracao"){
+    const dummy={
+      from:"Ciclo da Arte <noreply@send.ciclodaarte.com.br>",
+      to:["nao-enviar@example.invalid"],subject:"[TESTE] Simulacao bloqueada",
+      html:"<p>Simulacao interna sem envio.</p>",text:"Simulacao interna sem envio."
+    };
+    const sha=await sha256Json(dummy);
+    const negar=async()=>{throw new Error("SIMULACAO: qualquer gravação ou transmissão é proibida");};
+    try{
+      const resultado=await executarItemHomologacaoBloqueado({
+        loteId,itemId:1,payload:dummy,sha256:sha,
+        chave:"00000000-0000-4000-8000-000000000001",
+        apiKey:"NAO_EXISTE_CHAVE_REAL",
+        store:{autorizar:async()=>({
+          habilitado:false,autorizado:false,modo:"homologacao",lote_id:loteId
+        }),reservar:negar,marcarSolicitacao:negar,concluir:negar},
+        transmitir:negar
+      });
+      if(resultado.estado!=="bloqueado")return reply({ok:false,erro:"Simulação inconsistente"},503);
+      return reply({ok:true,estado:"bloqueado",envio_habilitado:false,
+        envios_solicitados:0,operacoes_criadas:0,modo:"simulacao_sintetica"});
+    }catch{
+      return reply({ok:false,erro:"Simulação falhou sem efetuar envios"},503);
+    }
+  }
   const h={apikey:sk,Authorization:"Bearer "+sk,"Content-Type":"application/json"};
   // Gera a composição FINAL de HTML e texto em memória usando EXATAMENTE
   // o montador aprovado no navegador. Não escreve na base nem chama o Resend.
