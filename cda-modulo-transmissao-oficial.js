@@ -5,6 +5,7 @@ async function montarTransmissaoOficial(containerId) {
   if(!root)return;
   const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let campanhas=[],mensagens=[],destinatarios=[],supressoes=new Set(),campanha=null,mensagem=null;
+  let transmissoesSalvas=[],congelando=false,consultaCarregada=false;
   const html=String.raw;
   root.innerHTML='<style>'+
     '#'+containerId+' .to-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;background:var(--card-bg,#fff);margin-bottom:15px}'+
@@ -29,6 +30,11 @@ async function montarTransmissaoOficial(containerId) {
       '<section class="to-card"><h3 style="margin:0 0 10px">Conferências prévias</h3><div id="to-validacoes"></div></section>'+
       '<section class="to-card"><h3 style="margin:0 0 10px">Plano proposto de lotes — sem criação nem envio</h3>'+
         '<div id="to-lotes"></div></section>'+
+      '<section class="to-card"><h3 style="margin:0 0 10px">B2 · Congelamento oficial auditável</h3>'+ 
+        '<p class="to-muted">Cria registros persistentes, snapshots da mensagem e lotes com envio bloqueado. Não transmite e não autoriza mensagens.</p>'+ 
+        '<div id="to-salvas"></div>'+ 
+        '<button type="button" class="btn" id="to-congelar" disabled>Congelar lista e preparar lotes (sem envio)</button>'+ 
+        '<p id="to-congelar-status" role="status" class="to-muted"></p></section>'+ 
       '<section class="to-card"><h3 style="margin:0 0 10px">Governança e liberação</h3>'+
         '<p>Para qualquer campanha futura, o fluxo oficial será: selecionar campanha e mensagem → congelar destinatários elegíveis → validar bases legais, preferências e supressões → preparar lotes → revisar e autorizar individualmente → transmitir sob limites → conciliar eventos → arquivar.</p>'+
         '<p class="to-muted">Somente a etapa de planejamento está ativa. A futura preparação persistente, a autorização oficial e o executor não estão disponíveis nesta versão. A homologação Resend é independente.</p>'+
@@ -38,6 +44,70 @@ async function montarTransmissaoOficial(containerId) {
   const norm=x=>String(x||'').trim().toLowerCase();
   async function obterDados(q){
     const x=await q;if(x.error)throw x.error;return x.data||[];
+  }
+  async function consultarCongelamentos(id){
+    consultaCarregada=false;
+    const r=await cdaClient.rpc('cda_consultar_transmissoes_b2',{p_campanha_id:id});
+    if(r.error)throw r.error;
+    transmissoesSalvas=Array.isArray(r.data)?r.data:[];
+    consultaCarregada=true;
+  }
+  function mostrarCongelamentos(){
+    const host=$('to-salvas');
+    if(!host)return;
+    const existentes=transmissoesSalvas.filter(t=>Number(t.mensagem_id)===Number(mensagem?.id));
+    host.innerHTML=existentes.length?
+      '<div style="margin:10px 0">'+existentes.map(t=>
+        '<div style="padding:11px;border:1px solid #cbd5e1;border-radius:8px;margin:7px 0">'+
+        '<b>Transmissão #'+esc(t.id)+'</b> · '+esc(t.situacao)+
+        ' · '+esc(t.total_previsto)+' destinatários · '+esc(t.lotes)+' lotes'+
+        '<div class="to-muted">Conteúdo SHA-256: '+esc(t.conteudo_sha256)+
+        '</div><div class="to-muted">Envio bloqueado · conformidade LGPD pendente'+
+        '</div></div>').join('')+'</div>':
+      '<p class="to-muted">Nenhuma transmissão persistida para esta mensagem.</p>';
+    const jaCongelado=existentes.some(t=>t.situacao==='congelada');
+    const permitidos=!!window.cu&&window.cu.is_admin===true&&!congelando&&consultaCarregada&&
+      !!mensagem&&destinatarios.length>0&&!jaCongelado&&
+      !!String(campanha?.lgpd_base_legal||'').trim()&&
+      !!String(campanha?.lgpd_finalidade_fundamentacao||'').trim();
+    $('to-congelar').disabled=!permitidos;
+    $('to-congelar').title=jaCongelado?'Esta mensagem já tem uma transmissão congelada.':
+      !window.cu?.is_admin?'Somente administrador pode congelar.':
+      'Registra a lista e os lotes no banco, sem qualquer envio.';
+  }
+  async function congelarLista(){
+    if(congelando||$('to-congelar').disabled||!mensagem||!campanha)return;
+    const id=Number(campanha.id),m=Number(mensagem.id);
+    const tamanho=Number($('to-tamanho').value);
+    if(!Number.isSafeInteger(tamanho)||tamanho<1||tamanho>1000){
+      $('to-congelar-status').textContent='Informe quantidade inteira entre 1 e 1000.';return;
+    }
+    const confirme='CONGELAR LISTA';
+    const digitado=prompt('CONGELAMENTO REAL DE DESTINATÁRIOS (SEM ENVIO)\n\n'+
+      'Campanha: '+campanha.nome+'\nMensagem: '+mensagem.nome+
+      '\nTamanho máximo por lote: '+tamanho+
+      '\n\nEsta operação grava a lista e os lotes de forma auditável. NÃO envia e-mails.'+
+      '\n\nDigite '+confirme+' para confirmar:');
+    if(digitado!==confirme)return;
+    congelando=true;$('to-congelar').disabled=true;
+    $('to-congelar-status').textContent='Congelando registros no banco (sem envio)...';
+    try{
+      const r=await cdaClient.rpc('cda_congelar_transmissao_oficial_b2',{
+        p_campanha_id:id,p_mensagem_id:m,p_tamanho_lote:tamanho
+      });
+      if(r.error)throw r.error;
+      $('to-congelar-status').textContent='Transmissão #'+r.data.transmissao_id+
+        ': '+r.data.incluidos+' destinatários em '+r.data.lotes+
+        ' lotes; '+r.data.excluidos+' exclusões. Envios continuam bloqueados.';
+      await consultarCongelamentos(id);
+    }catch(e){
+      $('to-congelar-status').textContent='Congelamento não confirmado: '+
+        (e.message||e)+'. Confira o histórico antes de tentar novamente.';
+      // Busca de leitura para evitar repetição por resultado ambíguo.
+      try{await consultarCongelamentos(id);}catch{consultaCarregada=false;}
+    }finally{
+      congelando=false;mostrarCongelamentos();
+    }
   }
   async function carregarDestinatarios(id) {
     const total=[],size=500;
@@ -102,7 +172,8 @@ async function montarTransmissaoOficial(containerId) {
        '<p>Nenhum destinatário disponível.</p>')+
       '<p class="to-muted">Simulação local de quantidades, não é congelamento, fila, autorização, agendamento ou envio.</p>';
     $('to-painel').hidden=false;
-    $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada, nenhum lote oficial criado.';
+    mostrarCongelamentos();
+    $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.';
   }
   async function carregarCampanha(){
     const id=Number($('to-campanha').value);
@@ -124,10 +195,15 @@ async function montarTransmissaoOficial(containerId) {
         msgs.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+' · '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       if(msgs.length===1)$('to-mensagem').value=String(msgs[0].id);
       mensagem=msgs.find(m=>String(m.id)===$('to-mensagem').value)||null;
+      try{await consultarCongelamentos(id);}catch(e){
+        transmissoesSalvas=[];consultaCarregada=false;
+        $('to-congelar-status').textContent='Histórico indisponível: '+(e.message||e)+'. Congelamento bloqueado.';
+      }
       apresentar();
     }catch(e){$('to-aviso').textContent='Não foi possível conferir a campanha: '+(e.message||e)+'. Nenhum envio liberado.';}
   }
   $('to-campanha').addEventListener('change',carregarCampanha);
+  $('to-congelar').addEventListener('click',congelarLista);
   $('to-mensagem').addEventListener('change',()=>{mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;apresentar();});
   $('to-tamanho').addEventListener('change',apresentar);
   try{
