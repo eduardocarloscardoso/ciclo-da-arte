@@ -6,6 +6,7 @@ async function montarTransmissaoOficial(containerId) {
   const esc=x=>String(x??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   let campanhas=[],mensagens=[],destinatarios=[],supressoes=new Set(),campanha=null,mensagem=null;
   let transmissoesSalvas=[],congelando=false,consultaCarregada=false;
+  let revisoesAtuais=[],revisoesTransmissaoId=0,revisaoOcupada=false;
   const html=String.raw;
   root.innerHTML='<style>'+
     '#'+containerId+' .to-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;background:var(--card-bg,#fff);margin-bottom:15px}'+
@@ -35,10 +36,22 @@ async function montarTransmissaoOficial(containerId) {
         '<div id="to-salvas"></div>'+ 
         '<button type="button" class="btn" id="to-congelar" disabled>Congelar lista e preparar lotes (sem envio)</button>'+ 
         '<p id="to-congelar-status" role="status" class="to-muted"></p></section>'+ 
+      '<section class="to-card" id="to-revisao-secao" hidden><h3 style="margin:0 0 10px">B3 · Revisão administrativa dos lotes</h3>'+
+        '<p class="to-muted">A conferência administrativa não é autorização de transmissão. Cada lote preserva seus destinatários congelados, assinatura digital e registro de auditoria.</p>'+
+        '<div id="to-revisao-resumo"></div>'+
+        '<div class="to-grid"><label class="to-label">Lote congelado<select id="to-revisao-lote"></select></label></div>'+
+        '<div id="to-revisao-detalhe" style="margin:12px 0"></div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:8px">'+
+          '<button type="button" class="btn" id="to-revisar-lote" disabled>Registrar revisão (sem envio)</button>'+
+          '<button type="button" class="btn" id="to-revogar-revisao" disabled>Revogar revisão</button>'+
+          '<button type="button" class="btn" id="to-atualizar-revisoes">Atualizar situação</button>'+
+        '</div>'+
+        '<p class="to-muted" role="status" id="to-revisao-status"></p>'+
+      '</section>'+
       '<section class="to-card"><h3 style="margin:0 0 10px">Governança e liberação</h3>'+
-        '<p>Para qualquer campanha futura, o fluxo oficial será: selecionar campanha e mensagem → congelar destinatários elegíveis → validar bases legais, preferências e supressões → preparar lotes → revisar e autorizar individualmente → transmitir sob limites → conciliar eventos → arquivar.</p>'+
-        '<p class="to-muted">Somente a etapa de planejamento está ativa. A futura preparação persistente, a autorização oficial e o executor não estão disponíveis nesta versão. A homologação Resend é independente.</p>'+
-        '<button type="button" class="btn" disabled title="A transmissão oficial continua bloqueada">Transmitir lote oficial — bloqueado</button>'+
+        '<p>A preparação persistente dos lotes está concluída na B2. A B3 permite registrar revisões administrativas individuais, sem autorizar ou transmitir mensagens. A autorização operacional, o controle de limites e o executor oficial serão tratados em etapa posterior.</p>'+
+        '<p class="to-muted">Fundamentação LGPD registrada na campanha. Preferências, oposição e descadastramento permanecem como controles de acompanhamento e conformidade, sem impedir o desenvolvimento das revisões B3. Antes de qualquer envio real, esses controles deverão ser atendidos conforme aplicável.</p>'+
+        '<button type="button" class="btn" disabled title="Não existe executor oficial nesta versão">Transmitir lote oficial — bloqueado</button>'+
       '</section></div>';
   const $=id=>root.querySelector('#'+id);
   const norm=x=>String(x||'').trim().toLowerCase();
@@ -74,6 +87,100 @@ async function montarTransmissaoOficial(containerId) {
     $('to-congelar').title=jaCongelado?'Esta mensagem já tem uma transmissão congelada.':
       !window.cu?.is_admin?'Somente administrador pode congelar.':
       'Registra a lista e os lotes no banco, sem qualquer envio.';
+    if(!jaCongelado){revisoesAtuais=[];revisoesTransmissaoId=0;}
+    renderRevisoes();
+  }
+  function transmissaoCongelada(){
+    return transmissoesSalvas.find(t=>Number(t.mensagem_id)===Number(mensagem?.id)&&t.situacao==='congelada')||null;
+  }
+  async function carregarRevisoes(preservarLote=true){
+    const t=transmissaoCongelada();
+    if(!t){revisoesAtuais=[];revisoesTransmissaoId=0;renderRevisoes();return;}
+    const anterior=preservarLote?$('to-revisao-lote').value:'';
+    const r=await cdaClient.rpc('cda_consultar_revisoes_lotes_b3',{p_transmissao_id:Number(t.id)});
+    if(r.error)throw r.error;
+    if(Number(transmissaoCongelada()?.id)!==Number(t.id))return;
+    revisoesAtuais=Array.isArray(r.data)?r.data:[];
+    revisoesTransmissaoId=Number(t.id);
+    renderRevisoes(anterior);
+  }
+  function renderRevisoes(selecionado){
+    const t=transmissaoCongelada(),sec=$('to-revisao-secao');
+    sec.hidden=!t;
+    if(!t)return;
+    if(revisoesTransmissaoId!==Number(t.id)){
+      $('to-revisao-resumo').textContent='Buscando situação dos lotes...';
+      $('to-revisar-lote').disabled=true;
+      $('to-revogar-revisao').disabled=true;
+      return;
+    }
+    const total=revisoesAtuais.length;
+    const aprovados=revisoesAtuais.filter(x=>x.revisao_status==='revisado'&&
+      x.revisao_fingerprint===x.fingerprint_atual).length;
+    const inconsistentes=revisoesAtuais.filter(x=>x.revisao_status==='revisado'&&
+      x.revisao_fingerprint!==x.fingerprint_atual).length;
+    $('to-revisao-resumo').innerHTML='<p><b>Transmissão #'+esc(t.id)+
+      '</b> · '+aprovados+'/'+total+' lotes revisados · '+
+      (total-aprovados)+' aguardando/revogados'+
+      (inconsistentes?' · <b>ALERTA: '+inconsistentes+' assinatura(s) divergente(s)</b>':'')+
+      ' · <b>envio bloqueado</b></p>';
+    const sel=$('to-revisao-lote');
+    sel.innerHTML=revisoesAtuais.map(x=>'<option value="'+esc(x.lote_id)+'">Lote #'+
+      esc(x.numero)+' · '+esc(x.total)+' destinatários · '+
+      esc(x.revisao_status)+'</option>').join('');
+    if(revisoesAtuais.some(x=>String(x.lote_id)===String(selecionado)))sel.value=String(selecionado);
+    if(!sel.value&&revisoesAtuais.length)sel.value=String(revisoesAtuais[0].lote_id);
+    mostrarRevisaoSelecionada();
+  }
+  function mostrarRevisaoSelecionada(){
+    const id=Number($('to-revisao-lote').value);
+    const x=revisoesAtuais.find(y=>Number(y.lote_id)===id);
+    if(!x){$('to-revisao-detalhe').textContent='Nenhum lote encontrado.';return;}
+    const integro=!x.revisao_fingerprint||x.revisao_fingerprint===x.fingerprint_atual;
+    $('to-revisao-detalhe').innerHTML='<p><b>Lote #'+esc(x.numero)+'</b> · '+
+      esc(x.total)+' destinatários congelados · Status da revisão: <b>'+
+      esc(x.revisao_status)+'</b></p>'+
+      '<p class="to-muted" style="overflow-wrap:anywhere">Impressão digital SHA-256: '+
+      esc(x.fingerprint_atual||'Indisponível')+'</p>'+
+      (!integro?'<p style="color:#b91c1c">Assinatura divergente: revisão anterior não pode ser considerada válida.</p>':'')+
+      '<p class="to-muted">Verificação administrativa separada da autorização e da transmissão. Nenhum envio será iniciado.</p>';
+    const admin=window.cu?.is_admin===true;
+    $('to-revisar-lote').disabled=!admin||revisaoOcupada||
+      x.revisao_status==='revisado'||!x.fingerprint_atual||x.habilitado!==false;
+    $('to-revogar-revisao').disabled=!admin||revisaoOcupada||
+      x.revisao_status!=='revisado';
+  }
+  async function registrarRevisao(acao){
+    if(revisaoOcupada)return;
+    const id=Number($('to-revisao-lote').value);
+    const x=revisoesAtuais.find(y=>Number(y.lote_id)===id);
+    if(!x||!window.cu?.is_admin)return;
+    if(acao==='revisar'&&$('to-revisar-lote').disabled)return;
+    if(acao==='revogar'&&$('to-revogar-revisao').disabled)return;
+    const chave=acao==='revisar'?'REVISAR LOTE '+x.numero:'REVOGAR REVISÃO '+x.numero;
+    const palavra=prompt((acao==='revisar'?'Registrar revisão':'Revogar revisão')+
+      ' administrativa do lote #'+x.numero+' com '+x.total+' destinatários.\n'+
+      'Essa ação NÃO autoriza nem envia mensagens.\n\nDigite '+chave+' para confirmar:');
+    if(palavra!==chave)return;
+    revisaoOcupada=true;mostrarRevisaoSelecionada();
+    $('to-revisao-status').textContent='Registrando operação administrativa (sem envio)...';
+    try{
+      const r=await cdaClient.rpc('cda_revisar_lote_oficial_b3',{
+        p_lote_id:id,p_acao:acao,p_observacao:'Revisão administrativa B3 no painel'
+      });
+      if(r.error)throw r.error;
+      $('to-revisao-status').textContent='Lote #'+x.numero+' atualizado: '+r.data.status+
+        '. Registro auditado. Envio não autorizado.';
+    }catch(e){
+      $('to-revisao-status').textContent='Não foi possível confirmar a revisão: '+(e.message||e)+
+        '. Verifique o histórico; não repita a ação sem consultar.';
+    }finally{
+      revisaoOcupada=false;
+      try{await carregarRevisoes(true);}catch(e){
+        $('to-revisao-status').textContent+=' Não foi possível consultar histórico: '+(e.message||e);
+        mostrarRevisaoSelecionada();
+      }
+    }
   }
   async function congelarLista(){
     if(congelando||$('to-congelar').disabled||!mensagem||!campanha)return;
@@ -100,6 +207,7 @@ async function montarTransmissaoOficial(containerId) {
         ': '+r.data.incluidos+' destinatários em '+r.data.lotes+
         ' lotes; '+r.data.excluidos+' exclusões. Envios continuam bloqueados.';
       await consultarCongelamentos(id);
+      await carregarRevisoes(false);
     }catch(e){
       $('to-congelar-status').textContent='Congelamento não confirmado: '+
         (e.message||e)+'. Confira o histórico antes de tentar novamente.';
@@ -200,11 +308,26 @@ async function montarTransmissaoOficial(containerId) {
         $('to-congelar-status').textContent='Histórico indisponível: '+(e.message||e)+'. Congelamento bloqueado.';
       }
       apresentar();
+      try{await carregarRevisoes(false);}catch(e){
+        $('to-revisao-status').textContent='Consulta de revisões indisponível: '+(e.message||e);
+      }
     }catch(e){$('to-aviso').textContent='Não foi possível conferir a campanha: '+(e.message||e)+'. Nenhum envio liberado.';}
   }
   $('to-campanha').addEventListener('change',carregarCampanha);
   $('to-congelar').addEventListener('click',congelarLista);
-  $('to-mensagem').addEventListener('change',()=>{mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;apresentar();});
+  $('to-revisao-lote').addEventListener('change',mostrarRevisaoSelecionada);
+  $('to-revisar-lote').addEventListener('click',()=>registrarRevisao('revisar'));
+  $('to-revogar-revisao').addEventListener('click',()=>registrarRevisao('revogar'));
+  $('to-atualizar-revisoes').addEventListener('click',async()=>{
+    $('to-revisao-status').textContent='Atualizando situação dos lotes...';
+    try{await carregarRevisoes(true);$('to-revisao-status').textContent='Consulta atualizada; sem envio.';}
+    catch(e){$('to-revisao-status').textContent='Falha: '+(e.message||e);}
+  });
+  $('to-mensagem').addEventListener('change',async()=>{
+    mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;
+    revisoesAtuais=[];revisoesTransmissaoId=0;apresentar();
+    try{await carregarRevisoes(false);}catch(e){$('to-revisao-status').textContent='Falha ao consultar revisões: '+(e.message||e);}
+  });
   $('to-tamanho').addEventListener('change',apresentar);
   try{
     campanhas=await obterDados(cdaClient.from('cda_campanhas').select('id,nome,status,lgpd_base_legal,lgpd_finalidade_fundamentacao').order('nome'));
