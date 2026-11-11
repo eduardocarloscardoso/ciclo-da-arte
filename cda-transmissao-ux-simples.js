@@ -22,7 +22,7 @@ function montarUXTransmissaoSimplificada(root,ctx){
   const overview=document.createElement('section');
   overview.className='to-card';
   overview.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">'+
-   '<h3 style="margin:0">Resumo da transmissão</h3><span style="font-size:13px;color:#9a3412;font-weight:650">Envio ainda indisponível</span></div>'+
+   '<h3 style="margin:0">Resumo da transmissão</h3><span data-ux="selo" style="font-size:13px;color:#9a3412;font-weight:650">Envio ainda indisponível</span></div>'+
    '<p data-ux="resumo" style="margin:12px 0"></p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
    '<span class="to-etapa feita">1 · Selecionar</span><span class="to-etapa" data-ux="preparar">2 · Preparar</span>'+
    '<span class="to-etapa" data-ux="enviar">3 · Enviar e acompanhar</span></div>'+
@@ -46,6 +46,11 @@ function montarUXTransmissaoSimplificada(root,ctx){
     preparation.querySelector('p.to-muted')?.remove();
     panel.insertBefore(preparation,details);
   }
+  // Etapa 3: executor oficial (cda-transmissao-envio.js), acima dos controles recolhidos.
+  const envioHost=document.createElement('div');
+  panel.insertBefore(envioHost,details);
+  const envio=typeof montarEnvioTransmissaoOficial==='function'?montarEnvioTransmissaoOficial(envioHost,ctx):null;
+  let envioTransmissao=null;
   const $=x=>overview.querySelector('[data-ux="'+x+'"]');
   $('abrir').addEventListener('click',()=>{
     const abrir=details.style.display==='none';
@@ -59,18 +64,21 @@ function montarUXTransmissaoSimplificada(root,ctx){
     const listo=!!t,rev=r.filter(x=>x.revisao_status==='revisado'&&x.revisao_fingerprint===x.fingerprint_atual).length;
     const prev=(b4?.preaprovacoes||[]).filter(x=>x.status==='preaprovado').length;
     $('preparar').className='to-etapa '+(listo?'feita':'atual');
-    // Enquanto o executor oficial não existir, a etapa 3 fica em espera (não como etapa atual).
-    $('enviar').className='to-etapa'+(listo?' aguardando':'');
-    $('enviar').textContent=listo?'3 · Enviar e acompanhar (aguardando executor)':'3 · Enviar e acompanhar';
+    // Etapa 3 ativa quando a preparação está concluída e o executor oficial está carregado.
+    const executor=!!envio;
+    $('enviar').className='to-etapa'+(listo?(executor?' atual':' aguardando'):'');
+    $('enviar').textContent=listo&&!executor?'3 · Enviar e acompanhar (aguardando executor)':'3 · Enviar e acompanhar';
+    $('selo').textContent=listo&&executor?'Envio exige autorização por lote':'Envio ainda indisponível';
     $('resumo').textContent=listo?'Transmissão #'+t.id+' · '+t.total_previsto+' destinatários · '+t.lotes+
       ' lotes preparados · '+rev+(rev===1?' revisado':' revisados')+' · '+prev+(prev===1?' pré-aprovado.':' pré-aprovados.'):
       d.length+' registros na lista da campanha. Nenhum lote oficial preparado para esta mensagem.';
-    $('orientacao').textContent=listo?'Preparação concluída. A transmissão permanece bloqueada até a liberação do executor oficial.':
+    $('orientacao').textContent=listo?(executor?'Preparação concluída. Em Enviar e acompanhar: confira a prévia, autorize um lote e inicie o envio.':'Preparação concluída. A transmissão permanece bloqueada até a liberação do executor oficial.'):
       'Defina o tamanho do lote e use Preparar os lotes abaixo. Nenhuma mensagem será enviada.';
     if(tamanho){tamanho.disabled=listo;tamanho.title=listo?'Lotes já preparados.':'Quantidade por lote';}
     if(tamanhoLabel)tamanhoLabel.hidden=listo;
     if(preparation)preparation.hidden=listo||!d.length;
     if(aviso)aviso.hidden=listo||!aviso.textContent||aviso.textContent.startsWith('Conferência de leitura concluída');
+    if(envio){const id=t?Number(t.id):null;if(id!==envioTransmissao){envioTransmissao=id;envio.refresh();}}
   }
   return {refresh};
 }

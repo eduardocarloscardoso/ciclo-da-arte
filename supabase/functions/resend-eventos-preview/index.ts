@@ -71,7 +71,18 @@ Deno.serve(async(req:Request)=>{
   if(!lookup.ok)return response({ok:false,erro:"Falha na consulta de tentativa"},503);
   const existing=await lookup.json();
   const tentativa=existing[0];
-  if(!tentativa?.id)return response({ok:true,ignorado:true,razão:"Sem teste correspondente"});
+  if(!tentativa?.id){
+    // Transmissão Oficial (nov/2026): eventos de envios oficiais são conciliados
+    // pela RPC dedicada; devolução e reclamação suprimem o endereço.
+    const oficial=await fetch(url+"/rest/v1/rpc/cda_oficial_registrar_evento",{
+      method:"POST",headers:{...headers,"Content-Type":"application/json"},
+      body:JSON.stringify({p_svix_id:eventId,p_resend_email_id:resendId,p_tipo:type,
+        p_ocorrido_em:new Date(occurred).toISOString()})
+    }).catch(()=>null);
+    if(!oficial?.ok)return response({ok:false,erro:"Falha na conciliação oficial"},503);
+    const r=await oficial.json().catch(()=>({aplicado:false}));
+    return response({ok:true,oficial:true,aplicado:r?.aplicado===true,motivo:r?.motivo||null});
+  }
   const insert=await fetch(url+"/rest/v1/cda_email_eventos?on_conflict=svix_id",{
     method:"POST",headers:{...headers,"Content-Type":"application/json",Prefer:"resolution=ignore-duplicates,return=minimal"},
     body:JSON.stringify({tentativa_id:tentativa.id,svix_id:eventId,resend_email_id:resendId,tipo:type,ocorrido_em:new Date(occurred).toISOString()})

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ciclo da Arte · Descadastro</title>
+<style>
+  body{margin:0;background:#f2efe9;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a}
+  .topo{background:#1a1a1a;color:#fff;padding:14px 24px;font-size:13px;letter-spacing:3px;font-weight:bold}
+  main{max-width:520px;margin:40px auto;background:#fff;padding:32px;border-radius:6px}
+  h1{font-size:22px;margin:0 0 14px}
+  p{line-height:1.55;font-size:15px}
+  button{background:#c0392b;color:#fff;border:0;border-radius:4px;padding:13px 26px;font-size:15px;font-weight:bold;cursor:pointer}
+  button[disabled]{opacity:.6;cursor:default}
+  .ok{color:#166534;font-weight:bold}.erro{color:#9a3412;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="topo">CICLO DA ARTE</div>
+<main>
+  <h1>Não quer mais receber nossos e-mails?</h1>
+  <p>Confirme abaixo e o seu endereço deixará de receber as comunicações comerciais da Ciclo da Arte.</p>
+  <p><button id="confirmar" type="button">Confirmar descadastro</button></p>
+  <p id="resultado" aria-live="polite"></p>
+</main>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search),i=q.get('i')||'',t=q.get('t')||'';
+  var btn=document.getElementById('confirmar'),out=document.getElementById('resultado');
+  if(!/^\d+$/.test(i)||!/^[0-9a-f]{40}$/.test(t)){btn.disabled=true;out.className='erro';out.textContent='Link inválido. Responda ao e-mail recebido pedindo o descadastro.';return;}
+  btn.addEventListener('click',function(){
+    btn.disabled=true;out.className='';out.textContent='Registrando...';
+    fetch('https://gsizoiwefejsllgtsard.supabase.co/functions/v1/cda-descadastro',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({i:i,t:t})})
+      .then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
+      .then(function(x){
+        if(x.ok&&x.j.ok){out.className='ok';out.textContent='Pronto. Você não receberá mais nossos e-mails comerciais.';btn.hidden=true;}
+        else{btn.disabled=false;out.className='erro';out.textContent=(x.j&&x.j.erro)||'Não foi possível concluir agora. Tente novamente.';}
+      }).catch(function(){btn.disabled=false;out.className='erro';out.textContent='Falha de conexão. Tente novamente.';});
+  });
+})();
+</script>
+</body>
+</html>
