@@ -15,7 +15,15 @@ function montarEnvioTransmissaoOficial(host,ctx){
       '<p style="margin:6px 0;font-size:13px">Cada e-mail terá link de descadastro e o cabeçalho de descadastro em um clique. Endereços descadastrados, devolvidos ou com reclamação não recebem novos envios.</p>'+
       '<label style="font-size:13px">Digite <b>CONFIRMO A BASE LEGAL</b> <input data-e="lgpd-input" style="margin-left:6px;padding:6px;width:220px"></label> '+
       '<button type="button" class="btn sm" data-e="lgpd-btn">Confirmar</button></div>'+
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+    '<div data-e="todos-box" style="border:2px solid #1b283d;border-radius:8px;padding:12px;margin-bottom:12px">'+
+      '<b>Enviar todos os lotes</b>'+
+      '<p style="margin:6px 0;font-size:13px">Envia os lotes pendentes em sequência, respeitando os limites. Falhas, resultados indeterminados, devoluções e descadastrados ficam em <b>Inconsistências</b> para sua análise, sem reenvio automático. O envio para sozinho após 3 falhas seguidas. Mantenha esta aba aberta até o fim.</p>'+
+      '<label style="font-size:13px">Digite <b>ENVIAR TODOS</b> <input data-e="todos-input" style="margin-left:6px;padding:6px;width:160px"></label> '+
+      '<button type="button" class="btn" data-e="todos">Enviar todos os lotes</button> '+
+      '<button type="button" class="btn" data-e="pausar2">Pausar</button></div>'+
+    '<details data-e="inc-box" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600" data-e="inc-titulo">Inconsistências</summary><div data-e="inc" style="font-size:12px;max-height:300px;overflow:auto"></div></details>'+
+    '<details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px">Envio por lote individual</summary>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">'+
       '<label style="font-size:13px">Lote <select data-e="lote" style="padding:6px;min-width:280px"></select></label>'+
       '<button type="button" class="btn sm" data-e="previa">Ver prévia do e-mail</button>'+
       '<button type="button" class="btn sm" data-e="atualizar">Atualizar</button></div>'+
@@ -26,7 +34,7 @@ function montarEnvioTransmissaoOficial(host,ctx){
       '<button type="button" class="btn sm" data-e="autorizar">Autorizar lote</button></div>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
       '<button type="button" class="btn" data-e="iniciar" disabled>Iniciar envio do lote</button>'+
-      '<button type="button" class="btn" data-e="pausar" disabled>Pausar</button></div>'+
+      '<button type="button" class="btn" data-e="pausar" disabled>Pausar</button></div></details>'+
     '<p data-e="progresso" aria-live="polite" style="margin:12px 0 0;font-weight:600"></p>'+
     '<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px">Destinatários deste lote</summary><div data-e="lista" style="font-size:12px;max-height:280px;overflow:auto"></div></details>'+
     '<div data-e="modal" hidden style="position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;display:flex;align-items:center;justify-content:center">'+
@@ -62,11 +70,22 @@ function montarEnvioTransmissaoOficial(host,ctx){
       $('lgpd-texto').textContent='Base legal: '+(painel.base_legal||'—')+'. Finalidade: '+(painel.finalidade||'—');
       const sel=$('lote'),atual=sel.value;
       sel.innerHTML=(painel.lotes||[]).map(l=>'<option value="'+l.lote_id+'">Lote '+l.numero+' · '+l.processados+'/'+l.total+
-        ' processados'+(l.preaprovado?'':' · sem pré-aprovação')+(l.autorizado_ate?' · autorizado':'')+'</option>').join('');
+        ' processados'+(l.autorizado_ate?' · autorizado':'')+'</option>').join('');
       const primeiroAberto=(painel.lotes||[]).find(l=>l.processados<l.total);
       sel.value=atual&&sel.querySelector('option[value="'+atual+'"]')?atual:String(primeiroAberto?.lote_id||painel.lotes?.[0]?.lote_id||'');
+      $('todos-box').hidden=!d.admin||painel.lgpd_pendente;
       await carregarLote();
+      await carregarInconsistencias();
     }catch(e){$('resumo').textContent='Não foi possível consultar: '+e.message;}
+  }
+  async function carregarInconsistencias(){
+    try{
+      const d=await chamar({acao:'inconsistencias',transmissao_id:transmissaoAtual});
+      const it=d.itens||[];
+      $('inc-titulo').textContent='Inconsistências para análise ('+it.length+')';
+      $('inc').innerHTML=it.length?'<table style="width:100%;border-collapse:collapse">'+it.map(e=>'<tr><td style="padding:3px 6px;border-bottom:1px solid #eee">Lote '+esc(e.lote)+'</td><td style="padding:3px 6px;border-bottom:1px solid #eee">'+esc(e.email)+
+        '</td><td style="padding:3px 6px;border-bottom:1px solid #eee">'+esc(NOMES[e.estado]||e.estado)+'</td><td style="padding:3px 6px;border-bottom:1px solid #eee;color:#9a3412">'+esc(e.erro||'')+'</td></tr>').join('')+'</table>':'<p>Nenhuma inconsistência.</p>';
+    }catch(e){$('inc').textContent='Falha ao consultar: '+e.message;}
   }
   async function carregarLote(){
     const id=Number($('lote').value);if(!id)return;
@@ -76,7 +95,6 @@ function montarEnvioTransmissaoOficial(host,ctx){
       const valida=!!(a&&a.valida);
       const bloqueios=[];
       if(s.lgpd_pendente)bloqueios.push('base legal não confirmada');
-      if(!s.preaprovado)bloqueios.push('lote sem pré-aprovação (Controles administrativos)');
       if(!s.snapshot_integro)bloqueios.push('conteúdo congelado divergente');
       if(!d.provedor_configurado)bloqueios.push('Resend não configurado');
       $('lote-info').innerHTML='<b>Lote '+s.numero+'</b> · '+s.total+' destinatários · '+s.pendentes+' a enviar · '+esc(resumoEstados(s.por_estado))+
@@ -113,12 +131,14 @@ function montarEnvioTransmissaoOficial(host,ctx){
       $('autorizar-input').value='';await carregarPainel();
     }catch(e){alert('Autorização não registrada: '+e.message);}
   });
-  $('pausar').addEventListener('click',async()=>{
+  const pausar=async()=>{
     pararPedido=true;
     try{await chamar({acao:'pausar',lote_id:Number($('lote').value)});}catch(e){}
-    $('progresso').textContent='Pausado. A autorização foi revogada; para retomar, autorize o lote novamente.';
-    await carregarPainel();
-  });
+    $('progresso').textContent='Pausado. A autorização foi revogada; para retomar, inicie o envio novamente.';
+    if(!rodando)await carregarPainel();
+  };
+  $('pausar').addEventListener('click',pausar);
+  $('pausar2').addEventListener('click',pausar);
   const esperar=ms=>new Promise(r=>setTimeout(r,ms));
   $('iniciar').addEventListener('click',async()=>{
     const id=Number($('lote').value),s=status?.status;
@@ -140,6 +160,44 @@ function montarEnvioTransmissaoOficial(host,ctx){
       }
     }catch(e){$('progresso').textContent='Envio interrompido: '+e.message+'. '+enviados+' aceitos nesta sessão. Nenhum reenvio automático.';}
     finally{rodando=false;await carregarPainel();}
+  });
+  // Envio de todos os lotes: autoriza cada lote no momento de enviá-lo (mesma confirmação do servidor).
+  $('todos').addEventListener('click',async()=>{
+    if($('todos-input').value.trim()!=='ENVIAR TODOS'){alert('Digite exatamente: ENVIAR TODOS');return;}
+    const lotes=(painel?.lotes||[]).filter(l=>l.processados<l.total);
+    if(!lotes.length){alert('Não há lotes pendentes.');return;}
+    if(!confirm('ENVIO REAL de '+lotes.length+' lote(s) pelo Resend. Pode pausar a qualquer momento. Confirmar?'))return;
+    rodando=true;pararPedido=false;$('todos').disabled=true;$('pausar').disabled=false;$('iniciar').disabled=true;
+    let aceitos=0,incons=0,seguidas=0,motivoFim='';
+    const prog=n=>{$('progresso').textContent='Lote '+n+' · '+aceitos+' aceitos · '+incons+' inconsistências nesta sessão';};
+    try{
+      for(const l of lotes){
+        if(pararPedido||motivoFim)break;
+        $('lote').value=String(l.lote_id);
+        let st=(await chamar({acao:'status',lote_id:l.lote_id}));
+        if(st.status.pendentes===0)continue;
+        const autorizar=async()=>{st=await chamar({acao:'status',lote_id:l.lote_id});
+          await chamar({acao:'autorizar',lote_id:l.lote_id,confirmacao:st.confirmacao_exigida,fingerprint_sha256:st.status.fingerprint_sha256});};
+        if(!(st.status.autorizacao&&st.status.autorizacao.valida))await autorizar();
+        let reautorizou=false;
+        while(!pararPedido){
+          prog(l.numero);
+          let r;
+          try{r=await chamar({acao:'enviar_proximo',lote_id:l.lote_id});}
+          catch(e){incons++;seguidas++;if(seguidas>=3){motivoFim='3 falhas seguidas ('+e.message+')';break;}await esperar(3100);continue;}
+          if(r.enviado){aceitos++;seguidas=0;reautorizou=false;await esperar(3100);continue;}
+          if(r.estado){incons++;seguidas++;if(seguidas>=3){motivoFim='3 resultados seguidos sem aceite ('+r.estado+')';break;}await esperar(3100);continue;}
+          if(r.motivo==='SUPRIMIDO'){incons++;continue;}
+          if(r.motivo==='LIMITE_MINUTO'){await esperar((r.aguardar_segundos||15)*1000);continue;}
+          if(r.motivo==='LOTE_CONCLUIDO')break;
+          if(r.motivo==='SEM_AUTORIZACAO'&&!pararPedido&&!reautorizou){reautorizou=true;await autorizar();continue;}
+          motivoFim={LIMITE_HORA:'limite por hora atingido',LIMITE_DIA:'limite diário atingido',SEM_AUTORIZACAO:'autorização indisponível'}[r.motivo]||r.motivo;break;
+        }
+      }
+      $('progresso').textContent=(pararPedido?'Pausado pelo operador. ':motivoFim?'Envio parado: '+motivoFim+'. ':'Envio concluído. ')+
+        aceitos+' aceitos pelo Resend e '+incons+' inconsistências nesta sessão. Entregas e devoluções chegam pelo Resend; use Atualizar.';
+    }catch(e){$('progresso').textContent='Envio interrompido: '+e.message+'. '+aceitos+' aceitos nesta sessão. Nenhum reenvio automático.';}
+    finally{rodando=false;$('todos').disabled=false;$('todos-input').value='';await carregarPainel();}
   });
   return {refresh:carregarPainel};
 }

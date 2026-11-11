@@ -17,7 +17,7 @@ function cdaLinkComUtm(link, campanha) {
   if (!link) return '';
   try {
     const u = new URL(link);
-    const slug = String((campanha && campanha.nome) || 'campanha').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const slug = String((campanha && campanha.nome) || 'campanha').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
     if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'ciclodarte');
     if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
     if (!u.searchParams.has('utm_campaign')) u.searchParams.set('utm_campaign', slug);

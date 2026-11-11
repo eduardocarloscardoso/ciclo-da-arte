@@ -1,0 +1,7 @@
+-- Decisão do usuário (11/11/2026 19:01): conta Resend paga; enviar todos os lotes hoje,
+-- deixando apenas inconsistências para análise. Limites: 20/min, 900/h, 900/dia.
+-- Pré-aprovação B4 por lote deixa de ser exigida na autorização efetiva (confirmação "ENVIAR TODOS").
+-- Conteúdo aplicado via apply_migration "transmissao_oficial_envio_total":
+--   update cda_transmissao_limites_globais_b5 / cda_transmissao_controles_b4 (20/900/900) + auditoria;
+--   cda_oficial_autorizar_lote sem exigência de pré-aprovação B4 (mantém LGPD, snapshot, fingerprint, autor);
+--   cda_oficial_inconsistencias(transmissao_id): falha, indeterminada, devolvida, reclamação, suprimido, solicitada antiga.

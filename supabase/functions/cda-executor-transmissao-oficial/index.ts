@@ -20,7 +20,7 @@ async function hmac(secret, msg) {
   const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
   return hex(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(msg))).slice(0, 40);
 }
-const ACOES = ["painel", "status", "previa", "confirmar_lgpd", "autorizar", "pausar", "enviar_proximo"];
+const ACOES = ["painel", "inconsistencias", "status", "previa", "confirmar_lgpd", "autorizar", "pausar", "enviar_proximo"];
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
   const acao = String(body.acao || "");
   if (!ACOES.includes(acao)) return reply({ ok: false, erro: "Ação inválida" }, 400);
   const loteId = Number(body.lote_id), transmissaoId = Number(body.transmissao_id);
-  if (["painel", "confirmar_lgpd"].includes(acao) ? !(transmissaoId > 0) : !(loteId > 0))
+  if (["painel", "inconsistencias", "confirmar_lgpd"].includes(acao) ? !(transmissaoId > 0) : !(loteId > 0))
     return reply({ ok: false, erro: "Identificador inválido" }, 400);
   if (["confirmar_lgpd", "autorizar", "pausar", "enviar_proximo"].includes(acao) && !admin && acao !== "pausar")
     return reply({ ok: false, erro: "Somente administrador com escrita" }, 403);
@@ -83,6 +83,7 @@ Deno.serve(async (req) => {
 
   try {
     if (acao === "painel") return reply({ ok: true, admin, painel: await rpc("cda_oficial_painel", { p_transmissao_id: transmissaoId }) });
+    if (acao === "inconsistencias") return reply({ ok: true, itens: await rpc("cda_oficial_inconsistencias", { p_transmissao_id: transmissaoId }) });
     if (acao === "status") {
       const st = await rpc("cda_oficial_status_lote", { p_lote_id: loteId });
       const itens = await rows("cda_transmissao_envios?lote_id=eq." + loteId + "&select=item_id,email,estado,erro,solicitado_em&order=item_id.asc&limit=1000");
