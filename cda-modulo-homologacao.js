@@ -19,6 +19,7 @@ async function montarModuloHomologacao(containerId, opts) {
       area:p.get('area')==='dest'?'dest':'lote'};
   }
   const rotaInicial=lerRota();
+  let restaurarSelecaoInicial=true;
   function memorizarRota(area) {
     if(!campanhaId)return;
     const p=new URLSearchParams();
@@ -51,6 +52,9 @@ async function montarModuloHomologacao(containerId, opts) {
     atualizacaoTimer=setInterval(async()=>{
       if(!root.isConnected||window._crmPage!=='homologacao'||
           Number(loteSelecionadoId)!==id||Date.now()>atualizacaoAte){
+        const texto=root.querySelector('#homolog-status-atualizacao');
+        if(texto&&root.isConnected&&Number(loteSelecionadoId)===id&&Date.now()>atualizacaoAte)
+          texto.textContent='Consulta automática encerrada após 5 minutos. Use Atualizar status para consultar novamente; não reenvie.';
         pararAtualizacaoAutomatica();return;
       }
       if(envioEmExecucao||consultaStatusEmAndamento)return;
@@ -338,10 +342,15 @@ async function montarModuloHomologacao(containerId, opts) {
       const resumoMensagem=root.querySelector('#homolog-lote-mensagem-unica');
       resumoMensagem.hidden=!single;
       resumoMensagem.textContent=single?'Mensagem: '+mensagensLote[0].nome+(mensagensLote[0].assunto?' · '+mensagensLote[0].assunto:''):'';
-      if (rotaInicial?.mensagem&&mensagensLote.some(m=>Number(m.id)===rotaInicial.mensagem))seletor.value=String(rotaInicial.mensagem);
+      if (restaurarSelecaoInicial&&rotaInicial?.campanha===Number(campanhaId)&&
+          rotaInicial?.mensagem&&mensagensLote.some(m=>Number(m.id)===rotaInicial.mensagem))
+        seletor.value=String(rotaInicial.mensagem);
       else if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
       else if (mensagensLote.length===1) seletor.value=String(mensagensLote[0].id);
-      loteSelecionadoId=rotaInicial?.lote||0;validadoLoteId=0;ultimoLoteDados=null;
+      loteSelecionadoId=restaurarSelecaoInicial&&rotaInicial?.campanha===Number(campanhaId)
+        ?rotaInicial.lote:0;
+      restaurarSelecaoInicial=false;
+      validadoLoteId=0;ultimoLoteDados=null;
       if(seletor.value)await acionarLote('status');
       else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem para consultar ou preparar o lote.';
     } catch(e) {
@@ -421,6 +430,7 @@ async function montarModuloHomologacao(containerId, opts) {
     if(etapa===3)aprova.open=true;
     if(etapa!==3)aprova.open=false;
     root.querySelector('#homolog-lote-enviar').disabled=etapa!==4;
+    root.querySelector('#homolog-lote-enviar').setAttribute('aria-disabled',String(etapa!==4));
     root.querySelector('#homolog-lote-atualizar').disabled=false;
     if(finalizado){
       apresentarResultadoLote(dados);
@@ -657,7 +667,7 @@ async function montarModuloHomologacao(containerId, opts) {
         entregue:'Entregue',falha:'Falha',devolvido:'Devolvido',reclamacao:'Reclamação',atrasado:'Entrega atrasada'};
       const indicadores=[['Pendentes',contagem('pendente')],['Aceitos',contagem('aceito')],['Entregues',contagem('entregue')],['Falhas',contagem('falha')+contagem('devolvido')+contagem('reclamacao')],['Em andamento',contagem('processando')+contagem('atrasado')+contagem('indeterminado')]];
       const situacaoLote=lote.situacao==='interrompido'?'Interrompido':processados===total?'Concluído':'Preparado';
-      el.innerHTML='<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><span><b>Lote #'+esc(lote.id)+'</b> · '+esc(situacaoLote)+' · '+total+' destinatários</span><b>'+processados+'/'+total+' processados</b></div>'+
+      el.innerHTML='<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><span><b>Lote #'+esc(lote.id)+'</b> · <span data-hom-lote-status>'+esc(situacaoLote)+'</span> · '+total+' destinatários</span><b data-hom-processados>'+processados+'/'+total+' processados</b></div>'+
         '<div style="height:7px;border-radius:7px;background:#d1d5db;overflow:hidden"><div data-hom-progress style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
         '<div style="display:flex;flex-wrap:wrap;gap:6px">'+indicadores.map((x,idx)=>'<span data-hom-indicador="'+['pendentes','aceitos','entregues','falhas','em_andamento'][idx]+'" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">'+esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
         '<div style="overflow:auto"><table style="width:100%;min-width:630px"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th><th>Resend</th></tr></thead><tbody>'+
@@ -822,7 +832,10 @@ async function montarModuloHomologacao(containerId, opts) {
   }
   root.querySelector('#homolog-tab-dest').addEventListener('click',()=>selecionarArea('dest'));
   root.querySelector('#homolog-tab-lote').addEventListener('click',()=>selecionarArea('lote'));
-  root.querySelector('#homolog-campanha').addEventListener('change', async e=>{pararAtualizacaoAutomatica();campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();memorizarRota();});
+  root.querySelector('#homolog-campanha').addEventListener('change', async e=>{
+    pararAtualizacaoAutomatica();restaurarSelecaoInicial=false;campanhaId=e.target.value;
+    loteSelecionadoId=0;limparForm();await atualizar();await carregarMensagensLote();memorizarRota();
+  });
   root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{pararAtualizacaoAutomatica();loteSelecionadoId=0;memorizarRota();if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
   root.querySelector('#homolog-lote-preparar').addEventListener('click',()=>acionarLote('preparar'));
   root.querySelector('#homolog-lote-interromper').addEventListener('click',()=>acionarLote('interromper'));
