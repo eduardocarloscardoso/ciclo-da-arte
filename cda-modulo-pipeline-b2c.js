@@ -113,7 +113,6 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '<span class="fc" id="pb2c-cnt" aria-live="polite"></span>' +
     '</div>' +
     '<div class="pb2c-acessos" style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap;margin:0 0 14px">' +
-      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Acessar cadastro e operação de homologação desta campanha">🧪 Abrir Homologação</button>' +
       '<details class="pb2c-fold" style="flex:0 1 auto;border:1px solid var(--border2,#aaa);border-radius:8px;padding:7px 10px">' +
         '<summary style="font-weight:700;font-size:12px;cursor:pointer">Filtros adicionais</summary>' +
         '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px">' +
@@ -133,6 +132,10 @@ async function montarModuloPipelineB2C(containerId, opts) {
           '<button type="button" class="btn sm" id="pb2c-btn-export-whats">Exportar WhatsApp</button>' +
         '</div>' +
       '</details>' +
+    '</div>' +
+    '<div class="pb2c-acessos" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px">' +
+      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Acessar cadastro e operação de homologação desta campanha">🧪 Abrir Homologação</button>' +
+      '<button type="button" class="btn sm" id="pb2c-btn-transmissao-oficial" title="Planejar lotes da campanha; envio oficial continua bloqueado">📨 Transmissão Oficial</button>' +
     '</div>' +
     '<section id="pb2c-comunicacoes" style="display:none;border:2px solid var(--ink,#1a1a1a);padding:14px 16px;margin:10px 0 16px;background:var(--paper,#fff)">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap"><h3 style="margin:0;font-size:16px">Comunicações da Campanha</h3><div style="display:flex;gap:6px;flex-wrap:wrap">'+
@@ -408,6 +411,11 @@ async function montarModuloPipelineB2C(containerId, opts) {
     var filtro=host.querySelector('#pb2c-f-campanha').value;
     window._cdaHomologacaoCampanhaId = (filtro && filtro !== '__sem_campanha__') ? filtro : '';
     navigateCRM('homologacao');
+  });
+  host.querySelector('#pb2c-btn-transmissao-oficial').addEventListener('click',function(){
+    var filtro=host.querySelector('#pb2c-f-campanha').value;
+    window._cdaTransmissaoCampanhaId=(filtro&&filtro!=='__sem_campanha__')?filtro:'';
+    navigateCRM('transmissaooficial');
   });
   host.querySelector('#pb2c-btn-comunicacoes').addEventListener('click',function(){
     comunicacoesAberto=!comunicacoesAberto;
