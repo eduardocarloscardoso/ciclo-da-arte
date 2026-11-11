@@ -292,7 +292,7 @@ async function montarModuloHomologacao(containerId, opts) {
         'Lote concluído: '+itens.length+' de '+itens.length+' processados. Histórico preservado.';
       root.querySelector('#homolog-verificacao').style.color='#166534';
     }
-    bloco.open=true;
+    // Fluxo operacional visível; somente auditoria permanece recolhida.
   }
 
   // Validação autenticada do backend sem aprovar, reservar nem transmitir mensagens.
@@ -606,7 +606,7 @@ async function montarModuloHomologacao(containerId, opts) {
       '@media(max-width:650px){#'+containerId+' .hom-tabs button{flex:1;min-width:130px}#'+containerId+' .hom-card{padding:11px}}'+
     '</style>'+
     '<div style="padding:18px;display:grid;gap:16px">'+
-    '<div style="display:grid;gap:6px"><h2 style="margin:0">Lista de Homologação</h2><p style="margin:0;color:var(--text-muted,#64748b)">Cadastros de teste separados dos clientes oficiais. Nenhum envio autorizado.</p></div>'+
+    '<div style="display:grid;gap:6px"><h2 style="margin:0">Lista de Homologação</h2><p style="margin:0;color:var(--text-muted,#64748b)">Ambiente de homologação separado da lista oficial. Cada lote exige autorização própria.</p></div>'+
     '<div class="hom-card"><label for="homolog-campanha"><b>Campanha</b></label><select id="homolog-campanha" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
     '<nav class="hom-tabs" role="tablist" aria-label="Áreas da homologação">'+
       '<button type="button" id="homolog-tab-dest" role="tab" aria-selected="true" aria-controls="homolog-pane-dest">1 · Destinatários</button>'+
@@ -628,7 +628,7 @@ async function montarModuloHomologacao(containerId, opts) {
     '</div>'+
     '<div id="homolog-pane-lote" class="hom-pane" role="tabpanel" aria-labelledby="homolog-tab-lote" hidden>'+
     '<section class="hom-card" aria-label="Preparação de envio em lote">'+
-      '<div><h3>Operação do lote</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Acompanhamento da campanha selecionada. Envio ainda não autorizado.</p></div>'+
+      '<div><h3>Operação do lote</h3><p style="margin:5px 0 0;color:var(--text-muted,#64748b)">Selecione o lote e siga as etapas. Nenhuma mensagem é enviada sem autorização específica.</p></div>'+
       '<div id="homolog-lote-mensagem-linha" style="display:grid;gap:6px"><label for="homolog-lote-mensagem"><b>Mensagem</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
       '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
       '<p id="homolog-verificacao" role="status" aria-live="polite" style="margin:0;font-size:13px">Verificando destinatários automaticamente...</p>'+
