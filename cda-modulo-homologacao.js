@@ -845,7 +845,8 @@ async function montarModuloHomologacao(containerId, opts) {
     '<p id="homolog-msg" role="status" aria-live="polite" style="display:none;padding:12px;border:1px solid #64748b;border-radius:8px"></p>'+
     '<p style="font-size:12px;color:var(--text-muted,#64748b)">Somente a equipe autorizada pode acessar estes registros. Não é a lista oficial de transmissão e não altera a quantidade de leads.</p>'+
     '</div>';
-  // Navegação local: formulários e consultas mantêm seus IDs e handlers originais.
+  // Navegação local: clique do usuário sempre prevalece sobre a restauração assíncrona.
+  let areaEscolhidaPeloUsuario=false;
   function selecionarArea(area) {
     const op=area==='lote';
     root.querySelector('#homolog-pane-dest').hidden=op;
@@ -854,8 +855,8 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-tab-lote').setAttribute('aria-selected',String(op));
     memorizarRota(area);
   }
-  root.querySelector('#homolog-tab-dest').addEventListener('click',()=>selecionarArea('dest'));
-  root.querySelector('#homolog-tab-lote').addEventListener('click',()=>selecionarArea('lote'));
+  root.querySelector('#homolog-tab-dest').addEventListener('click',()=>{areaEscolhidaPeloUsuario=true;selecionarArea('dest');});
+  root.querySelector('#homolog-tab-lote').addEventListener('click',()=>{areaEscolhidaPeloUsuario=true;selecionarArea('lote');});
   root.querySelector('#homolog-campanha').addEventListener('change', async e=>{
     pararAtualizacaoAutomatica();restaurarSelecaoInicial=false;campanhaId=e.target.value;
     loteSelecionadoId=0;limparForm();await atualizar();await carregarMensagensLote();memorizarRota();
@@ -920,6 +921,7 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-lote-filtro').value=filtroSituacaoLote;
     await atualizar();
     await carregarMensagensLote();
-    selecionarArea(rotaInicial?.area||'dest');
+    // A carga da campanha não pode reverter uma aba já escolhida pelo usuário.
+    if(!areaEscolhidaPeloUsuario)selecionarArea(rotaInicial?.area||'dest');
   }catch(e){console.error(e);banner('Erro ao consultar campanhas: '+(e.message||e));}
 }
