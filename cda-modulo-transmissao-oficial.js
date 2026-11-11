@@ -77,11 +77,16 @@ async function montarTransmissaoOficial(containerId) {
     const finalidade=String(campanha.lgpd_finalidade_fundamentacao||'').trim();
     const temMensagem=!!mensagem && Number(mensagem.campanha_id)===Number(campanha.id);
     const checks=[
-      ['Campanha e mensagem vinculadas',temMensagem,'Selecione uma mensagem da campanha'],
-      ['Lista congelada presente',destinatarios.length>0,'É necessário congelar a lista na campanha'],
-      ['Base legal e finalidade registradas',!!baseLegal&&!!finalidade,'Fundamentação incompleta'],
-      ['Endereços inválidos ou repetidos identificados',true,'Exclusões simuladas; nunca enviar para esses contatos'],
-      ['Supressões conhecidas conferidas',true,'Tabela de supressões consultada; não substitui análise de pedidos de oposição'],
+      ['Campanha e mensagem vinculadas',temMensagem,
+        temMensagem?'Mensagem associada à campanha selecionada.':'Selecione uma mensagem da campanha.'],
+      ['Lista congelada presente',destinatarios.length>0,
+        destinatarios.length?'Lista congelada localizada: '+destinatarios.length+' registro(s).':'É necessário congelar a lista na campanha.'],
+      ['Base legal e finalidade registradas',!!baseLegal&&!!finalidade,
+        !!baseLegal&&!!finalidade?'Fundamentação e finalidade cadastradas na campanha; revisão de conformidade permanece necessária.':'Fundamentação ou finalidade incompleta.'],
+      ['Endereços inválidos ou repetidos identificados',true,
+        invalidos.length+' inválido(s) e '+repetidos.length+' duplicado(s) identificados e excluídos apenas desta simulação.'],
+      ['Supressões conhecidas conferidas',true,
+        suprimidos.length+' endereço(s) presente(s) na tabela de supressões. Consulta não substitui análise de pedidos de oposição.'],
       ['Oposição, descadastro e conformidade',false,'Exige verificação operacional e jurídica específica antes da autorização'],
       ['Executor oficial, limites e domínio remetente',false,'Não configurado; envio desabilitado nesta fase']
     ];
@@ -129,7 +134,11 @@ async function montarTransmissaoOficial(containerId) {
     campanhas=await obterDados(cdaClient.from('cda_campanhas').select('id,nome,status,lgpd_base_legal,lgpd_finalidade_fundamentacao').order('nome'));
     $('to-campanha').innerHTML='<option value="">Selecione uma campanha</option>'+
       campanhas.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.nome)+' · '+esc(c.status||'sem status')+'</option>').join('');
-    if(campanhas.some(c=>Number(c.id)===4))$('to-campanha').value='4';
+    const selecionadaPeloPipeline=String(window._cdaTransmissaoCampanhaId||'');
+    window._cdaTransmissaoCampanhaId='';
+    if(campanhas.some(c=>String(c.id)===selecionadaPeloPipeline))
+      $('to-campanha').value=selecionadaPeloPipeline;
+    else if(campanhas.some(c=>Number(c.id)===4))$('to-campanha').value='4';
     else if(campanhas.length)$('to-campanha').value=String(campanhas[0].id);
     await carregarCampanha();
   }catch(e){$('to-aviso').textContent='Falha na consulta: '+(e.message||e);}
