@@ -102,6 +102,7 @@ async function montarTransmissaoOficial(containerId) {
       '</section></div>';
   const $=id=>root.querySelector('#'+id);
   const b5=montarSimuladorB5(root,{transmissao:()=>transmissaoCongelada(),lote:()=>b4LoteAtual(),controles:()=>b4Dados});
+  const ux=montarUXTransmissaoSimplificada(root,{transmissao:()=>transmissaoCongelada(),destinatarios:()=>destinatarios,revisoes:()=>revisoesAtuais,controles:()=>b4Dados});
   const norm=x=>String(x||'').trim().toLowerCase();
   async function obterDados(q){
     const x=await q;if(x.error)throw x.error;return x.data||[];
@@ -137,6 +138,7 @@ async function montarTransmissaoOficial(containerId) {
       'Registra a lista e os lotes no banco, sem qualquer envio.';
     if(!jaCongelado){revisoesAtuais=[];revisoesTransmissaoId=0;}
     renderRevisoes();
+    ux.refresh();
   }
   function transmissaoCongelada(){
     return transmissoesSalvas.find(t=>Number(t.mensagem_id)===Number(mensagem?.id)&&t.situacao==='congelada')||null;
@@ -153,6 +155,7 @@ async function montarTransmissaoOficial(containerId) {
     renderRevisoes(anterior);
     b4Mostrar();
     b5.render();
+    ux.refresh();
   }
   function renderRevisoes(selecionado){
     const t=transmissaoCongelada(),sec=$('to-revisao-secao');
@@ -340,6 +343,7 @@ async function montarTransmissaoOficial(containerId) {
     b4TransmissaoId=id;
     b4Mostrar();
     b5.render();
+    ux.refresh();
   }
   function b4Preparar(acao){
     const t=b4Transmissao(),x=b4LoteAtual();
@@ -521,6 +525,7 @@ async function montarTransmissaoOficial(containerId) {
       '<p class="to-muted">Simulação local de quantidades, não é congelamento, fila, autorização, agendamento ou envio.</p>';
     $('to-painel').hidden=false;
     mostrarCongelamentos();
+    ux.refresh();
     $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.';
   }
   async function carregarCampanha(){
