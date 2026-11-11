@@ -1699,11 +1699,17 @@ async function paSaldoCompras(){
   html+='<div class="pa-barra-res"><span>Receita fechada: <b>'+M.periodo+'</b> · Produção lançada: <b>'+perDesp+'</b> · Restam <b>'+restCompra+'</b> '+(restCompra===1?'mês':'meses')+' para comprar · Custo ideal pelo mix: <b>'+fp(M.idealRealTot)+'</b> da receita <span class="pa-orig">(produto '+fp(M.idealReal)+' + Montagem '+fp(M.mont.meta)+')</span></span></div>';
   // Resumo custo × receita até agora — saiu da tela e virou popup na caixa de receitas (02/11/2026, Cardoso)
   var P=M.prod,difO=M.prodPctOrc-M.idealOrcTot,difR=M.prodPctReal-M.idealRealTot,exc=P.real-M.idealRealTot/100*T.real;
-  var resumo='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado</th><th class="pa-c-atual">Realizado</th></tr></thead><tbody>'+
-    '<tr class="cc"><td>Custo de produção (Varejo + Atacado + Montagem Coleções)</td><td>'+paValor(P.orcPer)+'</td><td class="pa-c-atual">'+paValor(P.real)+'</td></tr>'+
-    '<tr class="cc"><td>÷ Receita do período</td><td>'+fp(M.prodPctOrc)+'</td><td class="pa-c-atual">'+fp(M.prodPctReal)+'</td></tr>'+
-    '<tr class="cc"><td>Custo ideal pelo mix<br><span class="pa-orig">produto '+fp(M.idealOrc)+' / '+fp(M.idealReal)+' + Montagem Coleções '+fp(M.mont.meta)+'</span></td><td>'+fp(M.idealOrcTot)+'</td><td class="pa-c-atual">'+fp(M.idealRealTot)+'</td></tr>'+
-    '<tr class="conta '+(difR>0.005?'desp':'rec')+'"><td>'+(difR>0.005?'Acima do ideal':'Dentro do ideal')+'</td><td>'+fpp(difO)+'</td><td>'+fpp(difR)+(ultRec?'<br><span class="pa-orig">'+(exc>0?'≈ reduzir ':'folga ')+paBRL(Math.abs(exc)/ultRec)+'/mês</span>':'')+'</td></tr>'+
+  // 11/11/2026 (Cardoso): popup reescrito em R$ e % explícitos — receita, custo, % gasto, ideal em % e em R$, diferença por coluna
+  var recO=T.orcPer||0,recR=T.real||0,idO=M.idealOrcTot/100*recO,idR=M.idealRealTot/100*recR,dO=P.orcPer-idO,dR=P.real-idR;
+  function lin(rot,sub,a,b,cls){return '<tr class="'+(cls||'cc')+'"><td>'+rot+(sub?'<br><span class="pa-orig">'+sub+'</span>':'')+'</td><td>'+a+'</td><td class="pa-c-atual">'+b+'</td></tr>';}
+  function dif(dv,dp,mes){var ac=dv>0.005;return '<span style="color:'+(ac?'var(--red)':'var(--green)')+';font-weight:700">'+(ac?'Acima':'Abaixo')+' do ideal</span><br>'+(ac?'+':'−')+paValor(Math.abs(dv))+' · '+fpp(dp)+(mes?'<br><span class="pa-orig">'+(ac?'≈ reduzir ':'folga ≈ ')+paValor(Math.abs(dv)/mes)+'/mês</span>':'');}
+  var resumo='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th>Orçado '+M.periodo+'</th><th class="pa-c-atual">Realizado '+M.periodo+'</th></tr></thead><tbody>'+
+    lin('Receita do período','',paValor(recO),paValor(recR))+
+    lin('Custo de produção','Varejo + Atacado + Montagem Coleções',paValor(P.orcPer),paValor(P.real))+
+    lin('% da receita gasto em produção','Custo de produção ÷ Receita',fp(M.prodPctOrc),fp(M.prodPctReal),'sub')+
+    lin('Custo ideal pelo mix (% da receita)','',fp(M.idealOrcTot)+'<br><span class="pa-orig">produto '+fp(M.idealOrc)+' + Montagem '+fp(M.mont.meta)+'</span>',fp(M.idealRealTot)+'<br><span class="pa-orig">produto '+fp(M.idealReal)+' + Montagem '+fp(M.mont.meta)+'</span>')+
+    lin('Custo ideal em R$','Receita × Custo ideal %',paValor(idO),paValor(idR))+
+    lin('Situação','Custo de produção − Custo ideal em R$ · diferença em pontos percentuais',dif(dO,M.prodPctOrc-M.idealOrcTot,0),dif(dR,M.prodPctReal-M.idealRealTot,ultRec),'conta '+(dR>0.005?'desp':'rec'))+
     '</tbody></table></div>';
   paCache.comprasResumo={html:resumo,periodo:M.periodo};
   // Bloco 2 — receita do ano e teto ideal
@@ -1759,7 +1765,7 @@ async function paSaldoCompras(){
 // ─── 🧮 Fórmula do Saldo Ideal (02/11/2026, Cardoso): passo a passo do "Pode comprar", total ou por tipo de custo ─────
 function paResumoCustoReceita(){
   var R=paCache.comprasResumo;if(!R){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
-  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">📊 Custo × receita até agora ('+R.periodo+')</div><p class="pa-info" style="margin:4px 0 12px">Custo de produção (Varejo + Atacado + Montagem Coleções) do período de receita fechada, dividido pela receita, comparado ao custo ideal pelo mix. <b>Orçado</b> = como o orçamento nasceu; <b>Realizado</b> = onde estamos.</p>'+R.html+'<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
+  openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">📊 Custo × receita até agora ('+R.periodo+')</div><p class="pa-info" style="margin:4px 0 12px">Quanto da receita de '+R.periodo+' foi gasto em produção, comparado ao custo ideal pelo mix de vendas. <b>Orçado</b> = como o orçamento foi planejado para o período; <b>Realizado</b> = o que de fato aconteceu. <b>Acima do ideal</b> = gastou mais do que o ideal permite.</p>'+R.html+'<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
 // 📐 Referência pelo ideal do mix (11/11/2026, Cardoso): o que saiu do quadro 1 para despoluir a tela
 function paRefIdeal(){
