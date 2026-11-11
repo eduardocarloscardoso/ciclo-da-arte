@@ -10,6 +10,142 @@ async function montarModuloHomologacao(containerId, opts) {
   let permissaoDeEnvio = false, envioEmExecucao = false;
   let revisaoAutorizacao = null;
   let loteSelecionadoId = 0, validadoLoteId = 0, ultimoLoteDados = null;
+  const rotaPrefixo='#cda-homologacao?';
+  function lerRota() {
+    if(!window.location.hash.startsWith(rotaPrefixo))return null;
+    const p=new URLSearchParams(window.location.hash.slice(rotaPrefixo.length));
+    const n=k=>{const x=Number(p.get(k));return Number.isSafeInteger(x)&&x>0?x:0;};
+    return {campanha:n('campanha'),mensagem:n('mensagem'),lote:n('lote'),
+      area:p.get('area')==='dest'?'dest':'lote'};
+  }
+  const rotaInicial=lerRota();
+  function memorizarRota(area) {
+    if(!campanhaId)return;
+    const p=new URLSearchParams();
+    p.set('campanha',String(campanhaId));
+    const msg=Number(root.querySelector('#homolog-lote-mensagem')?.value);
+    if(msg)p.set('mensagem',String(msg));
+    if(loteSelecionadoId)p.set('lote',String(loteSelecionadoId));
+    p.set('area',area||(!root.querySelector('#homolog-pane-lote')?.hidden?'lote':'dest'));
+    const novo=rotaPrefixo+p.toString();
+    if(location.hash!==novo)history.replaceState(history.state,'',location.pathname+location.search+novo);
+  }
+  let atualizacaoTimer=null,atualizacaoAte=0,atualizacaoLoteId=0;
+  const STATUS_AGUARDANDO=new Set(['aceito','processando','atrasado']);
+  function pararAtualizacaoAutomatica(){
+    if(atualizacaoTimer!==null){clearInterval(atualizacaoTimer);atualizacaoTimer=null;}
+    atualizacaoAte=0;atualizacaoLoteId=0;
+  }
+  function temResultadoPendente(dados){
+    return !!dados?.itens?.some(i=>STATUS_AGUARDANDO.has(i.situacao_observada||i.situacao));
+  }
+  function agendarConsultaAutomatica(dados){
+    if(!dados?.lote||!temResultadoPendente(dados)){
+      pararAtualizacaoAutomatica();return;
+    }
+    const id=Number(dados.lote.id);
+    if(atualizacaoTimer!==null&&atualizacaoLoteId===id)return;
+    pararAtualizacaoAutomatica();
+    atualizacaoLoteId=id;
+    atualizacaoAte=Date.now()+5*60*1000;
+    atualizacaoTimer=setInterval(async()=>{
+      if(!root.isConnected||window._crmPage!=='homologacao'||
+          Number(loteSelecionadoId)!==id||Date.now()>atualizacaoAte){
+        pararAtualizacaoAutomatica();return;
+      }
+      if(envioEmExecucao||consultaStatusEmAndamento)return;
+      await atualizarStatusSemEnvio();
+    },10000);
+  }
+  let consultaStatusEmAndamento=false;
+  async function atualizarStatusSemEnvio(){
+    const dados=ultimoLoteDados;
+    if(consultaStatusEmAndamento||!dados?.lote)return;
+    consultaStatusEmAndamento=true;
+    const texto=root.querySelector('#homolog-status-atualizacao');
+    if(texto)texto.textContent='Consultando eventos do Resend (sem enviar mensagens)...';
+    try{
+      const r=await cdaClient.functions.invoke('cda-lote-homologacao-preview',{
+        body:{acao:'status',campanha_id:Number(campanhaId),
+          mensagem_id:Number(dados.lote.mensagem_id),lote_id:Number(dados.lote.id)}
+      });
+      if(r.error||!r.data?.ok)throw new Error(r.data?.erro||r.error?.message||'Falha na consulta');
+      if(Number(loteSelecionadoId)!==Number(r.data.lote?.id))return;
+      // Dados de status atualizados sem reiniciar os passos ou chamar executor.
+      ultimoLoteDados=r.data;
+      apresentarResultadoLote(r.data);
+      agendarConsultaAutomatica(r.data);
+      if(texto)texto.textContent=temResultadoPendente(r.data)
+        ?'Aguardando confirmação do provedor · consulta automática a cada 10 segundos (até 5 minutos).'
+        :'Status atualizado pelo histórico de eventos do Resend.';
+    }catch(e){
+      if(texto)texto.textContent='Não foi possível atualizar o status: '+(e.message||e)+
+        '. Utilize Atualizar status; não repita o envio.';
+    }finally{consultaStatusEmAndamento=false;}
+  }
+  function apresentarResultadoLote(dados){
+    const itens=Array.isArray(dados.itens)?dados.itens:[];
+    const cont=dados.contagens||{};
+    const qtd=k=>Number(cont[k])||0;
+    const finalizado=itens.length>0&&qtd('pendente')===0;
+    const titulo=root.querySelector('#homolog-etapa-atual');
+    const resultado=root.querySelector('#homolog-etapa-resultado-texto');
+    const botoes=root.querySelector('#homolog-etapa-resultado');
+    if(!resultado||!dados.lote)return;
+    const entregue=qtd('entregue'),aceito=qtd('aceito');
+    const falhas=qtd('falha')+qtd('devolvido')+qtd('reclamacao');
+    const aguardando=aceito+qtd('processando')+qtd('atrasado');
+    const total=itens.length;
+    const statusGeral=aguardando?'Aguardando confirmação de entrega':
+      falhas?'Concluído com ocorrências':entregue===total?'Entregue':'Resultado registrado';
+    const detalhe=itens.map(i=>{
+      const estado=i.situacao_observada||i.situacao;
+      const nomes={entregue:'Entregue',aceito:'Aceito pelo Resend',devolvido:'Devolvido',
+        falha:'Falha',reclamacao:'Reclamação',atrasado:'Entrega atrasada',
+        indeterminado:'Resultado indeterminado',processando:'Processando',
+        pendente:'Pendente',bloqueado:'Bloqueado'};
+      return '<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px;padding:8px 0;border-bottom:1px solid #e2e8f0">'+
+        '<span>'+esc(i.nome)+' · '+esc(i.email)+'</span><b>'+esc(nomes[estado]||estado)+'</b></div>';
+    }).join('');
+    resultado.innerHTML='<div style="display:grid;gap:10px">'+
+      '<p style="margin:0"><b>Lote #'+esc(dados.lote.id)+' · '+esc(statusGeral)+'</b></p>'+
+      '<p style="margin:0">Processados: <b>'+esc(dados.processados)+'/'+esc(total)+
+      '</b> · Entregues: <b>'+esc(entregue)+'</b> · Aceitos: <b>'+esc(aceito)+
+      '</b> · Falhas/devoluções: <b>'+esc(falhas)+'</b></p>'+detalhe+
+      '<p style="font-size:12px;margin:0;color:#64748b">Aceitação não comprova entrega ou leitura. Resultados atualizados por consulta de eventos.</p>'+
+      '</div>';
+    const tabela=root.querySelector('#homolog-lote-operacao');
+    if(tabela){
+      const linhas=tabela.querySelectorAll('tbody tr');
+      linhas.forEach((tr,idx)=>{
+        const i=itens[idx];if(!i)return;
+        const est=i.situacao_observada||i.situacao;
+        const cel=tr.querySelectorAll('td');
+        const label={entregue:'Entregue',aceito:'Aceito pelo Resend',
+          devolvido:'Devolvido',falha:'Falha',reclamacao:'Reclamação',atrasado:'Entrega atrasada'};
+        if(cel[2])cel[2].textContent=label[est]||est;
+        if(cel[3])cel[3].textContent=i.resend_email_id||'—';
+      });
+      const chips=tabela.querySelectorAll('[data-hom-indicador]');
+      chips.forEach(chip=>{
+        const key=chip.dataset.homIndicador;
+        const totals={pendentes:qtd('pendente'),aceitos:aceito,entregues:entregue,
+          falhas,em_andamento:qtd('processando')+qtd('atrasado')+qtd('indeterminado')};
+        const v=chip.querySelector('b');if(v&&key in totals)v.textContent=String(totals[key]);
+      });
+    }
+    if(finalizado){
+      const linha=tabela?.querySelector('[data-hom-processados]');
+      if(linha)linha.textContent=String(dados.processados)+'/'+total+' processados';
+      const barra=tabela?.querySelector('[data-hom-progress]');
+      if(barra)barra.style.width=Math.round(Number(dados.processados)*100/total)+'%';
+      const estadoLote=tabela?.querySelector('[data-hom-lote-status]');
+      if(estadoLote)estadoLote.textContent='Concluído';
+    }
+    // O resultado permanece aberto para eventos posteriores sem reabilitar qualquer envio.
+    if(finalizado){botoes.hidden=false;root.querySelector('#homolog-etapa-envio').hidden=true;}
+  }
+
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const normalEmail = v => String(v || '').trim().toLowerCase();
   const emailValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -202,9 +338,10 @@ async function montarModuloHomologacao(containerId, opts) {
       const resumoMensagem=root.querySelector('#homolog-lote-mensagem-unica');
       resumoMensagem.hidden=!single;
       resumoMensagem.textContent=single?'Mensagem: '+mensagensLote[0].nome+(mensagensLote[0].assunto?' · '+mensagensLote[0].assunto:''):'';
-      if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
+      if (rotaInicial?.mensagem&&mensagensLote.some(m=>Number(m.id)===rotaInicial.mensagem))seletor.value=String(rotaInicial.mensagem);
+      else if (mensagensLote.some(m=>String(m.id)===mensagemAnterior)) seletor.value=mensagemAnterior;
       else if (mensagensLote.length===1) seletor.value=String(mensagensLote[0].id);
-      loteSelecionadoId=0;validadoLoteId=0;ultimoLoteDados=null;
+      loteSelecionadoId=rotaInicial?.lote||0;validadoLoteId=0;ultimoLoteDados=null;
       if(seletor.value)await acionarLote('status');
       else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem para consultar ou preparar o lote.';
     } catch(e) {
@@ -286,12 +423,12 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-lote-enviar').disabled=etapa!==4;
     root.querySelector('#homolog-lote-atualizar').disabled=false;
     if(finalizado){
-      root.querySelector('#homolog-etapa-resultado-texto').textContent=
-        'Todos os itens deste lote têm resultado registrado. Utilize o seletor para acompanhar outros lotes; nunca reutilize este envio.';
+      apresentarResultadoLote(dados);
       root.querySelector('#homolog-verificacao').textContent=
         'Lote concluído: '+itens.length+' de '+itens.length+' processados. Histórico preservado.';
       root.querySelector('#homolog-verificacao').style.color='#166534';
     }
+    if(finalizado)apresentarResultadoLote(dados);
     // Fluxo operacional visível; somente auditoria permanece recolhida.
   }
 
@@ -453,6 +590,7 @@ async function montarModuloHomologacao(containerId, opts) {
       root.querySelector('#homolog-lote-enviar').disabled=true;
       // Somente status; não dispara nada durante o refresh.
       await acionarLote('status');
+      if(ultimoLoteDados?.lote&&temResultadoPendente(ultimoLoteDados))agendarConsultaAutomatica(ultimoLoteDados);
     }
   }
   // Operações persistidas no servidor, SEM envio (Edge Function não conhece o Resend).
@@ -520,8 +658,8 @@ async function montarModuloHomologacao(containerId, opts) {
       const indicadores=[['Pendentes',contagem('pendente')],['Aceitos',contagem('aceito')],['Entregues',contagem('entregue')],['Falhas',contagem('falha')+contagem('devolvido')+contagem('reclamacao')],['Em andamento',contagem('processando')+contagem('atrasado')+contagem('indeterminado')]];
       const situacaoLote=lote.situacao==='interrompido'?'Interrompido':processados===total?'Concluído':'Preparado';
       el.innerHTML='<div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px"><span><b>Lote #'+esc(lote.id)+'</b> · '+esc(situacaoLote)+' · '+total+' destinatários</span><b>'+processados+'/'+total+' processados</b></div>'+
-        '<div style="height:7px;border-radius:7px;background:#d1d5db;overflow:hidden"><div style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:6px">'+indicadores.map(x=>'<span style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">'+esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
+        '<div style="height:7px;border-radius:7px;background:#d1d5db;overflow:hidden"><div data-hom-progress style="height:100%;width:'+percent+'%;background:#64748b"></div></div>'+
+        '<div style="display:flex;flex-wrap:wrap;gap:6px">'+indicadores.map((x,idx)=>'<span data-hom-indicador="'+['pendentes','aceitos','entregues','falhas','em_andamento'][idx]+'" style="padding:4px 8px;border:1px solid #cbd5e1;border-radius:6px;font-size:12px">'+esc(x[0])+': <b>'+x[1]+'</b></span>').join('')+'</div>'+
         '<div style="overflow:auto"><table style="width:100%;min-width:630px"><thead><tr><th>Nome</th><th>E-mail</th><th>Estado</th><th>Resend</th></tr></thead><tbody>'+
         itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+esc(i.email)+'</td><td>'+esc(labels[i.situacao_observada||i.situacao]||i.situacao_observada||i.situacao)+'</td><td>'+esc(i.resend_email_id||'—')+'</td></tr>').join('')+'</tbody></table></div>'+
         '<p style="font-size:12px;margin:0;color:#64748b">A transmissão depende de autorização específica do lote. Aceitação pelo Resend não confirma entrega ou leitura.</p>';
@@ -571,6 +709,8 @@ async function montarModuloHomologacao(containerId, opts) {
       revisar.disabled=!editavel||lote.situacao!=='preparado';
       root.querySelector('#homolog-lote-testar').disabled=lote.situacao!=='preparado'||permissaoDeEnvio;
       atualizarFluxoLote();
+      memorizarRota();
+      agendarConsultaAutomatica(dados);
     }catch(e){
       console.error(e);
       el.textContent='Não foi possível consultar/registrar o lote: '+(e.message||e)+'. Nenhum envio solicitado.';
@@ -633,7 +773,8 @@ async function montarModuloHomologacao(containerId, opts) {
       '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
       '<p id="homolog-verificacao" role="status" aria-live="polite" style="margin:0;font-size:13px">Verificando destinatários automaticamente...</p>'+
       '<div style="display:grid;gap:5px"><label for="homolog-lote-seletor"><b>Lote em trabalho / histórico</b></label><div class="hom-toolbar"><select id="homolog-lote-seletor" style="padding:9px;min-width:250px;max-width:420px;color:#111;background:#fff" disabled></select><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button></div></div>'+ 
-      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+
+      '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+ 
+      '<p id="homolog-status-atualizacao" role="status" aria-live="polite" style="font-size:12px;color:#64748b;margin:0"></p>'+
       '<div class="hom-fold" id="homolog-detalhes-tecnicos" style="display:grid;gap:12px">'+
         '<h3 style="margin:0">Envio do lote · passo a passo</h3>'+
         '<div id="homolog-trilha" class="hom-trilha" aria-label="Etapas do envio"></div>'+
@@ -653,7 +794,8 @@ async function montarModuloHomologacao(containerId, opts) {
           '<button type="button" class="btn rust" id="homolog-lote-enviar" disabled aria-disabled="true">Enviar 1 mensagem</button>'+
           '<p id="homolog-lote-estado-envio" role="status" aria-live="polite" style="margin:0">Aguardando autorização.</p></section>'+
         '<section id="homolog-etapa-resultado" class="hom-fase" hidden><h4 style="margin:0">5 · Resultado</h4>'+
-          '<p id="homolog-etapa-resultado-texto" style="margin:0">Resultado disponível acima.</p></section>'+
+          '<div id="homolog-etapa-resultado-texto">Resultado disponível acima.</div>'+ 
+          '<button type="button" class="btn" id="homolog-lote-atualizar-status">Atualizar status</button></section>'+
         '<details class="hom-fold" id="homolog-auditoria"><summary>Detalhes técnicos e auditoria</summary>'+
           '<p style="font-size:12px">Histórico de controle, bloqueios e validações, reservados à auditoria.</p>'+
           '<div id="homolog-lote-seguranca"></div>'+
@@ -676,11 +818,12 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-pane-lote').hidden=!op;
     root.querySelector('#homolog-tab-dest').setAttribute('aria-selected',String(!op));
     root.querySelector('#homolog-tab-lote').setAttribute('aria-selected',String(op));
+    memorizarRota(area);
   }
   root.querySelector('#homolog-tab-dest').addEventListener('click',()=>selecionarArea('dest'));
   root.querySelector('#homolog-tab-lote').addEventListener('click',()=>selecionarArea('lote'));
-  root.querySelector('#homolog-campanha').addEventListener('change', async e=>{campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();});
-  root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
+  root.querySelector('#homolog-campanha').addEventListener('change', async e=>{pararAtualizacaoAutomatica();campanhaId=e.target.value;limparForm();await atualizar();await carregarMensagensLote();memorizarRota();});
+  root.querySelector('#homolog-lote-mensagem').addEventListener('change',()=>{pararAtualizacaoAutomatica();loteSelecionadoId=0;memorizarRota();if(root.querySelector('#homolog-lote-mensagem').value)acionarLote('status');else root.querySelector('#homolog-lote-operacao').textContent='Selecione uma mensagem.';});
   root.querySelector('#homolog-lote-preparar').addEventListener('click',()=>acionarLote('preparar'));
   root.querySelector('#homolog-lote-interromper').addEventListener('click',()=>acionarLote('interromper'));
   root.querySelector('#homolog-lote-retomar').addEventListener('click',()=>acionarLote('retomar'));
@@ -690,7 +833,9 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-lote-testar').addEventListener('click',validarExecutorSemEnvio);
   root.querySelector('#homolog-lote-autorizar').addEventListener('click',autorizarLoteConscientemente);
   root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await acionarLote('status');});
+  root.querySelector('#homolog-lote-atualizar-status').addEventListener('click',atualizarStatusSemEnvio);
   root.querySelector('#homolog-lote-seletor').addEventListener('change',async e=>{
+    pararAtualizacaoAutomatica();
     loteSelecionadoId=Number(e.target.value);validadoLoteId=0;revisaoAutorizacao=null;
     await acionarLote('status');
   });
@@ -707,12 +852,14 @@ async function montarModuloHomologacao(containerId, opts) {
     const sel=root.querySelector('#homolog-campanha');
     sel.innerHTML=campanhas.map(c=>'<option value="'+c.id+'">'+esc(c.nome)+'</option>').join('');
     const preferenciaPipeline=String(window._cdaHomologacaoCampanhaId || '');
-    const preferida=campanhas.find(c=>String(c.id)===preferenciaPipeline) || campanhas.find(c=>Number(c.id)===4);
+    const preferida=campanhas.find(c=>Number(c.id)===rotaInicial?.campanha)||
+      campanhas.find(c=>String(c.id)===preferenciaPipeline)||campanhas.find(c=>Number(c.id)===4);
     window._cdaHomologacaoCampanhaId = '';
     campanhaId=String(preferida?preferida.id:(campanhas[0]&&campanhas[0].id)||'');
     if(!campanhaId){banner('Cadastre uma campanha antes de criar listas de homologação.');return;}
     sel.value=campanhaId;
     await atualizar();
     await carregarMensagensLote();
+    selecionarArea(rotaInicial?.area||'dest');
   }catch(e){console.error(e);banner('Erro ao consultar campanhas: '+(e.message||e));}
 }
