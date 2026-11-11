@@ -53,7 +53,7 @@ async function montarModuloCampanhas(containerId, opts) {
   var host = document.getElementById(containerId);
   if (!host) { console.error('cda-modulo-campanhas: container #' + containerId + ' não encontrado'); return; }
 
-  var ST = { campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, editId: null };
+  var ST = { mensagens: [], campanhas: [], segmentos: [], clientes: [], compras: [], statusCrm: [], leads: [], equipe: [], canais: [], hierarquia: [], listas: {}, tentativas: [], eventosEmail: [], editId: null };
   var motor = null, clientesValidos = [], cfCampanha = null;
 
   host.innerHTML =
@@ -65,6 +65,12 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:10px 0;font-size:11px;}' +
       '.camp-grid .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
       '.camp-acoes{display:flex;gap:7px;margin-top:10px;flex-wrap:wrap;}' +
+      '.camp-abas{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--border2,#ccc);margin:14px 0 0;padding:0 0 8px;}' +
+      '.camp-aba{border:1px solid var(--border2,#aaa);background:var(--paper,#fff);color:var(--ink,#222);font:inherit;font-size:11px;font-weight:700;padding:8px 11px;cursor:pointer;border-radius:4px;}' +
+      '.camp-aba[aria-selected="true"]{background:var(--ink,#222);color:var(--paper,#fff);border-color:var(--ink,#222);}' +
+      '.camp-aba:focus-visible{outline:3px solid var(--rust,#c0392b);outline-offset:2px;}' +
+      '.camp-painel{padding:13px 1px 3px;min-height:65px;}' +
+      '.camp-painel h4{font-size:13px;margin:0 0 7px;}' +
       '.camp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:10px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--border2,#ccc);}' +
       '.camp-kpi .v{font-size:18px;font-weight:700;}' +
       '.camp-kpi .l{font-size:9px;text-transform:uppercase;color:var(--muted,#888);letter-spacing:.4px;}' +
@@ -74,19 +80,106 @@ async function montarModuloCampanhas(containerId, opts) {
       '.camp-progresso-txt{font-size:10px;margin-top:3px;}' +
       '.camp-sugestao{background:#fff9e6;border-left:3px solid #F59E0B;padding:8px 10px;font-size:11px;margin-top:6px;}' +
       '.camp-checks label{display:inline-flex;align-items:center;gap:4px;font-size:11px;margin-right:12px;font-weight:400;text-transform:none;letter-spacing:0;}' +
+      '#camp-modal .mo-box{max-width:min(900px,94vw);}' +
+      '#camp-inclusao-modal{padding:12px;box-sizing:border-box;}' +
+      '#camp-inclusao-modal .mo-box{width:min(710px,100%);max-width:710px;max-height:calc(100dvh - 24px);display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}' +
+      '#camp-inclusao-modal .mo-b{overflow-y:auto;flex:1 1 auto;min-height:0;padding:18px 20px;}' +
+      '#camp-inclusao-modal .mo-f{flex-shrink:0;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}' +
+      '.camp-inclusao-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:14px 0;}' +
+      '.camp-inclusao-kpi{background:var(--card,#f5f0e8);border:1px solid var(--border2,#aaa);padding:12px;}' +
+      '.camp-inclusao-kpi b{font-size:22px;display:block;margin-bottom:4px;font-variant-numeric:tabular-nums;}' +
+      '.camp-inclusao-kpi span{font-size:11px;color:var(--muted,#777);}' +
+      '@media(max-width:600px){#camp-inclusao-modal{padding:5px;}#camp-inclusao-modal .mo-box{max-height:calc(100dvh - 10px);}#camp-inclusao-modal .mo-b{padding:12px;}}' +
+      '#camp-lgpd-modal .mo-box{max-width:min(900px,95vw);max-height:90dvh;display:flex;flex-direction:column;overflow:hidden;}' +
+      '#camp-lgpd-modal .mo-b{overflow-y:auto;min-height:0;}' +
+      '.camp-lgpd-card{border:1px solid #aaa;padding:10px;margin:7px 0;font-size:12px;}' +
+      '.camp-msg-linha{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--border2,#ccc);margin-bottom:5px;font-size:12px;}' +
+      '#camp-preparo-modal{padding:12px;box-sizing:border-box;}' +
+      '#camp-preparo-modal .mo-box{width:min(1050px,100%);max-width:1050px;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);height:auto;display:flex;flex-direction:column;overflow:hidden;box-sizing:border-box;}' +
+      '#camp-preparo-modal .mo-h,#camp-preparo-modal .mo-f{flex-shrink:0;}' +
+      '#camp-preparo-modal .camp-preparo-fixo{flex-shrink:0;padding:10px 16px 8px;max-height:36vh;overflow:auto;border-bottom:1px solid var(--border2,#ccc);}' +
+      '#camp-preparo-modal .mo-b{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:12px 16px;}' +
+      '#camp-preparo-modal #camp-preparo-listagem{margin:0 0 12px;}' +
+      '#camp-preparo-modal #camp-preparo-previa{display:block;width:100%;height:clamp(260px,42vh,420px);box-sizing:border-box;background:#fff;border:1px solid #aaa;}' +
+      '#camp-preparo-modal .mo-f{background:var(--paper,#fff);border-top:1px solid var(--border2,#ccc);padding:10px 16px;}' +
+      '@media(max-width:700px){#camp-preparo-modal{padding:5px;}#camp-preparo-modal .mo-box{max-height:calc(100dvh - 10px);}#camp-preparo-modal .camp-preparo-fixo{max-height:43vh;}#camp-preparo-modal #camp-preparo-previa{height:300px;}}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
       (editavel ? '<button class="btn rust" id="camp-btn-nova">＋ Nova Campanha</button>' : '') +
     '</div>' +
+    '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">' +
+      '<label for="camp-f-campanha" style="font-size:12px;font-weight:600">Selecionar campanha</label>' +
+      '<select id="camp-f-campanha" aria-label="Filtrar campanhas" style="min-width:270px;max-width:100%;padding:7px"><option value="">Todas as campanhas</option></select>' +
+      (editavel ? '<button type="button" class="btn" id="camp-btn-lgpd">⚖ Base Legal LGPD</button>' : '') +
+    '</div>' +
+    '<div id="camp-carregamento-aviso" role="status" style="font-size:12px;margin:6px 0;color:var(--muted,#777)"></div>' +
     '<div id="camp-lista"></div>' +
+    '<div class="mo" id="camp-preparo-modal">' +
+      '<div class="mo-box" style="max-width:min(1050px,96vw)">' +
+        '<div class="mo-h"><h3>✉ Preparar Envio · somente conferência</h3><button type="button" class="mo-x" id="camp-preparo-fechar">✕</button></div>' +
+        '<div class="camp-preparo-fixo">' +
+          '<p id="camp-preparo-campanha" style="font-weight:700;margin:0 0 6px"></p>' +
+          '<div class="fgr" style="margin:0 0 6px"><label for="camp-preparo-msg">Mensagem da Biblioteca</label><select id="camp-preparo-msg"></select></div>' +
+          '<div id="camp-preparo-estado" role="status" style="margin:6px 0;font-size:12px"></div>' +
+          '<div id="camp-preparo-resumo" style="margin:6px 0"></div>' +
+        '</div>' +
+        '<div class="mo-b">' +
+          '<div id="camp-preparo-elegibilidade" style="margin:8px 0"></div>' +
+          '<div id="camp-preparo-listagem"></div>' +
+          '<div class="fgr" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">' +
+            '<button type="button" class="btn" id="camp-preparo-visualizar" disabled>👁 Visualizar Mensagem</button>' +
+            (editavel ? '<button type="button" class="btn" id="camp-preparo-teste" disabled>✉ Enviar Teste</button>' : '') +
+            '<span class="tmu" style="font-size:12px">Visualizar abre a prévia. Enviar Teste utiliza o mesmo fluxo da Biblioteca, para até três endereços informados manualmente; não usa a lista congelada.</span></div>' +
+          '<p style="border:1px solid #b35a38;padding:10px;font-size:12px;background:#fff6ee;color:#6f331e">' +
+            '<b>Envio em massa indisponível nesta etapa.</b> O botão Enviar Teste é exclusivamente para endereços informados manualmente. ' +
+            'A adequação da base legal à finalidade e ao público e eventuais oposições aplicáveis devem ser respeitadas antes de qualquer disparo real.</p>' +
+        '</div>' +
+        '<div class="mo-f"><button type="button" class="btn" id="camp-preparo-voltar">Fechar preparação</button>' +
+          '<button type="button" class="btn rust" disabled title="Aguardando homologação e regras de envio">Enviar campanha · indisponível</button></div>' +
+      '</div>' +
+    '</div>' +
 
+    '<div class="mo" id="camp-inclusao-modal" role="dialog" aria-modal="true" aria-labelledby="camp-inclusao-titulo">' +
+      '<div class="mo-box">' +
+        '<div class="mo-h"><h3 id="camp-inclusao-titulo">Prévia de inclusão no Pipeline B2C</h3><button type="button" class="mo-x" id="camp-inclusao-x" aria-label="Fechar prévia">✕</button></div>' +
+        '<div class="mo-b">' +
+          '<div id="camp-inclusao-campanha" style="font-size:15px;font-weight:700;margin-bottom:4px"></div>' +
+          '<div id="camp-inclusao-origem" style="font-size:11px;color:var(--muted,#777)"></div>' +
+          '<div class="camp-inclusao-kpis" id="camp-inclusao-indicadores"></div>' +
+          '<div id="camp-inclusao-etapa" style="font-size:12px"></div>' +
+          '<div id="camp-inclusao-aviso" style="font-size:12px;margin:12px 0;border-left:3px solid #c67b33;background:#fff8e9;color:#51330d;padding:10px"></div>' +
+          '<p style="font-size:11px;color:var(--muted,#777)">Esta é apenas uma simulação. Nenhum lead será criado até você confirmar expressamente a inclusão. As campanhas existentes e o histórico de e-mails não serão alterados.</p>' +
+        '</div>' +
+        '<div class="mo-f">' +
+          '<button type="button" class="btn" id="camp-inclusao-cancelar">Cancelar</button>' +
+          '<button type="button" class="btn rust" id="camp-inclusao-confirmar">Confirmar inclusão</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="mo" id="camp-lgpd-modal"><div class="mo-box">' +
+      '<div class="mo-h"><h3>⚖ Bases Legais LGPD</h3><button type="button" class="mo-x" id="camp-lgpd-x">✕</button></div>' +
+      '<div class="mo-b"><p style="font-size:12px">Modelos informativos editáveis. O uso do modelo não substitui avaliação jurídica.</p>' +
+      '<div id="camp-lgpd-status" role="status" style="font-size:12px"></div><div id="camp-lgpd-lista"></div>' +
+      '<h4 id="camp-lgpd-titulo">Nova fundamentação</h4><input type="hidden" id="camp-lgpd-id">' +
+      '<input type="hidden" id="camp-lgpd-codigo">' +
+      '<p style="font-size:11px;margin:4px 0 12px;color:var(--muted,#777)">O código interno é gerado automaticamente ao cadastrar uma nova base.</p>' +
+      '<div class="fgr"><label>Base legal *</label><input id="camp-lgpd-nome" maxlength="160"></div>' +
+      '<div class="fgr"><label>Fundamentação padrão *</label><textarea id="camp-lgpd-texto" rows="5"></textarea></div>' +
+      '<div style="display:flex;gap:8px;margin:12px 0"><button type="button" class="btn rust" id="camp-lgpd-salvar">Salvar</button>' +
+      '<button type="button" class="btn" id="camp-lgpd-novo">Novo / Limpar</button></div>' +
+      '</div><div class="mo-f"><button type="button" class="btn" id="camp-lgpd-fechar">Fechar</button></div></div></div>' +
     '<div class="mo" id="camp-modal">' +
       '<div class="mo-box">' +
         '<div class="mo-h"><h3 id="camp-modal-title">Nova Campanha</h3><button class="mo-x" id="camp-modal-x">✕</button></div>' +
         '<div class="mo-b"><div class="fg">' +
           '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:4px"><label style="font-size:11px">⚖️ Fundamentação LGPD da campanha · registro informativo</label></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-base">Base legal LGPD</label><select id="camp-m-lgpd-base"><option value="">Não informada / em análise</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-finalidade">Finalidade e Fundamentação LGPD</label>' +
+            '<textarea id="camp-m-lgpd-finalidade" rows="3" placeholder="Descreva a finalidade, origem dos contatos, hipótese legal e justificativa para esta campanha."></textarea>' +
+            '<div class="tmu" style="font-size:11px;margin-top:4px">Registro informativo para rastreabilidade. O preenchimento não substitui avaliação de necessidade, transparência e demais requisitos aplicáveis.</div></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Público — segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual centro de custo, qual UF)</span></label><div id="camp-m-filtros"></div>' +
             '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
@@ -110,6 +203,9 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div class="fgr" style="grid-column:1/-1"><label>Meios escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
           '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
+          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">📧 Mensagens de e-mail desta campanha <span class="tmu" style="font-weight:400">— guardadas na 📚 Biblioteca de Mensagens</span></label>' +
+            '<div id="camp-m-mensagens" style="margin-top:6px"></div></div>' +
+
           '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
             '<label style="font-size:11px">🤖 Modelo de Mensagem — Sugestão da IA (Nível 1)</label>' +
             '<div class="pb2c-hist" id="camp-m-modelo-sugerida" style="min-height:60px;white-space:pre-wrap"></div>' +
@@ -130,13 +226,75 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>' +
     '</div>';
 
+  // Consultas auxiliares não podem impedir o carregamento das Campanhas.
+  // Cada consulta tem limite de espera e falhas são informadas sem apagar campanhas.
+  var campAviso = host.querySelector('#camp-carregamento-aviso');
+  campAviso.textContent = 'Carregando campanhas...';
+  // Compartilhada entre carregamento inicial e botão "Atualizar dados".
+  async function cdaCarregarHistoricoTestes() {
+    return cdaFetchAll('cda_email_tentativas',
+      'id,campanha_id,mensagem_id,criado_em,destinatarios,usuario_nome,situacao,resend_email_id,erro','id');
+  }
+  async function cdaCarregarEventosEmail() {
+    return cdaFetchAll('cda_email_eventos',
+      'id,tentativa_id,tipo,ocorrido_em','id');
+  }
   try {
-    var res = await Promise.all([cdaCarregarCampanhas(), cdaCarregarSegmentos(), cdaCarregarClientes(), cdaCarregarCompras(), cdaCarregarStatusCrm(), cdaCarregarLeadsB2C(), cdaCarregarEquipe(), cdaCarregarCanais(), cdaCarregarHierarquiaReceita(), cdaCarregarResumoListas().catch(function () { return {}; }), cdaCarregarProdutos()]);
-    ST.campanhas = res[0]; ST.segmentos = res[1]; ST.clientes = res[2]; ST.compras = res[3]; ST.statusCrm = res[4]; ST.leads = res[5]; ST.equipe = res[6]; ST.canais = res[7]; ST.hierarquia = res[8] || []; ST.listas = res[9] || {}; ST.produtos = res[10] || [];
+    var carregamentos = [
+      ['Campanhas', cdaCarregarCampanhas],
+      ['Segmentação', cdaCarregarSegmentos],
+      ['Clientes', cdaCarregarClientes],
+      ['Compras', cdaCarregarCompras],
+      ['Status CRM', cdaCarregarStatusCrm],
+      ['Pipeline', cdaCarregarLeadsB2C],
+      ['Equipe', cdaCarregarEquipe],
+      ['Canais', cdaCarregarCanais],
+      ['Hierarquia de receitas', cdaCarregarHierarquiaReceita],
+      ['Listas congeladas', cdaCarregarResumoListas],
+      ['Produtos', cdaCarregarProdutos],
+      ['Mensagens', cdaCarregarMensagens],
+      ['Histórico de testes', cdaCarregarHistoricoTestes],
+      ['Eventos do Resend', cdaCarregarEventosEmail]
+    ];
+    var resultados = await Promise.all(carregamentos.map(function (item) {
+      return Promise.race([
+        Promise.resolve().then(item[1]),
+        new Promise(function (_, rejeitar) {
+          setTimeout(function () { rejeitar(new Error('Tempo limite de carregamento')); }, 15000);
+        })
+      ]).then(function (dados) { return { ok: true, dados: dados }; },
+        function (erro) { return { ok: false, erro: erro }; });
+    }));
+    if (!resultados[0].ok) throw resultados[0].erro;
+    ST.campanhas = resultados[0].dados || [];
+    ST.segmentos = resultados[1].ok ? (resultados[1].dados || []) : [];
+    ST.clientes = resultados[2].ok ? (resultados[2].dados || []) : [];
+    ST.compras = resultados[3].ok ? (resultados[3].dados || []) : [];
+    ST.statusCrm = resultados[4].ok ? (resultados[4].dados || []) : [];
+    ST.leads = resultados[5].ok ? (resultados[5].dados || []) : [];
+    ST.equipe = resultados[6].ok ? (resultados[6].dados || []) : [];
+    ST.canais = resultados[7].ok ? (resultados[7].dados || []) : [];
+    ST.hierarquia = resultados[8].ok ? (resultados[8].dados || []) : [];
+    ST.listas = resultados[9].ok ? (resultados[9].dados || {}) : {};
+    ST.produtos = resultados[10].ok ? (resultados[10].dados || []) : [];
+    ST.mensagens = resultados[11].ok ? (resultados[11].dados || []) : [];
+    ST.tentativas = resultados[12].ok ? (resultados[12].dados || []) : [];
+    ST.eventosEmail = resultados[13].ok ? (resultados[13].dados || []) : [];
+    var falhas = carregamentos.filter(function (item, i) { return i !== 0 && !resultados[i].ok; })
+      .map(function (item) { return item[0]; });
+    if (falhas.length) {
+      campAviso.style.color = 'var(--rust,#c0392b)';
+      campAviso.textContent = 'Atenção: dados auxiliares indisponíveis (' + falhas.join(', ') +
+        '). As campanhas continuam cadastradas; alguns indicadores podem estar incompletos. Recarregue a tela para tentar novamente.';
+    } else {
+      campAviso.textContent = '';
+    }
   } catch (err) {
-    console.error(err);
+    console.error('Erro ao carregar Campanhas:', err);
+    campAviso.style.color = 'var(--rust,#c0392b)';
+    campAviso.textContent = 'Falha ao carregar campanhas. Tente recarregar a tela.';
     var msg = (err && (err.message || err.details || err.hint)) || 'Erro desconhecido';
-    host.querySelector('#camp-lista').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase:<br><b>' + msg + '</b></p>';
+    host.querySelector('#camp-lista').innerHTML = '<p style="color:var(--rust,#c0392b);padding:20px">Erro ao carregar dados do Supabase: <b>' + msg + '</b></p>';
     return;
   }
 
@@ -231,10 +389,28 @@ async function montarModuloCampanhas(containerId, opts) {
       '</div>';
   }
 
+  // Abas por campanha: estado apenas da apresentação, sem gravação no banco.
+  var abaPorCampanha = Object.create(null);
+  var abasCampanha = [
+    {id:'geral',nome:'Campanha e Público'},
+    {id:'mensagens',nome:'Mensagens'},
+    {id:'execucao',nome:'Execução'},
+    {id:'resultados',nome:'Resultados'}
+  ];
+  var filtroCampanha = host.querySelector('#camp-f-campanha');
+  filtroCampanha.addEventListener('change', render);
+
   function render() {
     var box = host.querySelector('#camp-lista');
+    var anterior = filtroCampanha.value;
+    filtroCampanha.innerHTML = '<option value="">Todas as campanhas</option>' +
+      ST.campanhas.map(function (c) { return '<option value="' + escH(c.id) + '">' + escH(c.nome) + '</option>'; }).join('');
+    if (anterior && ST.campanhas.some(function (c) { return String(c.id) === anterior; })) {
+      filtroCampanha.value = anterior;
+    }
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
-    box.innerHTML = ST.campanhas.map(function (c) {
+    var visiveis = ST.campanhas.filter(function (c) { return !filtroCampanha.value || String(c.id) === filtroCampanha.value; });
+    box.innerHTML = visiveis.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
       var filtrosC = filtrosDaCampanha(c);
       var qtdPublico = filtrosC ? publicoDe(filtrosC).length : null;
@@ -243,40 +419,329 @@ async function montarModuloCampanhas(containerId, opts) {
       var statusInfo = CDA_STATUS_CAMPANHA.find(function (s) { return s.id === c.status; }) || CDA_STATUS_CAMPANHA[0];
       var kpi = calcularKpi(c);
       var beneficioInfo = CDA_TIPOS_BENEFICIO.find(function (b) { return b.id === c.beneficioTipo; });
-      return '<div class="camp-card" data-id="' + c.id + '">' +
-        '<div class="camp-topo"><div class="camp-nome">' + c.nome + '</div><span class="camp-badge" style="background:' + statusInfo.cor + '">' + statusInfo.label + '</span></div>' +
-        (c.objetivo ? '<p class="tmu" style="margin:4px 0 0">' + c.objetivo + '</p>' : '') +
-        '<div class="camp-grid">' +
-          '<div><div class="l">Público-Alvo</div><b>' + (qtdPublico != null ? qtdPublico.toLocaleString('pt-BR') + ' cliente(s)' : '—') + '</b></div>' +
-          '<div><div class="l">Segmentação</div>' + (seg ? escH(seg.nome) + '<div class="tmu" style="font-size:10px">' + escH(seg.modelo ? seg.resumo : cdaResumoTipos(seg.filtros)) + '</div>' : '<i>segmentação não encontrada</i>') + '</div>' +
-          '<div><div class="l">Lista congelada</div>' + (lista ? '<b>' + lista.total.toLocaleString('pt-BR') + '</b> cliente(s) · ' + lista.comEmail.toLocaleString('pt-BR') + ' com e-mail<div class="tmu" style="font-size:10px">em ' + fmtDataHora(lista.congeladoEm) + '</div>' : '<span class="tmu">ainda não congelada</span>') + '</div>' +
-          '<div><div class="l">Etapa de entrada</div>' + (etapa ? etapa.label : '—') + '</div>' +
-          '<div><div class="l">Período</div>' + fmtData(c.periodoInicio) + ' – ' + fmtData(c.periodoFim) + '</div>' +
-          '<div><div class="l">Meta</div>' + (c.metaDescricao || '—') + '</div>' +
-          '<div><div class="l">Responsável(is)</div>' + ((c.responsavelIds || []).map(function (id) { return equipePorId[id] ? equipePorId[id].nome : null; }).filter(Boolean).join(', ') || '—') + '</div>' +
-          '<div><div class="l">Benefício</div>' + (beneficioInfo && beneficioInfo.id !== 'nenhum' ? beneficioInfo.label + (c.beneficioValor ? ' — ' + c.beneficioValor : '') : '—') + '</div>' +
-        '</div>' +
-        (kpi ? renderPainelKpi(c, kpi) : '<p class="tmu" style="margin-top:10px">Ainda sem leads nesta campanha — clique em "Adicionar público ao Pipeline" pra começar a medir.</p>') +
-        (editavel ?
-        '<div class="camp-acoes">' +
-          '<button class="btn sm rust" data-congelar="' + c.id + '">🧊 ' + (lista ? 'Recongelar lista' : 'Congelar lista') + '</button>' +
-          '<button class="btn sm" data-add-publico="' + c.id + '">➕ Adicionar público ao Pipeline</button>' +
-          '<button class="btn sm" data-gerar-msg="' + c.id + '">🚀 Gerar Mensagens</button>' +
-          '<button class="btn sm" data-gerar-roadmap="' + c.id + '">🗺 Gerar Roadmap de Tarefas</button>' +
-          '<button class="btn sm" data-editar="' + c.id + '">✎ Editar</button>' +
-          '<button class="btn sm" data-duplicar="' + c.id + '">⧉ Duplicar</button>' +
-        '</div>' : '') +
-      '</div>';
+      var id = String(c.id), abaAtual = abaPorCampanha[id] === 'publico' ? 'geral' : (abaPorCampanha[id] || 'geral');
+      function acao(atributo, rotulo, destaque) {
+        return editavel ? '<button class="btn sm'+(destaque?' rust':'')+'" type="button" '+atributo+'="'+escH(id)+'">'+rotulo+'</button>' : '';
+      }
+      // Campanha e Público: informações gerais e segmentação no mesmo painel, sem repetição.
+      var resumo =
+        '<h4>Dados da campanha e composição do público</h4>'+
+        '<div class="camp-grid">'+
+          '<div><div class="l">Público-alvo</div><b>'+(qtdPublico!=null?qtdPublico.toLocaleString('pt-BR')+' cliente(s)':'—')+'</b></div>'+
+          '<div><div class="l">E-mails na lista congelada</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
+          '<div><div class="l">Segmentação</div>'+(seg?'<b>'+escH(seg.nome)+'</b><div class="tmu" style="font-size:11px">'+escH(seg.modelo?seg.resumo:cdaResumoTipos(seg.filtros))+'</div>':'Não encontrada')+'</div>'+
+          '<div><div class="l">Lista congelada</div>'+(lista?'<b>'+lista.total.toLocaleString('pt-BR')+'</b> cliente(s)<div class="tmu" style="font-size:11px">em '+escH(fmtDataHora(lista.congeladoEm))+'</div>':'Ainda não congelada')+'</div>'+
+          '<div><div class="l">Período</div>'+fmtData(c.periodoInicio)+' – '+fmtData(c.periodoFim)+'</div>'+
+          '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div>'+
+          '<div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>'+
+          '<div><div class="l">Meta</div>'+escH(c.metaDescricao||'—')+'</div>'+
+          '<div><div class="l">Benefício</div>'+(beneficioInfo&&beneficioInfo.id!=='nenhum'?escH(beneficioInfo.label+(c.beneficioValor?' — '+c.beneficioValor:'')):'—')+'</div>'+
+        '</div>'+
+        (editavel?'<div class="camp-acoes">'+
+          acao('data-editar','✎ Editar')+
+          acao('data-duplicar','⧉ Duplicar')+
+          acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+
+        '</div>':'')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
+      var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
+      var mensagens =
+        '<h4>Plano de Comunicação · ações de e-mail</h4>'+
+        '<p class="tmu" style="font-size:11px;margin:5px 0 12px">Visão inicial das mensagens associadas à campanha. Cada mensagem pode ser utilizada em uma ação futura; não há agendamento ou disparo automático.</p>'+
+        '<div class="camp-grid"><div><div class="l">Mensagens na Biblioteca</div><b>'+mensagensVinculadas.length+'</b></div>'+
+        '<div><div class="l">Destinatários congelados</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'—')+'</b></div></div>'+
+        (mensagensVinculadas.length?mensagensVinculadas.map(function(m){
+          var de=m.remetenteEmail||'Não configurado';
+          var reply=m.responderPara||'Não configurado';
+          return '<div style="border:1px solid var(--border2,#ccc);padding:12px;margin:10px 0;background:var(--paper,#fff)">'+
+            '<div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><b>'+escH(m.nome)+'</b>'+
+            '<span class="tmu" style="font-size:10px">Mensagem da Biblioteca · sem envio programado</span></div>'+
+            '<div style="font-size:11px;margin-top:8px;line-height:1.8">'+
+              '<div><b>Assunto:</b> '+escH(m.assunto||'—')+'</div>'+
+              '<div><b>Remetente (From):</b> '+escH(de)+'</div>'+
+              '<div><b>Respostas (Reply-To):</b> '+escH(reply)+'</div>'+
+              '<div><b>Responsável humano:</b> A definir — o endereço Reply-To não identifica automaticamente uma pessoa</div>'+
+              '<div><b>Situação:</b> '+(m.ultimoTesteEm?'Teste registrado em '+escH(fmtDataHora(m.ultimoTesteEm)):'Sem teste registrado')+'</div>'+
+            '</div></div>';
+        }).join(''):'<div class="tmu" style="font-size:12px">Nenhuma mensagem vinculada a esta campanha.</div>')+
+        (editavel?'<div class="camp-acoes">'+acao('data-preparar','✉ Preparar Envio',true)+'</div>':'')+
+        '<p class="tmu" style="font-size:11px;margin-top:10px">O Reply-To direciona respostas à caixa postal indicada. O recebimento e a leitura dessas respostas não são integrados automaticamente ao Pipeline. Visualizar Mensagem e Enviar Teste ficam em Preparar Envio. Envio em massa desabilitado.</p>';
+      var execucao =
+        '<h4>Pipeline e atividades</h4>'+
+        '<div class="camp-grid"><div><div class="l">Etapa de entrada</div>'+(etapa?etapa.label:'—')+'</div>'+
+        '<div><div class="l">Responsável(is)</div>'+((c.responsavelIds||[]).map(function(rid){return equipePorId[rid]?escH(equipePorId[rid].nome):null;}).filter(Boolean).join(', ')||'—')+'</div></div>'+
+        (editavel?'<div class="camp-acoes">'+
+          acao('data-add-publico','➕ Adicionar público ao Pipeline')+
+          acao('data-gerar-msg','🚀 Gerar Mensagens')+
+          acao('data-gerar-roadmap','🗺 Gerar Roadmap de Tarefas')+'</div>':'');
+      var mensagensTeste=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
+      var tentativas=ST.tentativas.filter(function(t){return String(t.campanha_id)===id;});
+      var aceitos=tentativas.filter(function(t){return t.situacao==='aceito_provedor';}).length;
+      var falhasTeste=tentativas.filter(function(t){return t.situacao==='rejeitado_provedor'||t.situacao==='falha_tecnica';}).length;
+      var idsTentativas=new Set(tentativas.map(function(t){return String(t.id);}));
+      var eventosCampanha=ST.eventosEmail.filter(function(e){return idsTentativas.has(String(e.tentativa_id));});
+      var entregas=new Set(eventosCampanha.filter(function(e){return e.tipo==='email.delivered';}).map(function(e){return String(e.tentativa_id);}));
+      var devolucoes=new Set(eventosCampanha.filter(function(e){return e.tipo==='email.bounced';}).map(function(e){return String(e.tentativa_id);}));
+      var resultados =
+        '<h4>Resultados comerciais</h4>'+
+        (kpi?renderPainelKpi(c,kpi):'<p class="tmu">Ainda sem leads nesta campanha — em Execução, use "Adicionar público ao Pipeline" para começar a medir.</p>')+
+        '<div style="border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:16px">'+
+          '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">'+
+            '<h4 style="margin:0">Resumo das comunicações</h4>'+
+            '<button type="button" class="btn sm" data-atualizar-controle="'+escH(id)+'">↻ Atualizar dados</button>'+
+          '</div>'+
+          '<div class="camp-grid">'+
+            '<div><div class="l">Público congelado</div><b>'+(lista?lista.total.toLocaleString('pt-BR'):'Sem lista')+'</b></div>'+
+            '<div><div class="l">E-mails válidos</div><b>'+(lista?lista.comEmail.toLocaleString('pt-BR'):'—')+'</b></div>'+
+            '<div><div class="l">Mensagens vinculadas</div><b>'+mensagensTeste.length+'</b></div>'+
+            '<div><div class="l">Tentativas registradas</div><b>'+tentativas.length+'</b></div>'+
+            '<div><div class="l">Aceitas pelo Resend</div><b>'+aceitos+'</b></div>'+
+            '<div><div class="l">Falhas ou recusas na tentativa</div><b>'+falhasTeste+'</b></div>'+
+            '<div><div class="l">Entregas notificadas</div><b>'+entregas.size+'</b></div>'+
+            '<div><div class="l">Devoluções notificadas</div><b>'+devolucoes.size+'</b></div>'+
+            '<div><div class="l">Envio em massa</div><b>Desabilitado</b></div>'+
+          '</div>'+
+          '<p class="tmu" style="font-size:11px;margin:10px 0 0">Para consultar cada teste, a mensagem, os destinatários e os eventos de entrega/rejeição recebidos, acesse Pipeline B2C → Comunicações da Campanha. Zero notificações pode significar webhook ainda não ativado. O aceite pelo Resend não comprova entrega.</p>'+
+        '</div>';
+      var paineis={geral:resumo,mensagens:mensagens,execucao:execucao,resultados:resultados};
+      return '<div class="camp-card" data-id="'+escH(id)+'">'+
+        '<div class="camp-topo"><div class="camp-nome">'+escH(c.nome)+'</div><span class="camp-badge" style="background:'+statusInfo.cor+'">'+statusInfo.label+'</span></div>'+
+        (c.objetivo?'<p class="tmu" style="margin:4px 0 0">'+escH(c.objetivo)+'</p>':'')+
+        '<div class="camp-abas" role="tablist" aria-label="Seções da campanha '+escH(c.nome)+'">'+
+          abasCampanha.map(function(a){return '<button type="button" class="camp-aba" role="tab" aria-selected="'+(abaAtual===a.id?'true':'false')+'" data-camp-aba="'+a.id+'" data-camp-id="'+escH(id)+'">'+a.nome+'</button>';}).join('')+
+        '</div><div class="camp-painel" role="tabpanel">'+paineis[abaAtual]+'</div></div>';
     }).join('');
 
+    box.querySelectorAll('[data-atualizar-controle]').forEach(function(btn){
+      btn.addEventListener('click', async function(){
+        btn.disabled=true;
+        var anterior=btn.textContent;
+        btn.textContent='Consultando...';
+        try {
+          var atualizados=await Promise.all([cdaCarregarMensagens(),cdaCarregarHistoricoTestes(),cdaCarregarEventosEmail()]);
+          ST.mensagens=atualizados[0];
+          ST.tentativas=atualizados[1];
+          ST.eventosEmail=atualizados[2];
+          render();
+        } catch(err){
+          console.error('Atualizar controle de envios:',err);
+          btn.textContent=anterior;
+          btn.disabled=false;
+          alert('Não foi possível atualizar os dados de teste no Supabase: '+((err&&err.message)||'erro desconhecido'));
+        }
+      });
+    });
+    box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        abaPorCampanha[String(btn.dataset.campId)] = btn.dataset.campAba;
+        render();
+      });
+    });
     if (editavel) {
     box.querySelectorAll('[data-editar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.editar); }); });
     box.querySelectorAll('[data-duplicar]').forEach(function (btn) { btn.addEventListener('click', function () { abrirModal(btn.dataset.duplicar, true); }); });
     box.querySelectorAll('[data-congelar]').forEach(function (btn) { btn.addEventListener('click', function () { congelarLista(btn.dataset.congelar, btn); }); });
+    box.querySelectorAll('[data-preparar]').forEach(function (btn) { btn.addEventListener('click', function () { prepararEnvio(btn.dataset.preparar); }); });
     box.querySelectorAll('[data-add-publico]').forEach(function (btn) { btn.addEventListener('click', function () { adicionarPublico(btn.dataset.addPublico, btn); }); });
     box.querySelectorAll('[data-gerar-msg]').forEach(function (btn) { btn.addEventListener('click', function () { gerarMensagensCampanha(btn.dataset.gerarMsg, btn); }); });
     box.querySelectorAll('[data-gerar-roadmap]').forEach(function (btn) { btn.addEventListener('click', function () { gerarRoadmapTarefas(btn.dataset.gerarRoadmap, btn); }); });
     } // fim if (editavel)
+  }
+
+  // Preparação de e-mail: somente leitura. Não chama Edge Function de disparo.
+  var modalPreparo = host.querySelector('#camp-preparo-modal');
+  var preparoSelecionada = null;
+  var preparoElegiveis = [];
+  var preparoMensagens = [];
+  var preparoCampanha = null;
+  var preparoResumo = host.querySelector('#camp-preparo-resumo');
+  var preparoListagem = host.querySelector('#camp-preparo-listagem');
+  var preparoEstado = host.querySelector('#camp-preparo-estado');
+  var preparoMsg = host.querySelector('#camp-preparo-msg');
+  var preparoPagina = 0;
+  var preparoClassificados = [];
+  var preparoFiltro = 'valido';
+  var preparoBusca = '';
+  var preparoFiltroEl = host.querySelector('#camp-preparo-elegibilidade');
+  function fecharPreparo() { modalPreparo.classList.remove('op'); }
+  host.querySelector('#camp-preparo-fechar').addEventListener('click', fecharPreparo);
+  host.querySelector('#camp-preparo-voltar').addEventListener('click', fecharPreparo);
+
+  function apresentarPreparo() {
+    if (!preparoSelecionada) return;
+    var total = preparoSelecionada.total;
+    preparoResumo.innerHTML = '<div class="camp-grid">' +
+      '<div><div class="l">Lista congelada</div><b>' + total.toLocaleString('pt-BR') + '</b> cliente(s)</div>' +
+      '<div><div class="l">E-mails válidos e únicos</div><b>' + preparoSelecionada.aptos.toLocaleString('pt-BR') + '</b></div>' +
+      '<div><div class="l">Sem e-mail / inválidos</div><b>' + preparoSelecionada.invalidos.toLocaleString('pt-BR') + '</b></div>' +
+      '<div><div class="l">Duplicidades de e-mail</div><b>' + preparoSelecionada.duplicados.toLocaleString('pt-BR') + '</b></div>' +
+      '<div><div class="l">Congelada em</div>' + escH(fmtDataHora(preparoSelecionada.data)) + '</div></div>' +
+      '<p style="font-size:11px;color:var(--muted,#777)">A classificação técnica do e-mail é distinta da base legal registrada para a campanha.</p>';
+
+    var contagens = { valido: 0, excluido: 0 };
+    preparoClassificados.forEach(function (d) { contagens[d.situacao]++; });
+    var baseNome = {legitimo_interesse:'Legítimo interesse',consentimento:'Consentimento',
+      execucao_contrato:'Execução de contrato',obrigacao_legal:'Obrigação legal ou regulatória',
+      outra:'Outra'};
+    var baseCodigo = preparoCampanha ? (preparoCampanha.lgpdBaseLegal || '') : '';
+    var baseLabel = baseNome[baseCodigo] || baseCodigo || 'Não informada / em análise';
+    var fundamentacao = preparoCampanha ? (preparoCampanha.lgpdFinalidadeFundamentacao || '') : '';
+    preparoFiltroEl.innerHTML =
+      '<h4 style="font-size:15px;margin:8px 0">Destinatários da Campanha</h4>' +
+      '<div class="camp-grid" style="padding:9px 12px;border:1px solid var(--border2,#ccc);margin:0 0 8px">' +
+        '<div><div class="l">Público congelado</div><b>' + total.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Com e-mail válido e único</div><b>' + contagens.valido.toLocaleString('pt-BR') + '</b></div>' +
+        '<div><div class="l">Excluídos tecnicamente</div><b>' + contagens.excluido.toLocaleString('pt-BR') + '</b></div>' +
+      '</div>' +
+      '<div style="border:1px solid var(--border2,#ccc);padding:10px 12px;margin:0 0 10px;font-size:12px">' +
+        '<b>Base legal LGPD da campanha: ' + escH(baseLabel) + '</b>' +
+        '<div style="margin-top:6px"><b>Finalidade e fundamentação registrada:</b></div>' +
+        '<div style="white-space:pre-wrap;margin-top:4px">' + escH(fundamentacao || 'Não registrada nesta campanha.') + '</div>' +
+        '<p style="font-size:11px;color:var(--muted,#777);margin:8px 0 0">A fundamentação registrada não substitui avaliação de sua adequação ao público e à finalidade. ' +
+        'Quando a hipótese aplicável for legítimo interesse, não se exige consentimento individual com fundamento nessa hipótese; eventuais oposições e demais direitos dos titulares devem ser respeitados.</p>' +
+      '</div>' +
+      '<label for="camp-preparo-filtro" style="font-size:12px">Consultar por situação técnica</label> ' +
+      '<select id="camp-preparo-filtro" style="max-width:330px;margin:0 0 8px">' +
+        '<option value="todos">Todos os registros</option>' +
+        '<option value="valido">Com e-mail válido e único</option>' +
+        '<option value="excluido">Excluídos tecnicamente</option>' +
+      '</select>';
+    var filtroEl = host.querySelector('#camp-preparo-filtro');
+    filtroEl.value = preparoFiltro;
+    filtroEl.addEventListener('change', function () { preparoFiltro = this.value; preparoPagina = 0; apresentarPreparo(); });
+
+    function normalizarBusca(valor) {
+      return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+    }
+    var busca = normalizarBusca(preparoBusca);
+    var visiveis = preparoClassificados.filter(function (d) {
+      if (preparoFiltro !== 'todos' && d.situacao !== preparoFiltro) return false;
+      return !busca || normalizarBusca(d.nome).includes(busca) || normalizarBusca(d.email).includes(busca);
+    });
+    var inicio = preparoPagina * 25, pagina = visiveis.slice(inicio, inicio + 25);
+    var qtdPaginas = Math.max(1, Math.ceil(visiveis.length / 25));
+    preparoListagem.innerHTML = '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px">' +
+      '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">' +
+        '<b>Destinatários · ' + visiveis.length.toLocaleString('pt-BR') + '</b>' +
+        '<label for="camp-preparo-busca" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)">Pesquisar destinatário por nome ou e-mail</label>' +
+        '<input type="search" id="camp-preparo-busca" autocomplete="off" placeholder="Pesquisar nome ou e-mail" value="' + escH(preparoBusca) + '" style="width:min(270px,66vw);font-size:12px;padding:7px 9px;border:1px solid var(--border2,#aaa);border-radius:4px">' +
+        '<button type="button" class="btn sm" id="camp-preparo-limpar" ' + (!preparoBusca ? 'disabled' : '') + '>Limpar</button>' +
+      '</div>' +
+      '<span>Página ' + (preparoPagina + 1) + ' de ' + qtdPaginas +
+      ' <button class="btn sm" id="camp-preparo-anterior" ' + (preparoPagina === 0 ? 'disabled' : '') + '>Anterior</button>' +
+      ' <button class="btn sm" id="camp-preparo-proximo" ' + (inicio + 25 >= visiveis.length ? 'disabled' : '') + '>Próxima</button></span></div>' +
+      '<div style="max-height:clamp(160px,32vh,330px);overflow:auto">' +
+      '<table style="width:100%;font-size:12px"><thead><tr><th>Cliente</th><th>E-mail</th><th>UF</th><th>Situação técnica</th><th>Critério</th></tr></thead><tbody>' +
+      (pagina.length ? pagina.map(function (d) {
+        return '<tr><td>' + escH(d.nome) + '</td><td>' + escH(d.email) + '</td><td>' + escH(d.uf) +
+          '</td><td>' + (d.situacao === 'valido' ? 'E-mail válido' : 'Excluído tecnicamente') +
+          '</td><td>' + escH(d.motivo) + '</td></tr>';
+      }).join('') : '<tr><td colspan="5" style="padding:12px">Nenhum registro nesta situação.</td></tr>') +
+      '</tbody></table></div>';
+    host.querySelector('#camp-preparo-busca').addEventListener('input', function () {
+      var pos = this.selectionStart;
+      preparoBusca = this.value;
+      preparoPagina = 0;
+      apresentarPreparo();
+      var campo = host.querySelector('#camp-preparo-busca');
+      campo.focus();
+      try { campo.setSelectionRange(pos, pos); } catch(e) {}
+    });
+    host.querySelector('#camp-preparo-limpar').addEventListener('click', function () {
+      preparoBusca = '';
+      preparoPagina = 0;
+      apresentarPreparo();
+      host.querySelector('#camp-preparo-busca').focus();
+    });
+    host.querySelector('#camp-preparo-anterior').addEventListener('click', function () {
+      if(preparoPagina > 0){ preparoPagina--; apresentarPreparo(); }
+    });
+    host.querySelector('#camp-preparo-proximo').addEventListener('click', function () {
+      if((preparoPagina+1)*25 < visiveis.length){ preparoPagina++; apresentarPreparo(); }
+    });
+  }
+  function atualizarVisualizarPreparo() {
+    var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
+    var btn = host.querySelector('#camp-preparo-visualizar');
+    btn.disabled = !msg;
+    btn.title = msg ? 'Abrir mensagem completa em outra aba' : 'Selecione uma mensagem da Biblioteca';
+    var btnTeste = host.querySelector('#camp-preparo-teste');
+    if (btnTeste) {
+      btnTeste.disabled = !msg;
+      btnTeste.title = msg ? 'Enviar somente aos e-mails de teste informados manualmente (até 3)' : 'Selecione uma mensagem da Biblioteca';
+    }
+  }
+  preparoMsg.addEventListener('change', atualizarVisualizarPreparo);
+  if (editavel) host.querySelector('#camp-preparo-teste').addEventListener('click', async function () {
+    var msg = preparoMensagens.find(function(m){return String(m.id)===preparoMsg.value;});
+    if (!msg || !preparoCampanha || this.disabled) return;
+    if (typeof cdaMsgPerguntarEEnviarTeste !== 'function') {
+      alert('O recurso de testes da Biblioteca de Mensagens não foi carregado. Atualize a página.'); return;
+    }
+    // Mensagem renderizada com dados de exemplo, nunca usando destinatários reais da lista congelada.
+    await cdaMsgPerguntarEEnviarTeste(msg, preparoCampanha,
+      {nome:'Cliente de Teste', cidade:'São Paulo', estado:'SP'}, this);
+  });
+  host.querySelector('#camp-preparo-visualizar').addEventListener('click', function () {
+    var msg = preparoMensagens.find(function (m) { return String(m.id) === preparoMsg.value; });
+    if (!msg || !preparoCampanha) return;
+    var exemplo = preparoElegiveis[0] || { nome: 'Cliente', email: '' };
+    // Reutiliza a mesma visualização já homologada na Biblioteca.
+    // Este botão apenas abre a prévia; não dispara e-mails aos clientes.
+    cdaMsgAbrirEmNovaAba(msg, preparoCampanha, exemplo);
+  });
+
+  async function prepararEnvio(campanhaId) {
+    preparoCampanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
+    if (!preparoCampanha) return;
+    preparoSelecionada = null; preparoElegiveis = []; preparoMensagens = []; preparoClassificados = []; preparoPagina = 0; preparoFiltro = 'valido'; preparoBusca = '';
+    preparoResumo.innerHTML = ''; preparoListagem.innerHTML = ''; preparoFiltroEl.innerHTML = '';
+    preparoMsg.innerHTML = '<option value="">Carregando...</option>';
+    atualizarVisualizarPreparo();
+    host.querySelector('#camp-preparo-campanha').textContent = preparoCampanha.nome;
+    preparoEstado.textContent = 'Consultando lista congelada e mensagens...';
+    modalPreparo.classList.add('op');
+    try {
+      var consultas = await Promise.all([cdaCarregarListaCongelada(campanhaId), cdaCarregarMensagens()]);
+      if (!modalPreparo.classList.contains('op')) return;
+      var congelados = consultas[0] || [], mensagens = consultas[1] || [];
+      preparoMensagens = mensagens.filter(function (m) { return String(m.campanhaId) === String(campanhaId); });
+      preparoMsg.innerHTML = '<option value="">Selecione a mensagem...</option>' +
+        preparoMensagens.map(function (m) { return '<option value="' + escH(m.id) + '">' + escH(m.nome) + '</option>'; }).join('');
+      if (preparoMensagens.length) preparoMsg.value = String(preparoMensagens[0].id);
+      var vistos = Object.create(null), invalidos = 0, duplicados = 0;
+      congelados.forEach(function (d) {
+        var e = String(d.email || '').trim().toLowerCase();
+        var item = {
+          nome: d.nome || '', email: d.email || '', uf: d.uf || '',
+          situacao: 'valido', motivo: 'E-mail válido e único · lista congelada'
+        };
+        if (!cdaEmailValido(e)) {
+          invalidos++;
+          item.situacao = 'excluido';
+          item.motivo = e ? 'Endereço de e-mail inválido · lista congelada' : 'E-mail não informado · lista congelada';
+        } else if (vistos[e]) {
+          duplicados++;
+          item.situacao = 'excluido';
+          item.motivo = 'E-mail duplicado · lista congelada';
+        } else {
+          vistos[e] = 1;
+          preparoElegiveis.push(d);
+        }
+        preparoClassificados.push(item);
+      });
+      preparoSelecionada = {
+        total: congelados.length, aptos: preparoElegiveis.length,
+        invalidos: invalidos, duplicados: duplicados,
+        data: congelados.length ? congelados[0].congelado_em : null
+      };
+      preparoEstado.textContent = congelados.length ? 'Conferência técnica concluída · base LGPD registrada na campanha · sem envio.' : 'Esta campanha ainda não possui lista congelada. Clique em Congelar Lista antes de preparar o envio.';
+      if (!preparoMensagens.length) preparoEstado.textContent += ' Nenhuma mensagem cadastrada para esta campanha.';
+      apresentarPreparo();
+      atualizarVisualizarPreparo();
+    } catch (err) {
+      console.error('Preparar envio:', err);
+      preparoEstado.textContent = 'Falha ao consultar os dados: ' + ((err && err.message) || 'erro desconhecido') + '. Nenhum envio foi realizado.';
+    }
   }
 
   async function gerarRoadmapTarefas(campanhaId, btn) {
@@ -363,41 +828,249 @@ async function montarModuloCampanhas(containerId, opts) {
     }
   }
 
+  // Diálogo próprio da aplicação: sem confirm() nativo e sem gravação antes do aceite.
+  // Os listeners são removidos ao encerrar a promessa, evitando confirmações duplicadas.
+  function confirmarInclusaoNoModal(info) {
+    return new Promise(function(resolve) {
+      var modal=host.querySelector('#camp-inclusao-modal');
+      var confirmar=host.querySelector('#camp-inclusao-confirmar');
+      var cancelar=host.querySelector('#camp-inclusao-cancelar');
+      var fechar=host.querySelector('#camp-inclusao-x');
+      var anterior=document.activeElement;
+      function kpi(valor,label){
+        return '<div class="camp-inclusao-kpi"><b>'+Number(valor).toLocaleString('pt-BR')+'</b><span>'+escH(label)+'</span></div>';
+      }
+      host.querySelector('#camp-inclusao-campanha').textContent=info.campanha;
+      host.querySelector('#camp-inclusao-origem').textContent=info.origem;
+      host.querySelector('#camp-inclusao-indicadores').innerHTML=
+        (info.congelado?kpi(info.totalCongelado,'Destinatários congelados'):'')+
+        (info.congelado?kpi(info.semEmailValido,'Excluídos: e-mail inválido/ausente'):'')+
+        kpi(info.elegiveis,info.congelado?'Clientes com e-mail válido':'Clientes elegíveis')+
+        kpi(info.existentes,'Já nesta campanha')+
+        kpi(info.novos,'Novos leads previstos')+
+        kpi(info.outras,'Também em outras campanhas');
+      host.querySelector('#camp-inclusao-etapa').textContent='Etapa de entrada: '+info.etapa;
+      var aviso=host.querySelector('#camp-inclusao-aviso');
+      var bloqueado=info.ausentes>0||info.novos===0;
+      aviso.textContent=info.ausentes?
+        'Atenção: '+info.ausentes+' destinatário(s) congelado(s) não estão disponíveis como clientes completos. A inclusão está bloqueada até corrigir os cadastros.':
+        info.novos===0?'Não há novos leads para incluir nesta campanha.':
+        'Serão criados '+info.novos.toLocaleString('pt-BR')+' leads nesta campanha. A participação de '+info.outras+' cliente(s) em outras campanhas será preservada.'+
+        (info.repetidos?' Foram encontrados '+info.repetidos+' registros repetidos na origem, desconsiderados.':'')+
+        (info.semEmailValido?' '+info.semEmailValido+' destinatário(s) não entram no Pipeline por ausência ou invalidade de e-mail.':'')+
+        ' E-mail válido é uma conferência cadastral, não comprovação de entrega.';
+      confirmar.disabled=bloqueado;
+      confirmar.textContent=bloqueado?'Inclusão indisponível':'Confirmar inclusão de '+info.novos.toLocaleString('pt-BR')+' leads';
+      function sair(valor){
+        modal.classList.remove('op');
+        confirmar.removeEventListener('click',aceitar);
+        cancelar.removeEventListener('click',recusar);
+        fechar.removeEventListener('click',recusar);
+        modal.removeEventListener('click',clicarFundo);
+        document.removeEventListener('keydown',teclado);
+        if(anterior&&typeof anterior.focus==='function')anterior.focus();
+        resolve(valor);
+      }
+      function aceitar(){if(!confirmar.disabled)sair(true);}
+      function recusar(){sair(false);}
+      function clicarFundo(e){if(e.target===modal)recusar();}
+      function teclado(e){
+        if(e.key==='Escape'){e.preventDefault();recusar();}
+        if(e.key==='Tab'){
+          var visiveis=[fechar,cancelar,confirmar].filter(function(x){return !x.disabled;});
+          var i=visiveis.indexOf(document.activeElement);
+          if(e.shiftKey&&i===0){e.preventDefault();visiveis[visiveis.length-1].focus();}
+          else if(!e.shiftKey&&i===visiveis.length-1){e.preventDefault();visiveis[0].focus();}
+        }
+      }
+      confirmar.addEventListener('click',aceitar);
+      cancelar.addEventListener('click',recusar);
+      fechar.addEventListener('click',recusar);
+      modal.addEventListener('click',clicarFundo);
+      document.addEventListener('keydown',teclado);
+      modal.classList.add('op');
+      cancelar.focus();
+    });
+  }
+
   async function adicionarPublico(campanhaId, btn) {
     var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(campanhaId); });
     if (!campanha) return;
     var filtrosC = filtrosDaCampanha(campanha);
     if (!filtrosC) { alert('A segmentação desta campanha não foi encontrada — edite a campanha e escolha o público.'); return; }
-    // Com lista congelada, o público é exatamente o da lista; sem ela, o cálculo de agora
-    var lista = ST.listas[String(campanha.id)], alvo, origem;
-    if (lista) {
-      var congelados = await cdaCarregarListaCongelada(campanha.id);
-      var ids = {}; congelados.forEach(function (d) { ids[String(d.cliente_id)] = 1; });
-      alvo = clientesValidos.filter(function (c) { return ids[String(c.id)]; });
-      origem = 'A lista congelada em ' + fmtDataHora(lista.congeladoEm);
-    } else {
-      alvo = publicoDe(filtrosC);
-      origem = 'O público calculado agora (lista ainda não congelada)';
-    }
-    if (!alvo.length) { alert('O público desta campanha está vazio.'); return; }
 
-    var etapaLabel = CDA_ETAPAS_CAMPANHA.find(function (e) { return e.id === campanha.pipelineEtapaEntrada; }).label;
-    if (!confirm(origem + ' tem ' + alvo.length + ' cliente(s).\n\nAdicionar ao Pipeline B2C, na etapa "' + etapaLabel + '", vinculados à campanha "' + campanha.nome + '"?\n\n(quem já foi adicionado antes nesta campanha não duplica)')) return;
-
+    // Primeiro simula sem gravar: mostra correspondência com a lista congelada, leads
+    // existentes e clientes também participantes de outras campanhas.
+    // Só executa após confirmação explícita do operador.
     var textoOriginal = btn.textContent;
-    btn.textContent = 'Adicionando...'; btn.disabled = true;
+    btn.textContent = 'Conferindo público...'; btn.disabled = true;
     try {
+      var lista = ST.listas[String(campanha.id)], alvo, origem, totalCongelado = 0, semEmailValido = 0, ausentes = [];
+      if (lista) {
+        var congelados = await cdaCarregarListaCongelada(campanha.id);
+        var todosIds = new Set(congelados.map(function(d){return String(d.cliente_id);}));
+        var ids = new Set(congelados.filter(function(d){return d.email_valido===true;})
+          .map(function(d){return String(d.cliente_id);}));
+        totalCongelado = todosIds.size;
+        semEmailValido = totalCongelado-ids.size;
+        alvo = clientesValidos.filter(function(c){return ids.has(String(c.id));});
+        var localizados = new Set(alvo.map(function(c){return String(c.id);}));
+        ausentes = Array.from(ids).filter(function(id){return !localizados.has(id);});
+        origem = 'Lista congelada em '+fmtDataHora(lista.congeladoEm);
+      } else {
+        alvo = publicoDe(filtrosC);
+        origem = 'Público calculado agora (lista ainda não congelada)';
+      }
+
+      if (!alvo.length) {alert('Não há clientes elegíveis para incluir nesta campanha.');return;}
+      // Defesa adicional contra repetições no conjunto de entrada.
+      var idsAlvo = new Set(), repetidos = 0;
+      alvo = alvo.filter(function(c){
+        var id = String(c.id);
+        if (idsAlvo.has(id)) {repetidos++;return false;}
+        idsAlvo.add(id);return true;
+      });
+      var leadsAtuais = await cdaCarregarLeadsB2C();
+      var nestaCampanha = new Set(leadsAtuais.filter(function(l){return String(l.campanhaId)===String(campanha.id);})
+        .map(function(l){return String(l.clienteId);}));
+      var emOutrasCampanhas = new Set(leadsAtuais.filter(function(l){
+        return String(l.campanhaId)!==String(campanha.id) && idsAlvo.has(String(l.clienteId));
+      }).map(function(l){return String(l.clienteId);}));
+      var existentes = alvo.filter(function(c){return nestaCampanha.has(String(c.id));}).length;
+      var novos = alvo.length-existentes;
+      var etapaInfo = CDA_ETAPAS_CAMPANHA.find(function(e){return e.id===(campanha.pipelineEtapaEntrada||'novo_lead');});
+      var etapaLabel = etapaInfo ? etapaInfo.label : 'Novo Lead';
+
+      var autorizado=await confirmarInclusaoNoModal({
+        campanha:campanha.nome,origem:origem,congelado:!!lista,
+        totalCongelado:totalCongelado,semEmailValido:semEmailValido,elegiveis:alvo.length,
+        existentes:existentes,novos:novos,outras:emOutrasCampanhas.size,
+        etapa:etapaLabel,ausentes:ausentes.length,repetidos:repetidos
+      });
+      if(!autorizado)return;
+
+      btn.textContent = 'Incluindo leads...';
       var resultado = await cdaAdicionarPublicoCampanha(campanha, alvo, nomeUsuarioAtual());
-      alert('Pronto!\n\n' + resultado.adicionados + ' novo(s) lead(s) adicionado(s) ao Pipeline.' +
-        (resultado.jaExistentes ? '\n' + resultado.jaExistentes + ' já estavam nesta campanha (não duplicados).' : ''));
-    } catch (err) {
-      console.error(err);
-      alert('Erro ao adicionar público:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
-    } finally {
-      btn.textContent = textoOriginal; btn.disabled = false;
-    }
+      ST.leads = await cdaCarregarLeadsB2C();
+      alert('Inclusão concluída.\n\n'+resultado.adicionados+' novo(s) lead(s) no Pipeline.'+
+        (resultado.jaExistentes?'\n'+resultado.jaExistentes+' já estavam nesta campanha (sem duplicar).':'')+
+        '\n\nO histórico de comunicações e a lista congelada não foram alterados.');
+      render();
+    }catch(err) {
+      console.error('Incluir público no Pipeline:',err);
+      alert('Não foi possível concluir a operação. Consulte o Pipeline para verificar os registros existentes antes de repetir.\n\n'+
+        ((err&&(err.message||err.details||err.hint))||'Erro desconhecido'));
+    }finally{btn.textContent=textoOriginal;btn.disabled=false;}
   }
 
+
+  var lgpdModelos = [], lgpdModal = host.querySelector('#camp-lgpd-modal');
+  var lgpdStatus = host.querySelector('#camp-lgpd-status'), lgpdLista = host.querySelector('#camp-lgpd-lista');
+  var lgpdSel = host.querySelector('#camp-m-lgpd-base');
+  function lgpdE(v){return escH(String(v == null ? '' : v));}
+  function lgpdRender(){
+    lgpdLista.innerHTML=lgpdModelos.map(function(x){
+      return '<div class="camp-lgpd-card"><b>'+lgpdE(x.nome)+'</b> <span class="tmu">('+lgpdE(x.codigo)+', versão '+Number(x.versao||1)+(x.ativo?'':', inativa')+')</span>'+
+      '<p style="white-space:pre-wrap">'+lgpdE(x.fundamentacao)+'</p>'+
+      '<button class="btn sm" type="button" data-lgpd-edit="'+x.id+'">Editar</button> '+
+      '<button class="btn sm" type="button" data-lgpd-toggle="'+x.id+'">'+(x.ativo?'Desativar':'Reativar')+'</button> '+
+      '<button class="btn sm" type="button" data-lgpd-delete="'+x.id+'" title="Excluir definitivamente somente se nenhuma campanha utilizar esta base">Excluir</button></div>';
+    }).join('')||'<p>Nenhum modelo cadastrado.</p>';
+  }
+  async function lgpdCarregar(){
+    var v=lgpdSel.value;
+    var res=await cdaClient.from('cda_lgpd_fundamentacoes').select('*').order('id');
+    if(res.error)throw res.error;
+    lgpdModelos=res.data||[];
+    lgpdSel.innerHTML='<option value="">Não informada / em análise</option>'+lgpdModelos.filter(function(x){return x.ativo||x.codigo===v;}).map(function(x){return '<option value="'+lgpdE(x.codigo)+'">'+lgpdE(x.nome)+'</option>';}).join('');
+    lgpdSel.value=v;lgpdRender();
+  }
+  function lgpdGerarCodigo(nome){
+    var base=String(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()
+      .replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,68);
+    if(!/^[a-z]/.test(base))base='base_'+base;
+    if(!base)base='base_legal';
+    var cod=base,seq=2;
+    while(lgpdModelos.some(function(x){return x.codigo===cod;})){
+      cod=base.slice(0,70)+'_'+seq++;
+    }
+    return cod;
+  }
+  function lgpdLimpar(){
+    host.querySelector('#camp-lgpd-titulo').textContent='Nova fundamentação';
+    host.querySelector('#camp-lgpd-id').value='';
+    host.querySelector('#camp-lgpd-codigo').value='';
+
+    host.querySelector('#camp-lgpd-nome').value='';
+    host.querySelector('#camp-lgpd-texto').value='';
+  }
+  function lgpdFechar(){lgpdModal.classList.remove('op');}
+  host.querySelector('#camp-lgpd-x').addEventListener('click',lgpdFechar);
+  host.querySelector('#camp-lgpd-fechar').addEventListener('click',lgpdFechar);
+  host.querySelector('#camp-lgpd-novo').addEventListener('click',lgpdLimpar);
+  if(editavel)host.querySelector('#camp-btn-lgpd').addEventListener('click',async function(){
+    lgpdModal.classList.add('op');lgpdLimpar();lgpdStatus.textContent='Carregando...';
+    try{await lgpdCarregar();lgpdStatus.textContent='';}catch(e){lgpdStatus.textContent='Falha: '+e.message;}
+  });
+  lgpdLista.addEventListener('click',async function(event){
+    var b=event.target.closest('button');if(!b)return;
+    var id=b.dataset.lgpdEdit||b.dataset.lgpdToggle||b.dataset.lgpdDelete;
+    var x=lgpdModelos.find(function(v){return String(v.id)===id;});if(!x)return;
+    if(b.dataset.lgpdEdit){
+      host.querySelector('#camp-lgpd-titulo').textContent='Editar fundamentação';
+      host.querySelector('#camp-lgpd-id').value=x.id;
+      host.querySelector('#camp-lgpd-codigo').value=x.codigo;
+
+      host.querySelector('#camp-lgpd-nome').value=x.nome;
+      host.querySelector('#camp-lgpd-texto').value=x.fundamentacao;return;
+    }
+    if(b.dataset.lgpdDelete){
+      if(!confirm('Excluir DEFINITIVAMENTE a base "'+x.nome+'"? Esta operação é irreversível e somente será permitida se não houver campanhas vinculadas.'))return;
+      b.disabled=true;
+      try{
+        var uso=await cdaClient.from('cda_campanhas').select('id',{count:'exact',head:true}).eq('lgpd_base_legal',x.codigo);
+        if(uso.error)throw uso.error;
+        if(uso.count>0)throw new Error('Esta base legal está utilizada em '+uso.count+' campanha(s). Use Desativar.');
+        var removido=await cdaClient.from('cda_lgpd_fundamentacoes').delete().eq('id',x.id).select('id');
+        if(removido.error)throw removido.error;
+        if(!removido.data||!removido.data.length)throw new Error('Exclusão não confirmada. Verifique suas permissões.');
+        await lgpdCarregar();lgpdLimpar();lgpdStatus.textContent='Fundamentação excluída definitivamente.';
+      }catch(e){lgpdStatus.textContent='Não foi possível excluir: '+e.message;}
+      finally{b.disabled=false;}
+      return;
+    }
+    if(!confirm((x.ativo?'Desativar ':'Reativar ')+x.nome+'? As campanhas salvas serão preservadas.'))return;
+    b.disabled=true;
+    try{
+      var res=await cdaClient.from('cda_lgpd_fundamentacoes').update({ativo:!x.ativo,versao:Number(x.versao||1)+1,atualizado_em:new Date().toISOString()}).eq('id',x.id).select().single();
+      if(res.error)throw res.error;await lgpdCarregar();lgpdStatus.textContent='Situação atualizada.';
+    }catch(e){lgpdStatus.textContent='Falha: '+e.message;}finally{b.disabled=false;}
+  });
+  host.querySelector('#camp-lgpd-salvar').addEventListener('click',async function(){
+    var id=host.querySelector('#camp-lgpd-id').value;
+    var nome=host.querySelector('#camp-lgpd-nome').value.trim(),texto=host.querySelector('#camp-lgpd-texto').value.trim();
+    if(!nome||!texto){lgpdStatus.textContent='Preencha o nome e a fundamentação.';return;}
+    var b=this;b.disabled=true;
+    try{
+      var dados={nome:nome,fundamentacao:texto,atualizado_em:new Date().toISOString()};
+      var res;
+      if(id){
+        var x=lgpdModelos.find(function(v){return String(v.id)===id;});
+        dados.versao=Number(x.versao||1)+1;
+        res=await cdaClient.from('cda_lgpd_fundamentacoes').update(dados).eq('id',id).select().single();
+      }else{
+        dados.codigo=lgpdGerarCodigo(nome);
+        res=await cdaClient.from('cda_lgpd_fundamentacoes').insert(dados).select().single();
+      }
+      if(res.error)throw res.error;lgpdLimpar();await lgpdCarregar();lgpdStatus.textContent='Fundamentação salva.';
+    }catch(e){lgpdStatus.textContent='Falha ao salvar: '+e.message;}finally{b.disabled=false;}
+  });
+  lgpdSel.addEventListener('change',function(){
+    var x=lgpdModelos.find(function(v){return v.codigo===lgpdSel.value&&v.ativo;});
+    if(x)host.querySelector('#camp-m-lgpd-finalidade').value=x.fundamentacao;
+    else if(!lgpdSel.value)host.querySelector('#camp-m-lgpd-finalidade').value='';
+  });
+  lgpdCarregar().catch(function(e){console.warn('LGPD: modelos indisponíveis',e);});
   var modal = host.querySelector('#camp-modal');
   function popularSelectSegmentos(valorAtual) {
     var sel = host.querySelector('#camp-m-segmento');
@@ -437,12 +1110,47 @@ async function montarModuloCampanhas(containerId, opts) {
   });
 
 
+  // ── Mensagens de e-mail da campanha (Biblioteca de Mensagens · nov/2026) ──
+  function renderMensagensDaCampanha() {
+    var box = host.querySelector('#camp-m-mensagens');
+    if (!ST.editId) { box.innerHTML = '<span class="tmu" style="font-size:11px">Salve a campanha para criar as mensagens de e-mail dela.</span>'; return; }
+    var doCamp = ST.mensagens.filter(function (m) { return String(m.campanhaId) === String(ST.editId); });
+    box.innerHTML = (doCamp.length ? doCamp.map(function (m) {
+      return '<div class="camp-msg-linha"><div><b>' + escH(m.nome) + '</b> · ' + escH(m.assunto || 'sem assunto') +
+        '<div class="tmu" style="font-size:10px">De: ' + escH(m.remetenteNome) + ' &lt;' + escH(m.remetenteEmail) + '&gt;' + (m.ultimoTesteEm ? ' · último teste ' + fmtDataHora(m.ultimoTesteEm) : ' · sem teste') + '</div></div>' +
+        '<div style="display:flex;gap:5px"><button class="btn sm" type="button" data-msg-editar="' + m.id + '">✏ Editar</button>' +
+        (editavel ? '<button class="btn sm rust" type="button" data-msg-teste="' + m.id + '">✉ Enviar teste</button>' : '') + '</div></div>';
+    }).join('') : '<span class="tmu" style="font-size:11px">Nenhuma mensagem ainda.</span>') +
+      (editavel ? '<div style="margin-top:6px"><button class="btn sm" type="button" id="camp-m-msg-nova">＋ Nova mensagem</button></div>' : '');
+  }
+  function aoSalvarMensagem(salva) {
+    var i = ST.mensagens.findIndex(function (m) { return String(m.id) === String(salva.id); });
+    if (i >= 0) ST.mensagens[i] = salva; else ST.mensagens.unshift(salva);
+    renderMensagensDaCampanha(); render();
+  }
+  function abrirEditorMensagem(m) {
+    cdaEditorMensagem.abrir({ mensagem: m, campanhaId: ST.editId, campanhas: ST.campanhas, editavel: editavel, onSalvo: aoSalvarMensagem,
+      onExcluido: function (id) { ST.mensagens = ST.mensagens.filter(function (x) { return String(x.id) !== String(id); }); renderMensagensDaCampanha(); render(); } });
+  }
+  host.querySelector('#camp-m-mensagens').addEventListener('click', async function (ev) {
+    var b = ev.target.closest('button'); if (!b) return;
+    if (b.id === 'camp-m-msg-nova') { abrirEditorMensagem(null); return; }
+    var m = ST.mensagens.find(function (x) { return String(x.id) === String(b.dataset.msgEditar || b.dataset.msgTeste); });
+    if (!m) return;
+    if (b.dataset.msgEditar) { abrirEditorMensagem(m); return; }
+    var campanha = ST.campanhas.find(function (c) { return String(c.id) === String(m.campanhaId); });
+    var clientes = await cdaMsgClientesDaCampanha(m.campanhaId);
+    if (await cdaMsgPerguntarEEnviarTeste(m, campanha, clientes[0], b)) renderMensagensDaCampanha();
+  });
+
   function abrirModal(id, duplicar) {
     var c = id ? ST.campanhas.find(function (x) { return String(x.id) === String(id); }) : null;
     ST.editId = id && !duplicar ? id : null;
     host.querySelector('#camp-modal-title').textContent = !id ? 'Nova Campanha' : (duplicar ? 'Duplicar Campanha' : 'Editar Campanha');
     host.querySelector('#camp-m-nome').value = c ? (duplicar ? 'Cópia de ' + c.nome : c.nome) : '';
     host.querySelector('#camp-m-objetivo').value = c ? (c.objetivo || '') : '';
+    host.querySelector('#camp-m-lgpd-base').value = c ? (c.lgpdBaseLegal || '') : '';
+    host.querySelector('#camp-m-lgpd-finalidade').value = c ? (c.lgpdFinalidadeFundamentacao || '') : '';
     popularSelectSegmentos(c ? c.publicoSegmentoId : '');
     montarFiltrosDaCampanha(c ? segmentoPorId[c.publicoSegmentoId] : null, c ? JSON.parse(JSON.stringify(filtrosDaCampanha(c) || [])) : null);
     selEtapa.value = c ? c.pipelineEtapaEntrada : 'novo_lead';
@@ -466,6 +1174,7 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
     atualizarSugestaoCanal();
     host.querySelector('#camp-m-excluir').style.display = ST.editId ? 'inline-block' : 'none';
+    renderMensagensDaCampanha();
     modal.classList.add('op');
   }
   function fecharModal() { modal.classList.remove('op'); }
@@ -479,7 +1188,10 @@ async function montarModuloCampanhas(containerId, opts) {
     if (!filtrosValores.length) { alert('Preencha ao menos um filtro da campanha.'); return; }
     var o = {
       id: ST.editId || undefined, nome: nome, objetivo: host.querySelector('#camp-m-objetivo').value.trim(),
-      publicoSegmentoId: segmentoId, filtrosValores: filtrosValores, pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
+      lgpdBaseLegal: host.querySelector('#camp-m-lgpd-base').value,
+      lgpdFinalidadeFundamentacao: host.querySelector('#camp-m-lgpd-finalidade').value.trim(),
+      publicoSegmentoId: segmentoId, filtrosValores: filtrosValores,
+      pipelineEtapaEntrada: selEtapa.value, status: selStatus.value,
       periodoInicio: host.querySelector('#camp-m-inicio').value || null, periodoFim: host.querySelector('#camp-m-fim').value || null,
       metaDescricao: host.querySelector('#camp-m-meta-desc').value.trim(), metaNumero: parseFloat(host.querySelector('#camp-m-meta-num').value) || null,
       responsavelIds: Array.from(host.querySelectorAll('.camp-resp-check:checked')).map(function (c) { return Number(c.value); }), criadoPor: nomeUsuarioAtual(),

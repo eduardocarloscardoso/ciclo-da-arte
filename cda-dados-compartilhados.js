@@ -856,6 +856,7 @@ const CDA_CAMPANHA_MAP = {
     pipelineEtapaEntrada: r.pipeline_etapa_entrada, periodoInicio: r.periodo_inicio, periodoFim: r.periodo_fim,
     metaDescricao: r.meta_descricao, metaNumero: r.meta_numero != null ? Number(r.meta_numero) : null,
     responsavel: r.responsavel, status: r.status, criadoEm: r.criado_em, criadoPor: r.criado_por,
+    lgpdBaseLegal: r.lgpd_base_legal || '', lgpdFinalidadeFundamentacao: r.lgpd_finalidade_fundamentacao || '',
     beneficioTipo: r.beneficio_tipo || 'nenhum', beneficioValor: r.beneficio_valor != null ? Number(r.beneficio_valor) : null,
     beneficioCupom: r.beneficio_cupom, beneficioCondicoes: r.beneficio_condicoes,
     publicoConhecido: r.publico_conhecido, publicoTemperatura: r.publico_temperatura,
@@ -864,7 +865,10 @@ const CDA_CAMPANHA_MAP = {
     modeloMensagemSugerida: r.modelo_mensagem_sugerida,
     modeloTarefaSugerida: r.modelo_tarefa_sugerida, modeloTarefaFinal: r.modelo_tarefa_final,
     // Valores dos filtros da campanha (a segmentação só diz QUAIS filtros) — nov/2026
-    filtrosValores: Array.isArray(r.filtros_valores) ? r.filtros_valores : null
+    filtrosValores: Array.isArray(r.filtros_valores) ? r.filtros_valores : null,
+    // E-mail da campanha (nov/2026)
+    emailAssunto: r.email_assunto || '', emailPrevia: r.email_previa || '',
+    emailConteudo: r.email_conteudo && typeof r.email_conteudo === 'object' ? r.email_conteudo : null
   }),
   toRow: o => {
     const row = {
@@ -872,6 +876,7 @@ const CDA_CAMPANHA_MAP = {
       pipeline_etapa_entrada: o.pipelineEtapaEntrada || 'novo_lead', periodo_inicio: o.periodoInicio || null, periodo_fim: o.periodoFim || null,
       meta_descricao: o.metaDescricao || null, meta_numero: o.metaNumero != null ? o.metaNumero : null,
       responsavel: o.responsavel || null, status: o.status || 'ativa', criado_por: o.criadoPor || null,
+      lgpd_base_legal: o.lgpdBaseLegal || null, lgpd_finalidade_fundamentacao: o.lgpdFinalidadeFundamentacao || null,
       beneficio_tipo: o.beneficioTipo || 'nenhum', beneficio_valor: o.beneficioValor != null ? o.beneficioValor : null,
       beneficio_cupom: o.beneficioCupom || null, beneficio_condicoes: o.beneficioCondicoes || null,
       publico_conhecido: o.publicoConhecido || null, publico_temperatura: o.publicoTemperatura || null,
@@ -880,7 +885,10 @@ const CDA_CAMPANHA_MAP = {
       modelo_mensagem_sugerida: o.modeloMensagemSugerida != null ? o.modeloMensagemSugerida : undefined,
       modelo_tarefa_sugerida: o.modeloTarefaSugerida != null ? o.modeloTarefaSugerida : undefined,
       modelo_tarefa_final: o.modeloTarefaFinal || null,
-      filtros_valores: o.filtrosValores !== undefined ? o.filtrosValores : undefined
+      filtros_valores: o.filtrosValores !== undefined ? o.filtrosValores : undefined,
+      email_assunto: o.emailAssunto !== undefined ? (o.emailAssunto || null) : undefined,
+      email_previa: o.emailPrevia !== undefined ? (o.emailPrevia || null) : undefined,
+      email_conteudo: o.emailConteudo !== undefined ? o.emailConteudo : undefined
     };
     if (o.id) row.id = o.id;
     return row;
@@ -903,6 +911,195 @@ async function cdaSalvarCampanha(o) {
   if (error) throw error;
   return CDA_CAMPANHA_MAP.fromRow(data);
 }
+// ── E-MAIL DA CAMPANHA (nov/2026) ────────────────────────────────────
+// Um só montador de HTML para a pré-visualização e para o envio (Edge
+// Function): o que se aprova na tela é exatamente o que sai.
+// Variáveis no texto: {nome} (primeiro nome), {nome_completo}, {cidade}, {uf}.
+async function cdaUploadImagemCampanha(arquivo) {
+  const ext = (String(arquivo.name || '').split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const caminho = 'campanha-' + Date.now() + '-' + Math.floor(Math.random() * 1e6) + '.' + ext;
+  const { error } = await cdaClient.storage.from('campanhas-email').upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+  if (error) throw error;
+  return cdaClient.storage.from('campanhas-email').getPublicUrl(caminho).data.publicUrl;
+}
+function cdaPrimeiroNome(nome) {
+  const p = String(nome || '').trim().split(/\s+/)[0] || '';
+  return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
+}
+function cdaVariaveisEmail(texto, cliente) {
+  const c = cliente || {};
+  const nome = cdaPrimeiroNome(c.nome) || 'cliente';
+  return String(texto || '')
+    .replace(/\{nome\}/g, nome).replace(/\{nome_completo\}/g, (c.nome || nome).trim())
+    .replace(/\{cidade\}/g, c.cidade || '').replace(/\{uf\}/g, cdaUfDe(c));
+}
+// Acrescenta UTM ao link (sem sobrescrever os que já existirem) — mede vendas vindas do e-mail
+function cdaLinkComUtm(link, campanha) {
+  if (!link) return '';
+  try {
+    const u = new URL(link);
+    const slug = String((campanha && campanha.nome) || 'campanha').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    if (!u.searchParams.has('utm_source')) u.searchParams.set('utm_source', 'ciclodarte');
+    if (!u.searchParams.has('utm_medium')) u.searchParams.set('utm_medium', 'email');
+    if (!u.searchParams.has('utm_campaign')) u.searchParams.set('utm_campaign', slug);
+    return u.toString();
+  } catch (e) { return link; }
+}
+function cdaMontarEmailCampanha(campanha, cliente, opts) {
+  opts = opts || {};
+  const k = (campanha && campanha.emailConteudo) || {};
+  const esc = t => String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const v = t => cdaVariaveisEmail(t, cliente);
+  // texto livre → parágrafos (linha em branco) e quebras de linha
+  const paragrafos = (t, estilo) => v(t).split(/\n\s*\n/).map(p => p.trim()).filter(Boolean)
+    .map(p => '<p style="' + estilo + '">' + esc(p).replace(/\n/g, '<br>') + '</p>').join('');
+  const fonte = "font-family:Arial,Helvetica,sans-serif;";
+  const pTxt = fonte + 'margin:0 0 14px;font-size:16px;line-height:1.55;color:#1a1a1a;';
+  const link = cdaLinkComUtm(k.botaoLink, campanha);
+  const descadastro = opts.linkDescadastro || '#descadastrar';
+  // Links institucionais verificados. Únicos para todas as mensagens atuais,
+  // inclusive as já salvas; não altera conteúdos, testes nem o Reply-To.
+  const siteCiclo = 'https://www.ciclodaarte.com.br/';
+  const redesCiclo = 'https://linktr.ee/ciclo_arte';
+  const assunto = v((campanha && campanha.emailAssunto) || '');
+  const previa = v((campanha && campanha.emailPrevia) || '');
+  const sacEmail = String(k.sacEmail || '').trim();
+  const sacTel = String(k.sacTelefone || '').trim();
+  const linkSacEmail = sacEmail ? 'mailto:' + sacEmail : '';
+  // Botão "à prova de Outlook": cor de fundo na célula (bgcolor) e cor do texto repetida no <span>
+  const botao = (href, texto, cor, tam, pad) => '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-table;margin:4px;"><tr><td bgcolor="' + cor + '" style="background:' + cor + ';border-radius:4px;mso-padding-alt:' + pad + ';">' +
+    '<a href="' + esc(href) + '"' + (String(href).indexOf('mailto:') === 0 ? '' : ' target="_blank"') + ' style="display:inline-block;padding:' + pad + ';' + fonte + 'font-size:' + tam + 'px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;"><span style="color:#ffffff;">' + texto + '</span></a></td></tr></table>';
+  const digitosTel = sacTel.replace(/\D/g, '');
+  const linkWhats = digitosTel.length >= 10 ? 'https://wa.me/' + (digitosTel.length <= 11 ? '55' : '') + digitosTel : '';
+  const html = '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' + esc(assunto) + '</title></head>' +
+    '<body style="margin:0;padding:0;background:#f2efe9;">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">' + esc(previa) + '&#847;&zwnj;&nbsp;'.repeat(30) + '</div>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe9;"><tr><td align="center" style="padding:24px 12px;">' +
+    '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;">' +
+      '<tr><td style="background:#1a1a1a;padding:14px 24px;' + fonte + 'font-size:13px;letter-spacing:3px;color:#ffffff;font-weight:bold;">CICLO DA ARTE</td></tr>' +
+      (k.imagemUrl ? '<tr><td><a href="' + esc(link || '#') + '"><img src="' + esc(k.imagemUrl) + '" width="600" alt="' + esc(v(k.imagemAlt || k.titulo || '')) + '" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>' : '') +
+      '<tr><td style="padding:28px 32px 8px;">' +
+        (k.titulo ? '<h1 style="' + fonte + 'margin:0 0 16px;font-size:24px;line-height:1.25;color:#1a1a1a;">' + esc(v(k.titulo)) + '</h1>' : '') +
+        (k.saudacao ? paragrafos(k.saudacao, pTxt) : '') +
+        (k.texto ? paragrafos(k.texto, pTxt) : '') +
+      '</td></tr>' +
+      (k.cupomCodigo ? '<tr><td align="center" style="padding:6px 32px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed #c0392b;"><tr><td align="center" style="padding:14px 28px;' + fonte + '">' +
+        '<div style="font-size:12px;letter-spacing:2px;color:#c0392b;font-weight:bold;">CUPOM</div>' +
+        '<div style="font-size:28px;letter-spacing:3px;color:#1a1a1a;font-weight:bold;">' + esc(k.cupomCodigo) + '</div>' +
+        (k.cupomTexto ? '<div style="font-size:14px;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)) + '</div>' : '') +
+        '</td></tr></table></td></tr>' : '') +
+      (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;">' + botao(link, esc(v(k.botaoTexto)), '#c0392b', 16, '15px 30px') + '</td></tr>' : '') +
+      (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
+        (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
+        '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
+      // Fale Conosco · SAC (nov/2026): telefone/e-mail visíveis + botões que abrem o e-mail e o WhatsApp do cliente
+      (sacEmail || sacTel ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e1d8;"><tr><td align="center" style="padding:18px 20px;' + fonte + '">' +
+        '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:6px;">' + esc(v(k.sacTitulo || 'Fale Conosco · SAC')) + '</div>' +
+        '<div style="font-size:14px;line-height:1.7;color:#333;margin-bottom:12px;">' +
+          (sacTel ? '📞 ' + esc(sacTel) : '') + (sacTel && sacEmail ? '<br>' : '') +
+          (sacEmail ? '✉ <a href="mailto:' + esc(sacEmail) + '" style="color:#333;">' + esc(sacEmail) + '</a>' : '') + '</div>' +
+        // Uma única linha de tabela, com uma célula por botão: evita empilhamento no Outlook desktop.
+        (sacEmail || linkWhats ? '<table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:8px auto 0;border-collapse:collapse;"><tr>' +
+          (sacEmail ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkSacEmail, '✉ Enviar e-mail', '#2f6fb3', 14, '11px 20px') + '</td>' : '') +
+          (linkWhats ? '<td align="center" valign="middle" style="padding:0 5px;white-space:nowrap;">' +
+            botao(linkWhats, '💬 WhatsApp', '#1f8a4c', 14, '11px 20px') + '</td>' : '') +
+          '</tr></table>' : '') +
+        '</td></tr></table></td></tr>' : '') +
+      '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
+        esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
+        '<br><br><b style="color:#444">Acompanhe a Ciclo da Arte</b>' +
+        '<br>Site oficial: <a href="' + esc(siteCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">www.ciclodaarte.com.br</a>' +
+        '<br>Redes sociais e novidades: <a href="' + esc(redesCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">Ciclo da Arte · redes sociais</a>' +
+        '<br><br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
+    '</table></td></tr></table></body></html>';
+  const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
+    k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
+    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '',
+    (sacEmail || sacTel) ? v(k.sacTitulo || 'Fale Conosco · SAC') : '', sacTel ? 'Telefone/WhatsApp: ' + sacTel : '', sacEmail ? 'E-mail: ' + sacEmail : '', '', v(k.rodape),
+    '', 'Site oficial: ' + siteCiclo, 'Redes sociais e novidades: ' + redesCiclo,
+    'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');
+  return { assunto: assunto, previa: previa, html: html, texto: texto };
+}
+
+// ── BIBLIOTECA DE MENSAGENS (cda_campanha_mensagens) — nov/2026 ───────
+// Cada mensagem pertence a uma campanha (uma campanha pode ter várias).
+// Remetente: só endereços do domínio verificado no Resend.
+const CDA_EMAIL_DOMINIOS_ENVIO = ['send.ciclodaarte.com.br'];
+const CDA_MENSAGEM_MAP = {
+  fromRow: r => ({
+    id: r.id, campanhaId: r.campanha_id, nome: r.nome || '',
+    remetenteNome: r.remetente_nome || '', remetenteEmail: r.remetente_email || '', responderPara: r.responder_para || '',
+    assunto: r.assunto || '', previa: r.previa || '', conteudo: r.conteudo && typeof r.conteudo === 'object' ? r.conteudo : {},
+    ultimoTesteEm: r.ultimo_teste_em, ultimoTestePara: r.ultimo_teste_para || '',
+    criadoEm: r.criado_em, criadoPor: r.criado_por, atualizadoEm: r.atualizado_em, atualizadoPor: r.atualizado_por
+  }),
+  toRow: o => {
+    const row = {
+      campanha_id: o.campanhaId ? Number(o.campanhaId) : null, nome: o.nome,
+      remetente_nome: o.remetenteNome || null, remetente_email: o.remetenteEmail || null, responder_para: o.responderPara || null,
+      assunto: o.assunto || null, previa: o.previa || null, conteudo: o.conteudo || {},
+      atualizado_em: new Date().toISOString(), atualizado_por: o.atualizadoPor || null
+    };
+    if (o.id) row.id = o.id; else row.criado_por = o.atualizadoPor || null;
+    return row;
+  }
+};
+async function cdaCarregarMensagens() {
+  const { data, error } = await cdaClient.from('cda_campanha_mensagens').select('*').order('atualizado_em', { ascending: false });
+  if (error) throw error;
+  return (data || []).map(CDA_MENSAGEM_MAP.fromRow);
+}
+async function cdaSalvarMensagem(o) {
+  const row = CDA_MENSAGEM_MAP.toRow(o);
+  const q = o.id ? cdaClient.from('cda_campanha_mensagens').update(row).eq('id', o.id) : cdaClient.from('cda_campanha_mensagens').insert(row);
+  const { data, error } = await q.select().single();
+  if (error) throw error;
+  return CDA_MENSAGEM_MAP.fromRow(data);
+}
+async function cdaExcluirMensagem(id) {
+  const { error } = await cdaClient.from('cda_campanha_mensagens').delete().eq('id', id);
+  if (error) throw error;
+}
+// Monta a mensagem no formato que cdaMontarEmailCampanha() entende
+function cdaMontarEmailMensagem(mensagem, campanha, cliente, opts) {
+  return cdaMontarEmailCampanha({ nome: (campanha && campanha.nome) || mensagem.nome, emailAssunto: mensagem.assunto, emailPrevia: mensagem.previa, emailConteudo: mensagem.conteudo }, cliente, opts);
+}
+// Envio de TESTE (Edge Function enviar-email-teste): até 3 endereços, só membros logados da equipe
+async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
+  // Cada teste usa UM destinatário por tentativa / ID Resend. Assim o webhook
+  // confirma a entrega por endereço, sem compartilhar status entre pessoas.
+  // Controle de testes: no máximo três endereços explicitamente informados.
+  const destinos = [...new Set((Array.isArray(para) ? para : [para])
+    .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
+  if (!destinos.length || destinos.length > 3 || destinos.some(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))
+    throw new Error('Informe de 1 a 3 e-mails válidos para teste.');
+  const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
+  const resultados = [];
+  for (const destino of destinos) {
+    let data, error;
+    try {
+      ({ data, error } = await cdaClient.functions.invoke('enviar-email-teste-historico-preview', {
+        body: { mensagem_id: mensagem.id, para: [destino], assunto: email.assunto, html: email.html, texto: email.texto, usuario: (window.cu && window.cu.name) || null }
+      }));
+    } catch (e) {
+      throw new Error('Falha no teste para ' + destino + '. ' + resultados.length +
+        ' endereço(s) anterior(es) podem ter sido aceitos pelo Resend; confira o histórico antes de repetir. ' + String(e));
+    }
+    if (error || !data || !data.ok) {
+      let detalhe = '';
+      if (error) {
+        try { const body = await error.context.json(); detalhe = body && body.erro; } catch (_) {}
+      }
+      throw new Error('Falha no teste para ' + destino + '. ' + resultados.length +
+        ' endereço(s) anterior(es) podem ter sido aceitos pelo Resend; confira o histórico antes de repetir. ' +
+        (detalhe || (data && data.erro) || (error && error.message) || 'Erro desconhecido'));
+    }
+    resultados.push({ para: destino, tentativa_id: data.tentativa_id, resend_email_id: data.id });
+  }
+  return { ok: true, para: destinos, testes: resultados };
+}
+
 // ── LISTA CONGELADA DA CAMPANHA (cda_campanha_destinatarios) ─────────
 // A "foto" do público no momento da confirmação. Congelar de novo substitui
 // a lista anterior desta campanha (inteira).
@@ -945,33 +1142,27 @@ async function cdaExcluirCampanha(id) {
 
 // Adiciona em lote os clientes de um segmento ao Pipeline, vinculados a uma campanha.
 // Não duplica: pula quem já tem lead nessa campanha específica.
+// Inclui público com controle transacional de duplicidade no Supabase.
+// A prévia e confirmação explícita permanecem em Campanhas → Execução.
+// A RPC valida clientes, campanha e lista congelada, insere leads únicos e
+// registra a entrada de cada um no histórico na mesma transação.
 async function cdaAdicionarPublicoCampanha(campanha, clientesAlvo, usuario) {
-  const { data: existentes, error: errExist } = await cdaClient.from('leads_b2c').select('cliente_id').eq('campanha_id', campanha.id);
-  if (errExist) throw errExist;
-  const jaAdicionados = new Set((existentes || []).map(r => String(r.cliente_id)));
-  const novos = clientesAlvo.filter(c => !jaAdicionados.has(String(c.id)));
-  if (!novos.length) return { adicionados: 0, jaExistentes: clientesAlvo.length };
-
-  const agora = new Date().toISOString();
-  const leadRows = novos.map(c => ({
-    id: 'lb2c' + cdaUid() + Math.random().toString(36).slice(2, 6),
-    nome: c.nome, telefone: c['telefone-celular'] || c['telefone-principal'] || null, email: c.email || null,
-    canal_id: null, etapa: campanha.pipelineEtapaEntrada || 'novo_lead', cliente_id: c.id,
-    campanha_id: campanha.id, movido_em: agora, obs: 'Adicionado via campanha "' + campanha.nome + '"'
-  }));
-  const { data: inseridos, error: errIns } = await cdaClient.from('leads_b2c').insert(leadRows).select();
-  if (errIns) throw errIns;
-
-  const histRows = (inseridos || []).map(l => ({
-    lead_id: l.id, cliente_id: l.cliente_id, etapa_nova: l.etapa, resultado_id: null,
-    observacao: 'Entrou no funil via campanha "' + campanha.nome + '"', criado_por: usuario || 'Usuário',
-    tipo_interacao: 'pipeline', origem_evento: 'manual', campanha_id: campanha.id
-  }));
-  if (histRows.length) {
-    const { error: errHist } = await cdaClient.from('cda_historico_interacoes').insert(histRows);
-    if (errHist) throw errHist;
+  if (!campanha || !campanha.id) throw new Error('Campanha não informada.');
+  var ids = Array.from(new Set((clientesAlvo || []).map(function(c) { return Number(c.id); })));
+  if (!ids.length || ids.some(function(id){ return !Number.isSafeInteger(id) || id <= 0; })) {
+    throw new Error('Seleção de clientes vazia ou inválida.');
   }
-  return { adicionados: novos.length, jaExistentes: clientesAlvo.length - novos.length };
+  var { data, error } = await cdaClient.rpc('cda_incluir_publico_pipeline_seguro', {
+    p_campanha_id: Number(campanha.id),
+    p_cliente_ids: ids,
+    p_usuario: usuario || 'Usuário'
+  });
+  if (error) throw error;
+  var resultado = Array.isArray(data) ? data[0] : data;
+  if (!resultado || resultado.adicionados == null || resultado.ja_existentes == null) {
+    throw new Error('A importação não retornou confirmação das quantidades.');
+  }
+  return { adicionados: Number(resultado.adicionados), jaExistentes: Number(resultado.ja_existentes) };
 }
 
 // ── EQUIPE (responsáveis reais, usados por Tarefas e outros módulos) ─

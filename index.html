@@ -7,15 +7,17 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.6.7/axios.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="cda-dados-compartilhados.js?v=20261104-campanha2"></script>
-<script src="cda-modulo-clientes.js"></script>
+<script src="cda-dados-compartilhados.js?v=20261110-fix-validacao-teste"></script>
+<script src="cda-modulo-clientes.js?v=20261109-comparativo-canais"></script>
 <script src="cda-modulo-compras.js"></script>
 <script src="cda-modulo-produtos.js"></script>
-<script src="cda-construtor-filtros.js?v=20261104-campanha2"></script>
-<script src="cda-modulo-segmentacao.js?v=20261104-campanha2"></script>
-<script src="cda-modulo-pipeline-b2c.js"></script>
-<script src="cda-modulo-campanhas.js?v=20261104-campanha2"></script>
-<script src="cda-modulo-tutorial.js?v=20261104-campanha2"></script>
+<script src="cda-construtor-filtros.js?v=20261106-msg"></script>
+<script src="cda-modulo-segmentacao.js?v=20261106-msg"></script>
+<script src="cda-modulo-pipeline-b2c.js?v=20261110-origem-versus-meio"></script>
+<script src="cda-modulo-campanhas.js?v=20261109-plano-reply-to"></script>
+<script src="cda-modulo-mensagens.js?v=20261110-feedback-envio-teste"></script>
+<script src="cda-modulo-homologacao.js?v=20261111-aba-operacao-click-fix"></script>
+<script src="cda-modulo-tutorial.js?v=20261106-msg"></script>
 <script src="cda-modulo-painel-gerencial.js"></script>
 <script src="cda-modulo-planejamento-compras.js"></script>
 <script src="cda-modulo-vendas-tipo-peca.js"></script>
@@ -551,6 +553,9 @@ async function doLogin(){
       setDate();await setupProjectSidebar();
       document.getElementById('page-title').textContent='Selecione um módulo';
       document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
+      if(window.location.hash.startsWith('#cda-homologacao?')&&typeof cdaRestaurarTela==='function'){
+        await cdaRestaurarTela();
+      }
     }else{
       await sbAuth.auth.signOut();
       var el2=document.getElementById('login-error');el2.style.display='block';setTimeout(function(){el2.style.display='none';},3000);
@@ -675,6 +680,7 @@ function renderSidebarNav(){
     });
     if(currentProject==='comercial'){
       if(podeVerSubmodulo('comercial','campanhas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='campanhas'?'active':'')+'" id="nav-crm-campanhas" onclick="navigateCRM(\'campanhas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📣</span>Campanhas</div>';
+      if(podeVerSubmodulo('comercial','mensagens'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='mensagens'?'active':'')+'" id="nav-crm-mensagens" onclick="navigateCRM(\'mensagens\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📚</span>Biblioteca de Conteúdos</div>';
       if(podeVerSubmodulo('comercial','pipelineb2c'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='pipelineb2c'?'active':'')+'" id="nav-crm-pipelineb2c" onclick="navigateCRM(\'pipelineb2c\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Pipeline B2C</div>';
       if(podeVerSubmodulo('comercial','tarefas'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='tarefas'?'active':'')+'" id="nav-crm-tarefas" onclick="navigateCRM(\'tarefas\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">✅</span>Tarefas &amp; Follow-up</div>';
       if(podeVerSubmodulo('comercial','painelgerencial'))nav.innerHTML+='<div class="nav-item '+(window._crmPage==='painelgerencial'?'active':'')+'" id="nav-crm-painelgerencial" onclick="navigateCRM(\'painelgerencial\')" style="padding-left:32px;font-size:11.5px"><span class="nav-icon">📊</span>Painel Gerencial</div>';
@@ -802,20 +808,20 @@ async function navigateMkt(pageId){
   }
 }
 async function navigateCRM(pageId){
-  if(!podeVerSubmodulo(currentProject,pageId)){
+  if(!podeVerSubmodulo(currentProject,pageId==='homologacao'?'mensagens':pageId)){
     showToast('Você não tem permissão para acessar este submódulo.','error');
     return;
   }
   window._crmPage=pageId;
   renderSidebarNav();
-  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',tutorialfin:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha Bling',cardapios:'Cardápios',planejcompras:'Planejamento de Compras'};
+  var EXTRA_TITLES={pipelineb2c:'Pipeline B2C',painelgerencial:'Painel Gerencial',campanhas:'Campanhas',mensagens:'Biblioteca de Conteúdos',homologacao:'Lista de Homologação',tarefas:'Tarefas & Follow-up',tutorial:'Tutorial',tutorialfin:'Tutorial',canais:'Canais de Venda',cvpage:'Collabs / Vendedores',cfgfin:'Tipos e Coleções',prest:'Prestação de Contas',upload:'Importar Planilha Bling',cardapios:'Cardápios',planejcompras:'Planejamento de Compras'};
   document.getElementById('page-title').textContent=CRM_PAGES[pageId]?CRM_PAGES[pageId].label:(ESTOQUE_PAGES[pageId]?ESTOQUE_PAGES[pageId].label:(EXTRA_TITLES[pageId]||pageId));
   var el=document.getElementById('main-content');
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');
   if(pageId!=='prest'&&pageId!=='upload'&&pageId!=='cardapios'&&iframeWrap) iframeWrap.style.display='none';
   var roBanner=isReadOnly()?'<div class="readonly-banner">👁 Modo somente leitura — seu usuário não tem permissão para alterar dados neste sistema.</div>':'';
   var podeEditarCompras=(currentProject==='financeiro')?!isReadOnly():podeEscreverSubmodulo('comercial','compras');
-  var podeEditar=(currentProject==='comercial')?podeEscreverSubmodulo('comercial',pageId):!isReadOnly();
+  var podeEditar=(currentProject==='comercial')?podeEscreverSubmodulo('comercial',pageId==='homologacao'?'mensagens':pageId):!isReadOnly();
   var cadeadoBanner=(currentProject==='comercial'&&!podeEditar)?'<div class="readonly-banner">🔒 Somente leitura neste submódulo — seu usuário não tem permissão de gravação aqui.</div>':'';
   if(pageId==='clientes'){
     el.innerHTML=roBanner+cadeadoBanner+'<div class="crm-embed"><div id="container-clientes"></div></div>';
@@ -838,6 +844,13 @@ async function navigateCRM(pageId){
   }else if(pageId==='campanhas'){
     el.innerHTML=roBanner+cadeadoBanner+'<div class="crm-embed"><div id="container-campanhas"></div></div>';
     montarModuloCampanhas('container-campanhas',{editavel:podeEditar});
+  }else if(pageId==='mensagens'){
+    el.innerHTML=roBanner+cadeadoBanner+'<div class="crm-embed"><div id="container-mensagens"></div></div>';
+    montarModuloMensagens('container-mensagens',{editavel:podeEditar});
+  }else if(pageId==='homologacao'){
+    el.innerHTML=roBanner+cadeadoBanner+'<div class="crm-embed"><div style="padding:12px 18px 0"><button type="button" class="btn sm" id="homolog-voltar-pipeline">← Voltar ao Pipeline B2C</button></div><div id="container-homologacao"></div></div>';
+    el.querySelector('#homolog-voltar-pipeline').addEventListener('click',function(){navigateCRM('pipelineb2c');});
+    await montarModuloHomologacao('container-homologacao',{editavel:podeEditar});
   }else if(pageId==='tarefas'){
     el.innerHTML=roBanner+cadeadoBanner+'<div class="crm-embed" id="container-tarefas"></div>';
     montarModuloTarefas('container-tarefas',{editavel:podeEditar});
@@ -1694,6 +1707,6 @@ setDate();
 // initApp roda após todos os scripts (inclusive cda-memoria-tela.js) estarem carregados
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initApp);}else{initApp();}
 </script>
-<script src="cda-memoria-tela.js?v=20261024b"></script>
+<script src="cda-memoria-tela.js?v=20261111-deeplink-homologacao"></script>
 </body>
 </html>

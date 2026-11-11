@@ -1,0 +1,29 @@
+name: Homologacao Resend - testes sem envio
+on:
+  push:
+    branches:
+      - preview/campanha-mensagens
+    paths:
+      - 'supabase/functions/cda-executor-homologacao-preview/**'
+      - 'cda-modulo-homologacao.js'
+      - '.github/workflows/homologacao-resend-testes.yml'
+  workflow_dispatch:
+jobs:
+  testar-sem-rede:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe JS
+        run: |
+          node --check cda-modulo-homologacao.js
+          node --check supabase/functions/cda-executor-homologacao-preview/executor-transacional.mjs
+          node --check supabase/functions/cda-executor-homologacao-preview/resend-adapter.mjs
+          node --check supabase/functions/cda-executor-homologacao-preview/store-transacional.mjs
+          node --check supabase/functions/cda-executor-homologacao-preview/envelope-homologacao.mjs
+      - name: Testes unitarios com respostas simuladas
+        run: node --test supabase/functions/cda-executor-homologacao-preview/tests/*.test.mjs

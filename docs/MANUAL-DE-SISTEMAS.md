@@ -1424,3 +1424,33 @@ este documento é o resumo estrutural, não o log.)*
 - **04/11/2026 (ajuste de Cardoso):** modelos comerciais na Segmentação mostram só o filtro resumido — sem contagem nem
   lista; números e clientes só em Campanhas. Criada a campanha "Aniversariantes · Agosto" com o valor que estava na
   segmentação ANIVERSARIANTES POR PERÍODO (todas as segmentações com valores têm agora campanha correspondente).
+
+### 15.2 Modelo do e-mail da campanha (04/11/2026)
+- Colunas `cda_campanhas.email_assunto`, `email_previa`, `email_conteudo` (jsonb com os blocos) — migração
+  `comercial_campanha_email_modelo.sql`, que também cria o bucket público `campanhas-email` (Storage; leitura pública,
+  escrita só `cda_e_membro_equipe()`, até 2 MB, jpg/png/gif/webp).
+- `cdaMontarEmailCampanha(campanha, cliente, {linkDescadastro})` → `{assunto, previa, html, texto}`: HTML em tabelas,
+  600 px, estilos inline, preheader oculto, cupom, botão (link com UTM via `cdaLinkComUtm`), bloco de informações e
+  rodapé com descadastro. **O mesmo montador será usado pela Edge Function de envio** (o aprovado na prévia é o enviado).
+- Provedor escolhido: **Resend** (aguardando conta + DNS no Registro.br + `RESEND_API_KEY` nos Secrets do Supabase).
+- Campanha "Luedji Luna · São Paulo" já com o e-mail preenchido (cupom LUEDJI20 20%, enquanto durarem os ingressos,
+  estande da Ciclo no Cine Joia, show 18/11/2026); falta subir a imagem do flyer pelo formulário.
+
+### 15.3 Biblioteca de Mensagens + envio de teste (06/11/2026)
+- Tabela `cda_campanha_mensagens` (migração `comercial_campanha_mensagens.sql`; RLS `cda_e_membro_equipe()`):
+  `campanha_id` (FK, on delete set null — uma campanha tem N mensagens), `nome`, `remetente_nome`, `remetente_email`,
+  `responder_para`, `assunto`, `previa`, `conteudo` (jsonb: blocos de 15.2 + `sacTitulo`, `sacTelefone`, `sacEmail`),
+  `ultimo_teste_em`, `ultimo_teste_para`, auditoria. As colunas `cda_campanhas.email_*` ficam só como legado
+  (a mensagem da Luedji foi copiada para a biblioteca, id 1). Submódulo de permissão `comercial/mensagens`
+  (níveis copiados de `campanhas`).
+- Tela `cda-modulo-mensagens.js` → `montarModuloMensagens(containerId,{editavel})` (menu Comercial › 📚 Biblioteca de
+  Mensagens) e editor compartilhado `cdaEditorMensagem.abrir({mensagem, duplicar, campanhaId, campanhas, editavel,
+  onSalvo, onExcluido})`, usado também pelo formulário da Campanha (lista "Mensagens de e-mail desta campanha").
+- Montador: `cdaMontarEmailMensagem(mensagem, campanha, cliente)` → `cdaMontarEmailCampanha` (agora com o bloco
+  Fale Conosco · SAC: `mailto:` e `wa.me/55…`).
+- Edge Function `enviar-email-teste` (fonte em `docs/edge-functions/enviar-email-teste/index.ts`, `verify_jwt`):
+  confere `cda_e_membro_equipe()` com o JWT do usuário; até 3 destinatários; remetente obrigatoriamente
+  `@send.ciclodaarte.com.br` (domínio verificado no Resend, região São Paulo); `reply_to` = `responder_para`;
+  assunto com `[TESTE]`; grava o último teste. Front: `cdaEnviarTesteMensagem(mensagem, campanha, cliente, para)`.
+- Resend: Secret `RESEND_API_KEY` (chave "ciclodaartemarketing", Sending access). O Resend só envia — respostas
+  dos clientes vão para o "Responder para" (Microsoft 365).
