@@ -269,13 +269,15 @@ async function montarModuloHomologacao(containerId, opts) {
       const diag=await chamar('diagnosticar');
       const comp=await chamar('conferir_payload');
       const sim=await chamar('simular_orquestracao');
-      if(diag.resumo?.lote_id!==loteId||
+      if((comp.impedimentos||[]).length||comp.construidos!==comp.destinatarios)
+        throw new Error('A conferência da mensagem ou de destinatários apontou impedimentos.');
+      if(Number(diag.resumo?.lote_id)!==loteId||
          diag.resumo?.autorizado===true||
          sim.estado!=='bloqueado'||sim.envios_solicitados!==0||
          sim.operacoes_criadas!==0)
         throw new Error('O teste exige lote ainda não autorizado e simulação bloqueada.');
       painel.innerHTML='<p style="margin:0"><b>Diagnóstico autenticado:</b> OK · Sem autorização e sem envio.</p>'+
-        '<p style="margin:0"><b>Montagem do payload:</b> '+esc(comp.quantidade||'Conferido')+
+        '<p style="margin:0"><b>Montagem do payload:</b> '+esc(comp.construidos)+' de '+esc(comp.destinatarios)+
         ' destinatário(s), sem transmissão.</p>'+
         '<p style="margin:0"><b>Bloqueio sintético:</b> confirmado, nenhuma operação criada.</p>'+
         '<p style="margin:0"><b>Chave Resend configurada no executor:</b> '+
@@ -318,7 +320,7 @@ async function montarModuloHomologacao(containerId, opts) {
         '<p style="margin:0;font-size:12px"><b>Impressão digital SHA-256:</b> '+esc(r.fingerprint_sha256)+'</p>'+
         '<p style="margin:0;font-size:12px">Aprovação pessoal válida por até 30 minutos, vinculada ao conteúdo e aos destinatários. Aprovar NÃO envia mensagens. Cada envio exigirá outra confirmação.</p>'+
         (r.aprovacao_ja_registrada
-         ?'<p style="margin:0"><b>Aprovação já registrada.</b> '+(r.revogado_em?'Revogada.':r.autorizado?'Válida até '+esc(new Date(r.expira_em).toLocaleString('pt-BR')):'Expirada ou inválida.')+'</p>'
+         ?'<p style="margin:0"><b>Aprovação já registrada.</b> Aprovador (ID): '+esc(r.autorizado_por||'—')+' · '+(r.revogado_em?'Revogada.':r.autorizado?'Válida até '+esc(new Date(r.expira_em).toLocaleString('pt-BR')):'Expirada ou inválida.')+'</p>'
          :'<p style="margin:0"><b>Autorização:</b> ainda não concedida.</p>');
       aprovar.hidden=!!r.aprovacao_ja_registrada||!editavel;
       aprovar.disabled=!!r.aprovacao_ja_registrada||!editavel;
