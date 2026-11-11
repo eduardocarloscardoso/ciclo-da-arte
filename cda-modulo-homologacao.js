@@ -236,6 +236,7 @@ async function montarModuloHomologacao(containerId, opts) {
         ?'Lote autorizado: o envio só ocorrerá após confirmar esta ação.'
         :'Envio bloqueado até autorização específica deste lote.';
       const status=root.querySelector('#homolog-lote-estado-envio');
+      botao.textContent=permissaoDeEnvio?'Enviar 1 mensagem':'Enviar mensagens';
       status.textContent=permissaoDeEnvio
         ?'Lote autorizado por prazo limitado. Confira os destinatários e confirme o envio conscientemente.'
         :'Envio bloqueado: aguardando autorização específica do lote.';
@@ -249,6 +250,43 @@ async function montarModuloHomologacao(containerId, opts) {
         'Sem diagnóstico de autorização: envio permanece bloqueado.';
     }
   }
+  // Validação autenticada do backend sem aprovar, reservar nem transmitir mensagens.
+  async function validarExecutorSemEnvio() {
+    const painel=root.querySelector('#homolog-lote-teste');
+    const botao=root.querySelector('#homolog-lote-testar');
+    if(!loteIdParaEnvio){painel.textContent='Lote não preparado.';return;}
+    botao.disabled=true;
+    painel.textContent='Executando verificações de leitura e simulação sintética. Nenhum envio será solicitado.';
+    try{
+      const loteId=Number(loteIdParaEnvio);
+      const chamar=async(acao)=>{
+        const r=await cdaClient.functions.invoke('cda-executor-homologacao-preview',{
+          body:{acao,lote_id:loteId}
+        });
+        if(r.error||!r.data?.ok)throw new Error(acao+': '+(r.data?.erro||r.error?.message||'falha'));
+        return r.data;
+      };
+      const diag=await chamar('diagnosticar');
+      const comp=await chamar('conferir_payload');
+      const sim=await chamar('simular_orquestracao');
+      if(diag.resumo?.lote_id!==loteId||
+         diag.resumo?.autorizado===true||
+         sim.estado!=='bloqueado'||sim.envios_solicitados!==0||
+         sim.operacoes_criadas!==0)
+        throw new Error('O teste exige lote ainda não autorizado e simulação bloqueada.');
+      painel.innerHTML='<p style="margin:0"><b>Diagnóstico autenticado:</b> OK · Sem autorização e sem envio.</p>'+
+        '<p style="margin:0"><b>Montagem do payload:</b> '+esc(comp.quantidade||'Conferido')+
+        ' destinatário(s), sem transmissão.</p>'+
+        '<p style="margin:0"><b>Bloqueio sintético:</b> confirmado, nenhuma operação criada.</p>'+
+        '<p style="margin:0"><b>Chave Resend configurada no executor:</b> '+
+          (diag.provedor_configurado===true?'SIM':'NÃO')+
+          '. Presença da chave não comprova conectividade nem entrega.</p>';
+    }catch(e){
+      painel.textContent='Validação não concluída: '+(e.message||e)+
+        '. Nenhum envio foi solicitado por este teste.';
+    }finally{botao.disabled=false;}
+  }
+
   // Revisão somente leitura. Jamais concede autorização nesta operação.
   async function revisarAutorizacaoLote() {
     const painel=root.querySelector('#homolog-lote-revisao');
@@ -464,8 +502,13 @@ async function montarModuloHomologacao(containerId, opts) {
       d.disabled=!editavel;
       a.disabled=true;
       await consultarPermissaoDeEnvio(lote.id);
+      if(permissaoDeEnvio){
+        aviso.textContent='Lote autorizado por prazo limitado; cada envio requer confirmação individual.';
+        aviso.style.color='#166534';
+      }
       const revisar=root.querySelector('#homolog-lote-revisar');
       revisar.disabled=!editavel||lote.situacao!=='preparado';
+      root.querySelector('#homolog-lote-testar').disabled=lote.situacao!=='preparado'||permissaoDeEnvio;
     }catch(e){
       console.error(e);
       el.textContent='Não foi possível consultar/registrar o lote: '+(e.message||e)+'. Nenhum envio solicitado.';
@@ -528,6 +571,7 @@ async function montarModuloHomologacao(containerId, opts) {
         '<button type="button" class="btn" id="homolog-lote-enviar" disabled aria-disabled="true" title="Aguardando autorização específica do lote">Enviar mensagens</button>'+
         '<button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
         '<p id="homolog-lote-estado-envio" role="status" aria-live="polite" style="font-size:12px;margin:0;color:var(--text-muted,#64748b)">Envio bloqueado: aguardando autorização específica do lote.</p>'+ 
+        '<div class="hom-fold" style="display:grid;gap:8px"><b>Testes de segurança — sem envio</b><div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-testar" disabled>Validar executor sem envio</button></div><div id="homolog-lote-teste" role="status" aria-live="polite" style="font-size:12px">Diagnóstico autenticado ainda não realizado nesta sessão.</div></div>'+
         '<details class="hom-fold" id="homolog-aprovacao"><summary>Revisão e autorização do lote</summary><div style="display:grid;gap:10px;margin-top:10px">'+
         '<p style="margin:0;font-size:12px">Somente administrador com escrita. Revisar não envia nem autoriza. Autorizar habilita o envio por 30 minutos, sem transmiti-lo automaticamente.</p>'+
         '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-revisar" disabled>Revisar lote para autorização</button><button type="button" class="btn" id="homolog-lote-autorizar" hidden disabled>Confirmar autorização do lote</button></div>'+
@@ -560,6 +604,7 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-lote-simular').addEventListener('click',()=>acionarLote('simular'));
   root.querySelector('#homolog-lote-enviar').addEventListener('click',enviarHomologacaoConfirmada);
   root.querySelector('#homolog-lote-revisar').addEventListener('click',revisarAutorizacaoLote);
+  root.querySelector('#homolog-lote-testar').addEventListener('click',validarExecutorSemEnvio);
   root.querySelector('#homolog-lote-autorizar').addEventListener('click',autorizarLoteConscientemente);
   root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await carregarMensagensLote();});
   root.querySelector('#homolog-busca').addEventListener('input',desenhar);
