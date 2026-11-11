@@ -16,7 +16,7 @@
 <script src="cda-modulo-pipeline-b2c.js?v=20261110-origem-versus-meio"></script>
 <script src="cda-modulo-campanhas.js?v=20261109-plano-reply-to"></script>
 <script src="cda-modulo-mensagens.js?v=20261110-feedback-envio-teste"></script>
-<script src="cda-modulo-homologacao.js?v=20261111-jornada-lotes-complementares"></script>
+<script src="cda-modulo-homologacao.js?v=20261111-status-automatico-rota"></script>
 <script src="cda-modulo-tutorial.js?v=20261106-msg"></script>
 <script src="cda-modulo-painel-gerencial.js"></script>
 <script src="cda-modulo-planejamento-compras.js"></script>
@@ -553,6 +553,9 @@ async function doLogin(){
       setDate();await setupProjectSidebar();
       document.getElementById('page-title').textContent='Selecione um módulo';
       document.getElementById('main-content').innerHTML='<div class="ph"><h1>👋 Bem-vindo(a), '+(cu.name||'')+'</h1><p>Escolha um módulo no menu ao lado para continuar.</p></div>';
+      if(window.location.hash.startsWith('#cda-homologacao?')&&typeof cdaRestaurarTela==='function'){
+        await cdaRestaurarTela();
+      }
     }else{
       await sbAuth.auth.signOut();
       var el2=document.getElementById('login-error');el2.style.display='block';setTimeout(function(){el2.style.display='none';},3000);
@@ -1704,6 +1707,6 @@ setDate();
 // initApp roda após todos os scripts (inclusive cda-memoria-tela.js) estarem carregados
 if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',initApp);}else{initApp();}
 </script>
-<script src="cda-memoria-tela.js?v=20261024b"></script>
+<script src="cda-memoria-tela.js?v=20261111-deeplink-homologacao"></script>
 </body>
 </html>
