@@ -339,6 +339,7 @@ async function montarTransmissaoOficial(containerId) {
     b4Dados=r.data;
     b4TransmissaoId=id;
     b4Mostrar();
+    b5.render();
   }
   function b4Preparar(acao){
     const t=b4Transmissao(),x=b4LoteAtual();
