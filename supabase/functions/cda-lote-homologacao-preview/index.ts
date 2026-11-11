@@ -22,6 +22,9 @@ Deno.serve(async(req:Request)=>{
   try {body=await req.json();}catch{return response({ok:false,erro:"Dados inválidos."},400);}
   const campanha=Number(body.campanha_id),mensagem=Number(body.mensagem_id);
   const acao=String(body.acao||"status");
+  const loteSelecionado=Number(body.lote_id||0);
+  if(loteSelecionado && (!Number.isSafeInteger(loteSelecionado)||loteSelecionado<1))
+    return response({ok:false,erro:"Identificador de lote inválido."},400);
   if(!["status","preparar","interromper","retomar","validar","simular"].includes(acao))return response({ok:false,erro:"Operação não permitida."},400);
   if(!Number.isSafeInteger(campanha)||campanha<1||!Number.isSafeInteger(mensagem)||mensagem<1)
     return response({ok:false,erro:"Campanha e mensagem obrigatórias."},400);
@@ -38,10 +41,16 @@ Deno.serve(async(req:Request)=>{
     }).catch(()=>null);
     if(!r?.ok)return response({ok:false,erro:"Não foi possível preparar o lote. Nenhum envio realizado."},503);
   }
-  const consulta=()=>fetch(url+"/rest/v1/cda_envio_lotes?campanha_id=eq."+campanha+"&mensagem_id=eq."+mensagem+"&modo=eq.homologacao&select=id,campanha_id,mensagem_id,situacao,criado_em,atualizado_em&limit=1",{headers:h});
+  const consulta=()=>fetch(url+"/rest/v1/cda_envio_lotes?campanha_id=eq."+campanha+
+    "&mensagem_id=eq."+mensagem+"&modo=eq.homologacao"+
+    "&select=id,campanha_id,mensagem_id,situacao,criado_em,atualizado_em,lote_origem_id"+
+    "&order=id.desc&limit=100",{headers:h});
   let r=await consulta().catch(()=>null);
-  if(!r?.ok)return response({ok:false,erro:"Não foi possível consultar o lote."},503);
-  lote=(await r.json())[0]||null;
+  if(!r?.ok)return response({ok:false,erro:"Não foi possível consultar os lotes."},503);
+  let lotes=await r.json();
+  if(loteSelecionado&&!lotes.some(l=>Number(l.id)===loteSelecionado))
+    return response({ok:false,erro:"Lote não pertence a esta campanha/mensagem."},404);
+  lote=loteSelecionado?lotes.find(l=>Number(l.id)===loteSelecionado)||null:lotes[0]||null;
   if(acao==="interromper" || acao==="retomar"){
     if(!lote)return response({ok:false,erro:"Lote ainda não preparado."},404);
     const ctl=await fetch(url+"/rest/v1/rpc/cda_controlar_lote_sem_envio",{
@@ -60,7 +69,8 @@ Deno.serve(async(req:Request)=>{
     }
     r=await consulta().catch(()=>null);
     if(!r?.ok)return response({ok:false,erro:"Controle registrado, falha ao recarregar lote."},503);
-    lote=(await r.json())[0]||null;
+    lotes=await r.json();
+    lote=loteSelecionado?lotes.find(l=>Number(l.id)===loteSelecionado)||null:lotes[0]||null;
   }
   // Só pré-voo SQL. Esta função não possui caminho de envio ao Resend.
   let simulacao:null|Record<string,unknown>=null;
@@ -90,7 +100,7 @@ Deno.serve(async(req:Request)=>{
       executor.trava_ativa===executor.pode_enviar)
       return response({ok:false,erro:"Diagnóstico de autorização inconsistente."},503);
   }
-  if(!lote)return response({ok:true,lote:null,itens:[],envio_habilitado:false});
+  if(!lote)return response({ok:true,lote:null,lotes:[],itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
   if(!itensResp?.ok)return response({ok:false,erro:"Lote criado; falha ao consultar destinatários."},503);
   const itens=await itensResp.json();
@@ -141,7 +151,7 @@ Deno.serve(async(req:Request)=>{
     const situacao=String(item.situacao_observada);
     contagens[situacao]=(contagens[situacao]||0)+1;
   }
-  return response({ok:true,lote,itens:enriquecidos,quantidade:enriquecidos.length,
+  return response({ok:true,lote,lotes,itens:enriquecidos,quantidade:enriquecidos.length,
     contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
     validacao:{consulta_concluida:true,sem_impedimentos:impedimentos.length===0,impedimentos,autorizado:false,
       observacao:"Pré-validação não autoriza disparos nem substitui análise de LGPD, idempotência Resend e liberação manual."},
