@@ -140,8 +140,70 @@ Deno.serve(async(req:Request)=>{
   let body:Record<string,unknown>;
   try{body=await req.json()}catch{return reply({ok:false,erro:"Dados inválidos"},400)}
   const loteId=Number(body.lote_id),acao=String(body.acao||"diagnosticar");
-  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","simular_orquestracao","enviar"].includes(acao))
+  if(!Number.isSafeInteger(loteId)||loteId<1||!["diagnosticar","conferir_conteudo","conferir_payload","simular_orquestracao","revisar_autorizacao","aprovar_lote","enviar"].includes(acao))
     return reply({ok:false,erro:"Ação ou lote inválido"},400);
+
+  // Aprovação exclusiva de administrador ativo, aferida pelo e-mail
+  // autenticado no Supabase Auth e pelo cadastro administrativo da equipe.
+  // Revisar nunca escreve; aprovar exige confirmação manual exata e fingerprint.
+  if(acao==="revisar_autorizacao"||acao==="aprovar_lote"){
+    const h={apikey:sk,Authorization:"Bearer "+sk,"Content-Type":"application/json"};
+    try{
+      const email=String(usuario.email||"").trim().toLowerCase();
+      if(!email||usuario.email_confirmed_at==null)
+        return reply({ok:false,erro:"E-mail autenticado não confirmado"},403);
+      const adminsResp=await fetch(url+"/rest/v1/equipe?email=eq."+
+        encodeURIComponent(email)+"&is_admin=eq.true&permissao=eq.leitura_escrita&select=id,email,is_admin&limit=1",{headers:h});
+      if(!adminsResp.ok)throw Error("Consulta de administrador indisponível");
+      const admins=await adminsResp.json();
+      if(!admins.length||String(admins[0].email).toLowerCase()!==email)
+        return reply({ok:false,erro:"Somente administrador com escrita pode aprovar este lote"},403);
+      const rpc=async(nome,parametros)=>{
+        const r=await fetch(url+"/rest/v1/rpc/"+nome,{
+          method:"POST",headers:h,body:JSON.stringify(parametros)
+        });
+        if(!r.ok)throw Error("Não foi possível concluir a operação de autorização");
+        return await r.json();
+      };
+      const resumo=await rpc("cda_resumo_preenvio_homologacao",{p_lote_id:loteId});
+      if(resumo?.modo!=="homologacao"||resumo?.situacao!=="preparado"||
+         resumo.total<1||resumo.total>5)
+        return reply({ok:false,erro:"Lote de homologação não elegível"},409);
+      const dados=await fetch(url+"/rest/v1/cda_aprovacoes_envio_homologacao?lote_id=eq."+
+         loteId+"&select=autorizado_por,autorizado_em,expira_em,revogado_em&limit=1",{headers:h});
+      if(!dados.ok)throw Error("Consulta de aprovações indisponível");
+      const previa=(await dados.json())[0]||null;
+      const base={ok:true,lote_id:loteId,campanha_id:resumo.campanha_id,
+        campanha_nome:resumo.campanha_nome,mensagem_id:resumo.mensagem_id,
+        mensagem_nome:resumo.mensagem_nome,assunto:resumo.assunto,
+        destinatarios:resumo.destinatarios,quantidade:resumo.total,
+        fingerprint_sha256:resumo.fingerprint_sha256,
+        autorizado:resumo.autorizado===true,
+        autorizado_por:previa?.autorizado_por||null,
+        autorizado_em:previa?.autorizado_em||null,
+        expira_em:previa?.expira_em||null,
+        revogado_em:previa?.revogado_em||null,
+        aprovacao_ja_registrada:!!previa,validade_minutos:30,
+        confirmacao_exigida:"AUTORIZAR LOTE "+loteId,envios_solicitados:0};
+      if(acao==="revisar_autorizacao")return reply(base);
+      if(previa)return reply({ok:false,erro:"Este lote já foi aprovado anteriormente; não é possível aprovar novamente."},409);
+      const conf=String(body.confirmacao||"");
+      if(conf!==base.confirmacao_exigida||String(body.fingerprint_sha256||"")!==resumo.fingerprint_sha256||
+         Number(body.campanha_id)!==Number(resumo.campanha_id)||
+         Number(body.mensagem_id)!==Number(resumo.mensagem_id)||
+         Number(body.quantidade)!==Number(resumo.total))
+        return reply({ok:false,erro:"Confirmação ou fotografia do lote divergente; atualize a revisão."},409);
+      const aprovado=await rpc("cda_aprovar_lote_homologacao",{
+        p_lote_id:loteId,p_fingerprint_sha256:resumo.fingerprint_sha256,
+        p_autorizado_por:usuario.id
+      });
+      return reply({...base,autorizado:true,autorizado_por:usuario.id,
+        expira_em:aprovado.expira_em,autorizado_em:new Date().toISOString(),
+        aprovacao_ja_registrada:true,envios_solicitados:0});
+    }catch{
+      return reply({ok:false,erro:"Falha segura na autorização. Nenhum e-mail foi solicitado."},503);
+    }
+  }
   // Motor real: só existe caminho de transmissão para lote explicitamente
   // aprovado em RPC service_role (aprovação com prazo + fingerprint imutável).
   // O request informa APENAS lote_id e item_id. Nenhum payload, destino ou
