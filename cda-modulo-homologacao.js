@@ -16,9 +16,11 @@ async function montarModuloHomologacao(containerId, opts) {
     const p=new URLSearchParams(window.location.hash.slice(rotaPrefixo.length));
     const n=k=>{const x=Number(p.get(k));return Number.isSafeInteger(x)&&x>0?x:0;};
     return {campanha:n('campanha'),mensagem:n('mensagem'),lote:n('lote'),
-      area:p.get('area')==='dest'?'dest':'lote'};
+      area:p.get('area')==='dest'?'dest':'lote',
+      filtro:['todos','pendente','processamento','concluido'].includes(p.get('situacao'))?p.get('situacao'):'todos'};
   }
   const rotaInicial=lerRota();
+  let filtroSituacaoLote=rotaInicial?.filtro||'todos';
   let restaurarSelecaoInicial=true;
   function memorizarRota(area) {
     if(!campanhaId)return;
@@ -27,6 +29,7 @@ async function montarModuloHomologacao(containerId, opts) {
     const msg=Number(root.querySelector('#homolog-lote-mensagem')?.value);
     if(msg)p.set('mensagem',String(msg));
     if(loteSelecionadoId)p.set('lote',String(loteSelecionadoId));
+    if(filtroSituacaoLote!=='todos')p.set('situacao',filtroSituacaoLote);
     p.set('area',area||(!root.querySelector('#homolog-pane-lote')?.hidden?'lote':'dest'));
     const novo=rotaPrefixo+p.toString();
     if(location.hash!==novo)history.replaceState(history.state,'',location.pathname+location.search+novo);
@@ -636,13 +639,27 @@ async function montarModuloHomologacao(containerId, opts) {
       ultimoLoteDados=dados;
       const lotes=Array.isArray(dados.lotes)?dados.lotes:[];
       const seletor=root.querySelector('#homolog-lote-seletor');
-      seletor.innerHTML=lotes.map(l=>'<option value="'+esc(l.id)+'">Lote #'+esc(l.id)+
-        (l.lote_origem_id?' · Complementar ao #'+esc(l.lote_origem_id):' · Original')+'</option>').join('');
-      seletor.disabled=lotes.length<2;
       if(lote){
         if(loteSelecionadoId&&loteSelecionadoId!==Number(lote.id))validadoLoteId=0;
-        loteSelecionadoId=Number(lote.id);seletor.value=String(lote.id);
+        loteSelecionadoId=Number(lote.id);
       }
+      // A classificação vem do servidor por item processado, não do campo
+      // estrutural lote.situacao, que permanece "preparado" após o envio.
+      const resumo=dados.resumo_lotes||{};
+      const visiveis=lotes.filter(l=>filtroSituacaoLote==='todos'||
+        resumo[String(l.id)]?.status===filtroSituacaoLote);
+      const temSelecionado=visiveis.some(l=>Number(l.id)===loteSelecionadoId);
+      const opcoes=visiveis.map(l=>'<option value="'+esc(l.id)+'">Lote #'+esc(l.id)+
+        (l.lote_origem_id?' · Complementar ao #'+esc(l.lote_origem_id):' · Original')+
+        ' · '+esc({concluido:'Concluído',pendente:'Pendente',processamento:'Em processamento'}[resumo[String(l.id)]?.status]||'Sem situação')+'</option>');
+      if(lote&&!temSelecionado)
+        opcoes.unshift('<option value="'+esc(lote.id)+'">Lote #'+esc(lote.id)+' · Aberto (fora do filtro)</option>');
+      seletor.innerHTML=opcoes.length?opcoes.join(''):'<option value="">Nenhum lote neste status</option>';
+      seletor.disabled=visiveis.length===0||lotes.length<2;
+      if(lote)seletor.value=String(lote.id);
+      const resumoFiltro=root.querySelector('#homolog-lote-filtro-resultado');
+      if(resumoFiltro)resumoFiltro.textContent=visiveis.length+' lote(s) nesta situação'+
+        (!temSelecionado&&lote?' · o lote aberto permanece visível, sem alterar o histórico':'')+'.';
       if(!lote){
         loteSelecionadoId=0;
         loteIdParaEnvio=null;itensPendentesEnvio=[];permissaoDeEnvio=false;
@@ -782,7 +799,14 @@ async function montarModuloHomologacao(containerId, opts) {
       '<div id="homolog-lote-mensagem-linha" style="display:grid;gap:6px"><label for="homolog-lote-mensagem"><b>Mensagem</b></label><select id="homolog-lote-mensagem" style="max-width:650px;padding:9px;color:#111;background:#fff"></select></div>'+
       '<p id="homolog-lote-mensagem-unica" hidden style="margin:0;color:var(--text-muted,#64748b)"></p>'+
       '<p id="homolog-verificacao" role="status" aria-live="polite" style="margin:0;font-size:13px">Verificando destinatários automaticamente...</p>'+
-      '<div style="display:grid;gap:5px"><label for="homolog-lote-seletor"><b>Lote em trabalho / histórico</b></label><div class="hom-toolbar"><select id="homolog-lote-seletor" style="padding:9px;min-width:250px;max-width:420px;color:#111;background:#fff" disabled></select><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button></div></div>'+ 
+      '<div style="display:grid;gap:7px"><label for="homolog-lote-filtro"><b>Lote em trabalho / histórico</b></label>'+
+      '<div class="hom-toolbar"><label for="homolog-lote-filtro">Situação</label>'+
+      '<select id="homolog-lote-filtro" style="padding:9px;min-width:168px;color:#111;background:#fff">'+
+        '<option value="todos">Todos</option><option value="pendente">Pendente</option>'+
+        '<option value="processamento">Em processamento</option><option value="concluido">Concluído</option></select>'+
+      '<select id="homolog-lote-seletor" aria-label="Selecionar lote" style="padding:9px;min-width:250px;max-width:420px;color:#111;background:#fff" disabled></select>'+
+      '<button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button></div>'+
+      '<p id="homolog-lote-filtro-resultado" style="margin:0;font-size:12px;color:#64748b" aria-live="polite"></p></div>'+ 
       '<div id="homolog-lote-operacao" role="status" aria-live="polite">Consultando lote...</div>'+ 
       '<p id="homolog-status-atualizacao" role="status" aria-live="polite" style="font-size:12px;color:#64748b;margin:0"></p>'+
       '<div class="hom-fold" id="homolog-detalhes-tecnicos" style="display:grid;gap:12px">'+
@@ -846,6 +870,28 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-lote-testar').addEventListener('click',validarExecutorSemEnvio);
   root.querySelector('#homolog-lote-autorizar').addEventListener('click',autorizarLoteConscientemente);
   root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await acionarLote('status');});
+  root.querySelector('#homolog-lote-filtro').addEventListener('change',e=>{
+    filtroSituacaoLote=e.target.value;
+    // Não seleciona outro lote automaticamente e não aciona envio.
+    memorizarRota();
+    if(ultimoLoteDados){
+      const dados=ultimoLoteDados;
+      const lotes=Array.isArray(dados.lotes)?dados.lotes:[];
+      const res=dados.resumo_lotes||{};
+      const visiveis=lotes.filter(l=>filtroSituacaoLote==='todos'||res[String(l.id)]?.status===filtroSituacaoLote);
+      const select=root.querySelector('#homolog-lote-seletor');
+      const atual=lotes.find(l=>Number(l.id)===loteSelecionadoId);
+      select.innerHTML=visiveis.map(l=>'<option value="'+esc(l.id)+'">Lote #'+esc(l.id)+
+        (l.lote_origem_id?' · Complementar ao #'+esc(l.lote_origem_id):' · Original')+'</option>').join('');
+      if(atual&&!visiveis.some(l=>Number(l.id)===loteSelecionadoId))
+        select.insertAdjacentHTML('afterbegin','<option value="'+esc(atual.id)+'">Lote #'+esc(atual.id)+' · Aberto (fora do filtro)</option>');
+      if(!select.options.length)select.innerHTML='<option value="">Nenhum lote neste status</option>';
+      if(atual)select.value=String(atual.id);
+      select.disabled=!visiveis.length||lotes.length<2;
+      root.querySelector('#homolog-lote-filtro-resultado').textContent=visiveis.length+' lote(s) nesta situação'+
+        (atual&&!visiveis.some(l=>Number(l.id)===loteSelecionadoId)?' · lote aberto fora do filtro':'')+'.';
+    }
+  });
   root.querySelector('#homolog-lote-atualizar-status').addEventListener('click',atualizarStatusSemEnvio);
   root.querySelector('#homolog-lote-seletor').addEventListener('change',async e=>{
     pararAtualizacaoAutomatica();
@@ -871,6 +917,7 @@ async function montarModuloHomologacao(containerId, opts) {
     campanhaId=String(preferida?preferida.id:(campanhas[0]&&campanhas[0].id)||'');
     if(!campanhaId){banner('Cadastre uma campanha antes de criar listas de homologação.');return;}
     sel.value=campanhaId;
+    root.querySelector('#homolog-lote-filtro').value=filtroSituacaoLote;
     await atualizar();
     await carregarMensagensLote();
     selecionarArea(rotaInicial?.area||'dest');
