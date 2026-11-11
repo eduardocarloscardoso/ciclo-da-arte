@@ -8,6 +8,7 @@ async function montarTransmissaoOficial(containerId) {
   let transmissoesSalvas=[],congelando=false,consultaCarregada=false;
   let revisoesAtuais=[],revisoesTransmissaoId=0,revisaoOcupada=false;
   let confirmacaoRevisao=null;
+  let b4Dados=null,b4TransmissaoId=0,b4Ocupado=false,b4Confirmacao=null;
   const html=String.raw;
   root.innerHTML='<style>'+
     '#'+containerId+' .to-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;background:var(--card-bg,#fff);margin-bottom:15px}'+
@@ -57,8 +58,45 @@ async function montarTransmissaoOficial(containerId) {
           '</div></div>'+
         '<p class="to-muted" role="status" id="to-revisao-status"></p>'+
       '</section>'+
+      '<section class="to-card" id="to-b4-secao" hidden><h3 style="margin:0 0 10px">B4 · Controle operacional universal (sem envio)</h3>'+
+        '<p class="to-muted">Limites, pausa de planejamento, revisão múltipla e pré-aprovação por lote. Os estados desta etapa NÃO autorizam envio pelo Resend.</p>'+
+        '<div id="to-b4-resumo"></div>'+
+        '<div class="to-grid">'+
+          '<label class="to-label">Situação do planejamento<select id="to-b4-estado"><option value="pausado">Pausado</option><option value="planejamento">Em planejamento (não transmite)</option></select></label>'+
+          '<label class="to-label">Máximo por minuto<input id="to-b4-minuto" type="number" min="1" max="120" value="10"></label>'+
+          '<label class="to-label">Máximo por hora<input id="to-b4-hora" type="number" min="1" max="5000" value="120"></label>'+
+          '<label class="to-label">Máximo por dia<input id="to-b4-dia" type="number" min="1" max="20000" value="300"></label>'+
+          '<label class="to-label">Máximo por lote<input id="to-b4-max-lote" type="number" min="1" max="1000" value="100"></label>'+
+        '</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">'+
+          '<button type="button" class="btn" id="to-b4-salvar">Salvar limites e situação (sem envio)</button>'+
+          '<button type="button" class="btn" id="to-b4-atualizar">Atualizar controles</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">'+
+          '<h4 style="margin:0 0 8px">Revisão múltipla</h4>'+
+          '<p id="to-b4-revisao-resumo" class="to-muted"></p>'+
+          '<button type="button" class="btn" id="to-b4-revisar-multiplos" disabled>Revisar todos os lotes pendentes (sem envio)</button>'+
+        '</div>'+
+        '<div style="border-top:1px solid #e2e8f0;margin-top:12px;padding-top:12px">'+
+          '<h4 style="margin:0 0 8px">Pré-aprovação administrativa do lote selecionado</h4>'+
+          '<p id="to-b4-lote-resumo" class="to-muted"></p>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+            '<button type="button" class="btn" id="to-b4-preaprovar" disabled>Pré-aprovar planejamento (sem envio)</button>'+
+            '<button type="button" class="btn" id="to-b4-revogar" disabled>Revogar pré-aprovação</button>'+
+          '</div>'+
+        '</div>'+
+        '<div id="to-b4-confirmacao" hidden style="border:1px solid #cbd5e1;border-radius:8px;padding:12px;margin-top:12px">'+
+          '<p id="to-b4-confirmacao-texto"></p>'+
+          '<label class="to-label">Frase de confirmação<input id="to-b4-frase" type="text" autocomplete="off" spellcheck="false"></label>'+
+          '<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">'+
+            '<button type="button" class="btn" id="to-b4-confirmar" disabled>Confirmar operação administrativa</button>'+
+            '<button type="button" class="btn" id="to-b4-cancelar">Cancelar</button>'+
+          '</div>'+
+        '</div>'+
+        '<p class="to-muted" id="to-b4-status" role="status" aria-live="polite"></p>'+
+      '</section>'+
       '<section class="to-card"><h3 style="margin:0 0 10px">Governança e liberação</h3>'+
-        '<p>A preparação persistente dos lotes está concluída na B2. A B3 permite registrar revisões administrativas individuais, sem autorizar ou transmitir mensagens. A autorização operacional, o controle de limites e o executor oficial serão tratados em etapa posterior.</p>'+
+        '<p>B2: congelamento concluído. B3: revisão auditável. B4: limites, pausa e pré-aprovação preparatória; nenhum desses estados constitui autorização de envio. A execução oficial, a autorização de transmissão efetiva e o acompanhamento do Resend serão desenvolvidos separadamente.</p>'+
         '<p class="to-muted">Fundamentação LGPD registrada na campanha. Preferências, oposição e descadastramento permanecem como controles de acompanhamento e conformidade, sem impedir o desenvolvimento das revisões B3. Antes de qualquer envio real, esses controles deverão ser atendidos conforme aplicável.</p>'+
         '<button type="button" class="btn" disabled title="Não existe executor oficial nesta versão">Transmitir lote oficial — bloqueado</button>'+
       '</section></div>';
@@ -112,6 +150,7 @@ async function montarTransmissaoOficial(containerId) {
     revisoesAtuais=Array.isArray(r.data)?r.data:[];
     revisoesTransmissaoId=Number(t.id);
     renderRevisoes(anterior);
+    b4Mostrar();
   }
   function renderRevisoes(selecionado){
     const t=transmissaoCongelada(),sec=$('to-revisao-secao');
@@ -140,6 +179,7 @@ async function montarTransmissaoOficial(containerId) {
     if(revisoesAtuais.some(x=>String(x.lote_id)===String(selecionado)))sel.value=String(selecionado);
     if(!sel.value&&revisoesAtuais.length)sel.value=String(revisoesAtuais[0].lote_id);
     mostrarRevisaoSelecionada();
+    b4Mostrar();
   }
   function mostrarRevisaoSelecionada(){
     const id=Number($('to-revisao-lote').value);
@@ -228,6 +268,153 @@ async function montarTransmissaoOficial(containerId) {
       }
     }
   }
+  function b4Transmissao(){
+    return transmissaoCongelada();
+  }
+  function b4LimparConfirmacao(mensagem){
+    b4Confirmacao=null;
+    $('to-b4-confirmacao').hidden=true;
+    $('to-b4-frase').value='';
+    $('to-b4-confirmar').disabled=true;
+    if(mensagem)$('to-b4-status').textContent=mensagem;
+  }
+  function b4LoteAtual(){
+    return revisoesAtuais.find(x=>Number(x.lote_id)===Number($('to-revisao-lote').value));
+  }
+  function b4Preaprovacao(id){
+    return (b4Dados?.preaprovacoes||[]).find(x=>Number(x.lote_id)===Number(id));
+  }
+  function b4Revisaveis(){
+    return revisoesAtuais.filter(x=>
+      x.revisao_status!=='revisado' && x.situacao_lote==='preparado' &&
+      x.habilitado===false && !!x.fingerprint_atual);
+  }
+  function b4Mostrar(){
+    const t=b4Transmissao();
+    $('to-b4-secao').hidden=!t;
+    if(!t)return;
+    if(b4TransmissaoId!==Number(t.id)){
+      $('to-b4-resumo').textContent='Consultando parâmetros B4...';
+      ['to-b4-salvar','to-b4-revisar-multiplos','to-b4-preaprovar','to-b4-revogar'].forEach(id=>$(id).disabled=true);
+      return;
+    }
+    const conf=b4Dados?.controles;
+    $('to-b4-resumo').innerHTML='<p><b>Transmissão #'+esc(t.id)+'</b> · '+
+      (conf?'Plano: '+esc(conf.estado)+' · até '+esc(conf.max_por_minuto)+'/min, '+esc(conf.max_por_hora)+'/h, '+esc(conf.max_por_dia)+'/dia':
+       'Limites ainda não configurados')+' · <b>Envio bloqueado</b></p>';
+    if(conf){
+      $('to-b4-estado').value=conf.estado;
+      $('to-b4-minuto').value=conf.max_por_minuto;
+      $('to-b4-hora').value=conf.max_por_hora;
+      $('to-b4-dia').value=conf.max_por_dia;
+      $('to-b4-max-lote').value=conf.max_por_lote;
+    }
+    const pending=b4Revisaveis();
+    $('to-b4-revisao-resumo').textContent=pending.length+
+      ' lote(s) ainda não revisados. A revisão múltipla grava uma auditoria por lote em uma única operação.';
+    const x=b4LoteAtual(),p=x?b4Preaprovacao(x.lote_id):null;
+    const integro=!!x&&x.revisao_status==='revisado'&&
+      x.revisao_fingerprint===x.fingerprint_atual;
+    $('to-b4-lote-resumo').textContent=x?'Lote #'+x.numero+' · '+
+      x.total+' destinatários · revisão '+x.revisao_status+
+      ' · pré-aprovação '+(p?.status||'não registrada')+
+      ' · envio não autorizado.':'Selecione um lote no painel B3.';
+    const admin=window.cu?.is_admin===true&&!b4Ocupado;
+    $('to-b4-salvar').disabled=!admin;
+    $('to-b4-revisar-multiplos').disabled=!admin||!pending.length;
+    $('to-b4-preaprovar').disabled=!admin||!conf||!integro||p?.status==='preaprovado';
+    $('to-b4-revogar').disabled=!admin||p?.status!=='preaprovado';
+  }
+  async function b4Carregar(){
+    const t=b4Transmissao();
+    if(!t){b4Dados=null;b4TransmissaoId=0;b4Mostrar();return;}
+    const id=Number(t.id);
+    const r=await cdaClient.rpc('cda_consultar_controles_b4',{p_transmissao_id:id});
+    if(r.error)throw r.error;
+    if(Number(b4Transmissao()?.id)!==id)return;
+    b4Dados=r.data;
+    b4TransmissaoId=id;
+    b4Mostrar();
+  }
+  function b4Preparar(acao){
+    const t=b4Transmissao(),x=b4LoteAtual();
+    if(b4Ocupado||!t||window.cu?.is_admin!==true)return;
+    let chave='',detalhe='',lotes=[];
+    if(acao==='salvar'){
+      const valores=['to-b4-minuto','to-b4-hora','to-b4-dia','to-b4-max-lote'].map(k=>Number($(k).value));
+      if(valores.some(v=>!Number.isSafeInteger(v))||
+        valores[0]<1||valores[0]>120||valores[1]<valores[0]||valores[1]>5000||
+        valores[2]<valores[1]||valores[2]>20000||valores[3]<1||valores[3]>1000){
+          $('to-b4-status').textContent='Confira os limites: minuto ≤ hora ≤ dia, valores inteiros dentro das faixas.';return;
+        }
+      chave='SALVAR CONTROLES '+t.id;
+      detalhe='Salvar limites e situação '+$('to-b4-estado').value+'. Não inicia transmissão.';
+    }else if(acao==='multiplos'){
+      lotes=b4Revisaveis().map(i=>Number(i.lote_id));
+      if(!lotes.length)return;
+      chave='REVISAR '+lotes.length+' LOTES';
+      detalhe='Registrar '+lotes.length+' revisões administrativas individuais numa só transação, sem envio.';
+    }else{
+      if(!x)return;
+      if(acao==='preaprovar'&&$('to-b4-preaprovar').disabled)return;
+      if(acao==='revogar'&&$('to-b4-revogar').disabled)return;
+      chave=(acao==='preaprovar'?'PREAPROVAR LOTE ':'REVOGAR PREAPROVACAO LOTE ')+x.numero;
+      detalhe=(acao==='preaprovar'?'Pré-aprovar':'Revogar a pré-aprovação do')+
+        ' planejamento do lote #'+x.numero+'. Não é autorização para enviar.';
+    }
+    b4Confirmacao={acao,chave,transmissao:Number(t.id),lote_id:x?.lote_id||0,
+      lotes,estado:$('to-b4-estado').value,
+      minuto:Number($('to-b4-minuto').value),hora:Number($('to-b4-hora').value),
+      dia:Number($('to-b4-dia').value),max_lote:Number($('to-b4-max-lote').value)};
+    $('to-b4-confirmacao-texto').innerHTML='<b>'+esc(detalhe)+'</b><p class="to-muted">Digite exatamente <b>'+esc(chave)+'</b>. Nenhuma mensagem será transmitida.</p>';
+    $('to-b4-frase').value='';
+    $('to-b4-confirmar').disabled=true;
+    $('to-b4-confirmacao').hidden=false;
+    $('to-b4-status').textContent='Aguardando confirmação administrativa.';
+    $('to-b4-frase').focus();
+  }
+  async function b4ExecutarConfirmacao(){
+    const q=b4Confirmacao;
+    if(!q||b4Ocupado||$('to-b4-frase').value!==q.chave)return;
+    if(Number(b4Transmissao()?.id)!==q.transmissao){
+      b4LimparConfirmacao('Transmissão mudou; confirme novamente.');return;
+    }
+    if(['preaprovar','revogar'].includes(q.acao) && Number(b4LoteAtual()?.lote_id)!==Number(q.lote_id)){
+      b4LimparConfirmacao('Lote mudou; confirme novamente.');return;
+    }
+    b4Ocupado=true;
+    $('to-b4-confirmar').disabled=true;
+    $('to-b4-cancelar').disabled=true;
+    $('to-b4-status').textContent='Registrando operação B4 no Supabase (sem envio)...';
+    try{
+      let nome,args;
+      if(q.acao==='salvar'){
+        nome='cda_configurar_controle_b4';
+        args={p_transmissao_id:q.transmissao,p_estado:q.estado,
+          p_minuto:q.minuto,p_hora:q.hora,p_dia:q.dia,p_max_lote:q.max_lote};
+      }else if(q.acao==='multiplos'){
+        nome='cda_revisar_multiplos_lotes_b4';
+        args={p_transmissao_id:q.transmissao,p_lotes:q.lotes};
+      }else{
+        nome='cda_preaprovar_lote_b4';
+        args={p_lote_id:q.lote_id,p_acao:q.acao};
+      }
+      const r=await cdaClient.rpc(nome,args);
+      if(r.error)throw r.error;
+      b4LimparConfirmacao('Operação B4 registrada: '+q.acao+
+        (q.acao==='multiplos'?' ('+r.data.revisados+' lotes)':'')+
+        '. Envio continua bloqueado.');
+      if(q.acao==='multiplos')await carregarRevisoes(true);
+      await b4Carregar();
+    }catch(e){
+      b4LimparConfirmacao('Registro não confirmado: '+(e.message||e)+
+       '. Atualize o histórico antes de repetir a operação.');
+    }finally{
+      b4Ocupado=false;
+      $('to-b4-cancelar').disabled=false;
+      b4Mostrar();
+    }
+  }
   async function congelarLista(){
     if(congelando||$('to-congelar').disabled||!mensagem||!campanha)return;
     const id=Number(campanha.id),m=Number(mensagem.id);
@@ -254,6 +441,7 @@ async function montarTransmissaoOficial(containerId) {
         ' lotes; '+r.data.excluidos+' exclusões. Envios continuam bloqueados.';
       await consultarCongelamentos(id);
       await carregarRevisoes(false);
+      await b4Carregar();
     }catch(e){
       $('to-congelar-status').textContent='Congelamento não confirmado: '+
         (e.message||e)+'. Confira o histórico antes de tentar novamente.';
@@ -331,6 +519,8 @@ async function montarTransmissaoOficial(containerId) {
   }
   async function carregarCampanha(){
     limparConfirmacaoRevisao();
+    b4LimparConfirmacao();
+    b4Dados=null;b4TransmissaoId=0;
     const id=Number($('to-campanha').value);
     campanha=campanhas.find(c=>Number(c.id)===id)||null;
     mensagem=null;destinatarios=[];$('to-painel').hidden=true;
@@ -355,16 +545,32 @@ async function montarTransmissaoOficial(containerId) {
         $('to-congelar-status').textContent='Histórico indisponível: '+(e.message||e)+'. Congelamento bloqueado.';
       }
       apresentar();
-      try{await carregarRevisoes(false);}catch(e){
-        $('to-revisao-status').textContent='Consulta de revisões indisponível: '+(e.message||e);
+      try{await carregarRevisoes(false);await b4Carregar();}catch(e){
+        $('to-revisao-status').textContent='Consulta de controles indisponível: '+(e.message||e);
+        $('to-b4-status').textContent='Controles B4 indisponíveis até atualização.';
       }
     }catch(e){$('to-aviso').textContent='Não foi possível conferir a campanha: '+(e.message||e)+'. Nenhum envio liberado.';}
   }
   $('to-campanha').addEventListener('change',carregarCampanha);
+  $('to-b4-salvar').addEventListener('click',()=>b4Preparar('salvar'));
+  $('to-b4-revisar-multiplos').addEventListener('click',()=>b4Preparar('multiplos'));
+  $('to-b4-preaprovar').addEventListener('click',()=>b4Preparar('preaprovar'));
+  $('to-b4-revogar').addEventListener('click',()=>b4Preparar('revogar'));
+  $('to-b4-frase').addEventListener('input',()=>{
+    $('to-b4-confirmar').disabled=!b4Confirmacao||$('to-b4-frase').value!==b4Confirmacao.chave;
+  });
+  $('to-b4-confirmar').addEventListener('click',b4ExecutarConfirmacao);
+  $('to-b4-cancelar').addEventListener('click',()=>{if(!b4Ocupado)b4LimparConfirmacao('Operação B4 cancelada.');});
+  $('to-b4-atualizar').addEventListener('click',async()=>{
+    try{await carregarRevisoes(true);await b4Carregar();$('to-b4-status').textContent='Situação B4 atualizada; sem envio.';}
+    catch(e){$('to-b4-status').textContent='Falha: '+(e.message||e);}
+  });
   $('to-congelar').addEventListener('click',congelarLista);
   $('to-revisao-lote').addEventListener('change',()=>{
     limparConfirmacaoRevisao('Lote selecionado atualizado.');
+    b4LimparConfirmacao();
     mostrarRevisaoSelecionada();
+    b4Mostrar();
   });
   $('to-revisar-lote').addEventListener('click',()=>registrarRevisao('revisar'));
   $('to-revogar-revisao').addEventListener('click',()=>registrarRevisao('revogar'));
@@ -382,10 +588,11 @@ async function montarTransmissaoOficial(containerId) {
     catch(e){$('to-revisao-status').textContent='Falha: '+(e.message||e);}
   });
   $('to-mensagem').addEventListener('change',async()=>{
+    b4LimparConfirmacao();b4Dados=null;b4TransmissaoId=0;
     limparConfirmacaoRevisao('Mensagem alterada; nenhuma revisão confirmada.');
     mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;
     revisoesAtuais=[];revisoesTransmissaoId=0;apresentar();
-    try{await carregarRevisoes(false);}catch(e){$('to-revisao-status').textContent='Falha ao consultar revisões: '+(e.message||e);}
+    try{await carregarRevisoes(false);await b4Carregar();}catch(e){$('to-revisao-status').textContent='Falha ao consultar controles: '+(e.message||e);}
   });
   $('to-tamanho').addEventListener('change',apresentar);
   try{
