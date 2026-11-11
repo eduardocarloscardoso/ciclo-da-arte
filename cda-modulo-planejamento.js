@@ -53,6 +53,7 @@ var paEstado = {
   tipo: '',                // '' | RECEITAS | DESPESAS
   subcontaId: '',
   sintetico: false,
+  verAnoAnt: false,       // Orçamento: exibir coluna/card Realizado ano anterior (volta para Não ao abrir a tela) — 11/11/2026
   busca: '',
   centroId: '',          // filtro por centro de custo (Tabela Contábil e Margem por Canal)
   grupoId: ''            // filtro por grupo do ecossistema (todas as telas com filtro) — 27/10/2026
@@ -206,6 +207,7 @@ function paAlternarGrupo(g){paEstado.grupoAberto[g]=!paEstado.grupoAberto[g];ren
 async function navigatePlanejamento(page){
   if(!paPodeLer()){showToast('Seu usuário não tem acesso ao Planejamento Anual.','info');return;}
   if(!PA_PAGES[page])page='tabela';
+  if(page==='orcamento'&&paEstado.page!=='orcamento')paEstado.verAnoAnt=false;
   currentProject=PA_PROJETO;paEstado.page=page;renderSidebarNav();
   var iframeWrap=document.getElementById('financeiro-iframe-wrap');if(iframeWrap)iframeWrap.style.display='none';
   var p=PA_PAGES[page];
@@ -329,6 +331,7 @@ function paFiltroHTML(h, opts){
   }
   if(opts.busca)html+='<label>Buscar<input type="search" placeholder="Nome…" value="'+paEsc(paEstado.busca)+'" onchange="paEstado.busca=this.value;navigatePlanejamento(paEstado.page)"></label>';
   html+='<div class="pa-toggle" role="group" aria-label="Modo de exibição"><button class="'+(!paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=false;navigatePlanejamento(paEstado.page)">Analítico</button><button class="'+(paEstado.sintetico?'on':'')+'" onclick="paEstado.sintetico=true;navigatePlanejamento(paEstado.page)">Sintético</button></div>';
+  if(opts.extra)html+=opts.extra;
   if(opts.acoes)html+='<div class="pa-acoes"'+(opts.acoesJunto?' style="margin-left:0"':'')+'>'+opts.acoes+'</div>';
   return html+'</div>';
 }
@@ -359,32 +362,34 @@ async function paOrcamentoAnual(){
   var restantes=Math.max(12-ultimo,0);
   function linha(cc){
     var p=prev[cc.id]||0,re=realEx[cc.id]||0,pv=prov[cc.id]||0;
-    return {ant:realAnt[cc.id]||0,prev:p,mes:p/12,real:re,saldoSem:p-re,saldoCom:p-re-pv,temProv:pv!==0};
+    return {ant:realAnt[cc.id]||0,prev:p,mes:p/12,real:re,saldoSem:p-re,prov:pv,saldoCom:p-re-pv,temProv:pv!==0};
   }
   var grupos=paContasFiltradas(h);
   var root=document.getElementById('pa-root');if(!root)return;
   var podeEd=paPodeEditar(),antEditavel=podeEd&&!realAnt._mensal;
   paEstado._anoAntMensal=!!realAnt._mensal;
   var acoes=(podeEd?'<button class="btn btn-primary btn-sm" onclick="paAbrirImportacaoAnual()">⬆ Importar Excel</button>':'')+'<button class="btn btn-ghost btn-sm" onclick="paTutorialInformativo(\'orcamento\')">ℹ️ Tutorial Informativo</button>';
-  var html=paFiltroHTML(h,{anos:anos,acoes:acoes});
+  var verAnt=!!paEstado.verAnoAnt;
+  var togAnt='<div class="pa-toggle" role="group" aria-label="Visualizar Realizado '+(ano-1)+'" title="Deseja visualizar o Realizado '+(ano-1)+'?"><span style="font-size:11.5px;opacity:.75;padding:0 6px;align-self:center">Realizado '+(ano-1)+'?</span><button class="'+(!verAnt?'on':'')+'" onclick="paEstado.verAnoAnt=false;navigatePlanejamento(paEstado.page)">Não</button><button class="'+(verAnt?'on':'')+'" onclick="paEstado.verAnoAnt=true;navigatePlanejamento(paEstado.page)">Sim</button></div>';
+  var html=paFiltroHTML(h,{anos:anos,acoes:acoes,extra:togAnt});
   html+='<div class="pa-info">Período do exercício: <b>'+(ultimo?(ultimo===1?'Janeiro':'Janeiro a '+PA_MESES[ultimo-1])+' de '+ano:'nenhum mês realizado em '+ano)+'</b></div>';
 
   // Totais gerais para KPIs
-  var tot={RECEITAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0},DESPESAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0}};
-  h.contas.forEach(function(c){c.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);['ant','prev','mes','real','saldoSem','saldoCom'].forEach(function(k){tot[c.tipo][k]+=l[k];});if(l.temProv)tot[c.tipo].temProv=true;});});});
+  var tot={RECEITAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,prov:0,saldoCom:0},DESPESAS:{ant:0,prev:0,mes:0,real:0,saldoSem:0,prov:0,saldoCom:0}};
+  h.contas.forEach(function(c){c.subcontas.forEach(function(s){s.centros.forEach(function(cc){var l=linha(cc);['ant','prev','mes','real','saldoSem','prov','saldoCom'].forEach(function(k){tot[c.tipo][k]+=l[k];});if(l.temProv)tot[c.tipo].temProv=true;});});});
   var resPrev=tot.RECEITAS.prev-tot.DESPESAS.prev,resReal=tot.RECEITAS.real-tot.DESPESAS.real;
   html+='<div class="pa-kpis">'+
     paKpi('Receitas '+ano,'Previsto '+paBRL(tot.RECEITAS.prev),'Realizado '+paBRL(tot.RECEITAS.real),'var(--green)')+
     paKpi('Despesas '+ano,'Previsto '+paBRL(tot.DESPESAS.prev),'Realizado '+paBRL(tot.DESPESAS.real),'var(--red)')+
     paKpi('Resultado (Receita − Despesa)','Previsto '+paBRL(resPrev),'Realizado '+paBRL(resReal),resReal>=0?'var(--blue)':'var(--red)')+
-    paKpi('Realizado '+(ano-1),'Receitas '+paBRL(tot.RECEITAS.ant),'Despesas '+paBRL(tot.DESPESAS.ant),'var(--gold2)')+
+    (verAnt?paKpi('Realizado '+(ano-1),'Receitas '+paBRL(tot.RECEITAS.ant),'Despesas '+paBRL(tot.DESPESAS.ant),'var(--gold2)'):'')+
   '</div>';
 
-  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Conta / Subconta / Centro de Custo</th><th>Realizado<br>'+(ano-1)+'</th><th>Previsto<br>'+ano+'</th><th>Previsto<br>Mês</th><th>Realizado<br>'+ano+'</th><th title="Previsto − Realizado">Saldo Total<br>sem Provisão</th><th title="Previsto − (Realizado + Provisão Prevista)" style="color:var(--purple)">Saldo Total<br>com Provisão</th></tr></thead><tbody>';
+  html+='<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><thead><tr><th>Conta / Subconta / Centro de Custo</th>'+(verAnt?'<th>Realizado<br>'+(ano-1)+'</th>':'')+'<th>Previsto<br>'+ano+'</th><th>Previsto<br>Mês</th><th>Realizado<br>'+ano+'</th><th title="Previsto − Realizado">Saldo Total<br>sem Provisão</th><th title="Provisão Prevista acumulada (Orçamento › Provisões)" style="color:var(--purple)">Total<br>Provisão</th><th title="Previsto − (Realizado + Provisão Prevista)" style="color:var(--purple)">Saldo Total<br>com Provisão</th></tr></thead><tbody>';
   var tipoAtual='';
   function corS(v){return tipoAtual?paCorSaldo(v,tipoAtual):'inherit';}
-  function cels(t,campoPrev,campoAnt,campoReal){return '<td>'+(campoAnt||paBRL(t.ant))+'</td><td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+(campoReal||paBRL(t.real))+'</td><td style="color:'+corS(t.saldoSem)+'">'+paBRL(t.saldoSem)+'</td>'+(t.temProv?'<td style="color:'+corS(t.saldoCom)+';font-weight:600">'+paBRL(t.saldoCom)+'</td>':'<td></td>');}
-  function somaCentros(lista){var t={ant:0,prev:0,mes:0,real:0,saldoSem:0,saldoCom:0},tp=false;lista.forEach(function(cc){var l=linha(cc);for(var k in t)t[k]+=l[k];if(l.temProv)tp=true;});t.temProv=tp;return t;}
+  function cels(t,campoPrev,campoAnt,campoReal){return (verAnt?'<td>'+(campoAnt||paBRL(t.ant))+'</td>':'')+'<td>'+(campoPrev||paBRL(t.prev))+'</td><td>'+paBRL(t.mes)+'</td><td>'+(campoReal||paBRL(t.real))+'</td><td style="color:'+corS(t.saldoSem)+'">'+paBRL(t.saldoSem)+'</td>'+(t.temProv?'<td style="color:'+(t.prov<0?'var(--red)':'var(--purple)')+'">'+paBRL(t.prov)+'</td>':'<td></td>')+(t.temProv?'<td style="color:'+corS(t.saldoCom)+';font-weight:600">'+paBRL(t.saldoCom)+'</td>':'<td></td>');}
+  function somaCentros(lista){var t={ant:0,prev:0,mes:0,real:0,saldoSem:0,prov:0,saldoCom:0},tp=false;lista.forEach(function(cc){var l=linha(cc);for(var k in t)t[k]+=l[k];if(l.temProv)tp=true;});t.temProv=tp;return t;}
   grupos.forEach(function(g){
     var c=g.conta,todosCC=[];g.subcontas.forEach(function(s){todosCC=todosCC.concat(s.centros);});
     tipoAtual=c.tipo;
@@ -404,7 +409,7 @@ async function paOrcamentoAnual(){
   if(!paEstado.subcontaId&&!paEstado.tipo){
     tipoAtual='RECEITAS';html+='<tr class="total"><td>Total Receitas</td>'+cels(tot.RECEITAS)+'</tr>';
     tipoAtual='DESPESAS';html+='<tr class="total"><td>Total Despesas</td>'+cels(tot.DESPESAS)+'</tr>';
-    tipoAtual='';var res={};['ant','prev','mes','real','saldoSem','saldoCom'].forEach(function(k){res[k]=tot.RECEITAS[k]-tot.DESPESAS[k];});res.temProv=!!(tot.RECEITAS.temProv||tot.DESPESAS.temProv);
+    tipoAtual='';var res={};['ant','prev','mes','real','saldoSem','prov','saldoCom'].forEach(function(k){res[k]=tot.RECEITAS[k]-tot.DESPESAS[k];});res.temProv=!!(tot.RECEITAS.temProv||tot.DESPESAS.temProv);
     html+='<tr class="resultado"><td>Resultado Líquido (Receitas − Despesas)</td>'+cels(res)+'</tr>';
   }
   html+='</tbody></table></div>';
@@ -2674,13 +2679,15 @@ var PA_TUT={
   ['Cartões do topo','Provisão Receitas, Provisão Despesas e Realizado + Provisão (Resultado) = (Receitas realizadas + provisão) − (Despesas realizadas + provisão).'],
   ['Integração futura','Etapa prevista na Integração API Bling (Financeiro): provisão automática pelas contas a pagar/receber em aberto. Impostos e comissões calculados, que não viram conta no BLING antes do vencimento, continuam manuais.']]},
  orcamento:{t:'Orçamento › Previsto',d:'Previsto do ano por conta, subconta e centro de custo, comparado ao realizado do ano anterior e ao realizado do ano até o último mês lançado. O período do exercício (janeiro até o último mês realizado) aparece acima da tabela.',c:[
-  ['Realizado ano anterior','Realizado do ano anterior. Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
+  ['Realizado ano anterior?','Filtro Sim/Não na barra de filtros. Ao abrir a tela fica em Não: a coluna e o cartão Realizado do ano anterior ficam ocultos para a tela ficar mais limpa. Escolha Sim para ver (e editar) o realizado do ano anterior.'],
+  ['Realizado ano anterior','Realizado do ano anterior (visível com o filtro em Sim). Quando vem dos lançamentos mensais, é editado no Orçamento Realizado; senão, é o valor anual legado (editável aqui).'],
   ['Previsto ano','Orçamento do ano. ✏️ Campos com borda dourada são editáveis — digite e tecle Enter. Também pode ser carregado pelo ⬆ Importar Excel.'],
   ['Previsto Mês','Previsto do ano dividido por 12.','Previsto ano ÷ 12'],
   ['Realizado ano','Soma dos meses já lançados no ano. Clique no valor para abrir o detalhe mês a mês.','Soma de jan até o último mês realizado'],
   ['Saldo Total sem Provisão','Quanto do previsto ainda não foi realizado.','Previsto − Realizado'],
+  ['Total Provisão','Provisão Prevista acumulada do centro, somada nas subcontas, contas e totais (cadastrada em Orçamento › Provisões). Preenchido só onde há provisão.','Soma da Provisão Prevista'],
   ['Saldo Total com Provisão','Saldo descontando também o que já está comprometido na Provisão Prevista. Preenchido só onde há provisão.','Previsto − (Realizado + Provisão)'],
-  ['Filtros','Ano, Conta, Grupo, Subconta e Analítico/Sintético. Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.']]},
+  ['Filtros','Ano, Conta, Grupo, Subconta, Analítico/Sintético e Realizado ano anterior (Sim/Não). Se o filtro seguinte ficar com uma única opção, ele é preenchido sozinho.']]},
  vinculos:{t:'Vínculos Receita × Despesa',d:'Liga cada despesa variável ao(s) canal(is) de receita que ela gera. É a base da Margem por Canal (rateio das despesas variáveis entre os canais) e do % do valor vigente das despesas variáveis (que incide sobre a receita dos canais vinculados).',c:[
   ['Despesa variável','Subcontas com natureza variável e, dentro delas, só os centros variáveis. A natureza vem do grupo do centro.'],
   ['Canais de receita vinculados','Subcontas de receita (canais) que a despesa gera. Sem vínculo = todos os canais.'],
