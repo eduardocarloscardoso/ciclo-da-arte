@@ -63,4 +63,4 @@ alter table public.cda_transmissao_lotes enable row level security;
 alter table public.cda_transmissao_lote_itens enable row level security;
 alter table public.cda_transmissao_auditoria enable row level security;
 revoke all on public.cda_transmissoes_oficiais,public.cda_transmissao_lotes,public.cda_transmissao_lote_itens,public.cda_transmissao_auditoria from anon,authenticated;
-revoke all on all sequences in schema public from anon,authenticated;
+-- Sequências existentes de outros módulos permanecem intactas.
