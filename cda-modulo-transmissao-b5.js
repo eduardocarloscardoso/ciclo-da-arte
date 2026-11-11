@@ -21,6 +21,9 @@ function montarSimuladorB5(root, contexto) {
   if(governanca)governanca.before(box);else root.appendChild(box);
   const $=k=>box.querySelector('[data-b5="'+k+'"]');
   let simulacoes=[],transmissaoId=0,ocupado=false,confirmacao=null;
+  const globalB5=montarFilaGlobalB5(root,{...contexto,
+    temSimulacao:loteId=>simulacoes.some(x=>Number(x.lote_id)===Number(loteId))
+  });
   function limpar(msg){
     confirmacao=null;$('confirmacao').hidden=true;$('frase').value='';
     $('confirmar').disabled=true;
@@ -59,6 +62,7 @@ function montarSimuladorB5(root, contexto) {
     if(Number(contexto.transmissao()?.id)!==id)return;
     transmissaoId=id;simulacoes=Array.isArray(r.data)?r.data:[];
     render();
+    await globalB5.refresh();
   }
   $('simular').addEventListener('click',()=>{
     const t=contexto.transmissao(),l=contexto.lote();
@@ -100,5 +104,6 @@ function montarSimuladorB5(root, contexto) {
     try{await refresh();$('status').textContent='Simulações atualizadas, sem envio.';}
     catch(e){$('status').textContent='Erro: '+(e.message||e);}
   });
-  return {refresh,render,clear:()=>{limpar();transmissaoId=0;simulacoes=[];render();}};
+  return {refresh,render:()=>{render();globalB5.render();},
+    clear:()=>{limpar();transmissaoId=0;simulacoes=[];globalB5.clear();render();}};
 }
