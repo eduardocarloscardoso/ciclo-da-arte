@@ -101,6 +101,7 @@ async function montarTransmissaoOficial(containerId) {
         '<button type="button" class="btn" disabled title="Não existe executor oficial nesta versão">Transmitir lote oficial — bloqueado</button>'+
       '</section></div>';
   const $=id=>root.querySelector('#'+id);
+  const b5=montarSimuladorB5(root,{transmissao:()=>transmissaoCongelada(),lote:()=>b4LoteAtual(),controles:()=>b4Dados});
   const norm=x=>String(x||'').trim().toLowerCase();
   async function obterDados(q){
     const x=await q;if(x.error)throw x.error;return x.data||[];
@@ -151,6 +152,7 @@ async function montarTransmissaoOficial(containerId) {
     revisoesTransmissaoId=Number(t.id);
     renderRevisoes(anterior);
     b4Mostrar();
+    b5.render();
   }
   function renderRevisoes(selecionado){
     const t=transmissaoCongelada(),sec=$('to-revisao-secao');
@@ -180,6 +182,7 @@ async function montarTransmissaoOficial(containerId) {
     if(!sel.value&&revisoesAtuais.length)sel.value=String(revisoesAtuais[0].lote_id);
     mostrarRevisaoSelecionada();
     b4Mostrar();
+    b5.render();
   }
   function mostrarRevisaoSelecionada(){
     const id=Number($('to-revisao-lote').value);
@@ -196,6 +199,7 @@ async function montarTransmissaoOficial(containerId) {
     const admin=window.cu?.is_admin===true;
     $('to-revisar-lote').disabled=!admin||revisaoOcupada||
       x.revisao_status==='revisado'||!x.fingerprint_atual||x.habilitado!==false;
+    b5.render();
     $('to-revogar-revisao').disabled=!admin||revisaoOcupada||
       x.revisao_status!=='revisado';
   }
@@ -442,6 +446,7 @@ async function montarTransmissaoOficial(containerId) {
       await consultarCongelamentos(id);
       await carregarRevisoes(false);
       await b4Carregar();
+      await b5.refresh();
     }catch(e){
       $('to-congelar-status').textContent='Congelamento não confirmado: '+
         (e.message||e)+'. Confira o histórico antes de tentar novamente.';
@@ -518,6 +523,7 @@ async function montarTransmissaoOficial(containerId) {
     $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.';
   }
   async function carregarCampanha(){
+    b5.clear();
     limparConfirmacaoRevisao();
     b4LimparConfirmacao();
     b4Dados=null;b4TransmissaoId=0;
@@ -545,7 +551,7 @@ async function montarTransmissaoOficial(containerId) {
         $('to-congelar-status').textContent='Histórico indisponível: '+(e.message||e)+'. Congelamento bloqueado.';
       }
       apresentar();
-      try{await carregarRevisoes(false);await b4Carregar();}catch(e){
+      try{await carregarRevisoes(false);await b4Carregar();await b5.refresh();}catch(e){
         $('to-revisao-status').textContent='Consulta de controles indisponível: '+(e.message||e);
         $('to-b4-status').textContent='Controles B4 indisponíveis até atualização.';
       }
@@ -567,6 +573,7 @@ async function montarTransmissaoOficial(containerId) {
   });
   $('to-congelar').addEventListener('click',congelarLista);
   $('to-revisao-lote').addEventListener('change',()=>{
+    b5.render();
     limparConfirmacaoRevisao('Lote selecionado atualizado.');
     b4LimparConfirmacao();
     mostrarRevisaoSelecionada();
@@ -588,11 +595,12 @@ async function montarTransmissaoOficial(containerId) {
     catch(e){$('to-revisao-status').textContent='Falha: '+(e.message||e);}
   });
   $('to-mensagem').addEventListener('change',async()=>{
+    b5.clear();
     b4LimparConfirmacao();b4Dados=null;b4TransmissaoId=0;
     limparConfirmacaoRevisao('Mensagem alterada; nenhuma revisão confirmada.');
     mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;
     revisoesAtuais=[];revisoesTransmissaoId=0;apresentar();
-    try{await carregarRevisoes(false);await b4Carregar();}catch(e){$('to-revisao-status').textContent='Falha ao consultar controles: '+(e.message||e);}
+    try{await carregarRevisoes(false);await b4Carregar();await b5.refresh();}catch(e){$('to-revisao-status').textContent='Falha ao consultar controles: '+(e.message||e);}
   });
   $('to-tamanho').addEventListener('change',apresentar);
   try{
