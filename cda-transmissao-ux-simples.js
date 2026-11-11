@@ -4,7 +4,11 @@ function montarUXTransmissaoSimplificada(root,ctx){
   if(!panel)return {refresh(){}};
   const style=document.createElement('style');
   style.textContent='.to-etapa{display:inline-flex;padding:8px 12px;border:1px solid #cbd5e1;border-radius:22px;font-size:13px}.to-etapa.feita{color:#166534;border-color:#86efac}.to-etapa.atual{background:#1b283d;border-color:#1b283d;color:white}'+
-   '#to-ux-tecnico section.to-card{margin-top:12px}#to-salvas .to-muted{display:none}';
+   '#to-ux-tecnico section.to-card{margin-top:12px}#to-salvas .to-muted{display:none}'+
+   '.to-etapa.aguardando{color:#64748b;border-style:dashed}'+
+   '[data-to-ux] [hidden]{display:none!important}'+
+   '[data-to-ux] .to-label{min-width:0}[data-to-ux] .to-label select,[data-to-ux] .to-label input{width:100%;min-width:0;max-width:100%;box-sizing:border-box;text-overflow:ellipsis}';
+  root.setAttribute('data-to-ux','');
   root.appendChild(style);
   const cabecalho=[...root.querySelectorAll('h2')].find(x=>x.textContent.includes('Transmissões oficiais'));
   if(cabecalho)cabecalho.textContent='Transmissão Oficial';
@@ -55,9 +59,11 @@ function montarUXTransmissaoSimplificada(root,ctx){
     const listo=!!t,rev=r.filter(x=>x.revisao_status==='revisado'&&x.revisao_fingerprint===x.fingerprint_atual).length;
     const prev=(b4?.preaprovacoes||[]).filter(x=>x.status==='preaprovado').length;
     $('preparar').className='to-etapa '+(listo?'feita':'atual');
-    $('enviar').className='to-etapa '+(listo?'atual':'');
+    // Enquanto o executor oficial não existir, a etapa 3 fica em espera (não como etapa atual).
+    $('enviar').className='to-etapa'+(listo?' aguardando':'');
+    $('enviar').textContent=listo?'3 · Enviar e acompanhar (aguardando executor)':'3 · Enviar e acompanhar';
     $('resumo').textContent=listo?'Transmissão #'+t.id+' · '+t.total_previsto+' destinatários · '+t.lotes+
-      ' lotes preparados · '+rev+' revisados · '+prev+' pré-aprovados.':
+      ' lotes preparados · '+rev+(rev===1?' revisado':' revisados')+' · '+prev+(prev===1?' pré-aprovado.':' pré-aprovados.'):
       d.length+' registros na lista da campanha. Nenhum lote oficial preparado para esta mensagem.';
     $('orientacao').textContent=listo?'Preparação concluída. A transmissão permanece bloqueada até a liberação do executor oficial.':
       'Defina o tamanho do lote e use Preparar os lotes abaixo. Nenhuma mensagem será enviada.';
