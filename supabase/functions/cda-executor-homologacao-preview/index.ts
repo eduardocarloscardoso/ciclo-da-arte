@@ -187,6 +187,8 @@ Deno.serve(async(req:Request)=>{
         confirmacao_exigida:"AUTORIZAR LOTE "+loteId,envios_solicitados:0};
       if(acao==="revisar_autorizacao")return reply(base);
       if(previa)return reply({ok:false,erro:"Este lote já foi aprovado anteriormente; não é possível aprovar novamente."},409);
+      if((Deno.env.get("RESEND_API_KEY")||"").length<8)
+        return reply({ok:false,erro:"Provedor Resend ainda não configurado; aprovação bloqueada."},503);
       const conf=String(body.confirmacao||"");
       if(conf!==base.confirmacao_exigida||String(body.fingerprint_sha256||"")!==resumo.fingerprint_sha256||
          Number(body.campanha_id)!==Number(resumo.campanha_id)||
@@ -495,7 +497,7 @@ Deno.serve(async(req:Request)=>{
        integridade?.chaves_consistentes!==true||
        resumo?.envio_habilitado!==resumo.autorizado)
       return reply({ok:false,erro:"Diagnóstico de segurança inconsistente"},503);
-    return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:resumo.autorizado,envios_solicitados:0});
+    return reply({ok:true,executor,diario,integridade,resumo,envio_habilitado:resumo.autorizado,provedor_configurado:(Deno.env.get("RESEND_API_KEY")||"").length>=8,envios_solicitados:0});
   }catch{
     return reply({ok:false,erro:"Não foi possível consultar o diário de segurança"},503);
   }
