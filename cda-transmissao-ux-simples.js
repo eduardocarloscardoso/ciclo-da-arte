@@ -4,7 +4,7 @@ function montarUXTransmissaoSimplificada(root,ctx){
   if(!panel)return {refresh(){}};
   const style=document.createElement('style');
   style.textContent='.to-etapa{display:inline-flex;padding:8px 12px;border:1px solid #cbd5e1;border-radius:22px;font-size:13px}.to-etapa.feita{color:#166534;border-color:#86efac}.to-etapa.atual{background:#1b283d;border-color:#1b283d;color:white}'+
-   '#to-ux-tecnico[open]>section.to-card{margin-top:12px}#to-salvas .to-muted{display:none}';
+   '#to-ux-tecnico section.to-card{margin-top:12px}#to-salvas .to-muted{display:none}';
   root.appendChild(style);
   const cabecalho=[...root.querySelectorAll('h2')].find(x=>x.textContent.includes('Transmissões oficiais'));
   if(cabecalho)cabecalho.textContent='Transmissão Oficial';
@@ -23,13 +23,14 @@ function montarUXTransmissaoSimplificada(root,ctx){
    '<span class="to-etapa feita">1 · Selecionar</span><span class="to-etapa" data-ux="preparar">2 · Preparar</span>'+
    '<span class="to-etapa" data-ux="enviar">3 · Enviar e acompanhar</span></div>'+
    '<p class="to-muted" data-ux="orientacao"></p>'+
-   '<button type="button" class="btn" data-ux="abrir">Controles administrativos e histórico</button>'+ 
-   '<p class="to-muted" style="margin:10px 0 0">O envio oficial será disponibilizado após a homologação do executor e autorização de cada lote.</p>';
+   '<button type="button" class="btn" data-ux="abrir" aria-controls="to-ux-tecnico" aria-expanded="false">Mostrar controles administrativos</button>';
   panel.prepend(overview);
-  const details=document.createElement('details');
+  const details=document.createElement('section');
   details.className='to-card';details.id='to-ux-tecnico';
-  details.innerHTML='<summary style="cursor:pointer;font-weight:650">Controles administrativos, simulações e auditoria</summary>'+
-   '<p class="to-muted" style="margin-top:10px">Funções avançadas disponíveis para administradores; não autorizam envio.</p>';
+  details.style.display='none';
+  details.setAttribute('aria-label','Controles administrativos e histórico');
+  details.innerHTML='<p style="margin:0 0 10px;font-weight:650">Controles administrativos e histórico</p>'+
+   '<p class="to-muted" style="margin-top:8px">Revisões, parâmetros, simulações e auditoria. Essas operações não habilitam o envio.</p>';
   const preparation=panel.querySelector('#to-congelar')?.closest('section.to-card');
   const cards=[...panel.querySelectorAll('section.to-card')].filter(x=>x!==overview&&x!==preparation);
   const counters=panel.querySelector('#to-contadores');
@@ -42,7 +43,13 @@ function montarUXTransmissaoSimplificada(root,ctx){
     panel.insertBefore(preparation,details);
   }
   const $=x=>overview.querySelector('[data-ux="'+x+'"]');
-  $('abrir').addEventListener('click',()=>{details.open=true;details.scrollIntoView({behavior:'smooth',block:'start'});});
+  $('abrir').addEventListener('click',()=>{
+    const abrir=details.style.display==='none';
+    details.style.display=abrir?'block':'none';
+    $('abrir').textContent=abrir?'Ocultar controles administrativos':'Mostrar controles administrativos';
+    $('abrir').setAttribute('aria-expanded',String(abrir));
+    if(abrir)details.scrollIntoView({behavior:'smooth',block:'start'});
+  });
   function refresh(){
     const t=ctx.transmissao(),d=ctx.destinatarios(),r=ctx.revisoes(),b4=ctx.controles();
     const listo=!!t,rev=r.filter(x=>x.revisao_status==='revisado'&&x.revisao_fingerprint===x.fingerprint_atual).length;
@@ -52,7 +59,7 @@ function montarUXTransmissaoSimplificada(root,ctx){
     $('resumo').textContent=listo?'Transmissão #'+t.id+' · '+t.total_previsto+' destinatários · '+t.lotes+
       ' lotes preparados · '+rev+' revisados · '+prev+' pré-aprovados.':
       d.length+' registros na lista da campanha. Nenhum lote oficial preparado para esta mensagem.';
-    $('orientacao').textContent=listo?'Preparação concluída. Nenhuma ação adicional necessária nesta fase.':
+    $('orientacao').textContent=listo?'Preparação concluída. A transmissão permanece bloqueada até a liberação do executor oficial.':
       'Defina o tamanho do lote e use Preparar os lotes abaixo. Nenhuma mensagem será enviada.';
     if(tamanho){tamanho.disabled=listo;tamanho.title=listo?'Lotes já preparados.':'Quantidade por lote';}
     if(tamanhoLabel)tamanhoLabel.hidden=listo;
