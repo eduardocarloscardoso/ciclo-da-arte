@@ -8,6 +8,7 @@ async function montarModuloHomologacao(containerId, opts) {
   let editPessoa = null, editEmail = null;
   let loteIdParaEnvio = null, itensPendentesEnvio = [];
   let permissaoDeEnvio = false, envioEmExecucao = false;
+  let revisaoAutorizacao = null;
   const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const normalEmail = v => String(v || '').trim().toLowerCase();
   const emailValido = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -248,12 +249,91 @@ async function montarModuloHomologacao(containerId, opts) {
         'Sem diagnóstico de autorização: envio permanece bloqueado.';
     }
   }
+  // Revisão somente leitura. Jamais concede autorização nesta operação.
+  async function revisarAutorizacaoLote() {
+    const painel=root.querySelector('#homolog-lote-revisao');
+    const btn=root.querySelector('#homolog-lote-revisar');
+    const aprovar=root.querySelector('#homolog-lote-autorizar');
+    revisaoAutorizacao=null;aprovar.hidden=true;btn.disabled=true;
+    painel.textContent='Consultando autorização e fotografia do lote, sem enviar e-mails...';
+    try{
+      if(!loteIdParaEnvio)throw new Error('Selecione um lote preparado.');
+      const res=await cdaClient.functions.invoke('cda-executor-homologacao-preview',{
+        body:{acao:'revisar_autorizacao',lote_id:Number(loteIdParaEnvio)}
+      });
+      if(res.error||!res.data?.ok)throw new Error(res.data?.erro||'Apenas administrador com escrita pode autorizar.');
+      const r=res.data;
+      if(Number(r.lote_id)!==Number(loteIdParaEnvio)||
+         Number(r.campanha_id)!==Number(campanhaId)||
+         Number(r.mensagem_id)!==Number(root.querySelector('#homolog-lote-mensagem').value))
+        throw new Error('Lote alterado; atualize a consulta.');
+      const destinatarios=Array.isArray(r.destinatarios)?r.destinatarios:[];
+      if(destinatarios.length!==Number(r.quantidade)||destinatarios.length>5)
+        throw new Error('Quantidade inconsistente; aprovação bloqueada.');
+      revisaoAutorizacao=r;
+      const lista=destinatarios.map(d=>'<li>'+esc(d.nome)+' — '+esc(d.email)+'</li>').join('');
+      painel.innerHTML='<p style="margin:0"><b>Campanha:</b> '+esc(r.campanha_nome)+
+        ' · <b>Mensagem:</b> '+esc(r.mensagem_nome)+'</p>'+
+        '<p style="margin:0"><b>Assunto:</b> '+esc(r.assunto)+'</p>'+
+        '<p style="margin:0"><b>Destinatários ('+esc(r.quantidade)+'):</b></p>'+
+        '<ul style="margin:0;padding-left:22px">'+lista+'</ul>'+
+        '<p style="margin:0;font-size:12px"><b>Impressão digital SHA-256:</b> '+esc(r.fingerprint_sha256)+'</p>'+
+        '<p style="margin:0;font-size:12px">Aprovação pessoal válida por até 30 minutos, vinculada ao conteúdo e aos destinatários. Aprovar NÃO envia mensagens. Cada envio exigirá outra confirmação.</p>'+
+        (r.aprovacao_ja_registrada
+         ?'<p style="margin:0"><b>Aprovação já registrada.</b> '+(r.revogado_em?'Revogada.':r.autorizado?'Válida até '+esc(new Date(r.expira_em).toLocaleString('pt-BR')):'Expirada ou inválida.')+'</p>'
+         :'<p style="margin:0"><b>Autorização:</b> ainda não concedida.</p>');
+      aprovar.hidden=!!r.aprovacao_ja_registrada||!editavel;
+      aprovar.disabled=!!r.aprovacao_ja_registrada||!editavel;
+    }catch(e){painel.textContent='Não foi possível revisar com segurança: '+(e.message||e);}
+    finally{btn.disabled=!editavel||!loteIdParaEnvio;}
+  }
+  async function autorizarLoteConscientemente() {
+    const r=revisaoAutorizacao;
+    if(!r||r.aprovacao_ja_registrada||r.autorizado||envioEmExecucao)return;
+    const frase='AUTORIZAR LOTE '+r.lote_id;
+    const digitado=prompt('Aprovação do lote '+r.lote_id+' para '+r.quantidade+
+      ' e-mails, por 30 minutos. Esta ação habilitará envios reais, mas NÃO enviará nenhuma mensagem agora.\n\nDigite exatamente: '+frase);
+    if(digitado!==frase)return;
+    if(!confirm('Autorizar este lote específico por 30 minutos? Nenhuma mensagem será enviada nesta etapa.'))return;
+    const botao=root.querySelector('#homolog-lote-autorizar');
+    botao.disabled=true;
+    const painel=root.querySelector('#homolog-lote-revisao');
+    try{
+      // Consulta fresca antes de qualquer mutação.
+      const chk=await cdaClient.functions.invoke('cda-executor-homologacao-preview',{
+        body:{acao:'revisar_autorizacao',lote_id:Number(r.lote_id)}
+      });
+      const atual=chk.data;
+      if(chk.error||!atual?.ok||atual.aprovacao_ja_registrada||
+         atual.fingerprint_sha256!==r.fingerprint_sha256||
+         Number(atual.campanha_id)!==Number(r.campanha_id)||
+         Number(atual.mensagem_id)!==Number(r.mensagem_id)||
+         Number(atual.quantidade)!==Number(r.quantidade))
+        throw new Error('Lote ou autorização alterado; revisão necessária.');
+      const res=await cdaClient.functions.invoke('cda-executor-homologacao-preview',{
+        body:{acao:'aprovar_lote',lote_id:Number(r.lote_id),campanha_id:Number(r.campanha_id),
+          mensagem_id:Number(r.mensagem_id),quantidade:Number(r.quantidade),
+          fingerprint_sha256:r.fingerprint_sha256,confirmacao:frase}
+      });
+      if(res.error||!res.data?.ok)throw new Error(res.data?.erro||'Aprovação não confirmada.');
+      painel.textContent='Autorização registrada para o lote '+r.lote_id+
+        '. Validade até '+new Date(res.data.expira_em).toLocaleString('pt-BR')+
+        '. Nenhum e-mail enviado por esta operação.';
+      revisaoAutorizacao=null;botao.hidden=true;
+      await acionarLote('status');
+    }catch(e){
+      painel.textContent='Aprovação não confirmada: '+(e.message||e)+'. Atualize e revise antes de tentar novamente.';
+      revisaoAutorizacao=null;botao.hidden=true;
+    }
+  }
+
   // Cada clique requer confirmação; uma chamada por item e nenhuma retomada
   // automática após falha ou resultado incerto.
   async function enviarHomologacaoConfirmada() {
     if(envioEmExecucao||!permissaoDeEnvio||!loteIdParaEnvio)return;
     const loteId=loteIdParaEnvio;
-    const itens=itensPendentesEnvio.slice(0,5);
+    // Segurança: somente um destinatário por confirmação. Nada de disparo automático dos demais.
+    const itens=itensPendentesEnvio.slice(0,1);
     const descricao=itens.map(i=>'- '+i.nome+' <'+i.email+'>').join('\n');
     if(!confirm('CONFIRMAR ENVIO REAL da mensagem selecionada pelo Resend para os '
        +itens.length+' endereços de homologação?\n\n'+descricao+
@@ -302,6 +382,11 @@ async function montarModuloHomologacao(containerId, opts) {
     root.querySelector('#homolog-lote-enviar').disabled=true;
     root.querySelector('#homolog-lote-enviar').classList.remove('rust');
     permissaoDeEnvio=false;
+    revisaoAutorizacao=null;
+    const painelAprovacao=root.querySelector('#homolog-lote-revisao');
+    if(painelAprovacao)painelAprovacao.textContent='A aprovação ainda não foi solicitada. Revise o lote antes de autorizar.';
+    const botaoAprovar=root.querySelector('#homolog-lote-autorizar');
+    if(botaoAprovar)botaoAprovar.hidden=true;
     el.textContent=acao==='preparar'?'Preparando lista e registrando destinatários (sem envio)...':
       acao==='interromper'?'Registrando interrupção...':acao==='retomar'?'Registrando retomada segura...':acao==='simular'?'Simulando fila sem envio...':'Consultando operação...';
     try {
@@ -379,6 +464,8 @@ async function montarModuloHomologacao(containerId, opts) {
       d.disabled=!editavel;
       a.disabled=true;
       await consultarPermissaoDeEnvio(lote.id);
+      const revisar=root.querySelector('#homolog-lote-revisar');
+      revisar.disabled=!editavel||lote.situacao!=='preparado';
     }catch(e){
       console.error(e);
       el.textContent='Não foi possível consultar/registrar o lote: '+(e.message||e)+'. Nenhum envio solicitado.';
@@ -396,6 +483,7 @@ async function montarModuloHomologacao(containerId, opts) {
       '#'+containerId+' #homolog-lote-enviar:not(:disabled){background:#c24126;color:#fff;font-weight:700}'+
       '#'+containerId+' #homolog-lote-mensagem-linha[hidden]{display:none!important}'+
       '#'+containerId+' #homolog-preparacao-inicial[hidden]{display:none!important}'+
+      '#'+containerId+' #homolog-lote-autorizar[hidden]{display:none!important}'+
       '#'+containerId+' .hom-pane{display:grid;gap:14px}'+
       '#'+containerId+' .hom-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;display:grid;gap:12px;background:rgba(255,255,255,.18)}'+
       '#'+containerId+' .hom-fold{border:1px solid #cbd5e1;border-radius:10px;padding:12px 14px}'+
@@ -439,7 +527,11 @@ async function montarModuloHomologacao(containerId, opts) {
         '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-atualizar">Atualizar consulta</button>'+
         '<button type="button" class="btn" id="homolog-lote-enviar" disabled aria-disabled="true" title="Aguardando autorização específica do lote">Enviar mensagens</button>'+
         '<button type="button" class="btn" id="homolog-lote-interromper" disabled>Interromper</button><button type="button" class="btn" id="homolog-lote-retomar" disabled>Retomar</button></div>'+
-        '<p id="homolog-lote-estado-envio" role="status" aria-live="polite" style="font-size:12px;margin:0;color:var(--text-muted,#64748b)">Envio bloqueado: aguardando autorização específica do lote.</p>'+
+        '<p id="homolog-lote-estado-envio" role="status" aria-live="polite" style="font-size:12px;margin:0;color:var(--text-muted,#64748b)">Envio bloqueado: aguardando autorização específica do lote.</p>'+ 
+        '<details class="hom-fold" id="homolog-aprovacao"><summary>Revisão e autorização do lote</summary><div style="display:grid;gap:10px;margin-top:10px">'+
+        '<p style="margin:0;font-size:12px">Somente administrador com escrita. Revisar não envia nem autoriza. Autorizar habilita o envio por 30 minutos, sem transmiti-lo automaticamente.</p>'+
+        '<div class="hom-toolbar"><button type="button" class="btn" id="homolog-lote-revisar" disabled>Revisar lote para autorização</button><button type="button" class="btn" id="homolog-lote-autorizar" hidden disabled>Confirmar autorização do lote</button></div>'+
+        '<div id="homolog-lote-revisao" role="status" aria-live="polite">Nenhuma autorização solicitada.</div></div></details>'+
         '<details class="hom-fold" id="homolog-preparacao-inicial" hidden><summary>Preparação inicial (sem envio)</summary><p style="font-size:12px">Disponível apenas para campanhas sem lote. Registra destinatários sem enviar mensagens.</p><button type="button" class="btn" id="homolog-lote-preparar" disabled>Preparar lote</button></details>'+
         '<button type="button" id="homolog-lote-simular" hidden disabled aria-hidden="true">Verificação automática</button>'+
         '<div id="homolog-lote-simulacao" role="status" aria-live="polite"></div>'+
@@ -467,6 +559,8 @@ async function montarModuloHomologacao(containerId, opts) {
   root.querySelector('#homolog-lote-retomar').addEventListener('click',()=>acionarLote('retomar'));
   root.querySelector('#homolog-lote-simular').addEventListener('click',()=>acionarLote('simular'));
   root.querySelector('#homolog-lote-enviar').addEventListener('click',enviarHomologacaoConfirmada);
+  root.querySelector('#homolog-lote-revisar').addEventListener('click',revisarAutorizacaoLote);
+  root.querySelector('#homolog-lote-autorizar').addEventListener('click',autorizarLoteConscientemente);
   root.querySelector('#homolog-lote-atualizar').addEventListener('click',async()=>{await atualizar();await carregarMensagensLote();});
   root.querySelector('#homolog-busca').addEventListener('input',desenhar);
   root.addEventListener('click',acaoTabela);
