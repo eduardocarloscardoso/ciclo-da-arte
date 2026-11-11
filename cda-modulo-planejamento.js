@@ -1661,9 +1661,9 @@ function paCalcSaldoCompras(d,metas,M){
     if(t.mont){var mk=null;t.ids.forEach(function(id){var x=(metas['cc:'+id]||{}).mercado;if(x!==null&&x!==undefined&&!isNaN(x))mk=(mk||0)+Number(x);});t.idealPct=mk||0;}
     else t.idealPct=realProduto?M.idealReal*t.real/realProduto:0;});
   Tot.idealPct=M.idealRealTot;
-  // Receita do ano e teto ideal de produção — 11/11/2026 (Cardoso): saldo de receita dos meses restantes = Previsto ano − Realizado,
-  // logo a receita do ano = Receita Prevista do ano (antes: realizado + orçado mensal × meses restantes)
-  var recOrc=T.prev;
+  // Receita projetada do ano e teto ideal de produção — 11/11/2026 (Cardoso): o ideal usa a receita PROJETADA
+  // (realizado + orçado mensal × meses restantes), mais conservadora; a tela mostra o Saldo receita = Previsto − Realizado só como informação
+  var recOrc=T.real+T.prev*restRec/12;
   var tetoOrc=M.idealRealTot/100*recOrc;
   function calc(o){
     o.saldoOrc=o.prev-o.real-o.prov;
@@ -1769,7 +1769,9 @@ function paRefIdeal(){
   var h='<div class="modal-box pa-modal-wide"><div class="modal-title">📐 Referência pelo ideal do mix — '+C.ano+'</div>'+
     '<p class="pa-info" style="margin:4px 0 12px">Quanto a Produção deveria custar no ano para manter o custo ideal pelo mix de vendas, e quanto ainda cabe.</p>'+
     '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><tbody>'+
-    '<tr class="cc"><td>Receita prevista '+C.ano+'</td><td>'+v(C.recOrc)+'</td></tr>'+
+    '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+v(C.T.real)+'</td></tr>'+
+    '<tr class="cc"><td>(+) Orçado mensal × '+C.restRec+' '+(C.restRec===1?'mês restante':'meses restantes')+' <span class="pa-orig">('+v(C.T.prev/12)+'/mês)</span></td><td>'+v(C.recOrc-C.T.real)+'</td></tr>'+
+    '<tr class="sub"><td>= Receita projetada do ano <span class="pa-orig">(base do ideal — não supõe recuperar o que ficou abaixo da meta)</span></td><td>'+v(C.recOrc)+'</td></tr>'+
     '<tr class="cc"><td>× Custo ideal pelo mix <span class="pa-orig">(produto '+pc(M.idealReal)+' + Montagem '+pc(M.mont.meta)+')</span></td><td>'+pc(M.idealRealTot)+'</td></tr>'+
     '<tr class="sub"><td>= Teto ideal de produção no ano</td><td>'+v(C.tetoOrc)+'</td></tr>'+
     '<tr class="cc"><td>(−) Produção realizada '+C.perDesp+'</td><td>'+v(Tt.real)+'</td></tr>'+
@@ -1789,7 +1791,7 @@ function paFormulaSaldo(chave){
       return '<tr class="'+(l[3]||'')+'"><td>'+l[0]+'</td><td class="pa-form-conta">'+(l[1]||'')+'</td><td class="pa-form-val">'+(l[2]||'')+'</td></tr>';}).join('')+'</table>'+(orig?'<div class="pa-form-orig">Fonte: '+orig+'</div>':'')+'</div>';
   }
   var dirR=G.direta.real,atR=G.atacado.real,pD=M.partReal.direta,pA=M.partReal.atacado;
-  var restRec=C.restRec,recRest=T.prev-T.real,recAno=C.recOrc,per=M.periodo;
+  var restRec=C.restRec,orcMes=T.prev/12,recRest=orcMes*restRec,recAno=C.recOrc,per=M.periodo;
   var ehTot=chave==='total',nome=ehTot?'Total da Produção (Varejo + Atacado + Montagem Coleções)':t.nome+(t.orig&&t.orig.length?' ('+t.orig.join(' + ')+')':'');
   var h='<div class="modal-box pa-modal-wide"><div class="modal-title">🧮 Fórmula do Saldo Ideal — '+paEsc(nome)+'</div>'+
     '<p class="pa-info" style="margin:4px 0 12px">Calculado agora com os mesmos dados da tela ('+C.ano+'). Os % aparecem com 2 casas; a conta usa todas as casas decimais, por isso o resultado bate com a tela.</p>';
@@ -1806,11 +1808,11 @@ function paFormulaSaldo(chave){
     ['Custo ideal do produto',pc(pD*M.cd/100)+' + '+pc(pA*M.ca/100),pc(M.idealReal)],
     ['(+) Montagem Coleções (meta)','',pc(M.mont.meta)],
     ['Custo ideal pelo mix',pc(M.idealReal)+' + '+pc(M.mont.meta),pc(M.idealRealTot),'forte']],'% de custo ideal em Mix de Vendas › ⚙ Referências · meta de Montagem em Grupos e Metas');
-  h+=passo(n++,'Receita do ano (pelo orçamento)',[
-    ['Receita prevista no ano','',v(T.prev)],
-    ['(−) Receita realizada '+per,'',v(T.real)],
-    ['Saldo receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes'),v(T.prev)+' − '+v(T.real),v(recRest)],
-    ['Receita do ano',v(T.real)+' + '+v(recRest),v(recAno),'forte']],'Orçamento › Previsto (receitas) e Orçamento › Realizado');
+  h+=passo(n++,'Receita projetada do ano (base do ideal)',[
+    ['Receita realizada '+per,'',v(T.real)],
+    ['Orçado por mês',v(T.prev)+' ÷ 12',v(orcMes)],
+    ['Orçado dos meses que faltam',v(orcMes)+' × '+restRec,v(recRest)],
+    ['Receita projetada do ano',v(T.real)+' + '+v(recRest),v(recAno),'forte']],'Orçamento › Previsto (receitas) e Orçamento › Realizado');
   var idealT=t.idealPct,teto=idealT/100*recAno;
   if(!ehTot){
     if(t.mont)h+=passo(n++,'Ideal deste tipo de custo',[
@@ -2810,10 +2812,10 @@ var PA_TUT={
   ['Rateio do Uber (conta única)','O Uber é pago numa conta só e cai em Eventos - Transporte Uber/Outros. Regra combinada em 27/10/2026: a cada mês, R$ 500 (ou o valor do mês, se menor) vão para Produção - Transporte (Combustíveis, Uber), em Administrativas (Uber de fábricas, facções, lavanderia, aviamentos); o restante fica em Eventos (Uber dos vendedores). Aplicado em jan–out/2026 e a cada nova importação, até o Uber ser separado na origem (Uber Empresas com códigos de despesa ou cartões distintos).','Produção = mín(R$ 500; Uber do mês) · Eventos = Uber do mês − Produção'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
  compras:{t:'Saldo de Compras Anual (R$)',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
-  ['📐 Referência pelo ideal do mix','Botão na linha Saldo pelo ideal (quadro 1): abre em janela o custo ideal pelo mix, o teto ideal de produção no ano (Receita prevista × custo ideal), o saldo pelo ideal e os atalhos 📊 Custo × receita e 🧮 Fórmula.'],
+  ['📐 Referência pelo ideal do mix','Botão na linha Saldo pelo ideal (quadro 1): abre em janela a receita projetada do ano (realizado + orçado mensal × meses restantes), o custo ideal pelo mix, o teto ideal de produção (receita projetada × custo ideal), o saldo pelo ideal e os atalhos 📊 Custo × receita e 🧮 Fórmula.'],
   ['📊 Custo × receita até agora','Botão na janela 📐 Referência pelo ideal do mix: custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix — acima ou dentro do ideal, e quanto reduzir por mês.'],
   ['1. Receita do ano e quanto ainda podemos comprar','Receita: Receita prevista do ano − Receita realizada até o último mês fechado = Saldo receita orçada dos meses restantes (o que falta vender para bater a meta). Compras de produção: Orçado − Produção realizada − Provisões = Saldo pelo orçado; e, ao lado, o Saldo pelo ideal do mix. Os dois saldos aparecem juntos, com o valor por mês nos meses restantes, para a decisão de compra.','Saldo receita = Receita prevista − Receita realizada'],
-  ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal. Teto ideal = Receita prevista do ano × Custo ideal pelo mix (produto + Montagem Coleções).','Receita prevista × Custo ideal % − Produção realizada − Provisões'],
+  ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal. Teto ideal = Receita projetada do ano × Custo ideal pelo mix (produto + Montagem Coleções). A receita projetada é o realizado + o orçado mensal dos meses restantes — não supõe recuperar o que ficou abaixo da meta, por isso é mais conservadora que a Receita prevista.','(Receita realizada + orçado mensal × meses restantes) × Custo ideal % − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
   ['% no Orçado e no Realizado (bloco 2)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do 📊 Custo × receita) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
   ['Tot. Real. + Prov. (bloco 2)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
