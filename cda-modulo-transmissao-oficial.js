@@ -7,6 +7,7 @@ async function montarTransmissaoOficial(containerId) {
   let campanhas=[],mensagens=[],destinatarios=[],supressoes=new Set(),campanha=null,mensagem=null;
   let transmissoesSalvas=[],congelando=false,consultaCarregada=false;
   let revisoesAtuais=[],revisoesTransmissaoId=0,revisaoOcupada=false;
+  let confirmacaoRevisao=null;
   const html=String.raw;
   root.innerHTML='<style>'+
     '#'+containerId+' .to-card{border:1px solid #cbd5e1;border-radius:12px;padding:16px;background:var(--card-bg,#fff);margin-bottom:15px}'+
@@ -46,6 +47,14 @@ async function montarTransmissaoOficial(containerId) {
           '<button type="button" class="btn" id="to-revogar-revisao" disabled>Revogar revisão</button>'+
           '<button type="button" class="btn" id="to-atualizar-revisoes">Atualizar situação</button>'+
         '</div>'+
+        '<div id="to-confirmacao-revisao" hidden style="padding:14px;border:1px solid #cbd5e1;border-radius:8px;margin:12px 0">'+
+          '<p id="to-confirmacao-texto" style="margin:0 0 10px"></p>'+
+          '<label class="to-label" for="to-confirmacao-input">Digite a frase solicitada para confirmar'+
+            '<input type="text" id="to-confirmacao-input" autocomplete="off" spellcheck="false" placeholder="Digite a frase exata"></label>'+
+          '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">'+
+            '<button type="button" class="btn" id="to-confirmacao-aplicar" disabled>Confirmar revisão administrativa</button>'+
+            '<button type="button" class="btn" id="to-confirmacao-cancelar">Cancelar</button>'+
+          '</div></div>'+
         '<p class="to-muted" role="status" id="to-revisao-status"></p>'+
       '</section>'+
       '<section class="to-card"><h3 style="margin:0 0 10px">Governança e liberação</h3>'+
@@ -150,34 +159,71 @@ async function montarTransmissaoOficial(containerId) {
     $('to-revogar-revisao').disabled=!admin||revisaoOcupada||
       x.revisao_status!=='revisado';
   }
-  async function registrarRevisao(acao){
-    if(revisaoOcupada)return;
+  function limparConfirmacaoRevisao(mensagem){
+    confirmacaoRevisao=null;
+    $('to-confirmacao-revisao').hidden=true;
+    $('to-confirmacao-input').value='';
+    $('to-confirmacao-aplicar').disabled=true;
+    if(mensagem)$('to-revisao-status').textContent=mensagem;
+  }
+  function registrarRevisao(acao){
+    if(revisaoOcupada){
+      $('to-revisao-status').textContent='Já existe uma revisão em andamento.';return;
+    }
     const id=Number($('to-revisao-lote').value);
     const x=revisoesAtuais.find(y=>Number(y.lote_id)===id);
-    if(!x||!window.cu?.is_admin)return;
-    if(acao==='revisar'&&$('to-revisar-lote').disabled)return;
-    if(acao==='revogar'&&$('to-revogar-revisao').disabled)return;
+    if(!x){
+      $('to-revisao-status').textContent='Lote indisponível. Atualize a situação.';return;
+    }
+    if(window.cu?.is_admin!==true){
+      $('to-revisao-status').textContent='Somente administrador pode registrar uma revisão.';return;
+    }
+    const botao=acao==='revisar'?'to-revisar-lote':'to-revogar-revisao';
+    if($(botao).disabled){
+      $('to-revisao-status').textContent='A revisão solicitada não está disponível para este lote.';return;
+    }
     const chave=acao==='revisar'?'REVISAR LOTE '+x.numero:'REVOGAR REVISÃO '+x.numero;
-    const palavra=prompt((acao==='revisar'?'Registrar revisão':'Revogar revisão')+
-      ' administrativa do lote #'+x.numero+' com '+x.total+' destinatários.\n'+
-      'Essa ação NÃO autoriza nem envia mensagens.\n\nDigite '+chave+' para confirmar:');
-    if(palavra!==chave)return;
-    revisaoOcupada=true;mostrarRevisaoSelecionada();
-    $('to-revisao-status').textContent='Registrando operação administrativa (sem envio)...';
+    confirmacaoRevisao={id,numero:x.numero,acao,chave};
+    $('to-confirmacao-texto').innerHTML='<b>'+(acao==='revisar'?'Registrar revisão':'Revogar revisão')+
+      ' do lote #'+esc(x.numero)+'</b> ('+esc(x.total)+' destinatários).<p class="to-muted">Esta ação registra apenas a revisão administrativa e NÃO envia e-mails. Para prosseguir, digite exatamente <b>'+esc(chave)+'</b>.</p>';
+    $('to-confirmacao-input').value='';
+    $('to-confirmacao-aplicar').disabled=true;
+    $('to-confirmacao-aplicar').textContent=acao==='revisar'?'Confirmar revisão (sem envio)':'Confirmar revogação (sem envio)';
+    $('to-confirmacao-revisao').hidden=false;
+    $('to-revisao-status').textContent='Aguardando confirmação textual do lote #'+x.numero+'.';
+    $('to-confirmacao-input').focus();
+  }
+  async function confirmarRevisao(){
+    const dados=confirmacaoRevisao;
+    if(!dados||revisaoOcupada)return;
+    if($('to-confirmacao-input').value!==dados.chave){
+      $('to-revisao-status').textContent='Frase incorreta. Digite exatamente '+dados.chave+'.';return;
+    }
+    if(Number($('to-revisao-lote').value)!==dados.id){
+      limparConfirmacaoRevisao('Seleção de lote mudou. Inicie novamente a revisão.');return;
+    }
+    revisaoOcupada=true;
+    $('to-confirmacao-aplicar').disabled=true;
+    $('to-confirmacao-input').disabled=true;
+    $('to-confirmacao-cancelar').disabled=true;
+    $('to-revisao-status').textContent='Registrando revisão no Supabase (sem envio)...';
     try{
       const r=await cdaClient.rpc('cda_revisar_lote_oficial_b3',{
-        p_lote_id:id,p_acao:acao,p_observacao:'Revisão administrativa B3 no painel'
+        p_lote_id:dados.id,p_acao:dados.acao,
+        p_observacao:'Revisão administrativa B3 confirmada na tela'
       });
       if(r.error)throw r.error;
-      $('to-revisao-status').textContent='Lote #'+x.numero+' atualizado: '+r.data.status+
-        '. Registro auditado. Envio não autorizado.';
+      limparConfirmacaoRevisao('Lote #'+dados.numero+' atualizado: '+r.data.status+
+        '. Revisão auditada. Envio NÃO autorizado.');
     }catch(e){
-      $('to-revisao-status').textContent='Não foi possível confirmar a revisão: '+(e.message||e)+
-        '. Verifique o histórico; não repita a ação sem consultar.';
+      limparConfirmacaoRevisao('Não foi possível confirmar a revisão: '+
+        (e.message||e)+'. Consulte o histórico antes de repetir a operação.');
     }finally{
       revisaoOcupada=false;
+      $('to-confirmacao-input').disabled=false;
+      $('to-confirmacao-cancelar').disabled=false;
       try{await carregarRevisoes(true);}catch(e){
-        $('to-revisao-status').textContent+=' Não foi possível consultar histórico: '+(e.message||e);
+        $('to-revisao-status').textContent+=' Falha ao atualizar histórico: '+(e.message||e);
         mostrarRevisaoSelecionada();
       }
     }
@@ -284,6 +330,7 @@ async function montarTransmissaoOficial(containerId) {
     $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.';
   }
   async function carregarCampanha(){
+    limparConfirmacaoRevisao();
     const id=Number($('to-campanha').value);
     campanha=campanhas.find(c=>Number(c.id)===id)||null;
     mensagem=null;destinatarios=[];$('to-painel').hidden=true;
@@ -315,15 +362,27 @@ async function montarTransmissaoOficial(containerId) {
   }
   $('to-campanha').addEventListener('change',carregarCampanha);
   $('to-congelar').addEventListener('click',congelarLista);
-  $('to-revisao-lote').addEventListener('change',mostrarRevisaoSelecionada);
+  $('to-revisao-lote').addEventListener('change',()=>{
+    limparConfirmacaoRevisao('Lote selecionado atualizado.');
+    mostrarRevisaoSelecionada();
+  });
   $('to-revisar-lote').addEventListener('click',()=>registrarRevisao('revisar'));
   $('to-revogar-revisao').addEventListener('click',()=>registrarRevisao('revogar'));
+  $('to-confirmacao-input').addEventListener('input',()=>{
+    $('to-confirmacao-aplicar').disabled=!confirmacaoRevisao||
+      $('to-confirmacao-input').value!==confirmacaoRevisao.chave;
+  });
+  $('to-confirmacao-aplicar').addEventListener('click',confirmarRevisao);
+  $('to-confirmacao-cancelar').addEventListener('click',()=>{
+    if(!revisaoOcupada)limparConfirmacaoRevisao('Revisão cancelada; nenhum registro efetuado.');
+  });
   $('to-atualizar-revisoes').addEventListener('click',async()=>{
     $('to-revisao-status').textContent='Atualizando situação dos lotes...';
     try{await carregarRevisoes(true);$('to-revisao-status').textContent='Consulta atualizada; sem envio.';}
     catch(e){$('to-revisao-status').textContent='Falha: '+(e.message||e);}
   });
   $('to-mensagem').addEventListener('change',async()=>{
+    limparConfirmacaoRevisao('Mensagem alterada; nenhuma revisão confirmada.');
     mensagem=mensagens.find(m=>String(m.id)===$('to-mensagem').value)||null;
     revisoesAtuais=[];revisoesTransmissaoId=0;apresentar();
     try{await carregarRevisoes(false);}catch(e){$('to-revisao-status').textContent='Falha ao consultar revisões: '+(e.message||e);}
