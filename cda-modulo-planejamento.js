@@ -1661,8 +1661,9 @@ function paCalcSaldoCompras(d,metas,M){
     if(t.mont){var mk=null;t.ids.forEach(function(id){var x=(metas['cc:'+id]||{}).mercado;if(x!==null&&x!==undefined&&!isNaN(x))mk=(mk||0)+Number(x);});t.idealPct=mk||0;}
     else t.idealPct=realProduto?M.idealReal*t.real/realProduto:0;});
   Tot.idealPct=M.idealRealTot;
-  // Receita do ano em dois cenários e teto ideal de produção
-  var recOrc=T.real+T.prev*restRec/12;
+  // Receita do ano e teto ideal de produção — 11/11/2026 (Cardoso): saldo de receita dos meses restantes = Previsto ano − Realizado,
+  // logo a receita do ano = Receita Prevista do ano (antes: realizado + orçado mensal × meses restantes)
+  var recOrc=T.prev;
   var tetoOrc=M.idealRealTot/100*recOrc;
   function calc(o){
     o.saldoOrc=o.prev-o.real-o.prov;
@@ -1707,17 +1708,22 @@ async function paSaldoCompras(){
   paCache.comprasResumo={html:resumo,periodo:M.periodo};
   // Bloco 2 — receita do ano e teto ideal
   // 02/11/2026 (Cardoso): um cenário só — Pelo Orçamento (meses restantes vendem o orçado)
+  // 11/11/2026 (Cardoso): quadro simplificado — Receita (prevista − realizada = saldo) e Compras (orçado − realizado − provisões);
+  // apresenta o Saldo pelo orçado e o Saldo pelo ideal lado a lado (sem o "menor entre"); detalhes do ideal no botão 📐
+  function saldoLinha(rot,v,btn){var neg=v<-0.005;return '<tr class="conta '+(neg?'desp':'rec')+'"><td>'+rot+(btn||'')+'</td><td style="font-weight:700;white-space:nowrap;color:'+(neg?'var(--red)':'var(--green)')+'">'+(neg?'−'+paValor(-v):paValor(v))+(neg?'<br><span class="pa-orig">já excedido</span>':(restCompra?'<br><span class="pa-orig">'+paValor(v/restCompra)+'/mês</span>':''))+'</td></tr>';}
+  var mesesRot=restRec+' '+(restRec===1?'mês restante':'meses restantes');
   html+='<h3 class="pa-h3">1. Receita do ano e quanto ainda podemos comprar</h3>';
-  html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th></th><th title="Receita realizada + orçado dos meses que faltam">Pelo orçamento</th></tr></thead><tbody>'+
-    '<tr class="cc"><td>Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td></tr>'+
-    '<tr class="cc"><td>Receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes')+'</td><td>'+paValor(recOrc-T.real)+'<br><span class="pa-orig">orçado '+paValor(T.prev/12)+'/mês</span></td></tr>'+
-    '<tr class="sub"><td>Receita do ano</td><td>'+paValor(recOrc)+'</td></tr>'+
-    '<tr class="cc"><td>× Custo ideal pelo mix ('+fp(M.idealRealTot)+') = Teto ideal de produção no ano <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paResumoCustoReceita()" title="Custo de produção × receita de '+M.periodo+': acima ou dentro do ideal">📊 Custo × receita até agora</button></td><td>'+paValor(tetoOrc)+'</td></tr>'+
+  html+='<div class="pa-tbl-wrap" style="max-width:760px"><table class="pa-tbl pa-compacta"><thead><tr><th style="text-align:left">Receita</th><th></th></tr></thead><tbody>'+
+    '<tr class="cc"><td>Receita prevista '+ano+'</td><td>'+paValor(T.prev)+'</td></tr>'+
+    '<tr class="cc"><td>(−) Receita realizada '+M.periodo+'</td><td>'+paValor(T.real)+'</td></tr>'+
+    '<tr class="sub"><td>= Saldo receita orçada dos '+mesesRot+'</td><td>'+(T.prev-T.real<-0.005?'−'+paValor(T.real-T.prev):paValor(T.prev-T.real))+'</td></tr>'+
+    '</tbody></table></div>';
+  html+='<div class="pa-tbl-wrap" style="max-width:760px;margin-top:10px"><table class="pa-tbl pa-compacta"><thead><tr><th style="text-align:left">Compras de produção</th><th></th></tr></thead><tbody>'+
+    '<tr class="cc"><td>Orçado produção '+ano+'</td><td>'+paValor(Tot.prev)+'</td></tr>'+
     '<tr class="cc"><td>(−) Produção realizada '+perDesp+'</td><td>'+paValor(Tot.real)+'</td></tr>'+
     '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+paValor(Tot.prov)+'</td></tr>'+
-    '<tr class="conta '+(Tot.saldoIdO>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td>'+cel(Tot.saldoIdO,true)+'</tr>'+
-    '<tr class="cc"><td>Saldo pelo orçamento (Orçado '+paValor(Tot.prev)+' − Realizado − Provisões)</td>'+cel(Tot.saldoOrc)+'</tr>'+
-    '<tr class="conta rec"><td>PODE COMPRAR ATÉ O FIM DO EXERCÍCIO<br><span class="pa-orig" style="font-weight:400">o menor entre saldo pelo ideal e pelo orçamento</span> <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paFormulaSaldo(\'total\')">🧮 Fórmula do Saldo Ideal</button></td>'+pode(Tot.podeO,'')+'</tr>'+
+    saldoLinha('= Saldo pelo orçado',Tot.saldoOrc)+
+    saldoLinha('= Saldo pelo ideal',Tot.saldoIdO,' <button class="btn btn-ghost btn-sm" style="margin-left:8px;padding:3px 10px;font-size:11px" onclick="paRefIdeal()" title="Ver como o saldo pelo ideal do mix é calculado">📐 Referência pelo ideal do mix</button>')+
     '</tbody></table></div>';
   // Bloco 3 — por tipo de custo
   html+='<h3 class="pa-h3">2. Por tipo de custo (Varejo + Atacado + Montagem Coleções)</h3>';
@@ -1755,6 +1761,24 @@ function paResumoCustoReceita(){
   var R=paCache.comprasResumo;if(!R){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
   openModal('<div class="modal-box pa-modal-wide"><div class="modal-title">📊 Custo × receita até agora ('+R.periodo+')</div><p class="pa-info" style="margin:4px 0 12px">Custo de produção (Varejo + Atacado + Montagem Coleções) do período de receita fechada, dividido pela receita, comparado ao custo ideal pelo mix. <b>Orçado</b> = como o orçamento nasceu; <b>Realizado</b> = onde estamos.</p>'+R.html+'<div class="modal-actions" style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>');
 }
+// 📐 Referência pelo ideal do mix (11/11/2026, Cardoso): o que saiu do quadro 1 para despoluir a tela
+function paRefIdeal(){
+  var C=paCache.comprasCalc;if(!C){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
+  var M=C.M,Tt=C.Tot;function v(x){return (x<-0.005?'−':'')+paValor(Math.abs(x));}
+  function pc(x){return x===null||x===undefined||!isFinite(x)?'—':x.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+'%';}
+  var h='<div class="modal-box pa-modal-wide"><div class="modal-title">📐 Referência pelo ideal do mix — '+C.ano+'</div>'+
+    '<p class="pa-info" style="margin:4px 0 12px">Quanto a Produção deveria custar no ano para manter o custo ideal pelo mix de vendas, e quanto ainda cabe.</p>'+
+    '<div class="pa-tbl-wrap"><table class="pa-tbl pa-compacta"><tbody>'+
+    '<tr class="cc"><td>Receita prevista '+C.ano+'</td><td>'+v(C.recOrc)+'</td></tr>'+
+    '<tr class="cc"><td>× Custo ideal pelo mix <span class="pa-orig">(produto '+pc(M.idealReal)+' + Montagem '+pc(M.mont.meta)+')</span></td><td>'+pc(M.idealRealTot)+'</td></tr>'+
+    '<tr class="sub"><td>= Teto ideal de produção no ano</td><td>'+v(C.tetoOrc)+'</td></tr>'+
+    '<tr class="cc"><td>(−) Produção realizada '+C.perDesp+'</td><td>'+v(Tt.real)+'</td></tr>'+
+    '<tr class="cc"><td>(−) Provisões já comprometidas</td><td>'+v(Tt.prov)+'</td></tr>'+
+    '<tr class="conta '+(Tt.saldoIdO>0?'rec':'desp')+'"><td>= Saldo pelo ideal</td><td style="font-weight:700">'+v(Tt.saldoIdO)+'</td></tr>'+
+    '</tbody></table></div>'+
+    '<div class="modal-actions" style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px"><button class="btn btn-ghost" onclick="paResumoCustoReceita()">📊 Custo × receita até agora</button><button class="btn btn-ghost" onclick="paFormulaSaldo(\'total\')">🧮 Fórmula do Saldo Ideal</button><button class="btn btn-ghost" onclick="closeModal()">Fechar</button></div></div>';
+  openModal(h);
+}
 function paFormulaSaldo(chave){
   var C=paCache.comprasCalc;if(!C){showToast('Abra o Saldo de Compras Anual (R$) primeiro.','info');return;}
   var M=C.M,T=C.T,G=M.G,t=chave==='total'?C.Tot:C.tipos[chave];if(!t)return;
@@ -1765,7 +1789,7 @@ function paFormulaSaldo(chave){
       return '<tr class="'+(l[3]||'')+'"><td>'+l[0]+'</td><td class="pa-form-conta">'+(l[1]||'')+'</td><td class="pa-form-val">'+(l[2]||'')+'</td></tr>';}).join('')+'</table>'+(orig?'<div class="pa-form-orig">Fonte: '+orig+'</div>':'')+'</div>';
   }
   var dirR=G.direta.real,atR=G.atacado.real,pD=M.partReal.direta,pA=M.partReal.atacado;
-  var restRec=C.restRec,orcMes=T.prev/12,recRest=orcMes*restRec,recAno=C.recOrc,per=M.periodo;
+  var restRec=C.restRec,recRest=T.prev-T.real,recAno=C.recOrc,per=M.periodo;
   var ehTot=chave==='total',nome=ehTot?'Total da Produção (Varejo + Atacado + Montagem Coleções)':t.nome+(t.orig&&t.orig.length?' ('+t.orig.join(' + ')+')':'');
   var h='<div class="modal-box pa-modal-wide"><div class="modal-title">🧮 Fórmula do Saldo Ideal — '+paEsc(nome)+'</div>'+
     '<p class="pa-info" style="margin:4px 0 12px">Calculado agora com os mesmos dados da tela ('+C.ano+'). Os % aparecem com 2 casas; a conta usa todas as casas decimais, por isso o resultado bate com a tela.</p>';
@@ -1783,10 +1807,9 @@ function paFormulaSaldo(chave){
     ['(+) Montagem Coleções (meta)','',pc(M.mont.meta)],
     ['Custo ideal pelo mix',pc(M.idealReal)+' + '+pc(M.mont.meta),pc(M.idealRealTot),'forte']],'% de custo ideal em Mix de Vendas › ⚙ Referências · meta de Montagem em Grupos e Metas');
   h+=passo(n++,'Receita do ano (pelo orçamento)',[
-    ['Orçado de receita no ano','',v(T.prev)],
-    ['Orçado por mês',v(T.prev)+' ÷ 12',v(orcMes)],
-    ['Meses que faltam','12 − '+(12-restRec),String(restRec)],
-    ['Receita orçada dos meses que faltam',v(orcMes)+' × '+restRec,v(recRest)],
+    ['Receita prevista no ano','',v(T.prev)],
+    ['(−) Receita realizada '+per,'',v(T.real)],
+    ['Saldo receita orçada dos '+restRec+' '+(restRec===1?'mês restante':'meses restantes'),v(T.prev)+' − '+v(T.real),v(recRest)],
     ['Receita do ano',v(T.real)+' + '+v(recRest),v(recAno),'forte']],'Orçamento › Previsto (receitas) e Orçamento › Realizado');
   var idealT=t.idealPct,teto=idealT/100*recAno;
   if(!ehTot){
@@ -2787,15 +2810,16 @@ var PA_TUT={
   ['Rateio do Uber (conta única)','O Uber é pago numa conta só e cai em Eventos - Transporte Uber/Outros. Regra combinada em 27/10/2026: a cada mês, R$ 500 (ou o valor do mês, se menor) vão para Produção - Transporte (Combustíveis, Uber), em Administrativas (Uber de fábricas, facções, lavanderia, aviamentos); o restante fica em Eventos (Uber dos vendedores). Aplicado em jan–out/2026 e a cada nova importação, até o Uber ser separado na origem (Uber Empresas com códigos de despesa ou cartões distintos).','Produção = mín(R$ 500; Uber do mês) · Eventos = Uber do mês − Produção'],
   ['Meta mensal de redução / Status / Plano de ação','Iguais aos dos custos fixos.','Base − Mercado']]},
  compras:{t:'Saldo de Compras Anual (R$)',d:'Quanto ainda se pode comprar de Produção (Varejo + Atacado + Montagem Coleções) até o fim do exercício sem estourar o orçamento nem o custo ideal do Mix de Vendas, descontando as Provisões já comprometidas.',c:[
-  ['📊 Custo × receita até agora','Botão na linha do teto (abre em janela): custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix — acima ou dentro do ideal, e quanto reduzir por mês.'],
-  ['1. Receita do ano e quanto ainda podemos comprar','Receita do ano pelo orçamento: o realizado até o último mês fechado + o orçado dos meses que faltam. × Custo ideal pelo mix (produto + Montagem Coleções) = o máximo que a Produção deveria custar no ano inteiro.','Teto = (Receita realizada + orçado dos meses restantes) × Custo ideal pelo mix %'],
-  ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal.','Teto ideal − Produção realizada − Provisões'],
+  ['📐 Referência pelo ideal do mix','Botão na linha Saldo pelo ideal (quadro 1): abre em janela o custo ideal pelo mix, o teto ideal de produção no ano (Receita prevista × custo ideal), o saldo pelo ideal e os atalhos 📊 Custo × receita e 🧮 Fórmula.'],
+  ['📊 Custo × receita até agora','Botão na janela 📐 Referência pelo ideal do mix: custo de produção orçado e realizado no período de receita fechada, ÷ receita, comparado ao custo ideal pelo mix — acima ou dentro do ideal, e quanto reduzir por mês.'],
+  ['1. Receita do ano e quanto ainda podemos comprar','Receita: Receita prevista do ano − Receita realizada até o último mês fechado = Saldo receita orçada dos meses restantes (o que falta vender para bater a meta). Compras de produção: Orçado − Produção realizada − Provisões = Saldo pelo orçado; e, ao lado, o Saldo pelo ideal do mix. Os dois saldos aparecem juntos, com o valor por mês nos meses restantes, para a decisão de compra.','Saldo receita = Receita prevista − Receita realizada'],
+  ['Saldo pelo ideal','Quanto ainda cabe dentro do teto ideal. Teto ideal = Receita prevista do ano × Custo ideal pelo mix (produto + Montagem Coleções).','Receita prevista × Custo ideal % − Produção realizada − Provisões'],
   ['Saldo pelo orçamento','Quanto ainda cabe dentro do orçado.','Orçado ano − Realizado − Provisões'],
   ['% no Orçado e no Realizado (bloco 2)','Abaixo do valor: Orçado ÷ receita orçada do ano; Realizado ÷ receita do período (mesma base do 📊 Custo × receita) e o peso do tipo na produção. Em vermelho quando o realizado passa a marca comum.'],
   ['Tot. Real. + Prov. (bloco 2)','Total já gasto ou comprometido (realizado + provisões) e o seu % da receita do período. Vermelho com ▲ = ultrapassou o Ideal Ciclo, o limite de compras daquele tipo. Fica em branco quando o tipo não tem provisão.','(Realizado + Provisões) ÷ receita do período'],
   ['Ideal Ciclo · Marca comum (bloco 2)','Ideal da Ciclo = custo ideal do Mix de Vendas × peso do tipo na produção. Marca comum = referência de uma marca saudável do mesmo porte, somando os centros VJ + AT (Grupos e Metas).','Ideal = custo ideal % × (realizado do tipo ÷ produção total)'],
   ['🧮 Fórmula do Saldo Ideal','Botão na linha Pode comprar (total) e o 🧮 de cada tipo de custo: abre a conta passo a passo com os números do momento — mix de vendas, custo ideal, receita do ano, teto, saldos e pode comprar.'],
-  ['Pode comprar','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
+  ['Pode comprar (bloco 2)','O menor dos dois saldos (mais seguro), e quanto isso dá por mês nos meses restantes. Negativo = já excedido: não há mais o que comprar desse item no ano.','mín(Saldo orçamento, Saldo ideal)'],
   ['2. Por tipo de custo','Tecidos, Fábricas, Silk, Facção… com VJ e AT somados: o ideal de cada tipo é o custo ideal do mix distribuído pelo peso atual desse custo no custo do produto. Os centros de Montagem Coleções aparecem um a um, com o ideal = o seu Mercado (Grupos e Metas).'],
   ['Provisões','Vêm de Orçamento › Provisões: o que já foi encomendado e ainda não foi lançado. Mantenha atualizado para o saldo ser real.']]},
  pecas:{t:'Saldo de Compras Anual (Peças)',d:'O Saldo de Compras em quantidade: quanto pode ser comprado, como isso se divide entre os grupos pela receita que cada um ainda vai vender, quantas peças isso dá e o plano de compra peça a peça.',c:[
