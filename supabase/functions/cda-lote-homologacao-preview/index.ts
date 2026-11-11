@@ -100,7 +100,33 @@ Deno.serve(async(req:Request)=>{
       executor.trava_ativa===executor.pode_enviar)
       return response({ok:false,erro:"Diagnóstico de autorização inconsistente."},503);
   }
-  if(!lote)return response({ok:true,lote:null,lotes:[],itens:[],envio_habilitado:false});
+  // Resumos de todos os lotes desta campanha/mensagem para filtragem por
+  // estado operacional. Consulta somente leitura, sem ações de envio.
+  const idsLotes=lotes.map(l=>Number(l.id)).filter(id=>Number.isSafeInteger(id)&&id>0);
+  let resumoLotes:Record<string,{total:number,pendentes:number,em_processamento:number,finalizados:number,status:string}>={};
+  if(idsLotes.length){
+    const resp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=in.("+
+      idsLotes.join(",")+")&select=lote_id,situacao&limit=10000",{headers:h}).catch(()=>null);
+    if(!resp?.ok)return response({ok:false,erro:"Consulta de situação dos lotes indisponível."},503);
+    const linhas=await resp.json();
+    // Não classificar parcialmente se houver mais registros que o limite de leitura.
+    if(linhas.length>=10000)return response({ok:false,erro:"Muitos itens para filtrar com segurança."},503);
+    for(const l of lotes)resumoLotes[String(l.id)]={total:0,pendentes:0,em_processamento:0,finalizados:0,status:"pendente"};
+    for(const i of linhas){
+      const x=resumoLotes[String(i.lote_id)];
+      if(!x)continue;
+      x.total++;
+      if(i.situacao==="pendente"||i.situacao==="bloqueado")x.pendentes++;
+      else if(["processando","aceito","atrasado","indeterminado"].includes(i.situacao))x.em_processamento++;
+      else x.finalizados++;
+    }
+    for(const l of lotes){
+      const x=resumoLotes[String(l.id)];
+      x.status=x.em_processamento>0?"processamento":
+        x.total>0&&x.pendentes===0?"concluido":"pendente";
+    }
+  }
+  if(!lote)return response({ok:true,lote:null,lotes:[],resumo_lotes:resumoLotes,itens:[],envio_habilitado:false});
   const itensResp=await fetch(url+"/rest/v1/cda_envio_lote_itens?lote_id=eq."+lote.id+"&select=id,nome,email,situacao,criado_em,atualizado_em,tentativa_id,resend_email_id,inicio_processamento_em,fim_processamento_em,aceito_em,entregue_em,ultimo_evento,erro&order=id.asc&limit=1000",{headers:h}).catch(()=>null);
   if(!itensResp?.ok)return response({ok:false,erro:"Lote criado; falha ao consultar destinatários."},503);
   const itens=await itensResp.json();
@@ -151,7 +177,7 @@ Deno.serve(async(req:Request)=>{
     const situacao=String(item.situacao_observada);
     contagens[situacao]=(contagens[situacao]||0)+1;
   }
-  return response({ok:true,lote,lotes,itens:enriquecidos,quantidade:enriquecidos.length,
+  return response({ok:true,lote,lotes,resumo_lotes:resumoLotes,itens:enriquecidos,quantidade:enriquecidos.length,
     contagens,processados:enriquecidos.length-(contagens.pendente||0)-(contagens.bloqueado||0),
     validacao:{consulta_concluida:true,sem_impedimentos:impedimentos.length===0,impedimentos,autorizado:false,
       observacao:"Pré-validação não autoriza disparos nem substitui análise de LGPD, idempotência Resend e liberação manual."},
