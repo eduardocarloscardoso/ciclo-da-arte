@@ -33,6 +33,12 @@
     var original = window[nome];
     if (typeof original !== 'function') return;
     window[nome] = function (arg) {
+      if((nome==='navigateCRM' && arg!=='homologacao') ||
+         (nome==='openProject' && arg!=='comercial')){
+        if(window.location.hash.startsWith('#cda-homologacao?')){
+          history.replaceState(history.state,'',location.pathname+location.search);
+        }
+      }
       var r = original.apply(this, arguments);
       salvar(nome, arg);
       return r;
@@ -45,6 +51,26 @@
   });
 
   window.cdaRestaurarTela = async function () {
+    // O deep link tem prioridade sobre a memória genérica de tela.
+    // Evita openProject('comercial') abrir Clientes/Pipeline antes de Homologação.
+    if(window.location.hash.startsWith('#cda-homologacao?')){
+      if(typeof window.navigateCRM!=='function'||typeof window.renderSidebarNav!=='function')
+        return false;
+      if(typeof window.canAccessProject==='function'&&!canAccessProject('comercial'))
+        return false;
+      if(typeof window.podeVerSubmodulo==='function'&&!podeVerSubmodulo('comercial','mensagens'))
+        return false;
+      restaurando=true;
+      try{
+        window.currentProject='comercial';
+        window.renderSidebarNav();
+        await window.navigateCRM('homologacao');
+        return true;
+      }catch(e){
+        console.warn('[homologacao] falha ao restaurar endereço protegido',e);
+        return false;
+      }finally{restaurando=false;}
+    }
     var d = null;
     try { d = JSON.parse(localStorage.getItem(chave()) || 'null'); } catch (e) { d = null; }
     if (!d || !d.proj) return false;
