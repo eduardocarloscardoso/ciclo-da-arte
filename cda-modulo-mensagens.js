@@ -477,6 +477,7 @@ async function montarModuloMensagens(containerId, opts) {
           '<button class="btn sm" data-abrir="' + m.id + '" title="Abrir o e-mail em outra aba">👁 Abrir</button>' +
           '<button class="btn sm" data-editar="' + m.id + '">' + (editavel ? '✏ Editar' : '🔍 Ver') + '</button>' +
           (editavel ? '<button class="btn sm" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
+            '<button class="btn sm" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para até 3 pessoas aprovarem">✉ Enviar para aprovação</button>' +
             '<button class="btn sm" data-excluir="' + m.id + '">🗑</button>' : '') +
         '</div></td></tr>';
     }).join('');
@@ -494,6 +495,20 @@ async function montarModuloMensagens(containerId, opts) {
 
   host.querySelector('#msg-tb').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
+    // Mesmo envio de teste homologado da prévia (até 3 destinatários digitados), direto da lista.
+    if (b.dataset.aprovacao) {
+      var ma = porId(b.dataset.aprovacao);
+      try {
+        var lista = await cdaCarregarMensagens();
+        var nova = lista.find(function (m) { return String(m.id) === String(b.dataset.aprovacao); });
+        if (nova) { ma = nova; var ix = ST.mensagens.findIndex(function (m) { return String(m.id) === String(nova.id); }); if (ix >= 0) ST.mensagens[ix] = nova; }
+      } catch (err) { console.error('Não foi possível atualizar a mensagem antes do envio para aprovação:', err); }
+      if (!ma) return;
+      var ca = await cdaMsgClientesDaCampanha(ma.campanhaId);
+      var res = await cdaMsgPerguntarEEnviarTeste(ma, campanhaPorId[ma.campanhaId], ca[0], b);
+      if (res) render();
+      return;
+    }
     if (b.dataset.abrir) {
       var m1 = porId(b.dataset.abrir);
       // A Biblioteca pode ter ficado aberta enquanto a imagem foi salva em outra tela.
