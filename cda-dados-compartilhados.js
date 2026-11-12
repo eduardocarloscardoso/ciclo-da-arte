@@ -923,7 +923,7 @@ async function cdaUploadImagemCampanha(arquivo) {
   return cdaClient.storage.from('campanhas-email').getPublicUrl(caminho).data.publicUrl;
 }
 function cdaPrimeiroNome(nome) {
-  const p = String(nome || '').trim().split(/\s+/)[0] || '';
+  const p = String(nome || '').replace(/[()\[\]]/g, ' ').trim().split(/\s+/)[0] || '';
   return p ? p.charAt(0).toUpperCase() + p.slice(1).toLowerCase() : '';
 }
 function cdaVariaveisEmail(texto, cliente) {
@@ -956,6 +956,7 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
   const fonte = "font-family:Arial,Helvetica,sans-serif;";
   const pTxt = fonte + 'margin:0 0 14px;font-size:16px;line-height:1.55;color:#1a1a1a;';
   const link = cdaLinkComUtm(k.botaoLink, campanha);
+  const link2 = cdaLinkComUtm(k.botao2Link, campanha);
   const descadastro = opts.linkDescadastro || '#descadastrar';
   // Links institucionais verificados. Únicos para todas as mensagens atuais,
   // inclusive as já salvas; não altera conteúdos, testes nem o Reply-To.
@@ -986,9 +987,10 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
       (k.cupomCodigo ? '<tr><td align="center" style="padding:6px 32px 18px;"><table role="presentation" cellpadding="0" cellspacing="0" style="border:2px dashed #c0392b;"><tr><td align="center" style="padding:14px 28px;' + fonte + '">' +
         '<div style="font-size:12px;letter-spacing:2px;color:#c0392b;font-weight:bold;">CUPOM</div>' +
         '<div style="font-size:28px;letter-spacing:3px;color:#1a1a1a;font-weight:bold;">' + esc(k.cupomCodigo) + '</div>' +
-        (k.cupomTexto ? '<div style="font-size:14px;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)) + '</div>' : '') +
+        (k.cupomTexto ? '<div style="font-size:14px;line-height:1.5;color:#444;margin-top:4px;">' + esc(v(k.cupomTexto)).replace(/\n/g, '<br>') + '</div>' : '') +
         '</td></tr></table></td></tr>' : '') +
       (link && k.botaoTexto ? '<tr><td align="center" style="padding:4px 32px 26px;">' + botao(link, esc(v(k.botaoTexto)), '#c0392b', 16, '15px 30px') + '</td></tr>' : '') +
+      (link2 && k.botao2Texto ? '<tr><td align="center" style="padding:0 32px 26px;">' + botao(link2, esc(v(k.botao2Texto)), '#1a1a1a', 15, '13px 26px') + '</td></tr>' : '') +
       (k.infoTexto ? '<tr><td style="padding:0 32px 26px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f4ee;"><tr><td style="padding:18px 20px;' + fonte + '">' +
         (k.infoTitulo ? '<div style="font-size:15px;font-weight:bold;color:#1a1a1a;margin-bottom:8px;">' + esc(v(k.infoTitulo)) + '</div>' : '') +
         '<div style="font-size:14px;line-height:1.6;color:#333;">' + esc(v(k.infoTexto)).replace(/\n/g, '<br>') + '</div></td></tr></table></td></tr>' : '') +
@@ -1014,8 +1016,8 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '<br><br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
     '</table></td></tr></table></body></html>';
   const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
-    k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? ' — ' + v(k.cupomTexto) : '') : '',
-    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', '', v(k.infoTitulo), v(k.infoTexto), '',
+    k.cupomCodigo ? 'CUPOM: ' + k.cupomCodigo + (k.cupomTexto ? (String(k.cupomTexto).indexOf('\n') >= 0 ? '\n' : ' — ') + v(k.cupomTexto) : '') : '',
+    link ? (v(k.botaoTexto) || 'Saiba mais') + ': ' + link : '', link2 ? (v(k.botao2Texto) || 'Saiba mais') + ': ' + link2 : '', '', v(k.infoTitulo), v(k.infoTexto), '',
     (sacEmail || sacTel) ? v(k.sacTitulo || 'Fale Conosco · SAC') : '', sacTel ? 'Telefone/WhatsApp: ' + sacTel : '', sacEmail ? 'E-mail: ' + sacEmail : '', '', v(k.rodape),
     '', 'Site oficial: ' + siteCiclo, 'Redes sociais e novidades: ' + redesCiclo,
     'Para não receber mais: ' + descadastro].filter((l, i, a) => !(l === '' && a[i - 1] === '')).join('\n');

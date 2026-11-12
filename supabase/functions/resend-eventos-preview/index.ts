@@ -72,12 +72,15 @@ Deno.serve(async(req:Request)=>{
   const existing=await lookup.json();
   const tentativa=existing[0];
   if(!tentativa?.id){
+    // Motivo informado pelo provedor (devolução/reclamação), gravado desde 12/11/2026.
+    const b=(d.bounce&&typeof d.bounce==="object")?d.bounce as Record<string,unknown>:{};
+    const motivo=[b.type,b.subType].filter(Boolean).join("/")+(b.message?": "+String(b.message):"")||null;
     // Transmissão Oficial (nov/2026): eventos de envios oficiais são conciliados
     // pela RPC dedicada; devolução e reclamação suprimem o endereço.
     const oficial=await fetch(url+"/rest/v1/rpc/cda_oficial_registrar_evento",{
       method:"POST",headers:{...headers,"Content-Type":"application/json"},
       body:JSON.stringify({p_svix_id:eventId,p_resend_email_id:resendId,p_tipo:type,
-        p_ocorrido_em:new Date(occurred).toISOString()})
+        p_ocorrido_em:new Date(occurred).toISOString(),p_motivo:motivo})
     }).catch(()=>null);
     if(!oficial?.ok)return response({ok:false,erro:"Falha na conciliação oficial"},503);
     const r=await oficial.json().catch(()=>({aplicado:false}));

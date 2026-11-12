@@ -12,7 +12,7 @@
 // cdaSalvarMensagem, cdaEnviarTesteMensagem, cdaUploadImagemCampanha...).
 // ════════════════════════════════════════════════════════════════════
 
-var CDA_MSG_CAMPOS = ['imagemUrl', 'imagemAlt', 'titulo', 'saudacao', 'texto', 'cupomCodigo', 'cupomTexto', 'botaoTexto', 'botaoLink', 'infoTitulo', 'infoTexto', 'sacTitulo', 'sacTelefone', 'sacEmail', 'rodape'];
+var CDA_MSG_CAMPOS = ['imagemUrl', 'imagemAlt', 'titulo', 'saudacao', 'texto', 'cupomCodigo', 'cupomTexto', 'botaoTexto', 'botaoLink', 'botao2Texto', 'botao2Link', 'infoTitulo', 'infoTexto', 'sacTitulo', 'sacTelefone', 'sacEmail', 'rodape'];
 var CDA_MSG_PADRAO = {
   rodape: 'Você recebe este e-mail porque é cliente da Ciclo da Arte.\nCiclo da Arte · moda, acessórios e merchandising cultural\nRua da Conceição, 105, 15º andar · Centro · Rio de Janeiro/RJ · CEP 20051-011',
   sacTitulo: 'Fale Conosco · SAC', sacTelefone: '(21) 99680-1660', sacEmail: 'contato@epcparticipacoes.com.br'
@@ -230,9 +230,11 @@ var cdaEditorMensagem = (function () {
             '<div class="fgr"><label>Saudação</label><textarea id="msg-c-saudacao" class="msg-e"></textarea></div>' +
             '<div class="fgr"><label>Texto (linha em branco = novo parágrafo)</label><textarea id="msg-c-texto" class="msg-e" style="min-height:120px"></textarea></div>' +
             '<div class="fgr"><label>Cupom — código</label><input type="text" id="msg-c-cupomCodigo" class="msg-e"></div>' +
-            '<div class="fgr"><label>Cupom — descrição</label><input type="text" id="msg-c-cupomTexto" class="msg-e"></div>' +
+            '<div class="fgr"><label>Cupom — descrição (cada linha aparece separada)</label><textarea id="msg-c-cupomTexto" class="msg-e" style="min-height:60px"></textarea></div>' +
             '<div class="fgr"><label>Botão — texto</label><input type="text" id="msg-c-botaoTexto" class="msg-e"></div>' +
             '<div class="fgr"><label>Botão — link</label><input type="text" id="msg-c-botaoLink" class="msg-e" placeholder="https://..."></div>' +
+            '<div class="fgr"><label>2º botão — texto (opcional)</label><input type="text" id="msg-c-botao2Texto" class="msg-e"></div>' +
+            '<div class="fgr"><label>2º botão — link (opcional)</label><input type="text" id="msg-c-botao2Link" class="msg-e" placeholder="https://..."></div>' +
             '<div class="fgr"><label>Informações — título</label><input type="text" id="msg-c-infoTitulo" class="msg-e"></div>' +
             '<div class="fgr"><label>Informações — texto</label><textarea id="msg-c-infoTexto" class="msg-e" style="min-height:110px"></textarea></div>' +
             '<div class="msg-sec">Fale Conosco · SAC (botões de e-mail e WhatsApp no e-mail)</div>' +

@@ -141,7 +141,9 @@ async function montarTransmissaoOficial(containerId) {
     ux.refresh();
   }
   function transmissaoCongelada(){
-    return transmissoesSalvas.find(t=>Number(t.mensagem_id)===Number(mensagem?.id)&&t.situacao==='congelada')||null;
+    // Congelada (em uso); senão a mais recente encerrada, para consulta do histórico e retransmissão.
+    return transmissoesSalvas.find(t=>Number(t.mensagem_id)===Number(mensagem?.id)&&t.situacao==='congelada')||
+      transmissoesSalvas.find(t=>Number(t.mensagem_id)===Number(mensagem?.id)&&t.situacao==='encerrada')||null;
   }
   async function carregarRevisoes(preservarLote=true){
     const t=transmissaoCongelada();
@@ -551,6 +553,8 @@ async function montarTransmissaoOficial(containerId) {
       $('to-mensagem').innerHTML='<option value="">Selecione a mensagem</option>'+
         msgs.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+' · '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       if(msgs.length===1)$('to-mensagem').value=String(msgs[0].id);
+      else{let pref='';try{pref=sessionStorage.getItem('cda-to-mensagem')||'';sessionStorage.removeItem('cda-to-mensagem');}catch(e){}
+        if(pref&&msgs.some(m=>String(m.id)===pref))$('to-mensagem').value=pref;}
       mensagem=msgs.find(m=>String(m.id)===$('to-mensagem').value)||null;
       try{await consultarCongelamentos(id);}catch(e){
         transmissoesSalvas=[];consultaCarregada=false;

@@ -21,6 +21,12 @@ function montarEnvioTransmissaoOficial(host,ctx){
       '<label style="font-size:13px">Digite <b>ENVIAR TODOS</b> <input data-e="todos-input" style="margin-left:6px;padding:6px;width:160px"></label> '+
       '<button type="button" class="btn" data-e="todos">Enviar todos os lotes</button> '+
       '<button type="button" class="btn" data-e="pausar2">Pausar</button></div>'+
+    '<div data-e="retx-box" hidden style="border:2px solid #166534;border-radius:8px;padding:12px;margin-bottom:12px">'+
+      '<b>Retransmitir para o mesmo público</b>'+
+      '<p style="margin:6px 0;font-size:13px">Cria uma nova transmissão com os mesmos destinatários desta, sem devolvidos e descadastrados. Esta transmissão é encerrada e o histórico fica preservado. Nada é enviado neste passo.</p>'+
+      '<label style="font-size:13px">Mensagem <select data-e="retx-msg" style="padding:6px;min-width:280px"></select></label> '+
+      '<label style="font-size:13px">Digite <b>RETRANSMITIR</b> <input data-e="retx-input" style="margin-left:6px;padding:6px;width:150px"></label> '+
+      '<button type="button" class="btn" data-e="retx">Preparar retransmissão</button></div>'+
     '<details data-e="inc-box" style="margin-bottom:12px"><summary style="cursor:pointer;font-weight:600" data-e="inc-titulo">Inconsistências</summary><div data-e="inc" style="font-size:12px;max-height:300px;overflow:auto"></div></details>'+
     '<details style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px">Envio por lote individual</summary>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">'+
@@ -73,7 +79,11 @@ function montarEnvioTransmissaoOficial(host,ctx){
         ' processados'+(l.autorizado_ate?' · autorizado':'')+'</option>').join('');
       const primeiroAberto=(painel.lotes||[]).find(l=>l.processados<l.total);
       sel.value=atual&&sel.querySelector('option[value="'+atual+'"]')?atual:String(primeiroAberto?.lote_id||painel.lotes?.[0]?.lote_id||'');
-      $('todos-box').hidden=!d.admin||painel.lgpd_pendente;
+      const concluida=painel.situacao==='congelada'&&Number(painel.pendentes)===0&&!rodando;
+      $('todos-box').hidden=!d.admin||painel.lgpd_pendente||Number(painel.pendentes)===0||painel.situacao!=='congelada';
+      $('retx-box').hidden=!d.admin||!concluida;
+      $('retx-msg').innerHTML=(painel.mensagens||[]).map(m=>'<option value="'+m.id+'"'+(Number(m.id)===Number(painel.mensagem_id)?'':' selected')+'>'+esc(m.nome)+(Number(m.id)===Number(painel.mensagem_id)?' (mesma desta transmissão)':'')+'</option>').join('');
+      if(painel.situacao==='encerrada')$('resumo').textContent='Transmissão #'+painel.transmissao_id+' encerrada · '+resumoEstados(painel.por_estado)+'.';
       await carregarLote();
       await carregarInconsistencias();
     }catch(e){$('resumo').textContent='Não foi possível consultar: '+e.message;}
@@ -198,6 +208,19 @@ function montarEnvioTransmissaoOficial(host,ctx){
         aceitos+' aceitos pelo Resend e '+incons+' inconsistências nesta sessão. Entregas e devoluções chegam pelo Resend; use Atualizar.';
     }catch(e){$('progresso').textContent='Envio interrompido: '+e.message+'. '+aceitos+' aceitos nesta sessão. Nenhum reenvio automático.';}
     finally{rodando=false;$('todos').disabled=false;$('todos-input').value='';await carregarPainel();}
+  });
+  $('retx').addEventListener('click',async()=>{
+    if($('retx-input').value.trim()!=='RETRANSMITIR'){alert('Digite exatamente: RETRANSMITIR');return;}
+    const msgId=Number($('retx-msg').value),nome=$('retx-msg').selectedOptions[0]?.textContent||'';
+    if(!confirm('Preparar retransmissão com a mensagem "'+nome+'"?\n\nA transmissão #'+transmissaoAtual+' será encerrada. Nenhum e-mail é enviado agora.'))return;
+    $('retx').disabled=true;
+    try{
+      const d=await chamar({acao:'retransmitir',transmissao_id:transmissaoAtual,mensagem_id:msgId,confirmacao:'RETRANSMITIR'});
+      const r=d.resultado;
+      alert('Transmissão #'+r.transmissao_id+' preparada: '+r.destinatarios+' destinatários em '+r.lotes+' lotes ('+r.excluidos+' excluídos por devolução/descadastro). A página será recarregada.');
+      try{sessionStorage.setItem('cda-to-mensagem',String(r.mensagem_id));}catch(e){}
+      location.reload();
+    }catch(e){alert('Retransmissão não preparada: '+e.message);$('retx').disabled=false;}
   });
   return {refresh:carregarPainel};
 }
