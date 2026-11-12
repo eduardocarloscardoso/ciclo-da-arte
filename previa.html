@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Ciclo da Arte · Prévia para aprovação</title>
+<style>
+  html,body{margin:0;height:100%;background:#f2efe9;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a}
+  .topo{background:#1a1a1a;color:#fff;padding:12px 18px;font-size:13px}
+  .topo b{letter-spacing:2px}
+  .info{max-width:640px;margin:0 auto;padding:12px 14px;font-size:14px;line-height:1.5}
+  .info .aviso{color:#9a3412;font-size:12px}
+  iframe{display:block;width:100%;max-width:640px;margin:0 auto 24px;border:0;background:#fff;min-height:80vh}
+  .erro{max-width:520px;margin:40px auto;background:#fff;padding:24px;border-radius:6px;color:#9a3412;font-weight:bold}
+</style>
+</head>
+<body>
+<div class="topo"><b>CICLO DA ARTE</b> · Prévia de e-mail para aprovação</div>
+<div class="info" id="info">Carregando…</div>
+<iframe id="email" title="Prévia do e-mail" sandbox="allow-popups allow-popups-to-escape-sandbox"></iframe>
+<script>
+(function(){
+  var q=new URLSearchParams(location.search),m=q.get('m')||'',t=q.get('t')||'';
+  var info=document.getElementById('info'),frame=document.getElementById('email');
+  function falha(msg){info.className='erro';info.textContent=msg;frame.style.display='none';}
+  if(!/^\d+$/.test(m)||!/^[0-9a-f]{32}$/.test(t)){falha('Link de prévia inválido.');return;}
+  fetch('https://gsizoiwefejsllgtsard.supabase.co/functions/v1/cda-previa-mensagem?m='+m+'&t='+t)
+    .then(function(r){return r.json();})
+    .then(function(d){
+      if(!d||!d.ok){falha((d&&d.erro)||'Prévia indisponível.');return;}
+      var esc=function(s){return String(s||'').replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
+      info.innerHTML='<b>Assunto:</b> '+esc(d.assunto)+'<br><b>De:</b> '+esc(d.de)+
+        '<br><span class="aviso">Prévia com nome de exemplo ("Maria"). Cada cliente recebe com o próprio nome.</span>';
+      frame.srcdoc=d.html;
+    }).catch(function(){falha('Falha de conexão. Tente novamente.');});
+})();
+</script>
+</body>
+</html>

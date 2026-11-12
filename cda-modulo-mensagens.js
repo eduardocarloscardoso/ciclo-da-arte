@@ -478,6 +478,7 @@ async function montarModuloMensagens(containerId, opts) {
           '<button class="btn sm" data-editar="' + m.id + '">' + (editavel ? '✏ Editar' : '🔍 Ver') + '</button>' +
           (editavel ? '<button class="btn sm" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
             '<button class="btn sm" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para até 3 pessoas aprovarem">✉ Enviar para aprovação</button>' +
+            '<button class="btn sm" data-whats="' + m.id + '" title="Abre o seu WhatsApp com o link da prévia do e-mail">🟢 Aprovação por WhatsApp</button>' +
             '<button class="btn sm" data-excluir="' + m.id + '">🗑</button>' : '') +
         '</div></td></tr>';
     }).join('');
@@ -495,6 +496,25 @@ async function montarModuloMensagens(containerId, opts) {
 
   host.querySelector('#msg-tb').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
+    // WhatsApp: abre o WhatsApp do próprio usuário com o link da prévia pública (nome de exemplo).
+    // Nenhuma credencial do WhatsApp; o usuário escolhe o contato e envia.
+    if (b.dataset.whats) {
+      var mw = porId(b.dataset.whats); if (!mw) return;
+      var janelaW = window.open('about:blank', '_blank');
+      var txtW = b.textContent; b.textContent = '⏳ Gerando link...'; b.disabled = true;
+      try {
+        var rw = await cdaClient.functions.invoke('cda-previa-mensagem', { body: { acao: 'gerar', m: Number(mw.id) } });
+        if (rw.error || !rw.data || !rw.data.ok) throw new Error((rw.data && rw.data.erro) || 'Não foi possível gerar o link');
+        var linkW = location.origin + '/previa.html?m=' + rw.data.m + '&t=' + rw.data.t;
+        var msgW = 'Pode aprovar este e-mail da Ciclo da Arte?\n' + (mw.nome || '') + '\nAssunto: ' + (mw.assunto || '') + '\n' + linkW;
+        var waW = 'https://wa.me/?text=' + encodeURIComponent(msgW);
+        if (janelaW && !janelaW.closed) janelaW.location.href = waW; else window.open(waW, '_blank');
+      } catch (err) {
+        if (janelaW && !janelaW.closed) janelaW.close();
+        alert('Aprovação por WhatsApp indisponível: ' + (err.message || err));
+      } finally { b.textContent = txtW; b.disabled = false; }
+      return;
+    }
     // Mesmo envio de teste homologado da prévia (até 3 destinatários digitados), direto da lista.
     if (b.dataset.aprovacao) {
       var ma = porId(b.dataset.aprovacao);
