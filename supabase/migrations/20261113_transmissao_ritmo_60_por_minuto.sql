@@ -32,8 +32,11 @@ end $$;
 revoke all on function public.cda_oficial_controle_padrao() from public, anon, authenticated;
 
 drop trigger if exists trg_cda_oficial_controle_padrao on public.cda_transmissoes_oficiais;
-create trigger trg_cda_oficial_controle_padrao
+-- Constraint trigger adiado para o fim da transação: cda_oficial_retransmitir insere
+-- o próprio controle b4 logo após criar a transmissão; aqui só completa quem ficou sem.
+create constraint trigger trg_cda_oficial_controle_padrao
   after insert on public.cda_transmissoes_oficiais
+  deferrable initially deferred
   for each row execute function public.cda_oficial_controle_padrao();
 
 -- Transmissões não encerradas sem controle b4 recebem o padrão.
