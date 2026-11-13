@@ -1,14 +1,12 @@
 # Checkpoint 13/11/2026 — Black Friday 2026 (preparação, nada enviado)
 
-- Segmentação nova: RECÊNCIA DE COMPRA (filtro "Sem comprar há X dias"; valores na campanha).
-- Campanha 6 → "Black Friday 2026 · Compradores últimos 2 anos (19/11)": recência < 731 dias (2.615 clientes).
-- Campanha 7 → "Black Friday 2026 · Demais clientes (20/11)": recência > 730 dias, inclui quem nunca comprou (3.649 clientes).
-- Mensagens (mesmo flyer, sem "Como funciona"):
-  - 3 Lançamento · Compradores 2 anos (19/11) — campanha 6
-  - 4 Lançamento · Demais clientes (20/11) — campanha 7
-  - 5/6 É hoje (27/11) — campanhas 6/7
-  - 7/8 Últimas horas (30/11) — campanhas 6/7
-  - 27/11 e 30/11 saem por Retransmitir na transmissão de cada campanha.
-- Ritmo 60/min: cliente (espera 600 ms) no branch preview (465d4b4); migração
-  20261113_transmissao_ritmo_60_por_minuto.sql AINDA NÃO APLICADA (Supabase MCP fora do ar).
-  Sem ela, novas transmissões usam o padrão antigo (10/min, 120/h, 300/dia).
+Estado final após ajustes pedidos por Cardoso:
+- Uma campanha só: "Black Friday 2026" (id 6), segmentação "Todos Clientes com E-mail"
+  (filtro novo "Tem e-mail válido"), público 5.192 clientes; envio único em 20/11. Lista ainda não congelada.
+- Biblioteca: uma mensagem, "Black Friday · Lançamento (20/11)" (id 3), flyer campanha-1794579345841-178336.jpg,
+  sem "Como funciona".
+- Removidos: campanha 7, mensagens 4–8, segmentação "RECÊNCIA DE COMPRA" (criadas sem pedido).
+- Produção = preview = 2e01d54 (backup do main anterior: backup/main-antes-filtro-email-2026-11-13 → 8d0a9cd).
+- Ritmo 60/min: código publicado (espera de 600 ms no cliente); migração
+  20261113_transmissao_ritmo_60_por_minuto.sql NÃO aplicada — limites do banco seguem 10/min, 120/h, 300/dia.
+- Atenção: preview e produção usam o MESMO banco Supabase; dados criados no preview valem em produção.
