@@ -14,7 +14,7 @@
 
 var CDA_MSG_CAMPOS = ['imagemUrl', 'imagemAlt', 'titulo', 'saudacao', 'texto', 'cupomCodigo', 'cupomTexto', 'botaoTexto', 'botaoLink', 'botao2Texto', 'botao2Link', 'infoTitulo', 'infoTexto', 'sacTitulo', 'sacTelefone', 'sacEmail', 'rodape'];
 var CDA_MSG_PADRAO = {
-  rodape: 'Você recebe este e-mail porque é cliente da Ciclo da Arte.\nCiclo da Arte · moda, acessórios e merchandising cultural\nRua da Conceição, 105, 15º andar · Centro · Rio de Janeiro/RJ · CEP 20051-011',
+  rodape: 'Você recebe este e-mail porque é cliente da Ciclo Arte.\nCiclo Arte · moda, acessórios e merchandising cultural\nRua da Conceição, 105, 15º andar · Centro · Rio de Janeiro/RJ · CEP 20051-011',
   sacTitulo: 'Fale Conosco · SAC', sacTelefone: '(21) 99680-1660', sacEmail: 'contato@epcparticipacoes.com.br'
 };
 var CDA_MSG_RESPONDER_PADRAO = 'contato@epcparticipacoes.com.br';
