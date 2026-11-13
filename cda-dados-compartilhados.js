@@ -777,6 +777,7 @@ function cdaMotorSegmento(compras, ctx) {
         return f.operador === '>' ? dias > Number(f.valor) : dias < Number(f.valor);
       }
       case 'nunca_comprou': return agg.qtd === 0;
+      case 'tem_email': return cdaEmailValido(cliente.email);
       case 'valor_gasto': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.total > Number(f.valor) : agg.total < Number(f.valor));
       case 'qtd_compras': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.qtd >= Number(f.valor) : agg.qtd < Number(f.valor));
       case 'canal': return !f.valor || agg.canais.has(String(f.valor));
