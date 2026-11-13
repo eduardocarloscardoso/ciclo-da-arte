@@ -195,7 +195,7 @@ function montarEnvioTransmissaoOficial(host,ctx){
           let r;
           try{r=await chamar({acao:'enviar_proximo',lote_id:l.lote_id});}
           catch(e){incons++;seguidas++;if(seguidas>=3){motivoFim='3 falhas seguidas ('+e.message+')';break;}await esperar(3100);continue;}
-          if(r.enviado){aceitos++;seguidas=0;reautorizou=false;await esperar(3100);continue;}
+          if(r.enviado){aceitos++;seguidas=0;reautorizou=false;await esperar(600);continue;}
           if(r.estado){incons++;seguidas++;if(seguidas>=3){motivoFim='3 resultados seguidos sem aceite ('+r.estado+')';break;}await esperar(3100);continue;}
           if(r.motivo==='SUPRIMIDO'){incons++;continue;}
           if(r.motivo==='LIMITE_MINUTO'){await esperar((r.aguardar_segundos||15)*1000);continue;}
