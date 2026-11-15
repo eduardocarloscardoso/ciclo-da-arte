@@ -41,3 +41,13 @@ delete from public.cda_email_supressoes s
    and not exists (select 1 from public.cda_transmissao_envios x
                     where lower(btrim(x.email))=s.email and x.estado in ('devolvida','reclamacao')
                       and coalesce(x.erro,'') not ilike 'Transient%');
+
+-- Decisão do usuário (15/11/2026): liberar os 20 devolvidos de 11/11 que não estão na lista de
+-- supressão do Resend (19 sem motivo registrado + 1 temporária). Os 7 definitivos (no Resend) seguem bloqueados.
+delete from public.cda_email_supressoes s
+ where s.motivo='devolucao'
+   and s.email in (select lower(btrim(e.email)) from public.cda_transmissao_envios e
+                    where e.transmissao_id=1 and e.estado='devolvida')
+   and s.email not in ('henriquealicemanuela@gmail.com','cszlezyng@gmail.com','danielle.oliveira@usp.br',
+                       'pollyannaaraujo@natura.net','kellybertolottti@gmail.com','paulamccielly@gmail.com',
+                       'karoline.freitas@fm.usp.br','patcardoso@datapaper.com.br');
