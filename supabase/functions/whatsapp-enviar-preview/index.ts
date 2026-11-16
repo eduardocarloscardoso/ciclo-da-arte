@@ -1,4 +1,4 @@
-// Edge Function: whatsapp-enviar-preview (v1 · 16/11/2026)
+// Edge Function: whatsapp-enviar-preview (v2 · 16/11/2026 — fallback do 9º dígito)
 // Projeto Marketing Meta · Etapa 2 — envio de mensagens pela Cloud API (Meta).
 //
 // Ações (body.acao):
@@ -116,14 +116,27 @@ Deno.serve(async (req: Request) => {
       // Usa o número exatamente como a Meta enviou na última mensagem recebida (wa_id original);
       // se não houver, usa o número padronizado.
       const ultEntrada = await sbGet(`cda_whatsapp_mensagens?conversa_id=eq.${conversaId}&direcao=eq.entrada&order=ocorrido_em.desc&limit=1&select=conteudo_bruto`);
-      const destino = String(ultEntrada[0]?.conteudo_bruto?.from || conv.contato_wa);
+      // Brasil / 9º dígito: a Meta pode devolver o wa_id sem o 9 (556183407390) enquanto o cadastro
+      // (ex.: lista de números de teste) tem o 9 (5561983407390). Tenta o wa_id e, se a Meta recusar
+      // por "número não permitido" (131030) ou "número inválido" (131026/100), tenta a outra forma.
+      const doWaId = String(ultEntrada[0]?.conteudo_bruto?.from || "");
+      const candidatos = [doWaId, conv.contato_wa].filter((x, i, a) => x && a.indexOf(x) === i);
+      if (!candidatos.length) candidatos.push(conv.contato_wa);
 
-      const r = await fetch(`${G}/${phoneId}/messages`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: destino, type: "text", text: { body: texto, preview_url: true } }),
-      });
-      const j = await r.json().catch(() => ({}));
+      let r: Response | null = null, j: any = {}, destino = candidatos[0];
+      for (const alvo of candidatos) {
+        destino = alvo;
+        r = await fetch(`${G}/${phoneId}/messages`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: alvo, type: "text", text: { body: texto, preview_url: true } }),
+        });
+        j = await r.json().catch(() => ({}));
+        const cod = j?.error?.code;
+        if (!(r.ok && !j?.error) && (cod === 131030 || cod === 131026) && alvo !== candidatos[candidatos.length - 1]) continue;
+        break;
+      }
+      r = r as Response;
       const agora = new Date().toISOString();
 
       if (!r.ok || j?.error) {
