@@ -25,7 +25,8 @@
 
 ## Incidentes
 - Token de acesso Meta (`EAAj…`) exibido em reunião gravada e registrado no log do webhook (16/11 15:26–15:28).
-  Novo token gerado e gravado; **revogação do antigo ainda não confirmada**.
+  Novo token gerado e gravado; **token antigo revogado (confirmado pelo Cardoso e pela agência em 16/11 17:04)**;
+  diagnóstico após a revogação: token atual válido, número GREEN, app inscrito.
 - Verificação da empresa na Meta **rejeitada** (país preenchido como "Other"); refazer com Brasil.
 
 ## Pendências — ver resumo em Word (Claude / Cardoso / Agência).
