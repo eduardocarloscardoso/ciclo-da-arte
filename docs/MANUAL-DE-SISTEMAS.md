@@ -1454,3 +1454,48 @@ este documento é o resumo estrutural, não o log.)*
   assunto com `[TESTE]`; grava o último teste. Front: `cdaEnviarTesteMensagem(mensagem, campanha, cliente, para)`.
 - Resend: Secret `RESEND_API_KEY` (chave "ciclodaartemarketing", Sending access). O Resend só envia — respostas
   dos clientes vão para o "Responder para" (Microsoft 365).
+
+## 16. Projeto Marketing Meta — WhatsApp Business (API oficial) — nov/2026
+
+Integração direta com a **Cloud API da Meta** (sem Manychat/BSP). App Meta **"Ciclo Arte Conexão"** no Business
+Manager da Ciclo da Arte (uso próprio → sem App Review). Desenho de números: **novo número = Campanhas/Comercial na API**;
+**número atual = SAC no celular** (pode migrar depois). Etapas 1–2 desenvolvidas com o **número de teste da Meta**
+(`phone_number_id 1369191586285354`, WABA `1144232028203751`).
+
+### 16.1 Banco (Etapa 1.1 / 1.3 — 13/11/2026)
+- `cda_whatsapp_numeros` (números da empresa: `phone_number_id`, `waba_id`, `funcao` teste|campanhas|sac; sem tokens).
+- `cda_whatsapp_conversas` (1 por contato × número: `contato_wa` canônico, `identificacao` cliente|lead|nao_identificado,
+  `cliente_id`, `lead_id`, `campanha_id`, `responsavel_id`, `situacao` aberta|pendente|encerrada, `nao_lidas`,
+  `ultima_entrada_em`, `janela_expira_em` = última entrada + 24h).
+- `cda_whatsapp_mensagens` (`wa_message_id` único → idempotência; `direcao`, `tipo`, `texto`, `midia` jsonb
+  {tipo, media_id, mime, nome, storage_path}, `status` recebida|pendente|enviada|entregue|lida|falha, `erro`,
+  `categoria_cobranca`, `cobravel`, `template_nome`, `campanha_id`, `transmissao_id`, `enviado_por`).
+- `cda_whatsapp_supressoes` (opt-out; entrada automática quando o contato escreve SAIR/PARAR/STOP/CANCELAR/DESCADASTRAR).
+- Funções: `cda_wa_normalizar(text)` (→ 55+DDD+número; celular de 8 dígitos ganha o 9), `cda_wa_localizar_contato(text)`,
+  `cda_wa_registrar_entrada(...)` e `cda_wa_registrar_status(...)` (só `service_role`; status nunca regride).
+- RLS: leitura para `cda_e_membro_equipe()`; conversas editáveis pela equipe; números só admin.
+- Storage **privado** `whatsapp-midias` (mídias recebidas, servidas só por link assinado de 1h).
+- Catálogo de permissões: `comercial/whatsapp` — "Conversas WhatsApp".
+
+### 16.2 Edge Functions (fontes em `supabase/functions/`)
+| Função | JWT | Papel |
+|---|---|---|
+| `whatsapp-webhook-preview` | não (Meta) | GET verificação (`WHATSAPP_VERIFY_TOKEN`); POST valida `X-Hub-Signature-256` com `WHATSAPP_APP_SECRET` e grava mensagens/status |
+| `whatsapp-enviar-preview` | sim + equipe | `enviar_texto` (só janela 24h; bloqueia opt-out) e `marcar_lida` |
+| `whatsapp-midia-preview` | sim + equipe | baixa a mídia da Meta 1x, guarda no Storage e devolve link assinado |
+| `whatsapp-diagnostico-preview` | cabeçalho `x-diag` | leitura: token válido, dados do número, apps inscritos na WABA |
+
+Secrets: `WHATSAPP_TOKEN` (usuário do sistema existente, token do app WhatsApp, validade "Nunca"),
+`WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`. Webhook na Meta: campo `messages` assinado; WABA inscrita no app
+(`/{waba}/subscribed_apps`).
+
+### 16.3 Tela (Etapa 2 — preview `preview/whatsapp-conversas`, 16/11/2026)
+- `cda-modulo-whatsapp.js` → `montarModuloWhatsApp(containerId,{editavel})`, menu Comercial › 💬 Conversas WhatsApp.
+- Lista (busca, situação, responsável, não lidas) · conversa (mídias, ✓/✓✓/lida/falha, janela 24h) · painel do
+  contato (cliente, lead/etapa, responsável, situação, Criar lead, Abrir no Pipeline, Registrar no Diário
+  [`tipo_interacao='whatsapp'`], Criar tarefa [`tipo='whatsapp'`]). Atualização automática a cada 8 s.
+
+### 16.4 Pendências para produção
+Publicar as funções sem `-preview` e trocar a URL do webhook; chip novo de Campanhas (registro + PIN pelo sistema);
+publicar o app (política de privacidade/exclusão de dados); forma de pagamento na WABA (BRL); verificação da empresa
+(refazer com país Brasil); perfil comercial; opt-in LGPD; Etapa 3 (templates + campanhas).
