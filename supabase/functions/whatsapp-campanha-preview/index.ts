@@ -1,4 +1,4 @@
-// Edge Function: whatsapp-campanha-preview (v1 · 18/11/2026)
+// Edge Function: whatsapp-campanha-preview (v2 · 18/11/2026 — acesso técnico só para modelos)
 // Projeto Marketing Meta · Etapa 3 (versão enxuta) — modelos (templates) e disparo de campanha por WhatsApp.
 //
 // Ações (body.acao):
@@ -77,7 +77,10 @@ function primeiroNome(n: string | null) {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Método não permitido." });
-  const u = await quem(req).catch(() => null);
+  // Acesso técnico (somente criar/listar modelos — nunca envia): cabeçalho x-diag = WHATSAPP_VERIFY_TOKEN
+  const diag = Deno.env.get("WHATSAPP_VERIFY_TOKEN");
+  const viaSistema = !!diag && req.headers.get("x-diag") === diag;
+  const u = viaSistema ? { id: null as any, nome: "Claude (sistema)", admin: true } : await quem(req).catch(() => null);
   if (!u) return json(401, { error: "Faça login no sistema com um usuário da equipe." });
   const TOKEN = Deno.env.get("WHATSAPP_TOKEN");
   if (!TOKEN) return json(503, { error: "WHATSAPP_TOKEN não configurado." });
@@ -85,6 +88,7 @@ Deno.serve(async (req: Request) => {
   let b: any = {};
   try { b = await req.json(); } catch { return json(400, { error: "JSON inválido." }); }
   const acao = String(b.acao || "");
+  if (viaSistema && !["templates", "template_criar"].includes(acao)) return json(403, { error: "Ação não permitida por acesso técnico." });
   const exigeAdmin = ["template_criar", "preparar", "enviar"].includes(acao);
   if (exigeAdmin && !u.admin) return json(403, { error: "Somente administrador com permissão de escrita." });
 
