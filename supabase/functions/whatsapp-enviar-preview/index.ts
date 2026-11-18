@@ -1,8 +1,10 @@
-// Edge Function: whatsapp-enviar-preview (v2 · 16/11/2026 — fallback do 9º dígito)
+// Edge Function: whatsapp-enviar-preview (v3 · 18/11/2026 — prévia de modelo dentro da janela de 24h)
 // Projeto Marketing Meta · Etapa 2 — envio de mensagens pela Cloud API (Meta).
 //
 // Ações (body.acao):
 //   "enviar_texto"  { conversa_id, texto }  → envia texto livre (só dentro da janela de 24h)
+//   "previa_modelo" { conversa_id, template_id } → envia, dentro da janela de 24h, uma mensagem igual ao modelo
+//                                             (imagem + texto + rodapé + botão de link) — teste gratuito, sem cota
 //   "marcar_lida"   { conversa_id }         → zera não lidas e marca a última mensagem recebida
 //                                             como lida no WhatsApp do cliente (✔✔ azul)
 //
@@ -66,7 +68,10 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json(405, { error: "Método não permitido." });
 
-  const quem = await membroEquipe(req);
+  // Acesso técnico (somente "previa_modelo", e só com a janela de 24h aberta): cabeçalho x-diag
+  const diag = Deno.env.get("WHATSAPP_VERIFY_TOKEN");
+  const viaSistema = !!diag && req.headers.get("x-diag") === diag;
+  const quem = viaSistema ? { id: null as any, nome: "Claude (sistema)" } : await membroEquipe(req);
   if (quem instanceof Response) return quem;
 
   const TOKEN = Deno.env.get("WHATSAPP_TOKEN");
@@ -75,6 +80,7 @@ Deno.serve(async (req: Request) => {
   let body: any = {};
   try { body = await req.json(); } catch { return json(400, { error: "JSON inválido." }); }
   const acao = String(body.acao || "");
+  if (viaSistema && acao !== "previa_modelo") return json(403, { error: "Ação não permitida por acesso técnico." });
   const conversaId = Number(body.conversa_id);
   if (!conversaId) return json(400, { error: "conversa_id obrigatório." });
 
@@ -97,6 +103,47 @@ Deno.serve(async (req: Request) => {
         }).catch(() => null);
       }
       return json(200, { ok: true });
+    }
+
+    // ── Prévia do modelo (mensagem interativa com imagem + botão de link, dentro da janela) ──
+    if (acao === "previa_modelo") {
+      const t = (await sbGet(`cda_whatsapp_templates?id=eq.${Number(body.template_id)}&select=*`))[0];
+      if (!t) return json(404, { error: "Modelo não encontrado." });
+      const sup = await sbGet(`cda_whatsapp_supressoes?telefone=eq.${encodeURIComponent(conv.contato_wa)}&select=telefone`);
+      if (sup.length) return json(422, { error: "Contato em opt-out. Envio bloqueado." });
+      const exp = conv.janela_expira_em ? new Date(conv.janela_expira_em).getTime() : 0;
+      if (exp <= Date.now()) return json(422, { error: "Janela de 24h fechada: peça para a pessoa mandar uma mensagem primeiro.", janela_fechada: true });
+      const pn = String(conv.contato_nome || "").replace(/[()\[\]]/g, " ").trim().split(/\s+/)[0] || "cliente";
+      const nome = pn.charAt(0).toUpperCase() + pn.slice(1).toLowerCase();
+      const texto = String(t.corpo).replace(/\{\{1\}\}/g, nome);
+      const interactive: any = { type: "cta_url", body: { text: texto },
+        action: { name: "cta_url", parameters: { display_text: String(t.botao_texto || "Ver ofertas").slice(0, 20), url: t.botao_url || "https://www.ciclodaarte.com.br/" } } };
+      if (t.cabecalho_imagem_url) interactive.header = { type: "image", image: { link: t.cabecalho_imagem_url } };
+      if (t.rodape) interactive.footer = { text: String(t.rodape).slice(0, 60) };
+      const ultEntrada = await sbGet(`cda_whatsapp_mensagens?conversa_id=eq.${conversaId}&direcao=eq.entrada&order=ocorrido_em.desc&limit=1&select=conteudo_bruto`);
+      const doWaId = String(ultEntrada[0]?.conteudo_bruto?.from || "");
+      const cands = [doWaId, conv.contato_wa].filter((x, i, a) => x && a.indexOf(x) === i);
+      let r: Response | null = null, j: any = {}, destino = cands[0];
+      for (const alvo of cands) {
+        destino = alvo;
+        r = await fetch(`${G}/${phoneId}/messages`, { method: "POST", headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: alvo, type: "interactive", interactive }) });
+        j = await r.json().catch(() => ({}));
+        const cod = j?.error?.code;
+        if (!(r.ok && !j?.error) && (cod === 131030 || cod === 131026) && alvo !== cands[cands.length - 1]) continue;
+        break;
+      }
+      const agora = new Date().toISOString();
+      const previa = `[Prévia do modelo ${t.nome}]\n${texto}\n— ${t.rodape || ""}\n[${t.botao_texto || "Ver ofertas"}] → ${t.botao_url || ""}`;
+      if (!r!.ok || j?.error) {
+        const erro = { codigo: j?.error?.code, mensagem: j?.error?.error_user_msg || j?.error?.message, detalhe: j?.error?.error_data?.details };
+        await sbInsert("cda_whatsapp_mensagens", { conversa_id: conversaId, direcao: "saida", tipo: "interactive", texto: previa, status: "falha", erro, enviado_por: quem.id, ocorrido_em: agora });
+        return json(502, { error: "A Meta recusou a prévia: " + erro.mensagem, erro });
+      }
+      const msg = await sbInsert("cda_whatsapp_mensagens", { conversa_id: conversaId, wa_message_id: j?.messages?.[0]?.id || null, direcao: "saida", tipo: "interactive",
+        texto: previa, status: "pendente", enviado_por: quem.id, ocorrido_em: agora, conteudo_bruto: { to: destino, interactive, resposta_meta: j } });
+      await sbPatch(`cda_whatsapp_conversas?id=eq.${conversaId}`, { ultima_mensagem_em: agora, ultima_mensagem_previa: previa.slice(0, 200), atualizado_em: agora });
+      return json(200, { ok: true, mensagem: msg, destino });
     }
 
     // ── Enviar texto livre ──
