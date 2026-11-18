@@ -4,7 +4,7 @@
 //
 //  • Modelos de mensagem (templates) da Meta: criar, acompanhar aprovação
 //  • Disparo por campanha (Canal Marketing = WhatsApp): preparar público, custo previsto,
-//    limite diário (250 contatos/24h), envio em lotes de até 50 com confirmação
+//    limite diário (250 contatos/24h), envio por grupo (VIP/Gold/Premium), 1 lote por clique (padrão 25, máx. 50) com confirmação
 // Edge Function: whatsapp-campanha-preview
 // ════════════════════════════════════════════════════════════════════
 
@@ -151,7 +151,10 @@ async function montarWhatsAppDisparos(el, opts) {
         '<div>Custo previsto (pendentes): <b>' + brl(r.custo_previsto) + '</b></div><div>Custo até agora (entregues): <b>' + brl(r.custo_realizado_estimado) + '</b></div></div>' +
         (editavel && (pe.pendente || 0) > 0 ? '<div class="wd-row"><select data-tpl="' + d.id + '"><option value="">Modelo aprovado…</option>' +
           aprovados.map(function (t) { return '<option value="' + t.id + '"' + (d.template_id === t.id ? ' selected' : '') + '>' + esc(t.nome) + '</option>'; }).join('') + '</select>' +
-          '<input type="number" min="1" max="' + Math.max(1, Math.min(pe.pendente || 0, r.disponivel_hoje || 0)) + '" value="' + Math.max(1, Math.min(pe.pendente || 0, r.disponivel_hoje || 0)) + '" data-qtd="' + d.id + '" style="width:80px" title="Quantidade agora">' +
+          '<select data-grupo="' + d.id + '" title="Grupo do lote">' + ['VIP', 'Gold', 'Premium'].concat(Object.keys(r.pendentes_por_grupo || {}).filter(function (g) { return ['VIP', 'Gold', 'Premium'].indexOf(g) < 0; }))
+            .filter(function (g) { return (r.pendentes_por_grupo || {})[g] > 0; })
+            .map(function (g) { return '<option value="' + esc(g) + '">' + esc(g) + ' · ' + r.pendentes_por_grupo[g] + ' pendentes</option>'; }).join('') + '</select>' +
+          '<input type="number" min="1" max="50" value="' + Math.max(1, Math.min(25, pe.pendente || 0, r.disponivel_hoje || 0)) + '" data-qtd="' + d.id + '" style="width:70px" title="Quantidade neste lote (máx. 50)">' +
           '<button class="btn sm sage" data-enviar="' + d.id + '"' + (!(r.disponivel_hoje > 0) ? ' disabled style="opacity:.4"' : '') + '>Enviar</button>' +
           (aprovados.length ? '' : '<span class="tmu" style="font-size:11px">Aguardando modelo aprovado pela Meta.</span>') + '</div><div class="wd-log" id="wd-log-' + d.id + '" style="display:none"></div>' : '') +
         '</div>';
@@ -172,24 +175,23 @@ async function montarWhatsAppDisparos(el, opts) {
   async function enviar(id) {
     var tpl = Number((el.querySelector('[data-tpl="' + id + '"]') || {}).value);
     var qtd = Number((el.querySelector('[data-qtd="' + id + '"]') || {}).value) || 0;
+    var grupo = (el.querySelector('[data-grupo="' + id + '"]') || {}).value || '';
     if (!tpl) { showToast('Escolha um modelo aprovado.', 'info'); return; }
+    if (qtd < 1) { showToast('Informe a quantidade do lote.', 'info'); return; }
+    if (qtd > 50) { showToast('Máximo de 50 mensagens por lote. Envie em mais de um clique, conferindo o resultado entre eles.', 'info'); return; }
+    if (!grupo) { showToast('Escolha o grupo (VIP, Gold ou Premium).', 'info'); return; }
     var r = ST.resumos[id] || {};
     var custo = qtd * Number((ST.disparos.find(function (d) { return d.id === id; }) || {}).tarifa_unitaria || 0.3217);
-    var conf = prompt('Enviar ' + qtd + ' mensagens de WhatsApp agora (custo estimado ' + brl(custo) + ')?\n\nDigite ENVIAR para confirmar:');
+    var conf = prompt('Enviar ' + qtd + ' mensagens de WhatsApp agora para o grupo ' + grupo + ' (custo estimado ' + brl(custo) + ')?\n\nDigite ENVIAR para confirmar:');
     if (conf !== 'ENVIAR') return;
     var log = $('#wd-log-' + id); log.style.display = 'block'; log.textContent = '';
-    var falta = qtd, totOk = 0, totFalha = 0;
     el.querySelectorAll('[data-enviar]').forEach(function (b) { b.disabled = true; });
     try {
-      while (falta > 0) {
-        var lote = Math.min(50, falta);
-        log.textContent += 'Enviando lote de ' + lote + '…\n';
-        var d = await cdaWaCampanha({ acao: 'enviar', disparo_id: id, template_id: tpl, quantidade: lote, confirmacao: 'ENVIAR' });
-        totOk += d.enviadas; totFalha += d.falhas; falta -= (d.enviadas + d.falhas);
-        log.textContent += '✓ ' + d.enviadas + ' enviadas, ' + d.falhas + ' falhas · livres hoje: ' + d.disponivel_hoje + '\n';
-        if (!d.ha_pendentes || d.disponivel_hoje <= 0 || (d.enviadas + d.falhas) === 0) break;
-      }
-      showToast('Disparo: ' + totOk + ' enviadas, ' + totFalha + ' falhas');
+      // Um lote por clique (máx. 50): confira entregues / falhas / SAIR antes do próximo
+      log.textContent += 'Enviando lote de ' + qtd + ' (' + grupo + ')…\n';
+      var d = await cdaWaCampanha({ acao: 'enviar', disparo_id: id, template_id: tpl, quantidade: qtd, grupo: grupo, confirmacao: 'ENVIAR' });
+      log.textContent += '✓ ' + d.enviadas + ' enviadas, ' + d.falhas + ' falhas · livres hoje: ' + d.disponivel_hoje + '\n';
+      showToast('Lote ' + grupo + ': ' + d.enviadas + ' enviadas, ' + d.falhas + ' falhas');
     } catch (e) { log.textContent += '⚠ ' + e.message + '\n'; showToast(e.message, 'error'); }
     carregarDisparos();
   }

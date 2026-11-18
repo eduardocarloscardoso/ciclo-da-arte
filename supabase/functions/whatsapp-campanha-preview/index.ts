@@ -1,4 +1,4 @@
-// Edge Function: whatsapp-campanha-preview (v2 · 18/11/2026 — acesso técnico só para modelos)
+// Edge Function: whatsapp-campanha-preview (v3 · 18/11/2026 — envio por grupo; acesso técnico só para modelos)
 // Projeto Marketing Meta · Etapa 3 (versão enxuta) — modelos (templates) e disparo de campanha por WhatsApp.
 //
 // Ações (body.acao):
@@ -149,14 +149,17 @@ Deno.serve(async (req: Request) => {
       const d = (await sb(`cda_whatsapp_disparos?id=eq.${id}&select=*`))?.[0];
       if (!d) return json(404, { error: "Disparo não encontrado." });
       const itens = await sb(`cda_whatsapp_disparo_itens?disparo_id=eq.${id}&select=estado,grupo&limit=20000`);
-      const por: Record<string, number> = {}, grupos: Record<string, number> = {};
-      for (const i of itens) { por[i.estado] = (por[i.estado] || 0) + 1; grupos[i.grupo || "—"] = (grupos[i.grupo || "—"] || 0) + 1; }
+      const por: Record<string, number> = {}, grupos: Record<string, number> = {}, pendGrupo: Record<string, number> = {};
+      for (const i of itens) {
+        por[i.estado] = (por[i.estado] || 0) + 1; grupos[i.grupo || "—"] = (grupos[i.grupo || "—"] || 0) + 1;
+        if (i.estado === "pendente") pendGrupo[i.grupo || "—"] = (pendGrupo[i.grupo || "—"] || 0) + 1;
+      }
       const usados = Number(await rpc("cda_wa_contatos_24h", {}));
       const msgs = await sb(`cda_whatsapp_mensagens?campanha_id=eq.${d.campanha_id}&direcao=eq.saida&template_nome=not.is.null&select=status,cobravel`);
       const st: Record<string, number> = {};
       for (const m of msgs) st[m.status] = (st[m.status] || 0) + 1;
       const entregues = (st.entregue || 0) + (st.lida || 0);
-      return json(200, { ok: true, disparo: d, por_estado: por, grupos, total: itens.length,
+      return json(200, { ok: true, disparo: d, por_estado: por, grupos, pendentes_por_grupo: pendGrupo, total: itens.length,
         limite_dia: LIMITE_DIA, usados_24h: usados, disponivel_hoje: Math.max(0, LIMITE_DIA - usados),
         custo_previsto: Number(((por.pendente || 0) * d.tarifa_unitaria).toFixed(2)),
         status_mensagens: st, custo_realizado_estimado: Number((entregues * d.tarifa_unitaria).toFixed(2)) });
@@ -175,7 +178,8 @@ Deno.serve(async (req: Request) => {
       const livre = Math.max(0, LIMITE_DIA - usados);
       if (!livre) return json(429, { error: `Limite diário atingido (${LIMITE_DIA} contatos em 24h). Continue amanhã.`, usados_24h: usados });
       const n = Math.min(qtd, livre);
-      const fila = await sb(`cda_whatsapp_disparo_itens?disparo_id=eq.${id}&estado=eq.pendente&order=ordem.asc&limit=${n}&select=*`);
+      const grupo = b.grupo ? String(b.grupo) : "";
+      const fila = await sb(`cda_whatsapp_disparo_itens?disparo_id=eq.${id}&estado=eq.pendente${grupo ? `&grupo=eq.${encodeURIComponent(grupo)}` : ""}&order=ordem.asc&limit=${n}&select=*`);
       await sb(`cda_whatsapp_disparos?id=eq.${id}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ situacao: "enviando", template_id: tplId, atualizado_em: new Date().toISOString() }) });
 
       let ok = 0, falhas = 0;
