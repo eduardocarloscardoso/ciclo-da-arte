@@ -106,7 +106,9 @@ async function montarModuloWhatsApp(containerId, opts) {
     '</style>' +
     '<div class="row-bt"><div><div class="sec-t">💬 Conversas WhatsApp</div>' +
     '<div class="sec-d">Atendimento pelo WhatsApp oficial, ligado a Clientes, Pipeline B2C, Diário e Tarefas · <span id="wa-num" class="mn"></span></div></div>' +
-    '<div style="display:flex;gap:7px"><button class="btn sm" id="wa-atualizar">↻ Atualizar</button></div></div>' +
+    '<div style="display:flex;gap:7px"><button class="btn sm rust" id="wa-aba-conv">💬 Conversas</button><button class="btn sm" id="wa-aba-disp">📣 Disparos de campanha</button><button class="btn sm" id="wa-atualizar">↻ Atualizar</button></div></div>' +
+    '<div id="wa-view-disp" style="display:none"></div>' +
+    '<div id="wa-view-conv">' +
     '<div class="wa-kp" id="wa-kp"></div>' +
     '<div class="wa-wrap" id="wa-wrap">' +
       '<div class="wa-col lista">' +
@@ -120,7 +122,7 @@ async function montarModuloWhatsApp(containerId, opts) {
       '</div>' +
       '<div class="wa-col conv" id="wa-conv"><div class="wa-vazio">Selecione uma conversa à esquerda.</div></div>' +
       '<div class="wa-col inf" id="wa-inf"><div class="wa-vazio" style="font-size:12px">Dados do contato aparecem aqui.</div></div>' +
-    '</div>';
+    '</div></div>';
 
   var $ = function (s) { return host.querySelector(s); };
 
@@ -453,6 +455,17 @@ async function montarModuloWhatsApp(containerId, opts) {
   ['#wa-f-busca'].forEach(function (s) { $(s).addEventListener('input', renderLista); });
   ['#wa-f-sit', '#wa-f-resp', '#wa-f-nl'].forEach(function (s) { $(s).addEventListener('change', renderLista); });
   $('#wa-atualizar').addEventListener('click', function () { atualizar(false); });
+  var dispMontado = false;
+  function aba(qual) {
+    $('#wa-view-conv').style.display = qual === 'conv' ? '' : 'none';
+    $('#wa-view-disp').style.display = qual === 'disp' ? '' : 'none';
+    $('#wa-aba-conv').classList.toggle('rust', qual === 'conv');
+    $('#wa-aba-disp').classList.toggle('rust', qual === 'disp');
+    $('#wa-atualizar').style.display = qual === 'conv' ? '' : 'none';
+    if (qual === 'disp' && !dispMontado && typeof montarWhatsAppDisparos === 'function') { dispMontado = true; montarWhatsAppDisparos($('#wa-view-disp'), { editavel: editavel }); }
+  }
+  $('#wa-aba-conv').addEventListener('click', function () { aba('conv'); });
+  $('#wa-aba-disp').addEventListener('click', function () { aba('disp'); });
 
   try {
     await carregarBase();
