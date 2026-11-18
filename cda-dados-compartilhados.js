@@ -978,7 +978,7 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
     '<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">' + esc(previa) + '&#847;&zwnj;&nbsp;'.repeat(30) + '</div>' +
     '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f2efe9;"><tr><td align="center" style="padding:24px 12px;">' +
     '<table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;">' +
-      '<tr><td style="background:#1a1a1a;padding:14px 24px;' + fonte + 'font-size:13px;letter-spacing:3px;color:#ffffff;font-weight:bold;">CICLO DA ARTE</td></tr>' +
+      '<tr><td style="background:#1a1a1a;padding:14px 24px;' + fonte + 'font-size:13px;letter-spacing:3px;color:#ffffff;font-weight:bold;">CICLO ARTE</td></tr>' +
       (k.imagemUrl ? '<tr><td><a href="' + esc(link || '#') + '"><img src="' + esc(k.imagemUrl) + '" width="600" alt="' + esc(v(k.imagemAlt || k.titulo || '')) + '" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></a></td></tr>' : '') +
       '<tr><td style="padding:28px 32px 8px;">' +
         (k.titulo ? '<h1 style="' + fonte + 'margin:0 0 16px;font-size:24px;line-height:1.25;color:#1a1a1a;">' + esc(v(k.titulo)) + '</h1>' : '') +
@@ -1011,9 +1011,9 @@ function cdaMontarEmailCampanha(campanha, cliente, opts) {
         '</td></tr></table></td></tr>' : '') +
       '<tr><td style="padding:18px 32px 26px;border-top:1px solid #e5e1d8;' + fonte + 'font-size:12px;line-height:1.6;color:#777;">' +
         esc(v(k.rodape || '')).replace(/\n/g, '<br>') +
-        '<br><br><b style="color:#444">Acompanhe a Ciclo da Arte</b>' +
+        '<br><br><b style="color:#444">Acompanhe a Ciclo Arte</b>' +
         '<br>Site oficial: <a href="' + esc(siteCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">www.ciclodaarte.com.br</a>' +
-        '<br>Redes sociais e novidades: <a href="' + esc(redesCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">Ciclo da Arte · redes sociais</a>' +
+        '<br>Redes sociais e novidades: <a href="' + esc(redesCiclo) + '" target="_blank" style="color:#555;text-decoration:underline">Ciclo Arte · redes sociais</a>' +
         '<br><br><a href="' + esc(descadastro) + '" style="color:#777;">Não quero mais receber estes e-mails</a></td></tr>' +
     '</table></td></tr></table></body></html>';
   const texto = [assunto, '', v(k.titulo), '', v(k.saudacao), '', v(k.texto), '',
