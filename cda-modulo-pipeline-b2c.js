@@ -515,7 +515,9 @@ async function montarModuloPipelineB2C(containerId, opts) {
     return 'ok';
   }
 
-  var visaoPipeline='tabela';
+  // Kanban é o padrão; o sistema lembra a última escolha de cada usuário neste navegador
+  var visaoPipeline='kanban';
+  try{var vSalva=localStorage.getItem('cda_pipeline_b2c_visao');if(vSalva==='tabela'||vSalva==='kanban')visaoPipeline=vSalva;}catch(e){}
   var paginaOperacional=0;
   var tamanhoPaginaOperacional=25;
   function etapaNome(id){var e=CDA_ETAPAS_B2C.find(function(x){return x.id===id;});return e?e.label:(id||'—');}
@@ -571,7 +573,8 @@ async function montarModuloPipelineB2C(containerId, opts) {
   }
   host.querySelector('#pb2c-oper-etapa').innerHTML='<option value="">Todas as etapas</option>'+
     CDA_ETAPAS_B2C.map(function(e){return '<option value="'+e.id+'">'+e.label+'</option>';}).join('');
-  host.querySelector('#pb2c-visualizacao').addEventListener('change',function(){visaoPipeline=this.value;paginaOperacional=0;render();});
+  host.querySelector('#pb2c-visualizacao').value=visaoPipeline;
+  host.querySelector('#pb2c-visualizacao').addEventListener('change',function(){visaoPipeline=this.value;try{localStorage.setItem('cda_pipeline_b2c_visao',visaoPipeline);}catch(e){}paginaOperacional=0;render();});
   host.querySelector('#pb2c-oper-etapa').addEventListener('change',function(){paginaOperacional=0;render();});
   host.querySelector('#pb2c-oper-situacao').addEventListener('change',function(){paginaOperacional=0;render();});
 
