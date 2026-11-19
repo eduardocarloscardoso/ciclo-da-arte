@@ -118,6 +118,7 @@ async function montarWhatsAppDisparos(el, opts) {
       '<div style="padding:12px 16px;font-size:11.5px" class="tmu">' +
         '<b>' + esc(t.nome) + '</b> · Aprovado pela Meta (status consultado em ' + esc(quando) + ')<br>' +
         'Categoria: Marketing · custo estimado R$ 0,32 por mensagem entregue<br>' +
+        '<div id="wd-ver-fila" style="margin:6px 0;padding:6px 8px;border:1px solid var(--border,#ddd);background:var(--paper,#faf7f0)">Calculando disparos previstos…</div>' +
         '"Maria" é só exemplo: cada cliente recebe o próprio primeiro nome. O botão abre o link real.</div>' +
       '<div class="mo-f"><button class="btn" data-x>Fechar</button></div></div>';
     el.appendChild(mo);
@@ -125,6 +126,25 @@ async function montarWhatsAppDisparos(el, opts) {
     mo.querySelector('.mo-x').addEventListener('click', fechar);
     mo.querySelector('[data-x]').addEventListener('click', fechar);
     mo.addEventListener('click', function (e) { if (e.target === mo) fechar(); });
+    previstoFilas(mo.querySelector('#wd-ver-fila'));
+  }
+  // Disparos previstos: filas de WhatsApp em aberto (pendentes × tarifa de cada fila)
+  async function previstoFilas(box) {
+    try {
+      var r = await cdaClient.from('cda_whatsapp_disparos').select('id,nome,tarifa_unitaria,situacao').not('situacao', 'in', '(concluido,cancelado)');
+      var filas = r.data || [], linhas = [], totQ = 0, totV = 0;
+      for (var i = 0; i < filas.length; i++) {
+        var c = await cdaClient.from('cda_whatsapp_disparo_itens').select('id', { count: 'exact', head: true }).eq('disparo_id', filas[i].id).eq('estado', 'pendente');
+        var q = c.count || 0, tar = Number(filas[i].tarifa_unitaria || 0.3217);
+        if (!q) continue;
+        totQ += q; totV += q * tar;
+        linhas.push(esc(filas[i].nome) + ': <b>' + q.toLocaleString('pt-BR') + '</b> pendentes × R$ ' + tar.toLocaleString('pt-BR', { minimumFractionDigits: 4 }) + ' = <b>' + brl(q * tar) + '</b>');
+      }
+      if (!linhas.length) { box.textContent = 'Nenhuma fila de disparo com pendentes no momento.'; return; }
+      box.innerHTML = '<b>Disparos previstos</b><br>' + linhas.join('<br>') +
+        (linhas.length > 1 ? '<br>Total: <b>' + totQ.toLocaleString('pt-BR') + '</b> mensagens · <b>' + brl(totV) + '</b>' : '') +
+        '<br><span style="font-size:10.5px">Limite de 250 contatos a cada 24h: ' + Math.ceil(totQ / 250) + ' dia(s) de envio.</span>';
+    } catch (e) { box.textContent = 'Não foi possível calcular os disparos previstos.'; }
   }
   function abrirNovoModelo() {
     var mo = document.createElement('div');
