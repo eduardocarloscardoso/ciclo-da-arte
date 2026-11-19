@@ -49,7 +49,7 @@ async function montarWhatsAppDisparos(el, opts) {
     '<div class="wd-sec"><div class="wd-h"><b>1 · Modelos de mensagem (aprovação da Meta)</b><div style="display:flex;gap:6px">' +
       '<button class="btn sm" id="wd-tpl-atualizar" style="color:#fff;border-color:#fff">↻ Atualizar status</button>' +
       (editavel ? '<button class="btn sm rust" id="wd-tpl-novo">＋ Novo modelo</button>' : '') + '</div></div>' +
-      '<div class="wd-b"><div id="wd-tpl-lista" class="tmu" style="font-size:12px">Carregando…</div></div></div>' +
+      '<div class="wd-b"><div id="wd-tpl-info" class="tmu" style="font-size:11px;margin-bottom:8px"></div><div id="wd-tpl-lista" class="tmu" style="font-size:12px">Carregando…</div></div></div>' +
     '<div class="wd-sec"><div class="wd-h"><b>2 · Disparo da campanha</b></div><div class="wd-b">' +
       '<div class="wd-row"><label style="font-size:11px;font-weight:700">Campanha (Canal Marketing WhatsApp)</label><select id="wd-camp"></select></div>' +
       '<div id="wd-disp"></div></div></div>';
@@ -58,13 +58,27 @@ async function montarWhatsAppDisparos(el, opts) {
 
   // ── Modelos ──
   async function carregarTemplates(silencioso) {
+    var bt = $('#wd-tpl-atualizar'), info = $('#wd-tpl-info');
+    var antes = {};
+    ST.templates.forEach(function (t) { antes[t.nome] = t.status; });
+    if (bt) { bt.disabled = true; bt.textContent = 'Consultando…'; }
+    if (info) info.textContent = 'Consultando a Meta…';
     try {
       var d = await cdaWaCampanha({ acao: 'templates' });
       ST.templates = d.templates || [];
       renderTemplates();
+      var mudaram = ST.templates.filter(function (t) { return antes[t.nome] && antes[t.nome] !== t.status; });
+      var hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      var msg = 'Consultado às ' + hora + ' · ' + (silencioso ? ST.templates.length + ' modelo(s)' :
+        (mudaram.length ? mudaram.map(function (t) { return t.nome + ': ' + (nomeStatus[t.status] || t.status); }).join(' · ') : 'nenhum modelo mudou de status'));
+      if (info) info.textContent = msg;
+      if (!silencioso) showToast(mudaram.length ? 'Status atualizado: ' + mudaram.length + ' modelo(s) mudaram' : 'Consultado · nenhum modelo mudou de status', mudaram.length ? 'success' : 'info');
     } catch (e) {
       $('#wd-tpl-lista').innerHTML = '<span style="color:var(--rust)">' + esc(e.message) + '</span>';
+      if (info) info.textContent = 'Falha na consulta: ' + e.message;
       if (!silencioso) showToast(e.message, 'error');
+    } finally {
+      if (bt) { bt.disabled = false; bt.textContent = '↻ Atualizar status'; }
     }
   }
   function renderTemplates() {
