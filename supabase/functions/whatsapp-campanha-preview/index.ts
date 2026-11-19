@@ -1,10 +1,11 @@
-// Edge Function: whatsapp-campanha-preview (v3 · 18/11/2026 — envio por grupo; acesso técnico só para modelos)
+// Edge Function: whatsapp-campanha-preview (v4 · 19/11/2026 — excluir modelo; envio por grupo; acesso técnico só para modelos)
 // Projeto Marketing Meta · Etapa 3 (versão enxuta) — modelos (templates) e disparo de campanha por WhatsApp.
 //
 // Ações (body.acao):
 //   templates          → sincroniza com a Meta os modelos da conta (status de aprovação) e devolve a lista
 //   template_criar     → cria um modelo de MARKETING na Meta (cabeçalho com imagem opcional, corpo com {{1}} = nome,
 //                        rodapé e botão de link) e grava em cda_whatsapp_templates  [admin]
+//   template_excluir   → exclui na Meta e no sistema um modelo que nunca foi usado em envio   [admin]
 //   preparar           → monta a fila do disparo para uma campanha (cda_wa_preparar_disparo)        [admin]
 //   resumo             → números da fila, limite de 24h e custo previsto/realizado
 //   enviar             → envia até N mensagens da fila (máx. 50 por chamada), respeitando o limite diário [admin]
@@ -88,8 +89,8 @@ Deno.serve(async (req: Request) => {
   let b: any = {};
   try { b = await req.json(); } catch { return json(400, { error: "JSON inválido." }); }
   const acao = String(b.acao || "");
-  if (viaSistema && !["templates", "template_criar"].includes(acao)) return json(403, { error: "Ação não permitida por acesso técnico." });
-  const exigeAdmin = ["template_criar", "preparar", "enviar"].includes(acao);
+  if (viaSistema && !["templates", "template_criar", "template_excluir"].includes(acao)) return json(403, { error: "Ação não permitida por acesso técnico." });
+  const exigeAdmin = ["template_criar", "template_excluir", "preparar", "enviar"].includes(acao);
   if (exigeAdmin && !u.admin) return json(403, { error: "Somente administrador com permissão de escrita." });
 
   try {
@@ -135,6 +136,18 @@ Deno.serve(async (req: Request) => {
           cabecalho_imagem_url: b.cabecalho_imagem_url || null, campanha_id: b.campanha_id || null, criado_por: u.nome }),
       });
       return json(200, { ok: true, template: linha?.[0], meta: r.j });
+    }
+
+    if (acao === "template_excluir") {
+      const t = (await sb(`cda_whatsapp_templates?id=eq.${Number(b.template_id)}&waba_id=eq.${num.waba_id}&select=*`))?.[0];
+      if (!t) return json(404, { error: "Modelo não encontrado." });
+      const usado = (await sb(`cda_whatsapp_disparo_itens?template_id=eq.${t.id}&select=id&limit=1`))?.length
+        || (await sb(`cda_whatsapp_disparos?template_id=eq.${t.id}&select=id&limit=1`))?.length;
+      if (usado) return json(422, { error: "Este modelo já foi usado em disparo e não pode ser excluído (histórico)." });
+      const r = await meta(`${num.waba_id}/message_templates?name=${encodeURIComponent(t.nome)}${t.meta_template_id ? `&hsm_id=${t.meta_template_id}` : ""}`, TOKEN, { method: "DELETE" });
+      if (!r.ok) return json(502, { error: "Meta recusou a exclusão: " + (r.j?.error?.error_user_msg || r.j?.error?.message || JSON.stringify(r.j)) });
+      await sb(`cda_whatsapp_templates?id=eq.${t.id}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
+      return json(200, { ok: true, excluido: t.nome, meta: r.j });
     }
 
     if (acao === "preparar") {
