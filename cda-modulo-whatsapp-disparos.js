@@ -85,12 +85,46 @@ async function montarWhatsAppDisparos(el, opts) {
     if (!ST.templates.length) { $('#wd-tpl-lista').innerHTML = 'Nenhum modelo criado ainda.'; return; }
     $('#wd-tpl-lista').innerHTML = ST.templates.map(function (t) {
       return '<div class="wd-tpl"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
-        '<b style="font-size:12.5px">' + esc(t.nome) + '</b><span class="badge ' + (corStatus[t.status] || 'b-ink') + '">' + esc(nomeStatus[t.status] || t.status) + '</span></div>' +
+        '<b style="font-size:12.5px">' + esc(t.nome) + '</b><span style="display:inline-flex;gap:6px;align-items:center">' +
+        (t.status === 'APPROVED' ? '<button class="btn sm" data-ver-tpl="' + t.id + '" title="Ver como o cliente recebe">👁 Ver mensagem</button>' : '') +
+        '<span class="badge ' + (corStatus[t.status] || 'b-ink') + '">' + esc(nomeStatus[t.status] || t.status) + '</span></span></div>' +
         (t.cabecalho_imagem_url ? '<div class="tmu" style="font-size:11px;margin-top:4px">🖼 com imagem no cabeçalho</div>' : '') +
         '<pre>' + esc(t.corpo) + (t.rodape ? '\n— ' + esc(t.rodape) : '') + (t.botao_texto ? '\n[' + esc(t.botao_texto) + '] → ' + esc(t.botao_url || '') : '') + '</pre>' +
         (t.motivo_rejeicao ? '<div style="color:var(--rust);font-size:11px;margin-top:4px">Motivo: ' + esc(t.motivo_rejeicao) + '</div>' : '') + '</div>';
     }).join('');
+    $('#wd-tpl-lista').querySelectorAll('[data-ver-tpl]').forEach(function (b) {
+      b.addEventListener('click', function () { verMensagem(Number(b.dataset.verTpl)); });
+    });
     renderDisparos();
+  }
+  // Prévia no formato de conversa do WhatsApp (o que o cliente recebe), só para modelos aprovados
+  function verMensagem(id) {
+    var t = ST.templates.find(function (x) { return x.id === id; });
+    if (!t) return;
+    var texto = esc(String(t.corpo || '').replace(/\{\{1\}\}/g, 'Maria'))
+      .replace(/Maria/, '<b>Maria</b>').replace(/\n/g, '<br>');
+    var quando = t.atualizado_em ? new Date(t.atualizado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    var mo = document.createElement('div');
+    mo.className = 'mo op';
+    mo.innerHTML = '<div class="mo-box" style="max-width:420px"><div class="mo-h"><h3>Como o cliente recebe</h3><button class="mo-x">✕</button></div>' +
+      '<div style="background:#e5ddd5;padding:18px 16px;max-height:70vh;overflow:auto">' +
+        '<div style="background:#fff;border-radius:8px;max-width:330px;box-shadow:0 1px 1px rgba(0,0,0,.15);overflow:hidden;font-family:\'DM Sans\',Arial,sans-serif">' +
+          (t.cabecalho_imagem_url ? '<img src="' + esc(t.cabecalho_imagem_url) + '" alt="Imagem do cabeçalho" style="display:block;width:100%;height:auto">' : '') +
+          '<div style="padding:8px 10px 4px;font-size:13.5px;line-height:1.4;color:#111">' + texto + '</div>' +
+          (t.rodape ? '<div style="padding:0 10px 6px;font-size:12px;color:#8a8a8a">' + esc(t.rodape) + '</div>' : '') +
+          '<div style="text-align:right;padding:0 10px 6px;font-size:10.5px;color:#8a8a8a">10:00</div>' +
+          (t.botao_texto ? '<a href="' + esc(t.botao_url || '#') + '" target="_blank" rel="noopener" style="display:block;border-top:1px solid #eee;text-align:center;padding:10px;color:#0a7cff;font-size:14px;text-decoration:none">🔗 ' + esc(t.botao_texto) + '</a>' : '') +
+        '</div></div>' +
+      '<div style="padding:12px 16px;font-size:11.5px" class="tmu">' +
+        '<b>' + esc(t.nome) + '</b> · Aprovado pela Meta (status consultado em ' + esc(quando) + ')<br>' +
+        'Categoria: Marketing · custo estimado R$ 0,32 por mensagem entregue<br>' +
+        '"Maria" é só exemplo: cada cliente recebe o próprio primeiro nome. O botão abre o link real.</div>' +
+      '<div class="mo-f"><button class="btn" data-x>Fechar</button></div></div>';
+    el.appendChild(mo);
+    var fechar = function () { mo.remove(); };
+    mo.querySelector('.mo-x').addEventListener('click', fechar);
+    mo.querySelector('[data-x]').addEventListener('click', fechar);
+    mo.addEventListener('click', function (e) { if (e.target === mo) fechar(); });
   }
   function abrirNovoModelo() {
     var mo = document.createElement('div');
