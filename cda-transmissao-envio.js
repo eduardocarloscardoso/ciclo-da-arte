@@ -9,6 +9,7 @@ function montarEnvioTransmissaoOficial(host,ctx){
   card.className='to-card';card.id='to-envio';
   card.innerHTML='<h3 style="margin:0 0 6px">Enviar e acompanhar</h3>'+
     '<p class="to-muted" data-e="resumo" style="margin:0 0 12px">Carregando…</p>'+
+    '<div data-e="kpis" hidden style="border:2px solid #1b283d;border-radius:8px;padding:12px;margin-bottom:12px"></div>'+
     '<div data-e="lgpd" hidden style="border:1px solid #fdba74;background:#fff7ed;border-radius:8px;padding:12px;margin-bottom:12px">'+
       '<b>Confirmação da base legal (uma vez por transmissão)</b>'+
       '<p data-e="lgpd-texto" style="margin:6px 0;font-size:13px"></p>'+
@@ -84,9 +85,46 @@ function montarEnvioTransmissaoOficial(host,ctx){
       $('retx-box').hidden=!d.admin||!concluida;
       $('retx-msg').innerHTML=(painel.mensagens||[]).map(m=>'<option value="'+m.id+'"'+(Number(m.id)===Number(painel.mensagem_id)?'':' selected')+'>'+esc(m.nome)+(Number(m.id)===Number(painel.mensagem_id)?' (mesma desta transmissão)':'')+'</option>').join('');
       if(painel.situacao==='encerrada')$('resumo').textContent='Transmissão #'+painel.transmissao_id+' encerrada · '+resumoEstados(painel.por_estado)+'.';
+      renderKpis();
       await carregarLote();
       await carregarInconsistencias();
     }catch(e){$('resumo').textContent='Não foi possível consultar: '+e.message;}
+  }
+  // Quadro "Resultado do envio": cartões com quantidade e % sobre o total da transmissão
+  let timerKpis=null;
+  function renderKpis(){
+    const box=$('kpis'),pe=painel?.por_estado||{},total=Number(painel?.total)||0;
+    const proc=Object.values(pe).reduce((a,b)=>a+Number(b||0),0);
+    if(!total||!proc){box.hidden=true;return;}
+    box.hidden=false;
+    const pct=v=>!total?'—':(v>0&&v/total<0.001)?'< 0,1%':(Math.round(v/total*1000)/10).toLocaleString('pt-BR')+'%';
+    const aguard=Number(pe.aceita||0)+Number(pe.solicitada||0)+Number(pe.indeterminada||0);
+    const cards=[
+      ['✅ Entregues',Number(pe.entregue||0),'#166534','#ecfdf3'],
+      ['⏳ Aguardando confirmação',aguard,'#1d4ed8','#eff6ff'],
+      ['⏱️ Atrasados',Number(pe.atrasado||0),'#a16207','#fefce8'],
+      ['↩️ Devolvidos',Number(pe.devolvida||0),'#9a3412','#fff7ed'],
+      ['⚠️ Spam / reclamação',Number(pe.reclamacao||0),'#991b1b','#fef2f2'],
+      ['🚫 Suprimidos',Number(pe.suprimido||0)+Number(pe.falha||0),'#475569','#f8fafc']
+    ].filter((c,i)=>i<2||c[1]>0);
+    const concl=Number(painel.pendentes)===0;
+    box.innerHTML='<div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px;align-items:baseline">'+
+      '<b style="font-size:15px">Resultado do envio</b><span style="font-size:13px">'+
+      (concl?'✅ <b>'+proc.toLocaleString('pt-BR')+' de '+total.toLocaleString('pt-BR')+'</b> processados · envio concluído':'<b>'+proc.toLocaleString('pt-BR')+' de '+total.toLocaleString('pt-BR')+'</b> processados · '+Number(painel.pendentes).toLocaleString('pt-BR')+' a enviar')+'</span></div>'+
+      '<div style="height:10px;background:#e5e7eb;border-radius:5px;margin:8px 0 10px;overflow:hidden"><span style="display:block;height:100%;width:'+Math.min(100,proc/total*100)+'%;background:#166534"></span></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+cards.map(c=>'<div style="flex:1 1 140px;border:1px solid '+c[2]+'33;background:'+c[3]+';border-radius:8px;padding:8px 10px">'+
+        '<div style="font-size:12px;color:'+c[2]+'">'+c[0]+'</div><div style="font-size:22px;font-weight:700;color:'+c[2]+'">'+c[1].toLocaleString('pt-BR')+'</div>'+
+        '<div style="font-size:12px;color:#555">'+pct(c[1])+' do total</div></div>').join('')+'</div>'+
+      (aguard+Number(pe.atrasado||0)>0?'<p style="margin:8px 0 0;font-size:12px;color:#555">Os aguardando e atrasados viram "entregue" ou "devolvido" conforme os provedores confirmam. Este quadro se atualiza sozinho a cada minuto.</p>':'');
+    clearTimeout(timerKpis);
+    if(!rodando&&aguard+Number(pe.atrasado||0)>0&&document.body.contains(card))timerKpis=setTimeout(atualizarKpis,60000);
+  }
+  async function atualizarKpis(){
+    if(rodando||!transmissaoAtual||!document.body.contains(card))return;
+    try{const d=await chamar({acao:'painel',transmissao_id:transmissaoAtual});painel=d.painel;
+      const lim=painel.limites||{};
+      $('resumo').textContent='Transmissão #'+painel.transmissao_id+' · '+resumoEstados(painel.por_estado)+
+        ' · hoje: '+painel.enviados_hoje+' de '+(lim.dia||300)+' (limite '+(lim.minuto||10)+'/min, '+(lim.hora||120)+'/h).';renderKpis();}catch(e){}
   }
   async function carregarInconsistencias(){
     try{
