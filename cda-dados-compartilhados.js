@@ -698,6 +698,26 @@ function cdaListaValor(v) {
   return (v === '' || v == null) ? [] : [String(v)];
 }
 function cdaEmailValido(email) { return CDA_REGEX_EMAIL.test(String(email || '').trim()); }
+// Celular válido para WhatsApp — MESMA regra da fila de disparo (SQL cda_wa_normalizar
+// + celular brasileiro 55 + DDD + 9 + 8 dígitos). Fonte: celular, senão telefone principal, senão telefone.
+function cdaWaNormalizar(p) {
+  var d = String(p == null ? '' : p).replace(/\D/g, '');
+  if (!d) return null;
+  d = d.replace(/^0+/, '');
+  if ((d.length === 12 || d.length === 13) && d.slice(0, 2) === '55') d = d.slice(2);
+  if (d.length !== 10 && d.length !== 11) return null;
+  if (d.charAt(0) === '0' || d.charAt(1) === '0') return null;
+  var loc = d.slice(2);
+  if (loc.length === 8 && loc.charAt(0) >= '6' && loc.charAt(0) <= '9') loc = '9' + loc;
+  if (loc.length === 9 && loc.charAt(0) !== '9') return null;
+  return '55' + d.slice(0, 2) + loc;
+}
+function cdaCelularWhatsApp(cliente) {
+  if (!cliente) return null;
+  var bruto = [cliente.celular, cliente['telefone-principal'], cliente.telefone].find(function (x) { return x != null && String(x).trim() !== ''; });
+  var n = cdaWaNormalizar(bruto);
+  return n && /^55\d{2}9\d{8}$/.test(n) ? n : null;
+}
 
 function cdaMotorSegmento(compras, ctx) {
   ctx = ctx || {};
@@ -778,6 +798,7 @@ function cdaMotorSegmento(compras, ctx) {
       }
       case 'nunca_comprou': return agg.qtd === 0;
       case 'tem_email': return cdaEmailValido(cliente.email);
+      case 'tem_celular': return !!cdaCelularWhatsApp(cliente);
       case 'valor_gasto': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.total > Number(f.valor) : agg.total < Number(f.valor));
       case 'qtd_compras': return (f.valor === '' || f.valor == null) || (f.operador === '>' ? agg.qtd >= Number(f.valor) : agg.qtd < Number(f.valor));
       case 'canal': return !f.valor || agg.canais.has(String(f.valor));

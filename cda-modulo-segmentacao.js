@@ -115,6 +115,16 @@ async function montarModuloSegmentacao(containerId, opts) {
       '.seg-tipos-grupo label{display:inline-flex;align-items:center;gap:5px;font-size:12px;margin:0 14px 6px 0;cursor:pointer;}' +
       '.seg-lista-item .resumo{flex:2;min-width:220px;font-size:11px;color:var(--muted,#888);}' +
       '.seg-lista-item .dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px;}' +
+      '.seg-mod-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}' +
+      '@media (max-width:900px){.seg-mod-grid{grid-template-columns:1fr;}}' +
+      '.seg-mod-col{min-width:0;}' +
+      '.seg-mod-h{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;padding:6px 0;border-bottom:2px solid var(--ink,#1a1a1a);margin-bottom:4px;}' +
+      '.seg-mod-h .tmu{font-size:10px;}' +
+      '.seg-mod-item{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid var(--border,#ddd);font-size:12px;}' +
+      '.seg-mod-item .nome{flex:1;min-width:0;}' +
+      '.seg-mod-item .regra{display:block;font-size:10px;color:var(--muted,#888);}' +
+      '.seg-mod-item .qtd{font-family:\'DM Serif Display\',serif;font-size:17px;min-width:60px;text-align:right;cursor:help;}' +
+      '.seg-mod-col .seg-recalc{margin-top:8px;flex-direction:column;align-items:flex-start;}' +
     '</style>' +
     '<div id="seg-carregando" class="seg-carregando">⏳ Aguarde, carregando a Segmentação de Clientes…</div>' +
     '<div id="seg-conteudo" hidden>' +
@@ -122,13 +132,22 @@ async function montarModuloSegmentacao(containerId, opts) {
     '<div id="seg-vista-lista">' +
       '<div class="row-bt">' +
         '<div><div class="sec-t">Segmentação de Clientes</div><div class="sec-d">A segmentação diz quais filtros usar — os valores (qual artista, qual praça, quantos dias...) são preenchidos em cada Campanha</div></div>' +
-        '<div style="display:flex;gap:7px;"><button class="btn" id="seg-btn-valores">⚙ Valores Premium/VIP</button>' +
+        '<div style="display:flex;gap:7px;">' +
         (editavel ? '<button class="btn rust" id="seg-btn-nova">✚ Nova segmentação</button>' : '') + '</div>' +
       '</div>' +
-      '<div class="seg-recalc" id="seg-recalc" hidden></div>' +
       '<div id="seg-nota-exclusao" class="seg-nota"></div>' +
       '<div class="seg-lista-sec"><div class="seg-lista-tit">Segmentações parametrizadas <span class="tmu">· filtros preenchidos em cada campanha</span></div><div id="seg-lista-p"></div></div>' +
-      '<div class="seg-lista-sec"><div class="seg-lista-tit">Modelos comerciais <span class="tmu">· calculados pelo sistema todo dia</span></div><div id="seg-lista-m"></div></div>' +
+      '<div class="seg-lista-sec"><div class="seg-lista-tit">Modelos comerciais <span class="tmu" id="seg-mod-calc">· calculados pelo sistema toda noite</span></div>' +
+        '<div class="seg-mod-grid">' +
+          '<div class="seg-mod-col"><div class="seg-mod-h"><b>Status do cliente</b><span class="tmu">comportamento de compra</span></div><div id="seg-lista-m"></div></div>' +
+          '<div class="seg-mod-col"><div class="seg-mod-h"><b>Classificação por valor</b>' + '<button class="btn sm" id="seg-btn-valores" title="Ajustar as faixas de valor de Premium, Gold e VIP">⚙ Ajustar faixas</button></div>' +
+            '<div id="seg-lista-v"></div>' +
+            '<div class="seg-nota" id="seg-faixas-info" style="margin:6px 0 0"></div>' +
+            '<div class="seg-recalc" id="seg-recalc" hidden></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="seg-nota" style="margin:8px 0 0">Para usar como público, escolha o modelo ao criar a <b>Campanha</b>. Para combinar com outros filtros (ex.: VIP + SP), use <b>⧉ Duplicar</b>.</div>' +
+      '</div>' +
     '</div>' +
     // ── Cadastro de segmentação parametrizada: nome + filtros que ela usa ──
     '<div id="seg-vista-cadastro" hidden>' +
@@ -258,6 +277,7 @@ async function montarModuloSegmentacao(containerId, opts) {
         renderRecalculo();
       } catch (err) { alert('Erro ao salvar: ' + (err.message || err)); }
     });
+    if (MODELOS) renderLista(); // faixas e data aparecem na coluna "Classificação por valor"
   }
   renderRecalculo();
 
@@ -279,13 +299,34 @@ async function montarModuloSegmentacao(containerId, opts) {
           ? '<button class="btn sm" data-acao="editar">✎ Editar</button><button class="btn sm" data-acao="duplicar">⧉ Duplicar</button><button class="btn sm" data-acao="excluir">🗑 Excluir</button>'
           : '<button class="btn sm" data-acao="editar">👁 Ver</button>') + '</span></div>';
     }).join('') : '<div class="seg-vazio">Nenhuma segmentação ainda.' + (editavel ? ' Use "✚ Nova segmentação".' : '') + '</div>';
-    host.querySelector('#seg-lista-m').innerHTML = MODELOS.map(function (m) {
-      return '<div class="seg-lista-item" data-modelo="' + escH(m.id) + '">' +
-        '<span class="nome"><span class="dot" style="background:' + escH(m.cor) + '"></span>' + escH(m.nome) + '</span>' +
-        '<span class="resumo">' + escH(m.resumo) + '</span>' +
-        '<span class="acoes"><button class="btn sm" data-acao="ver">' + (editavel ? '✎ Editar' : '👁 Ver') + '</button>' +
-        (editavel ? '<button class="btn sm" data-acao="duplicar">⧉ Duplicar</button>' : '') + '</span></div>';
-    }).join('');
+    // Modelos comerciais em duas colunas: Status do cliente | Classificação por valor
+    var ordemValor = ['vip', 'gold', 'premium'];
+    var faixa = { vip: ST.parametros && ST.parametros.valorVip, gold: ST.parametros && ST.parametros.valorGold, premium: ST.parametros && ST.parametros.valorPremium };
+    function contar(m) {
+      var t = 0, e = 0, w = 0;
+      ST.clientes.forEach(function (c) {
+        var ok = ordemValor.indexOf(m.codigo) !== -1 ? (c.tagsComercial || []).indexOf(m.codigo) !== -1 : String(c.statusCrmId) === String(m.filtros[0].valor);
+        if (!ok) return;
+        t++; if (cdaEmailValido(c.email)) e++; if (cdaCelularWhatsApp(c)) w++;
+      });
+      return { t: t, e: e, w: w };
+    }
+    function itemModelo(m) {
+      var q = contar(m), ehValor = ordemValor.indexOf(m.codigo) !== -1;
+      var regra = ehValor ? (faixa[m.codigo] ? 'gasto total > ' + fmtBRL(faixa[m.codigo]) : 'classificação de valor') : (m.descricao || 'status calculado pelo sistema');
+      return '<div class="seg-mod-item" data-modelo="' + escH(m.id) + '">' +
+        '<span class="nome"><span class="dot" style="background:' + escH(m.cor) + '"></span><b>' + escH(m.nome) + '</b><span class="regra">' + escH(regra) + '</span></span>' +
+        '<span class="qtd" title="' + q.e.toLocaleString('pt-BR') + ' com e-mail válido · ' + q.w.toLocaleString('pt-BR') + ' com celular válido (WhatsApp)">' + q.t.toLocaleString('pt-BR') + '</span>' +
+        (editavel ? '<button class="btn sm" data-acao="duplicar" title="Criar uma segmentação parametrizada a partir deste modelo">⧉ Duplicar</button>' : '') + '</div>';
+    }
+    var modStatus = MODELOS.filter(function (m) { return ordemValor.indexOf(m.codigo) === -1; });
+    var modValor = ordemValor.map(function (c) { return MODELOS.find(function (m) { return m.codigo === c; }); }).filter(Boolean);
+    host.querySelector('#seg-lista-m').innerHTML = modStatus.map(itemModelo).join('') || '<div class="seg-vazio">—</div>';
+    host.querySelector('#seg-lista-v').innerHTML = modValor.map(itemModelo).join('') || '<div class="seg-vazio">—</div>';
+    var p = ST.parametros || {};
+    host.querySelector('#seg-faixas-info').textContent = 'Faixas atualizadas em ' + fmtDataBR(p.atualizadoEm) + (p.atualizadoPor ? ' por ' + p.atualizadoPor : '') + (p.modo ? ' · modo ' + (p.modo === 'automatico' ? 'Automático' : 'Manual') : '') + '. Passe o mouse no número para ver quantos têm e-mail e WhatsApp.';
+    var ult = ST.clientes.reduce(function (a, c) { return c.statusCrmAtualizadoEm && c.statusCrmAtualizadoEm > a ? c.statusCrmAtualizadoEm : a; }, '');
+    if (ult) host.querySelector('#seg-mod-calc').textContent = '· calculados pelo sistema toda noite · último cálculo: ' + new Date(ult).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
     host.querySelectorAll('#seg-lista-p [data-acao]').forEach(function (b) {
       b.addEventListener('click', async function () {
         var sg = ST.segmentos.find(function (x) { return String(x.id) === b.closest('.seg-lista-item').dataset.id; });
@@ -300,12 +341,11 @@ async function montarModuloSegmentacao(containerId, opts) {
         } catch (err) { console.error(err); alert('Erro ao excluir — veja o console.'); }
       });
     });
-    host.querySelectorAll('#seg-lista-m [data-acao]').forEach(function (b) {
+    host.querySelectorAll('#seg-lista-m [data-acao], #seg-lista-v [data-acao]').forEach(function (b) {
       b.addEventListener('click', function () {
-        var m = MODELOS.find(function (x) { return x.id === b.closest('.seg-lista-item').dataset.modelo; });
+        var m = MODELOS.find(function (x) { return x.id === b.closest('.seg-mod-item').dataset.modelo; });
         if (!m) return;
-        if (b.dataset.acao === 'ver') abrirModelo(m);
-        else abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
+        abrirCadastro({ nome: m.nome, filtros: m.filtros.map(function (f) { return { tipo: f.tipo }; }) }, true);
       });
     });
   }

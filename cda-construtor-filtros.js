@@ -51,7 +51,8 @@ var CDA_TIPOS_FILTRO_SEG = [
 
   { id: 'tipo_comercial', label: 'Tipo Comercial', grupo: 'CRM' },
   { id: 'sem_vendedor', label: 'Sem vendedor responsável', grupo: 'CRM' },
-  { id: 'tem_email', label: 'Tem e-mail válido', grupo: 'CRM' }
+  { id: 'tem_email', label: 'Tem e-mail válido', grupo: 'CRM' },
+  { id: 'tem_celular', label: 'Tem celular válido (WhatsApp)', grupo: 'CRM' }
 ];
 
 // Divisão dos tipos em dois blocos: Universo (de qual negócio e de onde) e
@@ -463,6 +464,7 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
         return opInput('dias', 80, f);
       case 'nunca_comprou':
       case 'tem_email':
+      case 'tem_celular':
         return '<span class="tmu" style="font-size:10px">sem critério adicional</span>';
       case 'valor_gasto':
         return opInput('R$', 100, f);
