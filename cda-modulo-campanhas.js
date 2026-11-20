@@ -436,6 +436,44 @@ async function montarModuloCampanhas(containerId, opts) {
     }, 0);
   }
 
+  // 👁 Ver mensagens: abre o e-mail completo (com o flyer) em outra aba, com um cliente de exemplo.
+  // Uma mensagem → abre direto; várias → escolhe qual. Não envia nada.
+  function verMensagens(id, btn) {
+    var c = ST.campanhas.find(function (x) { return String(x.id) === String(id); });
+    if (!c) return;
+    var msgs = ST.mensagens.filter(function (m) { return String(m.campanhaId) === String(id); })
+      .sort(function (a, b) { return String(b.atualizadoEm || b.criadoEm || '').localeCompare(String(a.atualizadoEm || a.criadoEm || '')); });
+    var abrir = function (m) {
+      if (typeof cdaMsgAbrirEmNovaAba !== 'function') { alert('Visualização indisponível nesta tela. Abra pela Biblioteca de Conteúdos.'); return; }
+      cdaMsgAbrirEmNovaAba(m, c, { nome: 'Maria', cidade: 'São Paulo', estado: 'SP' });
+    };
+    if (!msgs.length) {
+      var ehWa = (c.canaisSelecionados || []).indexOf('whatsapp') !== -1;
+      alert(ehWa ? 'Esta é uma campanha de WhatsApp: as mensagens (com o flyer) ficam em Conversas WhatsApp › Disparos de campanha › 👁 Ver mensagem.'
+        : 'Esta campanha ainda não tem mensagem na Biblioteca de Conteúdos.');
+      return;
+    }
+    if (msgs.length === 1) return abrir(msgs[0]);
+    var velho = document.getElementById('camp-msgs-pop'); if (velho) velho.remove();
+    var pop = document.createElement('div');
+    pop.id = 'camp-msgs-pop';
+    pop.style.cssText = 'position:absolute;z-index:60;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px;max-width:420px';
+    pop.innerHTML = '<b>Qual mensagem abrir?</b>' + msgs.map(function (m, i) {
+      return '<button type="button" class="btn sm" data-i="' + i + '" style="text-align:left">👁 ' + escH(m.nome) + '</button>';
+    }).join('') + '<button type="button" class="btn sm" data-i="">Cancelar</button>';
+    var r = btn.getBoundingClientRect();
+    pop.style.left = (r.left + window.scrollX) + 'px'; pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-i]'); if (!b) return;
+      pop.remove();
+      if (b.dataset.i !== '') abrir(msgs[Number(b.dataset.i)]);
+    });
+    setTimeout(function () {
+      document.addEventListener('click', function fora(ev) { if (!pop.contains(ev.target) && ev.target !== btn) { pop.remove(); document.removeEventListener('click', fora); } });
+    }, 0);
+  }
+
   function render() {
     var box = host.querySelector('#camp-lista');
     var anterior = filtroCampanha.value;
@@ -481,7 +519,7 @@ async function montarModuloCampanhas(containerId, opts) {
           acao('data-duplicar','⧉ Duplicar')+
           acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+
           acao('data-trocar-status','⇄ Trocar status')+
-          '<button class="btn sm" type="button" data-ver-msgs="'+escH(id)+'">👁 Ver mensagens</button>'+
+          '<button class="btn sm" type="button" data-ver-msgs="'+escH(id)+'" title="Abre o e-mail completo, com o flyer, em outra aba">👁 Ver mensagem</button>'+
         '</div>':'')+
         '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
       var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
@@ -571,7 +609,7 @@ async function montarModuloCampanhas(containerId, opts) {
         }
       });
     });
-    box.querySelectorAll('[data-ver-msgs]').forEach(function (btn) { btn.addEventListener('click', function () { abaPorCampanha[String(btn.dataset.verMsgs)] = 'mensagens'; render(); }); });
+    box.querySelectorAll('[data-ver-msgs]').forEach(function (btn) { btn.addEventListener('click', function () { verMensagens(btn.dataset.verMsgs, btn); }); });
     box.querySelectorAll('[data-trocar-status]').forEach(function (btn) { btn.addEventListener('click', function () { trocarStatus(btn.dataset.trocarStatus, btn); }); });
     box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
       btn.addEventListener('click', function() {
