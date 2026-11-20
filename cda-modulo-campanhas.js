@@ -436,72 +436,6 @@ async function montarModuloCampanhas(containerId, opts) {
     }, 0);
   }
 
-  // 👁 Ver mensagens: abre o e-mail completo (com o flyer) em outra aba, com um cliente de exemplo.
-  // Uma mensagem → abre direto; várias → escolhe qual. Não envia nada.
-  function verMensagens(id, btn) {
-    var c = ST.campanhas.find(function (x) { return String(x.id) === String(id); });
-    if (!c) return;
-    var msgs = ST.mensagens.filter(function (m) { return String(m.campanhaId) === String(id); })
-      .sort(function (a, b) { return String(b.atualizadoEm || b.criadoEm || '').localeCompare(String(a.atualizadoEm || a.criadoEm || '')); });
-    var abrir = function (m) {
-      if (typeof cdaMsgAbrirEmNovaAba !== 'function') { alert('Visualização indisponível nesta tela. Abra pela Biblioteca de Conteúdos.'); return; }
-      cdaMsgAbrirEmNovaAba(m, c, { nome: 'Maria', cidade: 'São Paulo', estado: 'SP' });
-    };
-    var ehWa = (c.canaisSelecionados || []).indexOf('whatsapp') !== -1 && (c.canaisSelecionados || []).indexOf('email') === -1;
-    if (ehWa) return verModelosWhatsApp(c, btn);
-    if (!msgs.length) { alert('Esta campanha ainda não tem mensagem na Biblioteca de Conteúdos.'); return; }
-    if (msgs.length === 1) return abrir(msgs[0]);
-    escolher(btn, msgs.map(function (m) { return '👁 ' + m.nome; }), function (i) { abrir(msgs[i]); });
-  }
-  // Pequena lista de escolha ancorada no botão
-  function escolher(btn, rotulos, aoEscolher) {
-    var velho = document.getElementById('camp-msgs-pop'); if (velho) velho.remove();
-    var pop = document.createElement('div');
-    pop.id = 'camp-msgs-pop';
-    pop.style.cssText = 'position:absolute;z-index:60;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px;max-width:420px';
-    pop.innerHTML = '<b style="color:var(--ink,#1a1a1a)">Qual mensagem abrir?</b>' + rotulos.map(function (r, i) {
-      return '<button type="button" class="btn sm" data-i="' + i + '" style="text-align:left">' + escH(r) + '</button>';
-    }).join('') + '<button type="button" class="btn sm" data-i="">Cancelar</button>';
-    var r = btn.getBoundingClientRect();
-    pop.style.left = (r.left + window.scrollX) + 'px'; pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
-    document.body.appendChild(pop);
-    pop.addEventListener('click', function (ev) {
-      var b = ev.target.closest('[data-i]'); if (!b) return;
-      pop.remove();
-      if (b.dataset.i !== '') aoEscolher(Number(b.dataset.i));
-    });
-    setTimeout(function () {
-      document.addEventListener('click', function fora(ev) { if (!pop.contains(ev.target) && ev.target !== btn) { pop.remove(); document.removeEventListener('click', fora); } });
-    }, 0);
-  }
-  // Campanha de WhatsApp: mostra o modelo (com o flyer) como o cliente recebe
-  async function verModelosWhatsApp(c, btn) {
-    var r = await cdaClient.from('cda_whatsapp_templates').select('*').eq('campanha_id', c.id).order('id');
-    var tpls = (r.data || []).sort(function (a, b) { return (a.status === 'APPROVED' ? 0 : 1) - (b.status === 'APPROVED' ? 0 : 1); });
-    if (!tpls.length) { alert('Esta campanha de WhatsApp ainda não tem modelo de mensagem. Crie em Conversas WhatsApp › Disparos de campanha › ＋ Novo modelo.'); return; }
-    var nomeSt = { APPROVED: 'Aprovado', PENDING: 'Em análise', REJECTED: 'Reprovado' };
-    var mostrar = function (t) {
-      var texto = escH(String(t.corpo || '').replace(/\{\{1\}\}/g, 'Maria')).replace('Maria', '<b>Maria</b>').replace(/\n/g, '<br>');
-      var mo = document.createElement('div');
-      mo.className = 'mo op';
-      mo.innerHTML = '<div class="mo-box" style="max-width:420px"><div class="mo-h"><h3>Como o cliente recebe no WhatsApp</h3><button class="mo-x" type="button">✕</button></div>' +
-        '<div style="background:#e5ddd5;padding:18px 16px;max-height:70vh;overflow:auto"><div style="background:#fff;border-radius:8px;max-width:330px;box-shadow:0 1px 1px rgba(0,0,0,.15);overflow:hidden;font-family:Arial,sans-serif">' +
-        (t.cabecalho_imagem_url ? '<img src="' + escH(t.cabecalho_imagem_url) + '" alt="Flyer" style="display:block;width:100%;height:auto">' : '') +
-        '<div style="padding:8px 10px 4px;font-size:13.5px;line-height:1.4;color:#111">' + texto + '</div>' +
-        (t.rodape ? '<div style="padding:0 10px 6px;font-size:12px;color:#8a8a8a">' + escH(t.rodape) + '</div>' : '') +
-        (t.botao_texto ? '<a href="' + escH(t.botao_url || '#') + '" target="_blank" rel="noopener" style="display:block;border-top:1px solid #eee;text-align:center;padding:10px;color:#0a7cff;font-size:14px;text-decoration:none">🔗 ' + escH(t.botao_texto) + '</a>' : '') +
-        '</div></div><div style="padding:10px 16px;font-size:11.5px" class="tmu"><b>' + escH(t.nome) + '</b> · ' + escH(nomeSt[t.status] || t.status) + '. "Maria" é só exemplo: cada cliente recebe o próprio primeiro nome.</div>' +
-        '<div class="mo-f"><button class="btn" type="button" data-x>Fechar</button></div></div>';
-      document.body.appendChild(mo);
-      var fechar = function () { mo.remove(); };
-      mo.querySelector('.mo-x').addEventListener('click', fechar);
-      mo.querySelector('[data-x]').addEventListener('click', fechar);
-      mo.addEventListener('click', function (e) { if (e.target === mo) fechar(); });
-    };
-    if (tpls.length === 1) return mostrar(tpls[0]);
-    escolher(btn, tpls.map(function (t) { return '👁 ' + t.nome + ' · ' + (nomeSt[t.status] || t.status); }), function (i) { mostrar(tpls[i]); });
-  }
-
   function render() {
     var box = host.querySelector('#camp-lista');
     var anterior = filtroCampanha.value;
@@ -547,7 +481,6 @@ async function montarModuloCampanhas(containerId, opts) {
           acao('data-duplicar','⧉ Duplicar')+
           acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+
           acao('data-trocar-status','⇄ Trocar status')+
-          '<button class="btn sm" type="button" data-ver-msgs="'+escH(id)+'" title="Abre o e-mail completo, com o flyer, em outra aba">👁 Ver mensagem</button>'+
         '</div>':'')+
         '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
       var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
@@ -637,7 +570,6 @@ async function montarModuloCampanhas(containerId, opts) {
         }
       });
     });
-    box.querySelectorAll('[data-ver-msgs]').forEach(function (btn) { btn.addEventListener('click', function () { verMensagens(btn.dataset.verMsgs, btn); }); });
     box.querySelectorAll('[data-trocar-status]').forEach(function (btn) { btn.addEventListener('click', function () { trocarStatus(btn.dataset.trocarStatus, btn); }); });
     box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
       btn.addEventListener('click', function() {
