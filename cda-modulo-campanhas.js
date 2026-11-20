@@ -103,12 +103,18 @@ async function montarModuloCampanhas(containerId, opts) {
       '#camp-preparo-modal #camp-preparo-previa{display:block;width:100%;height:clamp(260px,42vh,420px);box-sizing:border-box;background:#fff;border:1px solid #aaa;}' +
       '#camp-preparo-modal .mo-f{background:var(--paper,#fff);border-top:1px solid var(--border2,#ccc);padding:10px 16px;}' +
       '@media(max-width:700px){#camp-preparo-modal{padding:5px;}#camp-preparo-modal .mo-box{max-height:calc(100dvh - 10px);}#camp-preparo-modal .camp-preparo-fixo{max-height:43vh;}#camp-preparo-modal #camp-preparo-previa{height:300px;}}' +
+      '#camp-modal .camp-sec{border-top:2px solid var(--ink,#1a1a1a);padding-top:10px;margin-top:6px;}' +
+      '#camp-modal .camp-sec label{font-size:12px;letter-spacing:.5px;}' +
+      '#camp-modal .camp-sec-det{border-top:2px solid var(--ink,#1a1a1a);padding-top:10px;margin-top:6px;}' +
+      '#camp-modal .camp-sec-det summary{cursor:pointer;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}' +
     '</style>' +
     '<div class="row-bt">' +
       '<div><div class="sec-t">📣 Campanhas</div><div class="sec-d">Liga um segmento de clientes a uma etapa do Pipeline, com período e meta</div></div>' +
       (editavel ? '<button class="btn rust" id="camp-btn-nova">＋ Nova Campanha</button>' : '') +
     '</div>' +
     '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center">' +
+      '<label for="camp-f-status" style="font-size:12px;font-weight:600">Status</label>' +
+      '<select id="camp-f-status" aria-label="Filtrar por status" style="padding:7px"><option value="ativa" selected>Ativas</option><option value="pausada">Pausadas</option><option value="encerrada">Encerradas</option><option value="">Todas</option></select>' +
       '<label for="camp-f-campanha" style="font-size:12px;font-weight:600">Selecionar campanha</label>' +
       '<select id="camp-f-campanha" aria-label="Filtrar campanhas" style="min-width:270px;max-width:100%;padding:7px"><option value="">Todas as campanhas</option></select>' +
       (editavel ? '<button type="button" class="btn" id="camp-btn-lgpd">⚖ Base Legal LGPD</button>' : '') +
@@ -173,49 +179,42 @@ async function montarModuloCampanhas(containerId, opts) {
       '<div class="mo-box">' +
         '<div class="mo-h"><h3 id="camp-modal-title">Nova Campanha</h3><button class="mo-x" id="camp-modal-x">✕</button></div>' +
         '<div class="mo-b"><div class="fg">' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Reativação — Em Risco Agosto"></div>' +
+          '<div class="fgr camp-sec" style="grid-column:1/-1"><label>1 · Identificação</label></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Nome *</label><input type="text" id="camp-m-nome" placeholder="Ex: Aniversariantes · Dezembro 2026"></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label>Objetivo</label><input type="text" id="camp-m-objetivo" placeholder="Ex: Trazer de volta clientes que pararam de comprar"></div>' +
-          '<div class="fgr" style="grid-column:1/-1;border-top:1px solid var(--border2,#ccc);padding-top:12px;margin-top:4px"><label style="font-size:11px">⚖️ Fundamentação LGPD da campanha · registro informativo</label></div>' +
+          '<div class="fgr"><label>Status</label><select id="camp-m-status"></select></div>' +
+          '<div class="fgr"><label>Responsável(is)</label><div class="camp-checks" id="camp-m-resp"></div></div>' +
+          '<div class="fgr"><label>Início</label><input type="date" id="camp-m-inicio"></div>' +
+          '<div class="fgr"><label>Fim</label><input type="date" id="camp-m-fim"></div>' +
+          '<div class="fgr camp-sec" style="grid-column:1/-1"><label>2 · Público</label></div>' +
+          '<div class="fgr" style="grid-column:1/-1"><label>Segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
+          '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual mês de aniversário, qual UF)</span></label><div id="camp-m-filtros"></div>' +
+            '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
+          '<div class="fgr camp-sec" style="grid-column:1/-1"><label>3 · Canal e Pipeline</label></div>' +
+          '<div class="fgr"><label for="camp-m-canal-mkt">Canal Marketing</label><select id="camp-m-canal-mkt"><option value="">Selecione...</option><option value="email">E-mail</option><option value="whatsapp">WhatsApp</option></select>' +
+            '<div class="tmu" id="camp-m-canal-nota" style="font-size:10px;margin-top:3px">Uma campanha por canal: para o mesmo público em e-mail e WhatsApp, crie duas campanhas (use ⧉ Duplicar).</div></div>' +
+          '<div class="fgr"><label>Etapa de entrada no Pipeline</label><select id="camp-m-etapa"></select></div>' +
+          '<details class="camp-sec-det" style="grid-column:1/-1"><summary>4 · Oferta e meta <span class="tmu" style="font-weight:400">(opcional)</span></summary><div class="fg" style="margin-top:8px">' +
+          '<div class="fgr"><label>Benefício · tipo</label><select id="camp-m-beneficio-tipo"></select></div>' +
+          '<div class="fgr"><label>Benefício · valor</label><input type="number" id="camp-m-beneficio-valor" placeholder="Ex: 15 ou 50"></div>' +
+          '<div class="fgr"><label>Cupom (se houver)</label><input type="text" id="camp-m-beneficio-cupom" placeholder="Ex: REATIVA15"></div>' +
+          '<div class="fgr"><label>Condições</label><input type="text" id="camp-m-beneficio-condicoes" placeholder="Ex: compra mínima R$200"></div>' +
+          '<div class="fgr"><label>Meta (descrição)</label><input type="text" id="camp-m-meta-desc" placeholder="Ex: 60 recompras no período"></div>' +
+          '<div class="fgr"><label>Meta (número)</label><input type="number" id="camp-m-meta-num" placeholder="Ex: 60"></div>' +
+          '</div></details>' +
+          '<div class="fgr camp-sec" style="grid-column:1/-1"><label>5 · LGPD</label></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-base">Base legal LGPD</label><select id="camp-m-lgpd-base"><option value="">Não informada / em análise</option></select></div>' +
           '<div class="fgr" style="grid-column:1/-1"><label for="camp-m-lgpd-finalidade">Finalidade e Fundamentação LGPD</label>' +
             '<textarea id="camp-m-lgpd-finalidade" rows="3" placeholder="Descreva a finalidade, origem dos contatos, hipótese legal e justificativa para esta campanha."></textarea>' +
-            '<div class="tmu" style="font-size:11px;margin-top:4px">Registro informativo para rastreabilidade. O preenchimento não substitui avaliação de necessidade, transparência e demais requisitos aplicáveis.</div></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Público — segmentação *</label><select id="camp-m-segmento"><option value="">Selecione...</option></select></div>' +
-          '<div class="fgr" style="grid-column:1/-1" id="camp-m-filtros-box" hidden><label>Filtros desta campanha <span class="tmu" style="font-weight:400">— preencha os valores (ex: qual centro de custo, qual UF)</span></label><div id="camp-m-filtros"></div>' +
-            '<div id="camp-m-publico-alvo" style="font-size:12px;margin-top:6px"></div></div>' +
-          '<div class="fgr"><label>Etapa de entrada no Pipeline</label><select id="camp-m-etapa"></select></div>' +
-          '<div class="fgr"><label>Status</label><select id="camp-m-status"></select></div>' +
-          '<div class="fgr"><label>Início</label><input type="date" id="camp-m-inicio"></div>' +
-          '<div class="fgr"><label>Fim</label><input type="date" id="camp-m-fim"></div>' +
-          '<div class="fgr"><label>Meta (descrição)</label><input type="text" id="camp-m-meta-desc" placeholder="Ex: 60 recompras no período"></div>' +
-          '<div class="fgr"><label>Meta (número, opcional)</label><input type="number" id="camp-m-meta-num" placeholder="Ex: 60"></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Responsável(is)</label><div class="camp-checks" id="camp-m-resp"></div></div>' +
-
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🎁 Benefício oferecido</label></div>' +
-          '<div class="fgr"><label>Tipo</label><select id="camp-m-beneficio-tipo"></select></div>' +
-          '<div class="fgr"><label>Valor</label><input type="number" id="camp-m-beneficio-valor" placeholder="Ex: 15 ou 50"></div>' +
-          '<div class="fgr"><label>Cupom (se houver)</label><input type="text" id="camp-m-beneficio-cupom" placeholder="Ex: REATIVA15"></div>' +
-          '<div class="fgr"><label>Condições</label><input type="text" id="camp-m-beneficio-condicoes" placeholder="Ex: compra mínima R$200"></div>' +
-
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">🧭 Roteiro de Canais</label></div>' +
-          '<div class="fgr"><label>Esse público já é conhecido (nome/contato) ou é gente anônima?</label><select id="camp-m-conhecido"><option value="">—</option><option value="conhecido">Conhecido</option><option value="anonimo">Anônimo</option></select></div>' +
-          '<div class="fgr"><label>Ele já demonstrou interesse recente, ou está frio?</label><select id="camp-m-temperatura"><option value="">—</option><option value="quente">Quente</option><option value="frio">Frio</option></select></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Meios escolhidos pra essa campanha</label><div class="camp-checks" id="camp-m-canais"></div></div>' +
-          '<div class="fgr" style="grid-column:1/-1" id="camp-m-sugestao-wrap"></div>' +
-          '<div class="fgr" style="grid-column:1/-1"><label>Por que essa combinação (opcional)</label><input type="text" id="camp-m-estrategia" placeholder="Ex: público conhecido, prioriza contato pessoal"></div>' +
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px"><label style="font-size:11px">📧 Mensagens de e-mail desta campanha <span class="tmu" style="font-weight:400">— guardadas na 📚 Biblioteca de Mensagens</span></label>' +
-            '<div id="camp-m-mensagens" style="margin-top:6px"></div></div>' +
-
-          '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
-            '<label style="font-size:11px">🤖 Modelo de Mensagem — Sugestão da IA (Nível 1)</label>' +
-            '<div class="pb2c-hist" id="camp-m-modelo-sugerida" style="min-height:60px;white-space:pre-wrap"></div>' +
-            '<button class="btn sm" id="camp-m-gerar-ia" type="button" style="margin-top:5px">🔄 Gerar/Regenerar Modelo com IA</button>' +
-          '</div>' +
-          '<div class="fgr" style="grid-column:1/-1">' +
-            '<label>Modelo de Mensagem — Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
-            '<textarea id="camp-m-modelo-msg" rows="4" placeholder="Ex: Oi {nome}! ... a última peça foi {ultima_peca} ..."></textarea>' +
-            '<button class="btn sm" id="camp-m-copiar-ia" type="button" style="margin-top:5px">📋 Copiar sugestão da IA pra cá</button>' +
-            '<div class="tmu" style="font-size:10px;margin-top:3px">Variáveis disponíveis: {nome} {cidade} {dias_parado} {ultima_peca} {ultima_collab} {valor_total_historico}</div>' +
+            '<div class="tmu" style="font-size:11px;margin-top:4px">Obrigatório para a Transmissão Oficial. Registro para rastreabilidade; não substitui avaliação de necessidade e transparência.</div></div>' +
+          // Campos antigos (Roteiro de Canais e Modelo de Mensagem com IA): fora da tela; os valores já gravados são preservados ao salvar.
+          '<div style="display:none" aria-hidden="true">' +
+          '<select id="camp-m-conhecido"><option value="">—</option><option value="conhecido">Conhecido</option><option value="anonimo">Anônimo</option></select>' +
+          '<select id="camp-m-temperatura"><option value="">—</option><option value="quente">Quente</option><option value="frio">Frio</option></select>' +
+          '<div class="camp-checks" id="camp-m-canais"></div><div id="camp-m-sugestao-wrap"></div>' +
+          '<input type="text" id="camp-m-estrategia"><div id="camp-m-mensagens"></div>' +
+          '<div id="camp-m-modelo-sugerida"></div><button id="camp-m-gerar-ia" type="button"></button>' +
+          '<textarea id="camp-m-modelo-msg"></textarea><button id="camp-m-copiar-ia" type="button"></button>' +
           '</div>' +
         '</div></div>' +
         '<div class="mo-f">' +
@@ -333,6 +332,10 @@ async function montarModuloCampanhas(containerId, opts) {
   host.querySelector('#camp-m-canais').innerHTML = CDA_CANAIS_CAMPANHA.map(function (c) {
     return '<label><input type="checkbox" class="camp-canal-check" value="' + c.id + '"> ' + c.label + '</label>';
   }).join('');
+  host.querySelector('#camp-m-canal-mkt').addEventListener('change', function () {
+    var v = this.value;
+    host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = !!v && chk.value === v; });
+  });
   host.querySelector('#camp-m-resp').innerHTML = ST.equipe.map(function (e) {
     return '<label><input type="checkbox" class="camp-resp-check" value="' + e.id + '"> ' + e.nome + '</label>';
   }).join('');
@@ -398,18 +401,54 @@ async function montarModuloCampanhas(containerId, opts) {
     {id:'resultados',nome:'Resultados'}
   ];
   var filtroCampanha = host.querySelector('#camp-f-campanha');
+  var filtroStatus = host.querySelector('#camp-f-status');
   filtroCampanha.addEventListener('change', render);
+  filtroStatus.addEventListener('change', function () { filtroCampanha.value = ''; render(); });
+  function doStatus(c) { return !filtroStatus.value || (c.status || 'ativa') === filtroStatus.value; }
+
+  // Troca rápida de status (só o campo status; nada mais da campanha é regravado)
+  function trocarStatus(id, btn) {
+    var c = ST.campanhas.find(function (x) { return String(x.id) === String(id); });
+    if (!c) return;
+    var velho = document.getElementById('camp-status-pop'); if (velho) velho.remove();
+    var pop = document.createElement('div');
+    pop.id = 'camp-status-pop';
+    pop.style.cssText = 'position:absolute;z-index:60;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:8px;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:12px';
+    pop.innerHTML = '<span style="font-weight:700">Novo status:</span>' + CDA_STATUS_CAMPANHA.map(function (st) {
+      return '<button type="button" class="btn sm" data-st="' + st.id + '"' + (st.id === (c.status || 'ativa') ? ' disabled title="Status atual"' : '') + ' style="border-left:6px solid ' + st.cor + '">' + st.label + '</button>';
+    }).join('') + '<button type="button" class="btn sm" data-st="">Cancelar</button>';
+    var r = btn.getBoundingClientRect();
+    pop.style.left = (r.left + window.scrollX) + 'px'; pop.style.top = (r.bottom + window.scrollY + 4) + 'px';
+    document.body.appendChild(pop);
+    pop.addEventListener('click', async function (ev) {
+      var b = ev.target.closest('[data-st]'); if (!b) return;
+      var novo = b.dataset.st; pop.remove();
+      if (!novo) return;
+      var rot = (CDA_STATUS_CAMPANHA.find(function (x) { return x.id === novo; }) || {}).label;
+      if (!confirm('Mudar o status da campanha "' + c.nome + '" para ' + rot + '?' + (novo === 'encerrada' ? '\n\nEla sai da lista de Ativas, mas nada é apagado: leads, envios e resultados continuam disponíveis em Status = Encerradas.' : ''))) return;
+      var resp = await cdaClient.from('cda_campanhas').update({ status: novo }).eq('id', c.id).select('id,status');
+      if (resp.error || !resp.data || !resp.data.length) { alert('Não foi possível mudar o status: ' + ((resp.error && resp.error.message) || 'sem permissão')); return; }
+      c.status = novo;
+      render();
+    });
+    setTimeout(function () {
+      document.addEventListener('click', function fora(ev) { if (!pop.contains(ev.target) && ev.target !== btn) { pop.remove(); document.removeEventListener('click', fora); } });
+    }, 0);
+  }
 
   function render() {
     var box = host.querySelector('#camp-lista');
     var anterior = filtroCampanha.value;
-    filtroCampanha.innerHTML = '<option value="">Todas as campanhas</option>' +
-      ST.campanhas.map(function (c) { return '<option value="' + escH(c.id) + '">' + escH(c.nome) + '</option>'; }).join('');
-    if (anterior && ST.campanhas.some(function (c) { return String(c.id) === anterior; })) {
+    var doFiltro = ST.campanhas.filter(doStatus);
+    var rotStatus = (CDA_STATUS_CAMPANHA.find(function (x) { return x.id === filtroStatus.value; }) || {}).label;
+    filtroCampanha.innerHTML = '<option value="">' + (filtroStatus.value ? 'Todas as campanhas ' + (rotStatus || '').toLowerCase() + 's' : 'Todas as campanhas') + ' (' + doFiltro.length + ')</option>' +
+      doFiltro.map(function (c) { return '<option value="' + escH(c.id) + '">' + escH(c.nome) + '</option>'; }).join('');
+    if (anterior && doFiltro.some(function (c) { return String(c.id) === anterior; })) {
       filtroCampanha.value = anterior;
     }
     if (!ST.campanhas.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha criada ainda.</p>'; return; }
-    var visiveis = ST.campanhas.filter(function (c) { return !filtroCampanha.value || String(c.id) === filtroCampanha.value; });
+    if (!doFiltro.length) { box.innerHTML = '<p class="tmu">Nenhuma campanha com este status. Troque o filtro de Status para ver as demais.</p>'; return; }
+    var visiveis = doFiltro.filter(function (c) { return !filtroCampanha.value || String(c.id) === filtroCampanha.value; });
     box.innerHTML = visiveis.map(function (c) {
       var seg = segmentoPorId[c.publicoSegmentoId];
       var filtrosC = filtrosDaCampanha(c);
@@ -438,9 +477,11 @@ async function montarModuloCampanhas(containerId, opts) {
           '<div><div class="l">Benefício</div>'+(beneficioInfo&&beneficioInfo.id!=='nenhum'?escH(beneficioInfo.label+(c.beneficioValor?' — '+c.beneficioValor:'')):'—')+'</div>'+
         '</div>'+
         (editavel?'<div class="camp-acoes">'+
-          acao('data-editar','✎ Editar')+
+          acao('data-editar','✎ Editar campanha')+
           acao('data-duplicar','⧉ Duplicar')+
           acao('data-congelar',lista?'🧊 Recongelar Lista':'🧊 Congelar Lista',true)+
+          acao('data-trocar-status','⇄ Trocar status')+
+          '<button class="btn sm" type="button" data-ver-msgs="'+escH(id)+'">👁 Ver mensagens</button>'+
         '</div>':'')+
         '<p class="tmu" style="font-size:11px;margin-top:10px">A segmentação e seus valores são mantidos em Editar. Recongelar só substitui a lista após confirmação.</p>';
       var mensagensVinculadas=ST.mensagens.filter(function(m){return String(m.campanhaId)===id;});
@@ -530,6 +571,8 @@ async function montarModuloCampanhas(containerId, opts) {
         }
       });
     });
+    box.querySelectorAll('[data-ver-msgs]').forEach(function (btn) { btn.addEventListener('click', function () { abaPorCampanha[String(btn.dataset.verMsgs)] = 'mensagens'; render(); }); });
+    box.querySelectorAll('[data-trocar-status]').forEach(function (btn) { btn.addEventListener('click', function () { trocarStatus(btn.dataset.trocarStatus, btn); }); });
     box.querySelectorAll('[data-camp-aba]').forEach(function(btn) {
       btn.addEventListener('click', function() {
         abaPorCampanha[String(btn.dataset.campId)] = btn.dataset.campAba;
@@ -1103,7 +1146,8 @@ async function montarModuloCampanhas(containerId, opts) {
     var box = host.querySelector('#camp-m-publico-alvo');
     if (!cfCampanha) { box.innerHTML = ''; return; }
     var alvo = clientesValidos.filter(function (c) { return cfCampanha.passa(c); });
-    box.innerHTML = '👥 <b>Público: ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s)</b> · 📧 ' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s) — recalculado agora';
+    var wa = {}; alvo.forEach(function (c) { var n = typeof cdaCelularWhatsApp === 'function' ? cdaCelularWhatsApp(c) : null; if (n) wa[n] = 1; });
+    box.innerHTML = '👥 <b>Público: ' + alvo.length.toLocaleString('pt-BR') + ' cliente(s)</b> · 📧 ' + emailsUnicos(alvo).toLocaleString('pt-BR') + ' e-mail(s) único(s) · 📱 ' + Object.keys(wa).length.toLocaleString('pt-BR') + ' WhatsApp único(s) — recalculado agora';
   }
   host.querySelector('#camp-m-segmento').addEventListener('change', function () {
     montarFiltrosDaCampanha(segmentoPorId[host.querySelector('#camp-m-segmento').value], null);
@@ -1172,6 +1216,13 @@ async function montarModuloCampanhas(containerId, opts) {
     host.querySelector('#camp-m-modelo-sugerida').textContent = c && c.modeloMensagemSugerida ? c.modeloMensagemSugerida : 'Nenhuma sugestão gerada ainda — clica em "Gerar sugestão com IA".';
     var canaisAtivos = c ? (c.canaisSelecionados || []) : [];
     host.querySelectorAll('.camp-canal-check').forEach(function (chk) { chk.checked = canaisAtivos.indexOf(chk.value) !== -1; });
+    var selCanal = host.querySelector('#camp-m-canal-mkt');
+    selCanal.value = canaisAtivos.indexOf('email') !== -1 && canaisAtivos.indexOf('whatsapp') === -1 ? 'email'
+      : (canaisAtivos.indexOf('whatsapp') !== -1 && canaisAtivos.indexOf('email') === -1 ? 'whatsapp' : '');
+    var outros = canaisAtivos.filter(function (x) { return x !== 'email' && x !== 'whatsapp'; });
+    host.querySelector('#camp-m-canal-nota').textContent = (canaisAtivos.indexOf('email') !== -1 && canaisAtivos.indexOf('whatsapp') !== -1)
+      ? '⚠ Esta campanha estava com e-mail e WhatsApp juntos. Escolha um canal; para o outro, use ⧉ Duplicar.'
+      : (outros.length ? 'Canal antigo gravado: ' + outros.join(', ') + ' (mantido enquanto você não escolher outro).' : 'Uma campanha por canal: para o mesmo público em e-mail e WhatsApp, crie duas campanhas (use ⧉ Duplicar).');
     atualizarSugestaoCanal();
     host.querySelector('#camp-m-excluir').style.display = ST.editId ? 'inline-block' : 'none';
     renderMensagensDaCampanha();
