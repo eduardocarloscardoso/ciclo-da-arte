@@ -459,7 +459,7 @@ async function montarModuloCampanhas(containerId, opts) {
     var pop = document.createElement('div');
     pop.id = 'camp-msgs-pop';
     pop.style.cssText = 'position:absolute;z-index:60;background:var(--paper,#fff);border:2px solid var(--ink,#1a1a1a);box-shadow:4px 4px 0 rgba(0,0,0,.25);padding:8px;display:flex;flex-direction:column;gap:6px;font-size:12px;max-width:420px';
-    pop.innerHTML = '<b>Qual mensagem abrir?</b>' + rotulos.map(function (r, i) {
+    pop.innerHTML = '<b style="color:var(--ink,#1a1a1a)">Qual mensagem abrir?</b>' + rotulos.map(function (r, i) {
       return '<button type="button" class="btn sm" data-i="' + i + '" style="text-align:left">' + escH(r) + '</button>';
     }).join('') + '<button type="button" class="btn sm" data-i="">Cancelar</button>';
     var r = btn.getBoundingClientRect();
