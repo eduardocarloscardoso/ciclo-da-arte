@@ -156,7 +156,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
         '</div>'+
         '<span id="pb2c-oper-resumo" style="font-size:11px"></span>'+
       '</div>'+
-      '<div id="pb2c-oper-tabela" style="overflow-x:auto"><table class="pb2c-oper-table"><thead><tr><th>Cliente</th><th>Campanha</th><th>Etapa</th><th>Responsável</th><th>Canal</th><th>Tarefas</th><th>E-mail / Resend</th><th>Data do envio</th><th>Última movimentação</th><th>Consulta</th></tr></thead><tbody id="pb2c-oper-linhas"></tbody></table><div class="pb2c-oper-pag" id="pb2c-oper-paginacao"></div></div>'+
+      '<div id="pb2c-oper-tabela" style="overflow-x:auto"><table class="pb2c-oper-table"><thead><tr><th>Cliente</th><th>Campanha</th><th>Etapa</th><th>Responsável</th><th>Canal</th><th>Tarefas</th><th>Mensagem (e-mail / WhatsApp)</th><th>Data do envio</th><th>Última movimentação</th><th>Consulta</th></tr></thead><tbody id="pb2c-oper-linhas"></tbody></table><div class="pb2c-oper-pag" id="pb2c-oper-paginacao"></div></div>'+
     '</section>' +
     '<div class="pb2c-board" id="pb2c-board" style="display:none"></div>' +
 
@@ -335,7 +335,35 @@ async function montarModuloPipelineB2C(containerId, opts) {
     var todos=registrosEmailLead(l), oficiais=todos.filter(function(e){return e.tipo_envio!=='teste';});
     return oficiais[0]||todos[0]||null;
   }
-  atualizarRastreio().then(function(){render();});
+  // WhatsApp por lead: última mensagem de campanha (status/data) e se o cliente reagiu/respondeu depois
+  var waPorLead=Object.create(null);
+  async function atualizarWhats(){
+    try{
+      var convs=await cdaFetchAll('cda_whatsapp_conversas','id,lead_id,contato_wa','id');
+      var msgs=await cdaFetchAll('cda_whatsapp_mensagens','id,conversa_id,direcao,tipo,template_nome,status,ocorrido_em','id');
+      var porConv=Object.create(null);
+      (msgs||[]).forEach(function(m){(porConv[m.conversa_id]||(porConv[m.conversa_id]=[])).push(m);});
+      waPorLead=Object.create(null);
+      (convs||[]).forEach(function(c){
+        if(!c.lead_id)return;
+        var ms=(porConv[c.id]||[]).slice().sort(function(a,b){return String(a.ocorrido_em).localeCompare(String(b.ocorrido_em));});
+        var env=ms.filter(function(m){return m.direcao==='saida'&&m.template_nome;}).pop();
+        if(!env)return;
+        var depois=ms.filter(function(m){return m.direcao==='entrada'&&String(m.ocorrido_em)>String(env.ocorrido_em);});
+        var reagiu=depois.some(function(m){return m.tipo==='reaction';}), respondeu=depois.some(function(m){return m.tipo!=='reaction';});
+        waPorLead[String(c.lead_id)]={status:env.status,em:env.ocorrido_em,tel:c.contato_wa,modelo:env.template_nome,reagiu:reagiu,respondeu:respondeu};
+      });
+    }catch(e){waPorLead=Object.create(null);}
+  }
+  function situacaoWhats(w){
+    if(!w)return 'Sem envio';
+    if(w.respondeu)return '💬 Respondeu';
+    if(w.reagiu)return '👍 Reagiu';
+    return ({lida:'👀 Lida',entregue:'✅ Entregue',enviada:'Enviada',pendente:'Enviada',falha:'❌ Falhou'})[w.status]||w.status;
+  }
+  function campanhaEhWhats(c){var m=(c&&c.canaisSelecionados)||[];return m.indexOf('whatsapp')!==-1&&m.indexOf('email')===-1;}
+  function foneFmt(t){t=String(t||'');return t.length===13?'+'+t.slice(0,2)+' ('+t.slice(2,4)+') '+t.slice(4,9)+'-'+t.slice(9):t;}
+  Promise.all([atualizarRastreio(),atualizarWhats()]).then(function(){render();});
 
   // Consulta do histórico de testes por campanha, independente de quantos leads há no funil.
   // Não cria leads, não grava interações nem emite e-mails.
@@ -548,15 +576,18 @@ async function montarModuloPipelineB2C(containerId, opts) {
       var mov=l.movidoEm?new Date(l.movidoEm):null;
       var dia=mov&&!isNaN(mov.getTime())?mov.toLocaleDateString('pt-BR'):'—';
       var ultimoEmail=resumoEmailLead(l);
+      var ehWa=campanhaEhWhats(campanha), wa=waPorLead[String(l.id)];
       return '<tr>'+
-        '<td><b>'+escCom(l.nome||'—')+'</b><div style="color:var(--muted,#777);font-size:10px">'+escCom(l.email||'Sem e-mail cadastrado')+'</div></td>'+
+        '<td><b>'+escCom(l.nome||'—')+'</b><div style="color:var(--muted,#777);font-size:10px">'+escCom(ehWa?('📱 '+foneFmt((wa&&wa.tel)||l.telefone||'')||'Sem celular'):(l.email||'Sem e-mail cadastrado'))+'</div></td>'+
         '<td>'+escCom(campanha?campanha.nome:'—')+'</td>'+
         '<td>'+escCom(etapaNome(l.etapa))+'</td>'+
         '<td>'+escCom(resp?resp.nome:'Não definido')+'</td>'+
-        '<td>'+escCom(canal?canal.nome:'—')+'</td>'+
+        '<td>'+escCom(ehWa?'WhatsApp':(canal?canal.nome:'—'))+'</td>'+
         '<td>'+Number(tarefasAtivas[String(l.id)]||0)+'</td>'+ 
-        '<td>'+escCom(rastreioErro?'Consulta indisponível':situacaoEmail(ultimoEmail))+(ultimoEmail&&ultimoEmail.tipo_envio==='teste'?'<div class="tmu">TESTE</div>':'')+'</td>'+ 
-        '<td>'+escCom(ultimoEmail?dataCom(ultimoEmail.solicitado_em):'—')+'</td>'+
+        (ehWa
+          ? '<td>'+escCom(situacaoWhats(wa))+'</td><td>'+escCom(wa?dataCom(wa.em):'—')+'</td>'
+          : '<td>'+escCom(rastreioErro?'Consulta indisponível':situacaoEmail(ultimoEmail))+(ultimoEmail&&ultimoEmail.tipo_envio==='teste'?'<div class="tmu">TESTE</div>':'')+'</td>'+ 
+            '<td>'+escCom(ultimoEmail?dataCom(ultimoEmail.solicitado_em):'—')+'</td>')+
         '<td>'+escCom(dia)+'</td>'+
         '<td><button type="button" class="btn sm" data-pb2c-oper-abrir="'+escCom(l.id)+'">Abrir</button></td></tr>';
     }).join('')||'<tr><td colspan="10" style="padding:16px">Nenhum cliente encontrado para os filtros selecionados.</td></tr>';

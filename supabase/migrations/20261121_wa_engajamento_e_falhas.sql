@@ -1,0 +1,9 @@
+-- 21/11/2026 · aplicado via MCP (registro):
+-- 1) cda_wa_registrar_status: falha de mensagem de campanha → item 'falha' e retira o lead criado pelo envio
+--    (se ainda em Contato e sem interação). Limpeza de 37 leads (backup bkp_leads_wa_falha_20261121).
+-- 2) cda_wa_sinal_engajamento + gancho em cda_wa_registrar_entrada: reagiu/respondeu à campanha → Engajado
+--    (histórico 'whatsapp'); resposta de pessoa → tarefa de follow-up (tipo whatsapp, prioridade alta);
+--    possível resposta automática → Engajado com '🤖 verificar' e sem tarefa.
+-- 3) Segmentação 'Black Friday 2026 · VIP + Gold + Premium' (seg1795700000001) ligada à campanha 8 e
+--    lista congelada (416, igual à fila). Backup bkp_cda_campanha8_20261121.
+-- Definições completas: ver pg_get_functiondef no banco.

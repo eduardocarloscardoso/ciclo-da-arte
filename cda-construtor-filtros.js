@@ -21,7 +21,7 @@
 
 var CDA_TIPOS_FILTRO_SEG = [
   { id: 'status_crm', label: 'Status CRM (ciclo de vida)', grupo: 'Inteligência' },
-  { id: 'tag_valor', label: 'Classificação de valor (VIP/Premium)', grupo: 'Inteligência' },
+  { id: 'tag_valor', label: 'Classificação de valor (VIP/Gold/Premium)', grupo: 'Inteligência' },
 
   { id: 'valor_gasto', label: 'Valor total gasto (R$)', grupo: 'Compras' },
   { id: 'ticket_medio', label: 'Ticket médio (R$)', grupo: 'Compras' },
@@ -325,6 +325,13 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
         pcAplicar(idx, campo, lista, true);
       });
     });
+    wrap.querySelectorAll('.seg-tag-ck').forEach(function (el) {
+      el.addEventListener('change', function () {
+        var area = el.closest('.seg-valor-area'), idx = Number(area.dataset.idx);
+        S.filtros[idx].valor = Array.from(area.querySelectorAll('.seg-tag-ck:checked')).map(function (c) { return c.value; });
+        notificar();
+      });
+    });
     wrap.querySelectorAll('.seg-op,.seg-val').forEach(function (el) {
       el.addEventListener('input', function () {
         var idx = Number(el.closest('.seg-valor-area').dataset.idx);
@@ -456,7 +463,10 @@ function cdaConstrutorFiltros(el, ctx, opcoes) {
           opts(ctx.statusCrm.filter(function (s) { return s.tipo === 'segmentacao' && s.codigo !== 'vip' && s.codigo !== 'premium'; }).map(function (s) { return { v: s.id, l: s.nome }; }), f.valor) +
           '</select>';
       case 'tag_valor':
-        return '<select class="seg-val"><option value="">Selecione...</option>' + opts([{ v: 'vip', l: 'VIP' }, { v: 'premium', l: 'Premium' }], f.valor) + '</select>';
+        var tagSel = cdaListaValor(f.valor);
+        return '<span class="seg-tags">' + [{ v: 'vip', l: 'VIP' }, { v: 'gold', l: 'Gold' }, { v: 'premium', l: 'Premium' }].map(function (o) {
+          return '<label style="display:inline-flex;gap:4px;align-items:center;margin-right:10px;font-size:11px;cursor:pointer"><input type="checkbox" class="seg-tag-ck" value="' + o.v + '"' + (tagSel.indexOf(o.v) !== -1 ? ' checked' : '') + '> ' + o.l + '</label>';
+        }).join('') + '<span class="tmu" style="font-size:10px">(um ou vários)</span></span>';
       case 'aniversario':
         return '<select class="seg-val">' + opts(['—','Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro']
           .map(function (m, i) { return { v: (i === 0 ? '' : i), l: m }; }), f.valor) + '</select>';

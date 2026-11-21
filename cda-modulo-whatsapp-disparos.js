@@ -217,8 +217,8 @@ async function montarWhatsAppDisparos(el, opts) {
         '<div class="wd-barra"><span style="width:' + pct + '%"></span></div>' +
         '<div class="wd-kp"><div>Limite de hoje: <b>' + (r.usados_24h || 0) + '/' + (r.limite_dia || 250) + '</b> · livres: <b>' + (r.disponivel_hoje || 0) + '</b></div>' +
         '<div>Custo previsto (pendentes): <b>' + brl(r.custo_previsto) + '</b></div><div>Custo até agora (entregues): <b>' + brl(r.custo_realizado_estimado) + '</b></div></div>' +
-        (editavel && (pe.pendente || 0) > 0 ? '<div class="wd-row"><select data-tpl="' + d.id + '"><option value="">Modelo aprovado…</option>' +
-          aprovados.map(function (t) { return '<option value="' + t.id + '"' + (d.template_id === t.id ? ' selected' : '') + '>' + esc(t.nome) + '</option>'; }).join('') + '</select>' +
+        (editavel && (pe.pendente || 0) > 0 ? '<div class="wd-row"><select data-tpl="' + d.id + '" title="Escolha o modelo a cada lote"><option value="">Escolha o modelo…</option>' +
+          aprovados.map(function (t) { return '<option value="' + t.id + '">' + esc(t.nome) + '</option>'; }).join('') + '</select>' +
           '<select data-grupo="' + d.id + '" title="Grupo do lote">' + ['VIP', 'Gold', 'Premium'].concat(Object.keys(r.pendentes_por_grupo || {}).filter(function (g) { return ['VIP', 'Gold', 'Premium'].indexOf(g) < 0; }))
             .filter(function (g) { return (r.pendentes_por_grupo || {})[g] > 0; })
             .map(function (g) { return '<option value="' + esc(g) + '">' + esc(g) + ' · ' + r.pendentes_por_grupo[g] + ' pendentes</option>'; }).join('') + '</select>' +
@@ -250,7 +250,9 @@ async function montarWhatsAppDisparos(el, opts) {
     if (!grupo) { showToast('Escolha o grupo (VIP, Gold ou Premium).', 'info'); return; }
     var r = ST.resumos[id] || {};
     var custo = qtd * Number((ST.disparos.find(function (d) { return d.id === id; }) || {}).tarifa_unitaria || 0.3217);
-    var conf = prompt('Enviar ' + qtd + ' mensagens de WhatsApp agora para o grupo ' + grupo + ' (custo estimado ' + brl(custo) + ')?\n\nDigite ENVIAR para confirmar:');
+    var tplObj = ST.templates.find(function (t) { return t.id === tpl; }) || {};
+    var trecho = String(tplObj.corpo || '').replace(/\{\{1\}\}/g, 'Maria').slice(0, 110);
+    var conf = prompt('MODELO: ' + (tplObj.nome || '?') + '\n"' + trecho + '…"\n\nEnviar ' + qtd + ' mensagens de WhatsApp agora para o grupo ' + grupo + ' (custo estimado ' + brl(custo) + ')?\n\nConfira o modelo acima. Digite ENVIAR para confirmar:');
     if (conf !== 'ENVIAR') return;
     var log = $('#wd-log-' + id); log.style.display = 'block'; log.textContent = '';
     el.querySelectorAll('[data-enviar]').forEach(function (b) { b.disabled = true; });

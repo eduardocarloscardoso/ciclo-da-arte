@@ -783,7 +783,13 @@ function cdaMotorSegmento(compras, ctx) {
     var agg = aggDe(cliente.id);
     switch (f.tipo) {
       case 'status_crm': return !f.valor || String(cliente.statusCrmId) === String(f.valor);
-      case 'tag_valor': return !f.valor || (cliente.tagsComercial || []).indexOf(f.valor) !== -1;
+      case 'tag_valor': {
+        // aceita um valor ('vip') ou vários (['vip','gold','premium']) — qualquer um deles
+        var tagsF = cdaListaValor(f.valor);
+        if (!tagsF.length) return true;
+        var tagsC = cliente.tagsComercial || [];
+        return tagsF.some(function (t) { return tagsC.indexOf(t) !== -1; });
+      }
       case 'aniversario': {
         if (!f.valor) return true;
         var dn = cliente['data-nascimento']; if (!dn) return false;
