@@ -559,8 +559,10 @@ async function montarTransmissaoOficial(containerId) {
         else{
           // Várias mensagens: abre na que tem a transmissão mais recente (lotes e resultados já à vista).
           try{
-            const tx=await obterDados(cdaClient.from('cda_transmissoes_oficiais').select('id,mensagem_id').eq('campanha_id',id).order('id',{ascending:false}).limit(20));
+            const rtx=await cdaClient.rpc('cda_consultar_transmissoes_b2',{p_campanha_id:id});
+            if(rtx.error)throw rtx.error;
             if(Number($('to-campanha').value)!==id)return;
+            const tx=(Array.isArray(rtx.data)?rtx.data:[]).slice().sort((a,b)=>((a.situacao==='congelada')?0:1)-((b.situacao==='congelada')?0:1)||Number(b.id)-Number(a.id));
             const comTx=tx.find(t=>msgs.some(m=>Number(m.id)===Number(t.mensagem_id)));
             if(comTx)$('to-mensagem').value=String(comTx.mensagem_id);
           }catch(e){console.warn('Transmissões da campanha indisponíveis para pré-seleção:',e);}
