@@ -107,6 +107,8 @@ async function montarModuloPipelineB2C(containerId, opts) {
       (editavel ? '<button class="btn rust" id="pb2c-btn-novo">＋ Novo Lead</button>' : '') +
     '</div>' +
     '<div class="pb2c-principal" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0 10px">' +
+      '<label for="pb2c-f-status" style="font-weight:700;font-size:12px">Status</label>' +
+      '<select id="pb2c-f-status" aria-label="Status das campanhas"><option value="ativa" selected>Ativas</option><option value="pausada">Pausadas</option><option value="encerrada">Encerradas</option><option value="">Todas</option></select>' +
       '<label for="pb2c-f-campanha" style="font-weight:700;font-size:12px">Campanha</label>' +
       '<select id="pb2c-f-campanha" aria-label="Campanha do Pipeline"><option value="">Todas as campanhas</option></select>' +
       '<input type="text" id="pb2c-f-cliente" aria-label="Buscar lead" placeholder="Buscar cliente..." style="flex:1 1 210px;min-width:160px">' +
@@ -290,11 +292,21 @@ async function montarModuloPipelineB2C(containerId, opts) {
   }
   function nomeUsuarioAtual() { return (window.cu && window.cu.name) || 'Usuário'; }
 
+  // Status das campanhas (padrão: Ativas). Leads sem campanha aparecem junto com Ativas/Todas.
+  function statusFiltro() { var el = host.querySelector('#pb2c-f-status'); return el ? el.value : ''; }
+  function campanhaNoStatus(c) { var st = statusFiltro(); return !st || ((c && c.status) || 'ativa') === st; }
+  function semCampanhaVisivel() { var st = statusFiltro(); return !st || st === 'ativa'; }
+  function popularCampanhas() {
+    var sel = host.querySelector('#pb2c-f-campanha'), anterior = sel.value;
+    var lista = ST.campanhas.filter(campanhaNoStatus).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
+    var st = statusFiltro(), rot = { ativa: 'ativas', pausada: 'pausadas', encerrada: 'encerradas' }[st];
+    sel.innerHTML = '<option value="">' + (rot ? 'Todas as campanhas ' + rot : 'Todas as campanhas') + '</option>' +
+      (semCampanhaVisivel() ? '<option value="__sem_campanha__">Sem campanha vinculada</option>' : '') +
+      lista.map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+    if (anterior && sel.querySelector('option[value="' + anterior + '"]')) sel.value = anterior;
+  }
   function popularFiltros() {
-    host.querySelector('#pb2c-f-campanha').innerHTML = '<option value="">Todas as campanhas</option>' +
-      '<option value="__sem_campanha__">Sem campanha vinculada</option>' +
-      ST.campanhas.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
-        .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
+    popularCampanhas();
     host.querySelector('#pb2c-f-canal').innerHTML = '<option value="">Todos os canais</option>' +
       ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
         .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
@@ -484,6 +496,10 @@ async function montarModuloPipelineB2C(containerId, opts) {
     return ST.leads.filter(function (l) {
       var cli = l.clienteId ? clientePorId[String(l.clienteId)] : null;
       if (cli && cli.tipoComercial === 'canal_b2b') return false; // marcado como B2B — sai do funil B2C
+      if (!fCampanha) {
+        if (l.campanhaId) { if (!campanhaNoStatus(campanhaPorId[l.campanhaId])) return false; }
+        else if (!semCampanhaVisivel()) return false;
+      }
       if (fCampanha === '__sem_campanha__' && l.campanhaId) return false;
       if (fCampanha && fCampanha !== '__sem_campanha__' && String(l.campanhaId) !== fCampanha) return false;
       if (fCliente && (l.nome || '').toLowerCase().indexOf(fCliente) === -1) return false;
@@ -1362,6 +1378,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
   host.querySelector('#pb2c-t-x').addEventListener('click', fecharModalTransicao);
   host.querySelector('#pb2c-t-confirmar').addEventListener('click', confirmarTransicao);
   host.querySelector('#pb2c-f-campanha').addEventListener('change', function(){paginaOperacional=0;render();renderComunicacoes();});
+  host.querySelector('#pb2c-f-status').addEventListener('change', function(){popularCampanhas();paginaOperacional=0;render();renderComunicacoes();});
   host.querySelector('#pb2c-f-cliente').addEventListener('input', function(){paginaOperacional=0;render();});
   host.querySelector('#pb2c-f-canal').addEventListener('change', function(){paginaOperacional=0;render();});
   host.querySelector('#pb2c-f-resp').addEventListener('change', function(){paginaOperacional=0;render();});
