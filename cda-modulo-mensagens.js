@@ -445,7 +445,7 @@ async function montarModuloMensagens(containerId, opts) {
 
   host.innerHTML =
     '<div class="row-bt">' +
-      '<div><div class="sec-t">📚 Biblioteca de Conteúdos</div><div class="sec-d">Acervo compartilhado de mensagens e materiais comerciais. Mensagens de e-mail e testes existentes são preservados.</div></div>' +
+      '<div><div class="sec-t">📚 Biblioteca de Conteúdos</div><div class="sec-d">Mensagens de e-mail das campanhas. Use o Status para encontrar campanhas pausadas ou encerradas e reaproveitar (⋯ › Duplicar).</div></div>' +
       (editavel ? '<button class="btn rust" id="msg-btn-nova">＋ Nova mensagem</button>' : '') +
     '</div>' +
     '<h3 style="font-size:15px;margin:16px 0 8px">Mensagens de e-mail · acervo existente</h3>' +
@@ -454,7 +454,11 @@ async function montarModuloMensagens(containerId, opts) {
       '<thead><tr><th>Campanha</th><th>Mensagem</th><th>Assunto</th><th>Remetente</th><th>Responder para</th><th>Atualizada</th><th>Último teste</th><th>Ações</th></tr></thead>' +
       '<tbody id="msg-tb"><tr><td colspan="8" class="tmu">Carregando...</td></tr></tbody>' +
     '</table></div></div>' +
-    '<section style="margin-top:26px;border-top:1px solid var(--border2,#ccc);padding-top:15px" aria-label="Materiais comerciais compartilhados">'+
+    '<style>.msg-acoes{display:flex;gap:5px;flex-wrap:wrap;align-items:flex-start}.msg-menu{position:relative}.msg-menu>summary{list-style:none;cursor:pointer}.msg-menu>summary::-webkit-details-marker{display:none}'+
+      '.msg-menu-itens{position:absolute;right:0;top:calc(100% + 4px);z-index:30;min-width:170px;background:var(--card,#fff);border:1px solid var(--border2,#ccc);border-radius:6px;box-shadow:0 8px 22px rgba(0,0,0,.18);padding:4px;display:flex;flex-direction:column}'+
+      '.msg-menu-itens button{all:unset;cursor:pointer;padding:8px 10px;font-size:12px;border-radius:4px;white-space:nowrap}.msg-menu-itens button:hover,.msg-menu-itens button:focus-visible{background:var(--bg2,#f1ece4)}</style>'+
+    // Materiais comerciais: seção oculta (23/11/2026). Fichas preservadas em cda_biblioteca_conteudos; o filtro de Status das campanhas cobre o reaproveitamento.
+    '<section hidden style="display:none;margin-top:26px;border-top:1px solid var(--border2,#ccc);padding-top:15px" aria-label="Materiais comerciais compartilhados">'+
       '<div class="row-bt"><div><h3 style="font-size:15px;margin:0 0 5px">Materiais comerciais · acervo compartilhado</h3><div class="tmu" style="font-size:11px">Cadastre referências de imagens, vídeos, ofertas, links e outros materiais. O cadastro não envia mensagens nem vincula automaticamente o material a campanhas.</div></div>'+
         (editavel?'<button class="btn rust" type="button" id="msg-mat-novo">＋ Novo material</button>':'')+
       '</div>'+
@@ -524,13 +528,18 @@ async function montarModuloMensagens(containerId, opts) {
         '<td style="font-size:11px">' + (m.responderPara ? cdaMsgEsc(m.responderPara) : '<span class="tmu">—</span>') + '</td>' +
         '<td class="mn tmu" style="font-size:11px">' + cdaMsgDataHora(m.atualizadoEm) + '</td>' +
         '<td style="font-size:11px">' + (m.ultimoTesteEm ? cdaMsgDataHora(m.ultimoTesteEm) + '<br><span class="tmu">' + cdaMsgEsc(m.ultimoTestePara) + '</span>' : '<span class="badge b-gd">sem teste</span>') + '</td>' +
-        '<td><div style="display:flex;gap:5px;flex-wrap:wrap">' +
+        '<td><div class="msg-acoes">' +
           '<button class="btn sm" data-abrir="' + m.id + '" title="Abrir o e-mail em outra aba">👁 Abrir</button>' +
           '<button class="btn sm" data-editar="' + m.id + '">' + (editavel ? '✏ Editar' : '🔍 Ver') + '</button>' +
-          (editavel ? '<button class="btn sm" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
-            '<button class="btn sm" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para os aprovadores da campanha e até 3 e-mails avulsos">✉ Enviar para aprovação</button>' +
-            '<button class="btn sm" data-whats="' + m.id + '" title="Abre o seu WhatsApp com o link da prévia do e-mail">🟢 Aprovação por WhatsApp</button>' +
-            '<button class="btn sm" data-excluir="' + m.id + '">🗑</button>' : '') +
+          (editavel ?
+            '<details class="msg-menu"><summary class="btn sm" title="Enviar este e-mail para aprovação">✉ Aprovação ▾</summary><div class="msg-menu-itens">' +
+              '<button type="button" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para os aprovadores da campanha e até 3 e-mails avulsos">✉ Por e-mail</button>' +
+              '<button type="button" data-whats="' + m.id + '" title="Abre o seu WhatsApp com o link da prévia do e-mail">🟢 Por WhatsApp</button>' +
+            '</div></details>' +
+            '<details class="msg-menu"><summary class="btn sm" title="Mais ações" aria-label="Mais ações">⋯</summary><div class="msg-menu-itens">' +
+              '<button type="button" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
+              '<button type="button" data-excluir="' + m.id + '" style="color:var(--rust,#c0392b)">🗑 Excluir</button>' +
+            '</div></details>' : '') +
         '</div></td></tr>';
     }).join('');
   }
@@ -545,14 +554,30 @@ async function montarModuloMensagens(containerId, opts) {
     cdaEditorMensagem.abrir({ mensagem: m, duplicar: duplicar, campanhaId: fSel.value || null, campanhas: ST.campanhas, editavel: editavel, onSalvo: aoSalvar, onExcluido: aoExcluir });
   }
 
+  host.querySelector('#msg-tb').addEventListener('toggle', function (ev) {
+    if (!ev.target.open) return;
+    host.querySelectorAll('.msg-menu[open]').forEach(function (d) { if (d !== ev.target) d.open = false; });
+    // Posição fixa: a tabela tem overflow e cortaria o menu da última linha.
+    var r = ev.target.querySelector('summary').getBoundingClientRect(), menu = ev.target.querySelector('.msg-menu-itens');
+    menu.style.position = 'fixed'; menu.style.right = 'auto';
+    var alto = menu.offsetHeight || 80, larg = menu.offsetWidth || 170;
+    menu.style.top = (r.bottom + 4 + alto > window.innerHeight ? Math.max(4, r.top - 4 - alto) : r.bottom + 4) + 'px';
+    menu.style.left = Math.max(4, Math.min(r.right - larg, window.innerWidth - larg - 4)) + 'px';
+  }, true);
+  window.addEventListener('scroll', function () { host.querySelectorAll('.msg-menu[open]').forEach(function (d) { d.open = false; }); }, true);
+  document.addEventListener('click', function (ev) {
+    if (!ev.target.closest('.msg-menu')) host.querySelectorAll('.msg-menu[open]').forEach(function (d) { d.open = false; });
+  });
   host.querySelector('#msg-tb').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button'); if (!b) return;
+    var menuAberto = b.closest('.msg-menu'); if (menuAberto) menuAberto.open = false;
+    var fb = menuAberto ? menuAberto.querySelector('summary') : b; // feedback visível (o item do menu fica oculto)
     // WhatsApp: abre o WhatsApp do próprio usuário com o link da prévia pública (nome de exemplo).
     // Nenhuma credencial do WhatsApp; o usuário escolhe o contato e envia.
     if (b.dataset.whats) {
       var mw = porId(b.dataset.whats); if (!mw) return;
       var janelaW = window.open('about:blank', '_blank');
-      var txtW = b.textContent; b.textContent = '⏳ Gerando link...'; b.disabled = true;
+      var txtW = fb.textContent; fb.textContent = '⏳ Gerando link...'; fb.disabled = true;
       try {
         var rw = await cdaClient.functions.invoke('cda-previa-mensagem', { body: { acao: 'gerar', m: Number(mw.id) } });
         if (rw.error || !rw.data || !rw.data.ok) throw new Error((rw.data && rw.data.erro) || 'Não foi possível gerar o link');
@@ -563,7 +588,7 @@ async function montarModuloMensagens(containerId, opts) {
       } catch (err) {
         if (janelaW && !janelaW.closed) janelaW.close();
         alert('Aprovação por WhatsApp indisponível: ' + (err.message || err));
-      } finally { b.textContent = txtW; b.disabled = false; }
+      } finally { fb.textContent = txtW; fb.disabled = false; }
       return;
     }
     // Mesmo envio de teste homologado da prévia (até 3 destinatários digitados), direto da lista.
@@ -576,7 +601,7 @@ async function montarModuloMensagens(containerId, opts) {
       } catch (err) { console.error('Não foi possível atualizar a mensagem antes do envio para aprovação:', err); }
       if (!ma) return;
       var ca = await cdaMsgClientesDaCampanha(ma.campanhaId);
-      var res = await cdaMsgPerguntarEEnviarTeste(ma, campanhaPorId[ma.campanhaId], ca[0], b);
+      var res = await cdaMsgPerguntarEEnviarTeste(ma, campanhaPorId[ma.campanhaId], ca[0], fb);
       if (res) render();
       return;
     }
@@ -725,7 +750,7 @@ async function montarModuloMensagens(containerId, opts) {
       finally{btn.disabled=false;}
     });
   }
-  carregarMateriais();
+  // carregarMateriais(); — seção de Materiais oculta; dados preservados.
 
   fSel.addEventListener('change', render);
   fStatus.addEventListener('change', function () { popularCampanhas(); render(); });
