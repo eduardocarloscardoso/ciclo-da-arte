@@ -7,6 +7,7 @@ function montarEnvioTransmissaoOficial(host,ctx){
   const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
   const card=document.createElement('section');
   card.className='to-card';card.id='to-envio';
+  card.hidden=true; // só aparece quando a mensagem escolhida tem transmissão congelada
   card.innerHTML='<h3 style="margin:0 0 6px">Enviar e acompanhar</h3>'+
     '<p class="to-muted" data-e="resumo" style="margin:0 0 12px">Carregando…</p>'+
     '<div data-e="kpis" hidden style="border:2px solid #1b283d;border-radius:8px;padding:12px;margin-bottom:12px"></div>'+

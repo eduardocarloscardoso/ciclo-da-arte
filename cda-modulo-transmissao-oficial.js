@@ -529,7 +529,7 @@ async function montarTransmissaoOficial(containerId) {
     $('to-painel').hidden=false;
     mostrarCongelamentos();
     ux.refresh();
-    $('to-aviso').textContent='Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.';
+    $('to-aviso').textContent=$('to-mensagem').value?'Conferência de leitura concluída. Nenhuma mensagem enviada; congelamentos existentes podem ser consultados abaixo.':'Escolha a mensagem da campanha para ver lotes, resultados e o Retransmitir.';
   }
   async function carregarCampanha(){
     b5.clear();
@@ -555,7 +555,16 @@ async function montarTransmissaoOficial(containerId) {
         msgs.map(m=>'<option value="'+esc(m.id)+'">'+esc(m.nome)+' · '+esc(m.assunto||'Sem assunto')+'</option>').join('');
       if(msgs.length===1)$('to-mensagem').value=String(msgs[0].id);
       else{let pref='';try{pref=sessionStorage.getItem('cda-to-mensagem')||'';sessionStorage.removeItem('cda-to-mensagem');}catch(e){}
-        if(pref&&msgs.some(m=>String(m.id)===pref))$('to-mensagem').value=pref;}
+        if(pref&&msgs.some(m=>String(m.id)===pref))$('to-mensagem').value=pref;
+        else{
+          // Várias mensagens: abre na que tem a transmissão mais recente (lotes e resultados já à vista).
+          try{
+            const tx=await obterDados(cdaClient.from('cda_transmissoes_oficiais').select('id,mensagem_id').eq('campanha_id',id).order('id',{ascending:false}).limit(20));
+            if(Number($('to-campanha').value)!==id)return;
+            const comTx=tx.find(t=>msgs.some(m=>Number(m.id)===Number(t.mensagem_id)));
+            if(comTx)$('to-mensagem').value=String(comTx.mensagem_id);
+          }catch(e){console.warn('Transmissões da campanha indisponíveis para pré-seleção:',e);}
+        }}
       mensagem=msgs.find(m=>String(m.id)===$('to-mensagem').value)||null;
       try{await consultarCongelamentos(id);}catch(e){
         transmissoesSalvas=[];consultaCarregada=false;
