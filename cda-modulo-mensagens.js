@@ -32,24 +32,53 @@ async function cdaMsgClientesDaCampanha(campanhaId) {
 var CDA_MSG_CLIENTE_EXEMPLO = { nome: 'Maria Silva', cidade: 'São Paulo', estado: 'SP' };
 
 // Diálogo próprio: o Cancelar encerra a seleção sem disparar nenhum e-mail.
-function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
+// Aprovadores por campanha: usuários credenciados (caixinhas) + até 3 e-mails avulsos.
+// A escolha fica gravada na campanha (cda_campanhas.aprovadores_*) e volta marcada no próximo envio.
+async function cdaMsgCarregarAprovadores(campanhaId) {
+  var equipe = [], salvo = { ids: [], emails: [] };
+  try { equipe = (await cdaCarregarEquipe()).filter(function (e) { return e.email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(e.email).trim()); }); } catch (e) { console.error(e); }
+  if (campanhaId) {
+    try {
+      var r = await cdaClient.from('cda_campanhas').select('aprovadores_equipe_ids,aprovadores_emails').eq('id', campanhaId).maybeSingle();
+      if (r.data) salvo = { ids: (r.data.aprovadores_equipe_ids || []).map(Number), emails: r.data.aprovadores_emails || [] };
+    } catch (e) { console.error(e); }
+  }
+  return { equipe: equipe, salvo: salvo };
+}
+async function cdaMsgGravarAprovadores(campanhaId, ids, emails) {
+  if (!campanhaId) return;
+  try { await cdaClient.from('cda_campanhas').update({ aprovadores_equipe_ids: ids, aprovadores_emails: emails }).eq('id', campanhaId); }
+  catch (e) { console.error('Não foi possível gravar os aprovadores da campanha:', e); }
+}
+function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela, aprov) {
+  aprov = aprov || { equipe: [], salvo: { ids: [], emails: [] } };
   return new Promise(function (resolve) {
     var doc = janela && !janela.closed ? janela.document : document;
     var overlay = doc.createElement('div');
     overlay.id = 'cda-msg-dialogo-teste';
     overlay.setAttribute('role', 'presentation');
     overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px';
+    var meuEmail = String(padrao || '').toLowerCase();
+    var semSalvo = !aprov.salvo.ids.length && !aprov.salvo.emails.length;
+    var marcados = aprov.salvo.ids.slice();
+    if (semSalvo) aprov.equipe.forEach(function (e) { if (String(e.email).toLowerCase() === meuEmail) marcados.push(Number(e.id)); });
+    var lista = aprov.equipe.map(function (e) {
+      return '<label style="display:flex;gap:8px;align-items:center;padding:5px 0;cursor:pointer;font-size:14px"><input type="checkbox" class="cda-aprov-ck" value="' + e.id + '"' + (marcados.indexOf(Number(e.id)) !== -1 ? ' checked' : '') + '> <b>' + cdaMsgEsc(e.nome) + '</b> <span style="color:#aeb8c8;font-size:12px">' + cdaMsgEsc(e.email) + '</span></label>';
+    }).join('') || '<p style="font-size:12px;color:#aeb8c8">Nenhum usuário credenciado com e-mail.</p>';
     overlay.innerHTML =
-      '<div role="dialog" aria-modal="true" aria-labelledby="cda-msg-teste-titulo" style="background:#182235;color:#f5f3ee;border:1px solid #536078;border-radius:12px;padding:24px;width:min(100%,520px);box-shadow:0 16px 45px rgba(0,0,0,.5);font-family:inherit">' +
-        '<h3 id="cda-msg-teste-titulo" style="margin:0 0 12px;font-size:20px">Enviar e-mail de teste</h3>' +
+      '<div role="dialog" aria-modal="true" aria-labelledby="cda-msg-teste-titulo" style="background:#182235;color:#f5f3ee;border:1px solid #536078;border-radius:12px;padding:24px;width:min(100%,560px);max-height:92vh;overflow:auto;box-shadow:0 16px 45px rgba(0,0,0,.5);font-family:inherit">' +
+        '<h3 id="cda-msg-teste-titulo" style="margin:0 0 12px;font-size:20px">Enviar para aprovação</h3>' +
         '<p style="margin:0 0 14px;line-height:1.5">Mensagem: <b id="cda-msg-teste-nome"></b></p>' +
-        '<label for="cda-msg-teste-enderecos" style="display:block;margin:0 0 6px">Destinatários (até 3, separados por vírgula)</label>' +
-        '<input id="cda-msg-teste-enderecos" type="text" autocomplete="off" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #8e9ab0;border-radius:6px;background:#fff;color:#111;font-size:15px">' +
+        '<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Usuários credenciados</div>' +
+        '<div id="cda-aprov-lista" style="border:1px solid #536078;border-radius:6px;padding:6px 12px;margin-bottom:14px;max-height:220px;overflow:auto">' + lista + '</div>' +
+        '<label for="cda-msg-teste-enderecos" style="display:block;margin:0 0 6px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px">E-mails avulsos (não credenciados) · até 3, separados por vírgula</label>' +
+        '<input id="cda-msg-teste-enderecos" type="text" autocomplete="off" placeholder="ex.: agencia@exemplo.com.br" style="box-sizing:border-box;width:100%;padding:12px;border:1px solid #8e9ab0;border-radius:6px;background:#fff;color:#111;font-size:15px">' +
+        '<p style="font-size:11px;color:#aeb8c8;margin:6px 0 0">A seleção fica gravada nesta campanha e volta marcada no próximo envio.</p>' +
         '<p id="cda-msg-teste-erro" role="alert" style="color:#ff9b9b;min-height:18px;font-size:12px;margin:6px 0 12px"></p>' +
         '<div style="font-size:12px;line-height:1.6;margin-bottom:20px;color:#d2d9e3;overflow-wrap:anywhere">De: <span id="cda-msg-teste-remetente"></span><br><span id="cda-msg-teste-resposta"></span></div>' +
         '<div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap">' +
           '<button id="cda-msg-teste-cancelar" type="button" style="cursor:pointer;padding:11px 18px;border:1px solid #8e9ab0;border-radius:6px;background:#29364a;color:#fff;font-weight:600">Cancelar</button>' +
-          '<button id="cda-msg-teste-confirmar" type="button" style="cursor:pointer;padding:11px 18px;border:0;border-radius:6px;background:#d94835;color:#fff;font-weight:600">Enviar teste</button>' +
+          '<button id="cda-msg-teste-confirmar" type="button" style="cursor:pointer;padding:11px 18px;border:0;border-radius:6px;background:#d94835;color:#fff;font-weight:600">Enviar</button>' +
         '</div>' +
       '</div>';
     doc.body.appendChild(overlay);
@@ -59,7 +88,7 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
     overlay.querySelector('#cda-msg-teste-nome').textContent = mensagem.nome || '';
     overlay.querySelector('#cda-msg-teste-remetente').textContent = (mensagem.remetenteNome || '') + ' <' + (mensagem.remetenteEmail || '') + '>';
     overlay.querySelector('#cda-msg-teste-resposta').textContent = mensagem.responderPara ? 'Respostas vão para: ' + mensagem.responderPara : 'Sem "Responder para"';
-    campo.value = padrao || '';
+    campo.value = semSalvo ? (aprov.equipe.length ? '' : (padrao || '')) : aprov.salvo.emails.join(', ');
     function finalizar(valor) {
       doc.removeEventListener('keydown', teclas, true);
       overlay.remove();
@@ -68,13 +97,16 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
     }
     function cancelar() { finalizar(null); }
     function confirmar() {
-      var para = campo.value.split(/[,;\s]+/).map(function (x) { return x.trim(); }).filter(Boolean);
-      if (!para.length) { erro.textContent = 'Informe ao menos um e-mail.'; campo.focus(); return; }
-      if (para.length > 3) { erro.textContent = 'No máximo 3 endereços por teste.'; campo.focus(); return; }
-      if (para.some(function (email) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); })) {
-        erro.textContent = 'Confira os endereços de e-mail informados.'; campo.focus(); return;
+      var avulsos = campo.value.split(/[,;\s]+/).map(function (x) { return x.trim().toLowerCase(); }).filter(Boolean);
+      if (avulsos.length > 3) { erro.textContent = 'No máximo 3 e-mails avulsos.'; campo.focus(); return; }
+      if (avulsos.some(function (email) { return !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email); })) {
+        erro.textContent = 'Confira os e-mails avulsos informados.'; campo.focus(); return;
       }
-      finalizar(para);
+      var ids = Array.from(overlay.querySelectorAll('.cda-aprov-ck:checked')).map(function (c) { return Number(c.value); });
+      var daEquipe = aprov.equipe.filter(function (e) { return ids.indexOf(Number(e.id)) !== -1; }).map(function (e) { return String(e.email).trim().toLowerCase(); });
+      var para = daEquipe.concat(avulsos).filter(function (x, i, a) { return a.indexOf(x) === i; });
+      if (!para.length) { erro.textContent = 'Marque ao menos um usuário ou informe um e-mail.'; return; }
+      finalizar({ para: para, ids: ids, avulsos: avulsos });
     }
     function teclas(ev) {
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); cancelar(); }
@@ -84,8 +116,8 @@ function cdaMsgSolicitarDestinatarios(mensagem, padrao, janela) {
     overlay.querySelector('#cda-msg-teste-confirmar').addEventListener('click', confirmar);
     overlay.addEventListener('click', function (ev) { if (ev.target === overlay) cancelar(); });
     doc.addEventListener('keydown', teclas, true);
-    campo.focus();
-    campo.select();
+    var primeiro = overlay.querySelector('.cda-aprov-ck') || campo;
+    primeiro.focus();
   });
 }
 
@@ -127,8 +159,11 @@ function cdaMsgStatusEnvio(janela, destinos) {
 async function cdaMsgPerguntarEEnviarTeste(mensagem, campanha, cliente, botao, janela) {
   if (!mensagem || !mensagem.id) { alert('Salve a mensagem antes de enviar o teste.'); return null; }
   var padrao = (window.cu && window.cu.email) || '';
-  var para = await cdaMsgSolicitarDestinatarios(mensagem, padrao, janela);
-  if (para === null) return null; // Cancelar: não envia, não altera a mensagem.
+  var aprov = await cdaMsgCarregarAprovadores(mensagem.campanhaId);
+  var escolha = await cdaMsgSolicitarDestinatarios(mensagem, padrao, janela, aprov);
+  if (escolha === null) return null; // Cancelar: não envia, não altera a mensagem.
+  var para = escolha.para;
+  await cdaMsgGravarAprovadores(mensagem.campanhaId, escolha.ids, escolha.avulsos);
   var textoBotao = botao ? botao.textContent : '';
   if (botao) { botao.textContent = '⏳ Enviando...'; botao.disabled = true; }
   var status = cdaMsgStatusEnvio(janela, para);
@@ -477,7 +512,7 @@ async function montarModuloMensagens(containerId, opts) {
           '<button class="btn sm" data-abrir="' + m.id + '" title="Abrir o e-mail em outra aba">👁 Abrir</button>' +
           '<button class="btn sm" data-editar="' + m.id + '">' + (editavel ? '✏ Editar' : '🔍 Ver') + '</button>' +
           (editavel ? '<button class="btn sm" data-duplicar="' + m.id + '">⧉ Duplicar</button>' +
-            '<button class="btn sm" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para até 3 pessoas aprovarem">✉ Enviar para aprovação</button>' +
+            '<button class="btn sm" data-aprovacao="' + m.id + '" title="Envia este e-mail (assunto com [TESTE]) para os aprovadores da campanha e até 3 e-mails avulsos">✉ Enviar para aprovação</button>' +
             '<button class="btn sm" data-whats="' + m.id + '" title="Abre o seu WhatsApp com o link da prévia do e-mail">🟢 Aprovação por WhatsApp</button>' +
             '<button class="btn sm" data-excluir="' + m.id + '">🗑</button>' : '') +
         '</div></td></tr>';

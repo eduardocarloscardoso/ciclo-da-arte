@@ -136,7 +136,6 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '</details>' +
     '</div>' +
     '<div class="pb2c-acessos" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:-4px 0 14px">' +
-      '<button type="button" class="btn sm" id="pb2c-btn-homologacao" title="Acessar cadastro e operação de homologação desta campanha">🧪 Abrir Homologação</button>' +
       '<button type="button" class="btn sm" id="pb2c-btn-transmissao-oficial" title="Planejar lotes da campanha; envio oficial continua bloqueado">📨 Transmissão Oficial</button>' +
     '</div>' +
     '<section id="pb2c-comunicacoes" style="display:none;border:2px solid var(--ink,#1a1a1a);padding:14px 16px;margin:10px 0 16px;background:var(--paper,#fff)">' +
@@ -295,7 +294,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
   // Status das campanhas (padrão: Ativas). Leads sem campanha aparecem junto com Ativas/Todas.
   function statusFiltro() { var el = host.querySelector('#pb2c-f-status'); return el ? el.value : ''; }
   function campanhaNoStatus(c) { var st = statusFiltro(); return !st || ((c && c.status) || 'ativa') === st; }
-  function semCampanhaVisivel() { var st = statusFiltro(); return !st || st === 'ativa'; }
+  function semCampanhaVisivel() { var st = statusFiltro(); return (!st || st === 'ativa') && (ST.leads || []).some(function (l) { return !l.campanhaId; }); }
   function popularCampanhas() {
     var sel = host.querySelector('#pb2c-f-campanha'), anterior = sel.value;
     var lista = ST.campanhas.filter(campanhaNoStatus).sort(function (a, b) { return a.nome.localeCompare(b.nome); });
@@ -447,11 +446,6 @@ async function montarModuloPipelineB2C(containerId, opts) {
       '</tbody></table></div>':'<p style="color:var(--muted,#777)">Nenhum teste registrado para esta seleção.</p>')+
       '<p style="font-size:10px;color:var(--muted,#777);margin-top:12px">Eventos posteriores são registrados apenas quando recebidos de webhook assinado e associados ao teste. Zero eventos não prova ausência de entregas enquanto o webhook não estiver ativado. Histórico de compras e leads não são alterados por esta consulta.</p>';
   }
-  host.querySelector('#pb2c-btn-homologacao').addEventListener('click',function(){
-    var filtro=host.querySelector('#pb2c-f-campanha').value;
-    window._cdaHomologacaoCampanhaId = (filtro && filtro !== '__sem_campanha__') ? filtro : '';
-    navigateCRM('homologacao');
-  });
   host.querySelector('#pb2c-btn-transmissao-oficial').addEventListener('click',function(){
     var filtro=host.querySelector('#pb2c-f-campanha').value;
     window._cdaTransmissaoCampanhaId=(filtro&&filtro!=='__sem_campanha__')?filtro:'';

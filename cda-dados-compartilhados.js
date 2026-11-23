@@ -1102,8 +1102,9 @@ async function cdaEnviarTesteMensagem(mensagem, campanha, cliente, para) {
   // Controle de testes: no máximo três endereços explicitamente informados.
   const destinos = [...new Set((Array.isArray(para) ? para : [para])
     .map(x => String(x || '').trim().toLowerCase()).filter(Boolean))];
-  if (!destinos.length || destinos.length > 3 || destinos.some(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))
-    throw new Error('Informe de 1 a 3 e-mails válidos para teste.');
+  // Até 20 destinatários: aprovadores credenciados da campanha + até 3 avulsos (o limite de 3 avulsos é validado no diálogo)
+  if (!destinos.length || destinos.length > 20 || destinos.some(x => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)))
+    throw new Error('Informe de 1 a 20 e-mails válidos para aprovação.');
   const email = cdaMontarEmailMensagem(mensagem, campanha, cliente, {});
   const resultados = [];
   for (const destino of destinos) {
