@@ -106,7 +106,7 @@ async function montarModuloWhatsApp(containerId, opts) {
     '</style>' +
     '<div class="row-bt"><div><div class="sec-t">💬 Conversas WhatsApp</div>' +
     '<div class="sec-d">Atendimento pelo WhatsApp oficial, ligado a Clientes, Pipeline B2C, Diário e Tarefas · <span id="wa-num" class="mn"></span></div></div>' +
-    '<div style="display:flex;gap:7px"><button class="btn sm rust" id="wa-aba-conv">💬 Conversas</button><button class="btn sm" id="wa-aba-disp">📣 Disparos de campanha</button><button class="btn sm" id="wa-atualizar">↻ Atualizar</button></div></div>' +
+    '<div style="display:flex;gap:7px"><button class="btn sm rust" id="wa-aba-conv" style="display:none">💬 Conversas</button><button class="btn sm" id="wa-aba-disp" style="display:none" title="Disparos agora em Comercial › Canais de Campanha › WhatsApp">📣 Disparos de campanha</button><button class="btn sm" id="wa-atualizar">↻ Atualizar</button></div></div>' +
     '<div id="wa-view-disp" style="display:none"></div>' +
     '<div id="wa-view-conv">' +
     '<div class="wa-kp" id="wa-kp"></div>' +

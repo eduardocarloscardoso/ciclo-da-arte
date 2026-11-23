@@ -23,6 +23,7 @@ async function montarTransmissaoOficial(containerId) {
     '<div class="to-card"><h2 style="margin:0 0 8px">Transmissões oficiais · planejamento universal</h2>'+
       '<p class="to-muted">Aplicável a qualquer campanha com lista congelada. Nesta fase, somente conferência, dimensionamento e simulação matemática: <strong>envio oficial bloqueado</strong>.</p>'+
       '<div class="to-grid">'+
+        '<label class="to-label">Status da campanha<select id="to-status"><option value="ativa" selected>Ativas</option><option value="pausada">Pausadas</option><option value="encerrada">Encerradas</option><option value="">Todas</option></select></label>'+
         '<label class="to-label">Campanha<select id="to-campanha"><option>Carregando...</option></select></label>'+
         '<label class="to-label">Mensagem<select id="to-mensagem"><option>Selecione a campanha</option></select></label>'+
         '<label class="to-label">Destinatários por lote<input id="to-tamanho" type="number" value="20" min="1" max="1000" step="1"></label>'+
@@ -615,14 +616,22 @@ async function montarTransmissaoOficial(containerId) {
   $('to-tamanho').addEventListener('change',apresentar);
   try{
     campanhas=await obterDados(cdaClient.from('cda_campanhas').select('id,nome,status,lgpd_base_legal,lgpd_finalidade_fundamentacao').order('nome'));
-    $('to-campanha').innerHTML='<option value="">Selecione uma campanha</option>'+
-      campanhas.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.nome)+' · '+esc(c.status||'sem status')+'</option>').join('');
+    // Filtro de Status (padrão Ativas), igual ao Pipeline e à Biblioteca.
+    const popularCampanhasPorStatus=()=>{
+      const st=$('to-status').value, anterior=$('to-campanha').value;
+      const lista=campanhas.filter(c=>!st||(c.status||'ativa')===st);
+      $('to-campanha').innerHTML='<option value="">'+(lista.length?'Selecione uma campanha':'Nenhuma campanha neste status')+'</option>'+
+        lista.map(c=>'<option value="'+esc(c.id)+'">'+esc(c.nome)+(st?'':' · '+esc(c.status||'sem status'))+'</option>').join('');
+      if(lista.some(c=>String(c.id)===anterior))$('to-campanha').value=anterior;
+      else if(lista.length)$('to-campanha').value=String(lista[0].id);
+    };
     const selecionadaPeloPipeline=String(window._cdaTransmissaoCampanhaId||'');
     window._cdaTransmissaoCampanhaId='';
-    if(campanhas.some(c=>String(c.id)===selecionadaPeloPipeline))
-      $('to-campanha').value=selecionadaPeloPipeline;
-    else if(campanhas.some(c=>Number(c.id)===4))$('to-campanha').value='4';
-    else if(campanhas.length)$('to-campanha').value=String(campanhas[0].id);
+    const cSel=campanhas.find(c=>String(c.id)===selecionadaPeloPipeline);
+    if(cSel)$('to-status').value=cSel.status||'ativa';
+    popularCampanhasPorStatus();
+    if(cSel)$('to-campanha').value=selecionadaPeloPipeline;
+    $('to-status').addEventListener('change',async()=>{popularCampanhasPorStatus();await carregarCampanha();});
     await carregarCampanha();
   }catch(e){$('to-aviso').textContent='Falha na consulta: '+(e.message||e);}
 }

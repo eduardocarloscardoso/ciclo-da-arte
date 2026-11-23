@@ -46,7 +46,7 @@ async function montarWhatsAppDisparos(el, opts) {
       '.wd-barra span{display:block;height:100%;background:var(--sage);}' +
       '.wd-log{font-family:\'Space Mono\',monospace;font-size:10.5px;background:#111;color:#cfe;padding:8px;max-height:160px;overflow:auto;margin-top:8px;white-space:pre-wrap;}' +
     '</style>' +
-    '<div class="wd-sec" style="border-color:var(--rust,#b3261e)"><div class="wd-b"><div class="wd-row" style="margin-top:0"><label for="wd-camp" style="font-size:12px;font-weight:700">Campanha (Canal Marketing WhatsApp)</label><select id="wd-camp" style="min-width:280px"></select></div>' +
+    '<div class="wd-sec" style="border-color:var(--rust,#b3261e)"><div class="wd-b"><div class="wd-row" style="margin-top:0"><label for="wd-status" style="font-size:12px;font-weight:700">Status</label><select id="wd-status"><option value="ativa" selected>Ativas</option><option value="pausada">Pausadas</option><option value="encerrada">Encerradas</option><option value="">Todas</option></select><label for="wd-camp" style="font-size:12px;font-weight:700">Campanha (Canal Marketing WhatsApp)</label><select id="wd-camp" style="min-width:280px"></select></div>' +
       '<div id="wd-escolha" class="tmu" style="font-size:12px;margin-top:8px">Escolha a campanha para ver os modelos de mensagem, a fila de envio e os resultados.</div></div></div>' +
     '<div id="wd-conteudo" hidden>' +
     '<div class="wd-sec"><div class="wd-h"><b>1 · Modelos de mensagem desta campanha</b><div style="display:flex;gap:6px">' +
@@ -190,8 +190,16 @@ async function montarWhatsAppDisparos(el, opts) {
     var r = await cdaClient.from('cda_campanhas').select('id,nome,status,canais_selecionados').order('id', { ascending: false });
     ST.campanhas = (r.data || []).filter(function (c) { return (c.canais_selecionados || []).indexOf('whatsapp') >= 0; });
     ST.campanhas.sort(function (a, b) { return (a.status === 'ativa' ? 0 : 1) - (b.status === 'ativa' ? 0 : 1); });
-    $('#wd-camp').innerHTML = '<option value="">Selecione…</option>' + ST.campanhas.map(function (c) { return '<option value="' + c.id + '">' + esc(c.nome) + (c.status && c.status !== 'ativa' ? ' · ' + esc(c.status) : '') + '</option>'; }).join('');
+    popularCampanhasWa();
     if (!ST.campanhas.length) $('#wd-escolha').textContent = 'Nenhuma campanha com Canal Marketing WhatsApp. Crie a campanha em Comercial › Campanhas escolhendo o canal WhatsApp.';
+  }
+  // Filtro de Status (padrão Ativas), igual ao Pipeline e à Biblioteca.
+  function popularCampanhasWa() {
+    var st = $('#wd-status').value, anterior = $('#wd-camp').value;
+    var lista = ST.campanhas.filter(function (c) { return !st || (c.status || 'ativa') === st; });
+    $('#wd-camp').innerHTML = '<option value="">' + (lista.length ? 'Selecione…' : 'Nenhuma campanha neste status') + '</option>' + lista.map(function (c) { return '<option value="' + c.id + '">' + esc(c.nome) + (!st && c.status && c.status !== 'ativa' ? ' · ' + esc(c.status) : '') + '</option>'; }).join('');
+    if (anterior && lista.some(function (c) { return String(c.id) === anterior; })) $('#wd-camp').value = anterior;
+    else if (anterior) $('#wd-camp').dispatchEvent(new Event('change'));
   }
   async function carregarDisparos() {
     if (!ST.campanhaId) { $('#wd-disp').innerHTML = ''; return; }
@@ -273,6 +281,7 @@ async function montarWhatsAppDisparos(el, opts) {
 
   $('#wd-tpl-atualizar').addEventListener('click', function () { carregarTemplates(false); });
   if ($('#wd-tpl-novo')) $('#wd-tpl-novo').addEventListener('click', abrirNovoModelo);
+  $('#wd-status').addEventListener('change', popularCampanhasWa);
   $('#wd-camp').addEventListener('change', function () {
     ST.campanhaId = this.value;
     $('#wd-conteudo').hidden = !ST.campanhaId;
