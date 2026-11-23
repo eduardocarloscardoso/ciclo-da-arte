@@ -624,8 +624,9 @@ async function montarModuloPipelineB2C(containerId, opts) {
     var kanban=visaoPipeline==='kanban';
     host.querySelector('#pb2c-board').style.display=kanban?'':'none';
     host.querySelector('#pb2c-oper-tabela').style.display=kanban?'none':'';
-    host.querySelector('#pb2c-oper-etapa').disabled=kanban;
-    host.querySelector('#pb2c-oper-situacao').disabled=kanban;
+    // Filtros de etapa e acompanhamento só valem na Tabela operacional: no Kanban ficam ocultos.
+    host.querySelector('#pb2c-oper-etapa').style.display=kanban?'none':'';
+    host.querySelector('#pb2c-oper-situacao').style.display=kanban?'none':'';
     if(!kanban){
       renderTabelaOperacional(f);
       host.querySelector('#pb2c-cnt').textContent=f.length.toLocaleString('pt-BR')+' lead(s) no funil';

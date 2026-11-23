@@ -449,7 +449,7 @@ async function montarModuloMensagens(containerId, opts) {
       (editavel ? '<button class="btn rust" id="msg-btn-nova">＋ Nova mensagem</button>' : '') +
     '</div>' +
     '<h3 style="font-size:15px;margin:16px 0 8px">Mensagens de e-mail · acervo existente</h3>' +
-    '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap"><select id="msg-f-campanha"><option value="">Todas as campanhas</option></select></div>' +
+    '<div style="display:flex;gap:8px;margin:12px 0;flex-wrap:wrap;align-items:center"><label for="msg-f-status" style="font-weight:700;font-size:12px">Status</label><select id="msg-f-status" aria-label="Status das campanhas"><option value="ativa" selected>Ativas</option><option value="pausada">Pausadas</option><option value="encerrada">Encerradas</option><option value="">Todas</option></select><label for="msg-f-campanha" style="font-weight:700;font-size:12px">Campanha</label><select id="msg-f-campanha"><option value="">Todas as campanhas</option></select></div>' +
     '<div class="tw"><div class="ts"><table>' +
       '<thead><tr><th>Campanha</th><th>Mensagem</th><th>Assunto</th><th>Remetente</th><th>Responder para</th><th>Atualizada</th><th>Último teste</th><th>Ações</th></tr></thead>' +
       '<tbody id="msg-tb"><tr><td colspan="8" class="tmu">Carregando...</td></tr></tbody>' +
@@ -487,11 +487,27 @@ async function montarModuloMensagens(containerId, opts) {
   }
   var campanhaPorId = {}; ST.campanhas.forEach(function (c) { campanhaPorId[c.id] = c; });
   var fSel = host.querySelector('#msg-f-campanha');
-  fSel.innerHTML = '<option value="">Todas as campanhas</option>' + ST.campanhas.map(function (c) { return '<option value="' + c.id + '">' + cdaMsgEsc(c.nome) + '</option>'; }).join('');
+  var fStatus = host.querySelector('#msg-f-status');
+  // Status das campanhas (padrão: Ativas), igual ao Pipeline. Mensagens sem campanha aparecem com Ativas/Todas.
+  function campanhaNoStatus(c) { var st = fStatus.value; return !st || ((c && c.status) || 'ativa') === st; }
+  function mensagemNoStatus(m) {
+    var c = campanhaPorId[m.campanhaId];
+    if (!c) { var st = fStatus.value; return !st || st === 'ativa'; }
+    return campanhaNoStatus(c);
+  }
+  function popularCampanhas() {
+    var anterior = fSel.value, st = fStatus.value;
+    var rot = { ativa: 'ativas', pausada: 'pausadas', encerrada: 'encerradas' }[st];
+    fSel.innerHTML = '<option value="">' + (rot ? 'Todas as campanhas ' + rot : 'Todas as campanhas') + '</option>' +
+      ST.campanhas.filter(campanhaNoStatus).sort(function (a, b) { return String(a.nome).localeCompare(String(b.nome)); })
+        .map(function (c) { return '<option value="' + c.id + '">' + cdaMsgEsc(c.nome) + '</option>'; }).join('');
+    if (anterior && fSel.querySelector('option[value="' + anterior + '"]')) fSel.value = anterior;
+  }
+  popularCampanhas();
 
   function render() {
     var f = fSel.value;
-    var lista = ST.mensagens.filter(function (m) { return !f || String(m.campanhaId) === f; })
+    var lista = ST.mensagens.filter(function (m) { return f ? String(m.campanhaId) === f : mensagemNoStatus(m); })
       .sort(function (a, b) {
         var ca = (campanhaPorId[a.campanhaId] || {}).nome || '~', cb = (campanhaPorId[b.campanhaId] || {}).nome || '~';
         return ca.localeCompare(cb) || String(b.atualizadoEm).localeCompare(String(a.atualizadoEm));
@@ -712,7 +728,12 @@ async function montarModuloMensagens(containerId, opts) {
   carregarMateriais();
 
   fSel.addEventListener('change', render);
+  fStatus.addEventListener('change', function () { popularCampanhas(); render(); });
   if (editavel) host.querySelector('#msg-btn-nova').addEventListener('click', function () { abrirEditor(null, false); });
-  if (opts.campanhaId) { fSel.value = String(opts.campanhaId); }
+  if (opts.campanhaId) {
+    var cOpt = campanhaPorId[opts.campanhaId];
+    if (cOpt && !campanhaNoStatus(cOpt)) { fStatus.value = (cOpt.status || 'ativa'); popularCampanhas(); }
+    fSel.value = String(opts.campanhaId);
+  }
   render();
 }
