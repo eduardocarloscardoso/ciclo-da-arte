@@ -116,12 +116,22 @@ async function montarModuloClientes(containerId, opts) {
             '<div class="ct" id="cdacli-m-ctags"></div>' +
             '<div class="acr"><select id="cdacli-m-csel"><option value="">Selecione canal...</option></select><button class="btn sm" id="cdacli-btn-addcanal">+ Vincular</button></div>' +
           '</div>' +
-          '<div style="grid-column:1/-1;border:1px solid var(--border2,#ccc);padding:12px;margin:8px 0 4px">' +
-            '<div style="font-weight:700;font-size:13px;margin-bottom:5px">Canais vinculados × Canais com compras</div>' +
-            '<p style="font-size:11px;color:var(--muted,#777);margin:0 0 8px">Consulta comparativa, sem sincronização automática. O vínculo no cadastro pode existir mesmo sem compra; os canais das compras vêm do Histórico de Compras.</p>' +
-            '<div id="cdacli-m-comp-canais" aria-live="polite" style="font-size:12px">Abra um cliente para visualizar a comparação.</div>' +
-          '</div>' +
+          '<div style="grid-column:1/-1;margin:8px 0 4px"><button type="button" class="btn sm" id="cdacli-btn-relacao" title="Canais × compras e campanhas de que o cliente participou">📊 Relação do cliente · canais e campanhas</button></div>' +
         '</div></div>' +
+        // Popup "Relação do cliente": aba Canais (comparativo existente) e aba Campanhas (participação × compras).
+        '<div id="cdacli-rel" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:16px">' +
+          '<div role="dialog" aria-modal="true" aria-labelledby="cdacli-rel-tit" style="background:var(--paper,#fff);color:var(--ink,#111);border:2px solid var(--ink,#111);width:min(100%,920px);max-height:90vh;overflow:auto;padding:18px 20px">' +
+            '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><h3 id="cdacli-rel-tit" style="margin:0;font-size:18px">Relação do cliente</h3><button type="button" class="mo-x" id="cdacli-rel-x" aria-label="Fechar" style="color:var(--ink,#111)">✕</button></div>' +
+            '<div role="tablist" style="display:flex;gap:8px;margin-bottom:12px"><button type="button" class="btn sm rust" data-relaba="camp">📣 Campanhas</button><button type="button" class="btn sm" data-relaba="canais">🔗 Canais</button></div>' +
+            '<div data-relview="camp"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;margin-bottom:8px"><label for="cdacli-rel-janela" style="font-weight:700">Comprou em até</label><select id="cdacli-rel-janela"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option></select><span class="tmu">após o envio da campanha</span></div>' +
+              '<div id="cdacli-rel-camp" aria-live="polite" style="font-size:12px">Carregando…</div></div>' +
+            '<div data-relview="canais" style="display:none">' +
+              '<div style="font-weight:700;font-size:13px;margin-bottom:5px">Canais vinculados × Canais com compras</div>' +
+              '<p style="font-size:11px;color:var(--muted,#777);margin:0 0 8px">Consulta comparativa, sem sincronização automática. O vínculo no cadastro pode existir mesmo sem compra; os canais das compras vêm do Histórico de Compras.</p>' +
+              '<div id="cdacli-m-comp-canais" aria-live="polite" style="font-size:12px">Abra um cliente para visualizar a comparação.</div>' +
+            '</div>' +
+          '</div>' +
+        '</div>' +
         '<div class="mo-f"><button class="btn" id="cdacli-m-cancelar">Cancelar</button><button class="btn rust" id="cdacli-m-salvar">💾 Salvar</button></div>' +
       '</div>' +
     '</div>';
@@ -338,7 +348,63 @@ async function montarModuloClientes(containerId, opts) {
     modal.classList.add('op');
     carregarComparativoCanais(c ? c.id : null);
   }
-  function fecharModal() { consultaCanaisToken++; modal.classList.remove('op'); }
+  function fecharModal() { consultaCanaisToken++; fecharRelacao(); modal.classList.remove('op'); }
+
+  // ── Relação do cliente: campanhas × compras (somente leitura) ──
+  var relBox = host.querySelector('#cdacli-rel'), relToken = 0;
+  function fmtBRL(v) { return 'R$ ' + Number(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmtData(d) { if (!d) return '—'; var s = String(d).slice(0, 10).split('-'); return s.length === 3 ? s[2] + '/' + s[1] + '/' + s[0] : d; }
+  var ROT_RES = { entregue: 'Entregue', devolvida: 'Devolvido', reclamacao: 'Reclamação (spam)', aceita: 'Aguardando confirmação', enviada: 'Enviada', lida: 'Lida', falha: 'Falha', recebida: 'Recebida' };
+  function rotRes(r) { if (!r) return '—'; var p = String(r).split(' · '); return (ROT_RES[p[0]] || p[0]) + (p[1] ? ' · <b>' + escComp(p[1]) + '</b>' : ''); }
+  var ROT_CANAL = { email: '📧 E-mail', whatsapp: '🟢 WhatsApp', pipeline: '📊 Só Pipeline' };
+  var ROT_ETAPA = { novo_lead: 'Novo lead', contato: 'Contato', engajado: 'Engajado', compra: 'Compra', fidelizacao: 'Fidelização', perdido: 'Perdido' };
+  function abaRelacao(qual) {
+    relBox.querySelectorAll('[data-relaba]').forEach(function (b) { b.classList.toggle('rust', b.dataset.relaba === qual); });
+    relBox.querySelectorAll('[data-relview]').forEach(function (v) { v.style.display = v.dataset.relview === qual ? '' : 'none'; });
+  }
+  function fecharRelacao() { relToken++; if (relBox) relBox.style.display = 'none'; }
+  async function carregarRelacao() {
+    var out = host.querySelector('#cdacli-rel-camp');
+    if (!ST.editId) { out.textContent = 'Disponível após salvar o cliente.'; return; }
+    var tk = ++relToken, janela = Number(host.querySelector('#cdacli-rel-janela').value) || 30;
+    out.textContent = 'Carregando…';
+    try {
+      var r = await cdaClient.rpc('cda_cliente_relacao_campanhas', { p_cliente_id: Number(ST.editId), p_janela_dias: janela });
+      if (tk !== relToken) return;
+      if (r.error) throw r.error;
+      var d = r.data || {}, camps = d.campanhas || [], sem = d.compras_sem_campanha || [];
+      var comprou = camps.filter(function (c) { return c.compra; }).length;
+      var aviso = d.compras_ate ? '<p class="tmu" style="font-size:11px;margin:0 0 10px">Histórico de Compras disponível até <b>' + fmtData(d.compras_ate) + '</b>. Campanhas enviadas depois dessa data só mostram compra quando o histórico for atualizado. "Comprou depois" indica compra no período, não prova que a compra veio da campanha.</p>' : '';
+      var resumo = '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">' +
+        '<div style="border:1px solid var(--border2,#ccc);padding:8px 12px"><div class="tmu" style="font-size:10px;text-transform:uppercase">Campanhas</div><b style="font-size:18px">' + camps.length + '</b></div>' +
+        '<div style="border:1px solid var(--border2,#ccc);padding:8px 12px"><div class="tmu" style="font-size:10px;text-transform:uppercase">Comprou depois</div><b style="font-size:18px">' + comprou + '</b></div>' +
+        '<div style="border:1px solid var(--border2,#ccc);padding:8px 12px"><div class="tmu" style="font-size:10px;text-transform:uppercase">Pedidos no histórico</div><b style="font-size:18px">' + (d.total_pedidos || 0) + '</b> <span class="tmu">· ' + fmtBRL(d.total_valor) + '</span></div></div>';
+      var tab = camps.length ? '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr>' +
+        ['Campanha', 'Canal', 'Envio', 'Resultado', 'Pipeline', 'Comprou em até ' + (d.janela_dias || janela) + ' dias?'].map(function (h) { return '<th style="text-align:left;padding:7px;border-bottom:2px solid var(--ink,#111);font-size:11px">' + h + '</th>'; }).join('') + '</tr></thead><tbody>' +
+        camps.map(function (c) {
+          return '<tr><td style="padding:7px;border-bottom:1px solid var(--border2,#ddd)"><b>' + escComp(c.campanha || ('Campanha #' + c.campanha_id)) + '</b>' + (c.status && c.status !== 'ativa' ? ' <span class="tmu">· ' + escComp(c.status) + '</span>' : '') + '</td>' +
+            '<td style="padding:7px;border-bottom:1px solid var(--border2,#ddd);white-space:nowrap">' + (ROT_CANAL[c.canal] || escComp(c.canal)) + '</td>' +
+            '<td style="padding:7px;border-bottom:1px solid var(--border2,#ddd)">' + fmtData(c.data) + '</td>' +
+            '<td style="padding:7px;border-bottom:1px solid var(--border2,#ddd)">' + rotRes(c.resultado) + '</td>' +
+            '<td style="padding:7px;border-bottom:1px solid var(--border2,#ddd)">' + (c.etapa ? escComp(ROT_ETAPA[c.etapa] || c.etapa) : '—') + '</td>' +
+            '<td style="padding:7px;border-bottom:1px solid var(--border2,#ddd)">' + (c.compra ? '✅ <b>Sim</b> · ' + c.compra.pedidos + ' pedido(s) · ' + fmtBRL(c.compra.valor) + '<div class="tmu">1ª em ' + fmtData(c.compra.primeira) + '</div>' : '<span class="tmu">Não</span>') + '</td></tr>';
+        }).join('') + '</tbody></table></div>' : '<p class="tmu">Este cliente ainda não participou de nenhuma campanha registrada.</p>';
+      var semHtml = '<h4 style="margin:16px 0 6px;font-size:13px">Compras sem campanha (' + sem.length + (sem.length === 30 ? '+' : '') + ')</h4>' +
+        (sem.length ? '<p class="tmu" style="font-size:11px;margin:0 0 6px">Pedidos sem nenhuma campanha enviada nos ' + (d.janela_dias || janela) + ' dias anteriores.</p><div style="display:flex;flex-wrap:wrap;gap:6px">' +
+          sem.map(function (p) { return '<span style="border:1px solid var(--border2,#ccc);padding:4px 8px;font-size:11px">' + fmtData(p.data) + ' · ' + fmtBRL(p.valor) + ' <span class="tmu">#' + escComp(p.pedido) + '</span></span>'; }).join('') + '</div>' : '<p class="tmu">Nenhuma.</p>');
+      out.innerHTML = aviso + resumo + tab + semHtml;
+    } catch (e) {
+      if (tk !== relToken) return;
+      out.textContent = 'Não foi possível consultar as campanhas: ' + ((e && e.message) || e);
+    }
+  }
+  host.querySelector('#cdacli-btn-relacao').addEventListener('click', function () {
+    relBox.style.display = 'flex'; abaRelacao('camp'); carregarRelacao();
+  });
+  host.querySelector('#cdacli-rel-x').addEventListener('click', fecharRelacao);
+  relBox.addEventListener('click', function (ev) { if (ev.target === relBox) fecharRelacao(); });
+  relBox.querySelectorAll('[data-relaba]').forEach(function (b) { b.addEventListener('click', function () { abaRelacao(b.dataset.relaba); }); });
+  host.querySelector('#cdacli-rel-janela').addEventListener('change', carregarRelacao);
 
   host.querySelector('#cdacli-btn-addcanal').addEventListener('click', function () {
     var v = host.querySelector('#cdacli-m-csel').value;
