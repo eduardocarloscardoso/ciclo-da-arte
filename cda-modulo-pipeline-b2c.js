@@ -204,15 +204,23 @@ async function montarModuloPipelineB2C(containerId, opts) {
             '<div class="fgr"><label>Valor Estimado (R$)</label><input type="number" id="pb2c-m-valor" step="0.01"></div>' +
             '<div class="fgr"><label>Responsável</label><select id="pb2c-m-resp"><option value="">—</option></select></div>' +
             '<div class="fgr" style="grid-column:1/-1"><label>Observações</label><textarea id="pb2c-m-obs" rows="2"></textarea></div>' +
+            // Mensagem ao cliente (24/11/2026): o texto é do usuário; a IA só sugere ou revisa quando pedida.
+            '<div style="display:none" aria-hidden="true"><div id="pb2c-m-msg-sugerida"></div><button type="button" id="pb2c-m-msg-gerar"></button></div>' +
             '<div class="fgr" style="grid-column:1/-1;border-top:2px solid var(--ink,#1a1a1a);padding-top:12px;margin-top:4px">' +
-              '<label style="font-size:11px">💬 Mensagem Sugerida (gerada — nunca tem {variável} crua)</label>' +
-              '<div class="pb2c-hist" id="pb2c-m-msg-sugerida" style="min-height:50px"></div>' +
-              '<button class="btn sm" id="pb2c-m-msg-gerar" style="margin-top:5px">🔄 Gerar/Regenerar</button>' +
-            '</div>' +
-            '<div class="fgr" style="grid-column:1/-1">' +
-              '<label>Mensagem Final do Usuário <span class="tmu" style="font-weight:400">(se preenchida, prevalece sobre a sugerida)</span></label>' +
-              '<textarea id="pb2c-m-msg-final" rows="3" placeholder="Deixe em branco pra usar a mensagem sugerida acima como está"></textarea>' +
-              '<button class="btn sm" id="pb2c-m-msg-copiar" style="margin-top:5px">📋 Copiar mensagem final</button>' +
+              '<label for="pb2c-m-msg-final">💬 Sua mensagem para o cliente</label>' +
+              '<textarea id="pb2c-m-msg-final" rows="4" placeholder="Escreva aqui a mensagem para este cliente. Se quiser, peça uma sugestão ou uma revisão à IA."></textarea>' +
+              '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">' +
+                '<button type="button" class="btn sm" id="pb2c-m-ia-sugerir" title="A IA escreve uma proposta com os dados deste cliente">✨ Sugerir texto (IA)</button>' +
+                '<button type="button" class="btn sm" id="pb2c-m-ia-revisar" title="A IA corrige e comenta o texto que você escreveu">🔍 Revisar meu texto (IA)</button>' +
+                '<button type="button" class="btn sm" id="pb2c-m-msg-copiar">📋 Copiar</button>' +
+              '</div>' +
+              '<div id="pb2c-m-ia" hidden style="margin-top:10px;border:1px dashed var(--ink,#1a1a1a);padding:10px;background:var(--paper,#fff)">' +
+                '<div id="pb2c-m-ia-tit" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px"></div>' +
+                '<div id="pb2c-m-ia-texto" style="white-space:pre-wrap;font-size:13px;line-height:1.45"></div>' +
+                '<div id="pb2c-m-ia-coment" class="tmu" style="font-size:11px;margin-top:6px"></div>' +
+                '<div style="display:flex;gap:6px;margin-top:8px"><button type="button" class="btn sm rust" id="pb2c-m-ia-usar">Usar este texto</button><button type="button" class="btn sm" id="pb2c-m-ia-descartar">Descartar</button></div>' +
+              '</div>' +
+              '<p class="tmu" style="font-size:10px;margin:6px 0 0">Nada é enviado daqui. No WhatsApp oficial, texto livre só pode ser enviado em Conversas WhatsApp se o cliente escreveu nas últimas 24 horas.</p>' +
             '</div>' +
           '</div></div>' +
           '<div id="pb2c-tabpanel-historico" style="display:none"><div class="pb2c-hist" id="pb2c-m-hist" style="max-height:400px"></div></div>' +
@@ -1010,6 +1018,7 @@ async function montarModuloPipelineB2C(containerId, opts) {
     host.querySelector('#pb2c-m-email').value = l ? (l.email || '') : '';
     host.querySelector('#pb2c-m-msg-sugerida').textContent = l && l.mensagemSugerida ? l.mensagemSugerida : 'Nenhuma mensagem gerada ainda — clica em "Gerar/Regenerar".';
     host.querySelector('#pb2c-m-msg-final').value = l ? (l.mensagemFinalUsuario || '') : '';
+    if (typeof iaFechar === 'function' && iaBox) iaFechar();
     var selCanal = host.querySelector('#pb2c-m-canal');
     selCanal.innerHTML = '<option value="">—</option>' + ST.canais.slice().sort(function (a, b) { return a.nome.localeCompare(b.nome); })
       .map(function (c) { return '<option value="' + c.id + '">' + c.nome + '</option>'; }).join('');
@@ -1105,11 +1114,63 @@ async function montarModuloPipelineB2C(containerId, opts) {
       alert('Erro ao gerar mensagem:\n' + ((err && (err.message || err.details || err.hint)) || 'Erro desconhecido'));
     }
   });
+  // ── IA sob demanda: sugerir ou revisar a mensagem do lead (nunca substitui sozinha) ──
+  var iaBox = host.querySelector('#pb2c-m-ia');
+  function iaFechar() { iaBox.hidden = true; host.querySelector('#pb2c-m-ia-texto').textContent = ''; host.querySelector('#pb2c-m-ia-coment').textContent = ''; }
+  async function iaContexto(lead) {
+    var cliente = clientePorId[lead.clienteId] || null;
+    var campanha = campanhaPorId[lead.campanhaId] || null;
+    var dados = cdaCalcularDadosVariaveis(lead, cliente, ST.compras, canalById);
+    var compras = (ST.compras || []).filter(function (cp) { return String(cp.clienteId) === String(lead.clienteId); })
+      .sort(function (a, b) { return (b.dataCompra || '').localeCompare(a.dataCompra || ''); });
+    var resposta = '';
+    try {
+      var cv = await cdaClient.from('cda_whatsapp_conversas').select('id').eq('lead_id', lead.id).limit(1);
+      var cid = cv && cv.data && cv.data[0] && cv.data[0].id;
+      if (cid) {
+        var mm = await cdaClient.from('cda_whatsapp_mensagens').select('texto').eq('conversa_id', cid).eq('direcao', 'entrada').order('ocorrido_em', { ascending: false }).limit(1);
+        resposta = (mm && mm.data && mm.data[0] && mm.data[0].texto) || '';
+      }
+    } catch (e) { console.warn('Resposta do cliente indisponível para a IA:', e); }
+    return {
+      primeiroNome: dados.nome, campanha: campanha ? campanha.nome : '', objetivo: campanha ? campanha.objetivo : '',
+      condicoes: campanha ? campanha.beneficioCondicoes : '',
+      canal: (lead.meiosSelecionados || []).join(', ') || 'whatsapp',
+      etapa: CDA_ETAPA_LABEL_CATALOGO[lead.etapa] || lead.etapa || '',
+      grupo: cliente ? (cliente.grupo || '') : '',
+      ultimaPeca: compras[0] ? (compras[0].produto || '') : '', ultimaCompra: compras[0] ? (compras[0].dataCompra || '') : '',
+      respostaCliente: resposta, observacoes: host.querySelector('#pb2c-m-obs').value.trim()
+    };
+  }
+  async function iaPedir(modo, botao) {
+    if (!ST.editId) { alert('Salve o lead primeiro.'); return; }
+    var lead = ST.leads.find(function (x) { return x.id === ST.editId; }); if (!lead) return;
+    var texto = host.querySelector('#pb2c-m-msg-final').value.trim();
+    if (modo === 'revisar' && !texto) { alert('Escreva sua mensagem antes de pedir a revisão.'); return; }
+    var rotulo = botao.textContent; botao.textContent = '⏳ Consultando a IA...'; botao.disabled = true;
+    try {
+      var cab = {}; try { var ses = (await cdaClient.auth.getSession()).data.session; if (ses) cab = { Authorization: 'Bearer ' + ses.access_token }; } catch (_) {}
+      var r = await cdaClient.functions.invoke('lead-mensagem-ia', { headers: cab, body: { modo: modo, texto: texto, contexto: await iaContexto(lead) } });
+      if (r.error) { var det = ''; try { det = (await r.error.context.json()).error; } catch (_) {} throw new Error(det || r.error.message); }
+      if (!r.data || !r.data.texto) throw new Error((r.data && r.data.error) || 'Resposta vazia da IA');
+      host.querySelector('#pb2c-m-ia-tit').textContent = modo === 'revisar' ? '🔍 Revisão da IA' : '✨ Sugestão da IA';
+      host.querySelector('#pb2c-m-ia-texto').textContent = r.data.texto;
+      host.querySelector('#pb2c-m-ia-coment').textContent = r.data.comentario ? '💡 ' + r.data.comentario : '';
+      iaBox.hidden = false;
+    } catch (e) {
+      alert('Não foi possível consultar a IA: ' + ((e && e.message) || e));
+    } finally { botao.textContent = rotulo; botao.disabled = false; }
+  }
+  host.querySelector('#pb2c-m-ia-sugerir').addEventListener('click', function () { iaPedir('sugerir', this); });
+  host.querySelector('#pb2c-m-ia-revisar').addEventListener('click', function () { iaPedir('revisar', this); });
+  host.querySelector('#pb2c-m-ia-usar').addEventListener('click', function () {
+    host.querySelector('#pb2c-m-msg-final').value = host.querySelector('#pb2c-m-ia-texto').textContent; iaFechar();
+  });
+  host.querySelector('#pb2c-m-ia-descartar').addEventListener('click', iaFechar);
+
   host.querySelector('#pb2c-m-msg-copiar').addEventListener('click', function () {
-    var final = host.querySelector('#pb2c-m-msg-final').value.trim();
-    var sugerida = host.querySelector('#pb2c-m-msg-sugerida').textContent;
-    var texto = final || sugerida;
-    if (!texto || texto.indexOf('Nenhuma mensagem') === 0) { alert('Não há mensagem pra copiar ainda.'); return; }
+    var texto = host.querySelector('#pb2c-m-msg-final').value.trim();
+    if (!texto) { alert('Escreva a mensagem antes de copiar.'); return; }
     navigator.clipboard.writeText(texto).then(function () { alert('Mensagem copiada!'); }).catch(function () { alert('Não foi possível copiar automaticamente — selecione e copie manualmente:\n\n' + texto); });
   });
 
