@@ -66,11 +66,12 @@ Deno.serve(async (req) => {
 - Português do Brasil, tom caloroso, pessoal e respeitoso; no máximo 4 frases curtas, adequado a WhatsApp.
 - Não invente desconto, prazo, frete ou condição que não esteja no contexto ou no texto do vendedor.
 - No máximo 1 emoji. Sem markdown, sem aspas, sem variáveis entre chaves.
-- Use o primeiro nome do cliente quando houver.`;
+- Use o primeiro nome do cliente quando houver.
+- Se as condições mudam conforme a data, use somente a condição válida na data de hoje.`;
 
     const prompt = modo === "sugerir"
       ? `Você ajuda a equipe comercial da Ciclo Arte (moda, acessórios e merchandising cultural, com collabs de artistas) a escrever UMA mensagem individual para um cliente.\n\nContexto:\n${ctx}\n\n${regras}\n\nResponda SOMENTE com JSON: {"texto": "<mensagem pronta>", "comentario": "<1 frase explicando a abordagem>"}`
-      : `Você revisa uma mensagem que um vendedor da Ciclo Arte (moda, acessórios e merchandising cultural) vai mandar para um cliente.\n\nContexto:\n${ctx}\n\nTexto do vendedor:\n"""${texto}"""\n\nCorrija ortografia, acentuação e pontuação, ajuste o tom se necessário e mantenha a intenção e as informações do vendedor (não acrescente ofertas). ${regras}\n\nResponda SOMENTE com JSON: {"texto": "<versão revisada>", "comentario": "<até 2 frases dizendo o que mudou e por quê; aponte se algo no texto original pode confundir o cliente>"}`;
+      : `Você é REVISOR de uma mensagem que um vendedor da Ciclo Arte (moda, acessórios e merchandising cultural) vai mandar para um cliente. Você corrige; você NÃO reescreve.\n\nContexto (só para conferência; não copie ofertas daqui para o texto):\n${ctx}\n\nTexto do vendedor:\n"""${texto}"""\n\nRegras da revisão (obrigatórias):\n- Corrija apenas ortografia, acentuação, pontuação, concordância e a grafia da marca ("Ciclo Arte").\n- Mantenha EXATAMENTE os valores, datas, percentuais, links e condições que o vendedor escreveu, mesmo que pareçam diferentes do contexto.\n- Mantenha as expressões pessoais e o estilo do vendedor (ex.: "Beijão", "visite nosso site"), a ordem das ideias e o tamanho aproximado.\n- NÃO acrescente ofertas, condições, datas, emojis ou frases novas. Pode fazer ajustes mínimos de clareza dentro das frases existentes.\n- Se faltar algo importante, se algo puder confundir o cliente, ou se um valor do texto divergir do contexto da campanha, NÃO mude o texto: avise no comentário (ex.: "a campanha cadastrada diz R$ 399; confira").\n- Sem markdown e sem aspas no texto.\n\nResponda SOMENTE com JSON: {"texto": "<texto do vendedor corrigido>", "comentario": "<até 2 frases: o que foi corrigido e, se houver, alertas para o vendedor conferir>"}`;
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
