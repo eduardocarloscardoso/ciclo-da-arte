@@ -33,7 +33,8 @@ async function verificarAssinatura(req:Request, payload:string, secret:string):P
   }
   return false;
 }
-const TIPOS=new Set(["email.delivered","email.bounced","email.delivery_delayed","email.complained"]);
+// email.clicked (24/11/2026): clique no link vira lead Engajado no Pipeline (Transmissão Oficial).
+const TIPOS=new Set(["email.delivered","email.bounced","email.delivery_delayed","email.complained","email.clicked"]);
 Deno.serve(async(req:Request)=>{
   if(req.method!=="POST")return response({ok:false,erro:"Método não permitido"},405);
   let secret=Deno.env.get("RESEND_WEBHOOK_SECRET")||"";
@@ -74,7 +75,9 @@ Deno.serve(async(req:Request)=>{
   if(!tentativa?.id){
     // Motivo informado pelo provedor (devolução/reclamação), gravado desde 12/11/2026.
     const b=(d.bounce&&typeof d.bounce==="object")?d.bounce as Record<string,unknown>:{};
-    const motivo=[b.type,b.subType].filter(Boolean).join("/")+(b.message?": "+String(b.message):"")||null;
+    const c=(d.click&&typeof d.click==="object")?d.click as Record<string,unknown>:{};
+    const motivo=type==="email.clicked"?(String(c.link||"").slice(0,500)||null)
+      :([b.type,b.subType].filter(Boolean).join("/")+(b.message?": "+String(b.message):"")||null);
     // Transmissão Oficial (nov/2026): eventos de envios oficiais são conciliados
     // pela RPC dedicada; devolução e reclamação suprimem o endereço.
     const oficial=await fetch(url+"/rest/v1/rpc/cda_oficial_registrar_evento",{
@@ -86,6 +89,8 @@ Deno.serve(async(req:Request)=>{
     const r=await oficial.json().catch(()=>({aplicado:false}));
     return response({ok:true,oficial:true,aplicado:r?.aplicado===true,motivo:r?.motivo||null});
   }
+  // Cliques em e-mails de teste/aprovação não contam como engajamento de cliente.
+  if(type==="email.clicked")return response({ok:true,ignorado:true,motivo:"clique_em_teste"});
   const insert=await fetch(url+"/rest/v1/cda_email_eventos?on_conflict=svix_id",{
     method:"POST",headers:{...headers,"Content-Type":"application/json",Prefer:"resolution=ignore-duplicates,return=minimal"},
     body:JSON.stringify({tentativa_id:tentativa.id,svix_id:eventId,resend_email_id:resendId,tipo:type,ocorrido_em:new Date(occurred).toISOString()})

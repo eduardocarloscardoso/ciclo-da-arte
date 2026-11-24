@@ -1,0 +1,6 @@
+-- 24/11/2026 (aplicado via MCP):
+-- 1) cda_cliente_relacao_campanhas(p_cliente_id, p_janela_dias): popup "Relação do cliente" (somente leitura).
+-- 2) cda_email_sinal_clique(envio, link, ocorrido): clique em e-mail oficial → lead Engajado (ignora descadastro e cliques < 2 min).
+-- 3) cda_oficial_registrar_evento: trata email.clicked sem alterar estado de entrega.
+-- 4) cda_transmissao_envio_eventos: check de tipo aceita email.clicked.
+-- Backup da função anterior: tabela bkp_funcoes_20261124.
