@@ -237,7 +237,7 @@ async function montarWhatsAppDisparos(el, opts) {
             .map(function (g) { return '<option value="' + esc(g) + '">' + esc(g) + ' · ' + r.pendentes_por_grupo[g] + ' pendentes</option>'; }).join('') + '</select>' +
           '<input type="number" min="1" max="50" value="' + Math.max(1, Math.min(25, pe.pendente || 0, r.disponivel_hoje || 0)) + '" data-qtd="' + d.id + '" style="width:70px" title="Quantidade neste lote (máx. 50)">' +
           '<button class="btn sm sage" data-enviar="' + d.id + '"' + (!(r.disponivel_hoje > 0) ? ' disabled style="opacity:.4"' : '') + '>Enviar</button>' +
-          (aprovados.length ? '' : '<span class="tmu" style="font-size:11px">Aguardando modelo aprovado pela Meta.</span>') + '</div><div class="wd-log" id="wd-log-' + d.id + '" style="display:none"></div>' : '') +
+          (aprovados.length ? '' : '<span class="tmu" style="font-size:11px">Aguardando modelo aprovado pela Meta.</span>') + '</div><div class="wd-log" id="wd-log-' + d.id + '" style="' + (ST.ultimoLote && ST.ultimoLote[d.id] ? '' : 'display:none') + ';margin-top:8px;padding:8px 10px;border:2px solid ' + (ST.ultimoLote && ST.ultimoLote[d.id] && ST.ultimoLote[d.id].erro ? 'var(--rust,#b3261e)' : 'var(--sage,#3c7a4a)') + ';font-size:12.5px;font-weight:600;white-space:pre-wrap">' + esc((ST.ultimoLote && ST.ultimoLote[d.id] && ST.ultimoLote[d.id].texto) || '') + '</div>' : '') +
         '</div>';
     });
     $('#wd-disp').innerHTML = html;
@@ -268,15 +268,19 @@ async function montarWhatsAppDisparos(el, opts) {
     var conf = prompt('MODELO: ' + (tplObj.nome || '?') + '\n"' + trecho + '…"\n\nEnviar ' + qtd + ' mensagens de WhatsApp agora para o grupo ' + grupo + ' (custo estimado ' + brl(custo) + ')?\n\nConfira o modelo acima. Digite ENVIAR para confirmar:');
     if (conf === null) { showToast('Envio cancelado. Nada foi enviado.', 'info'); return; }
     if (String(conf).trim().toUpperCase() !== 'ENVIAR') { showToast('Envio não confirmado: digite ENVIAR para confirmar. Nada foi enviado.', 'error'); return; }
-    var log = $('#wd-log-' + id); log.style.display = 'block'; log.textContent = '';
+    ST.ultimoLote = ST.ultimoLote || {};
+    var log = $('#wd-log-' + id); log.style.display = 'block'; log.style.borderColor = '#b08900';
+    log.textContent = '⏳ Enviando ' + qtd + ' mensagens (' + grupo + ')… aguarde, leva cerca de 1 minuto. Não feche esta tela.';
     el.querySelectorAll('[data-enviar]').forEach(function (b) { b.disabled = true; });
     try {
       // Um lote por clique (máx. 50): confira entregues / falhas / SAIR antes do próximo
-      log.textContent += 'Enviando lote de ' + qtd + ' (' + grupo + ')…\n';
       var d = await cdaWaCampanha({ acao: 'enviar', disparo_id: id, template_id: tpl, quantidade: qtd, grupo: grupo, confirmacao: 'ENVIAR' });
-      log.textContent += '✓ ' + d.enviadas + ' enviadas, ' + d.falhas + ' falhas · livres hoje: ' + d.disponivel_hoje + '\n';
+      var hora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      ST.ultimoLote[id] = { texto: '✅ Lote enviado às ' + hora + ' · ' + grupo + ': ' + d.enviadas + ' enviadas' +
+        (d.falhas ? ' · ' + d.falhas + ' não entregues (bloqueio da Meta ou número sem WhatsApp; não são cobradas)' : '') +
+        ' · Livres hoje: ' + d.disponivel_hoje + '.\nPróximo lote: escolha o modelo de novo, o grupo e a quantidade.' };
       showToast('Lote ' + grupo + ': ' + d.enviadas + ' enviadas, ' + d.falhas + ' falhas');
-    } catch (e) { log.textContent += '⚠ ' + e.message + '\n'; showToast(e.message, 'error'); }
+    } catch (e) { ST.ultimoLote[id] = { erro: true, texto: '⚠ O lote não foi concluído: ' + e.message + '\nAtualize o status antes de tentar de novo.' }; showToast(e.message, 'error'); }
     carregarDisparos();
   }
 
