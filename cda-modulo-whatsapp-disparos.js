@@ -266,7 +266,8 @@ async function montarWhatsAppDisparos(el, opts) {
     var tplObj = ST.templates.find(function (t) { return t.id === tpl; }) || {};
     var trecho = String(tplObj.corpo || '').replace(/\{\{1\}\}/g, 'Maria').slice(0, 110);
     var conf = prompt('MODELO: ' + (tplObj.nome || '?') + '\n"' + trecho + '…"\n\nEnviar ' + qtd + ' mensagens de WhatsApp agora para o grupo ' + grupo + ' (custo estimado ' + brl(custo) + ')?\n\nConfira o modelo acima. Digite ENVIAR para confirmar:');
-    if (conf !== 'ENVIAR') return;
+    if (conf === null) { showToast('Envio cancelado. Nada foi enviado.', 'info'); return; }
+    if (String(conf).trim().toUpperCase() !== 'ENVIAR') { showToast('Envio não confirmado: digite ENVIAR para confirmar. Nada foi enviado.', 'error'); return; }
     var log = $('#wd-log-' + id); log.style.display = 'block'; log.textContent = '';
     el.querySelectorAll('[data-enviar]').forEach(function (b) { b.disabled = true; });
     try {
