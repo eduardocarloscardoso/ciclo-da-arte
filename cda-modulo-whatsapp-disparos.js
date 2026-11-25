@@ -90,7 +90,7 @@ async function montarWhatsAppDisparos(el, opts) {
     $('#wd-tpl-lista').innerHTML = daCamp.map(function (t) {
       return '<div class="wd-tpl"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap">' +
         '<b style="font-size:12.5px">' + esc(t.nome) + '</b><span style="display:inline-flex;gap:6px;align-items:center">' +
-        (t.status === 'APPROVED' ? '<button class="btn sm" data-ver-tpl="' + t.id + '" title="Ver como o cliente recebe">👁 Ver mensagem</button>' : '') +
+        '<button class="btn sm" data-ver-tpl="' + t.id + '" title="Ver como o cliente recebe">👁 Ver mensagem</button>' +
         '<span class="badge ' + (corStatus[t.status] || 'b-ink') + '">' + esc(nomeStatus[t.status] || t.status) + '</span></span></div>' +
         (t.cabecalho_imagem_url ? '<div class="tmu" style="font-size:11px;margin-top:4px">🖼 com imagem no cabeçalho</div>' : '') +
         '<pre>' + esc(t.corpo) + (t.rodape ? '\n— ' + esc(t.rodape) : '') + (t.botao_texto ? '\n[' + esc(t.botao_texto) + '] → ' + esc(t.botao_url || '') : '') + '</pre>' +
@@ -101,7 +101,7 @@ async function montarWhatsAppDisparos(el, opts) {
     });
     renderDisparos();
   }
-  // Prévia no formato de conversa do WhatsApp (o que o cliente recebe), só para modelos aprovados
+  // Prévia no formato de conversa do WhatsApp (o que o cliente recebe); qualquer status (só visualização local)
   function verMensagem(id) {
     var t = ST.templates.find(function (x) { return x.id === id; });
     if (!t) return;
@@ -120,7 +120,7 @@ async function montarWhatsAppDisparos(el, opts) {
           (t.botao_texto ? '<a href="' + esc(t.botao_url || '#') + '" target="_blank" rel="noopener" style="display:block;border-top:1px solid #eee;text-align:center;padding:10px;color:#0a7cff;font-size:14px;text-decoration:none">🔗 ' + esc(t.botao_texto) + '</a>' : '') +
         '</div></div>' +
       '<div style="padding:12px 16px;font-size:11.5px" class="tmu">' +
-        '<b>' + esc(t.nome) + '</b> · Aprovado pela Meta (status consultado em ' + esc(quando) + ')<br>' +
+        '<b>' + esc(t.nome) + '</b> · ' + ({ APPROVED: 'Aprovado pela Meta', PENDING: '⏳ Em análise na Meta: ainda não pode ser enviado', REJECTED: '⛔ Reprovado pela Meta: não pode ser enviado', PAUSED: 'Pausado pela Meta', DISABLED: 'Desativado pela Meta' }[t.status] || esc(t.status)) + ' (status consultado em ' + esc(quando) + ')<br>' +
         'Categoria: Marketing · custo estimado R$ 0,32 por mensagem entregue<br>' +
         '<div id="wd-ver-fila" style="margin:6px 0;padding:6px 8px;border:1px solid var(--border,#ddd);background:var(--paper,#faf7f0)">Calculando disparos previstos…</div>' +
         '"Maria" é só exemplo: cada cliente recebe o próprio primeiro nome. O botão abre o link real.</div>' +
